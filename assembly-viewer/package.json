@@ -1,0 +1,31 @@
+{
+  "name": "assembly-viewer",
+  "version": "1.0.3",
+  "description": "A viewer for multi-agent research and debate assembly workspaces",
+  "type": "module",
+  "bin": {
+    "assembly-viewer": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc && cp -r src/renderer/css dist/renderer/",
+    "dev": "tsc --watch",
+    "start": "node dist/cli.js",
+    "prepublishOnly": "npm run build"
+  },
+  "files": [
+    "dist/",
+    "conventions.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "marked": "^15.0.0",
+    "commander": "^13.0.0",
+    "sirv": "^3.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0"
+  }
+}

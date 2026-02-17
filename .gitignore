@@ -1,0 +1,4 @@
+node_modules/
+_assembly-build/
+assembly-viewer/dist/
+assembly-viewer-export.html
