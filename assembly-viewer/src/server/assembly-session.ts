@@ -5,6 +5,7 @@ import path from "node:path";
 import type { ServerResponse } from "node:http";
 import { buildContentGraph } from "../graph/index.js";
 import { renderWorkspace } from "../renderer/index.js";
+import { buildFileReferenceBlock } from "./upload.js";
 
 type PhaseId = "analysis" | "characters" | "references" | "debate" | "synthesis" | "deliverable" | "verification";
 
@@ -41,6 +42,7 @@ interface AssemblySession {
   preExistingDirs: Set<string>;
   workspacePath: string;
   buildDir: string;
+  pendingQuestion: { question: string; options?: string[] } | null;
 }
 
 let session: AssemblySession | null = null;
@@ -218,6 +220,16 @@ function attachProcessListeners(
       const toolInfo = extractToolUse(event);
       if (toolInfo) {
         console.log(`[assembly] tool: ${toolInfo.summary}`);
+
+        if (toolInfo.tool === "AskUserQuestion") {
+          const question = extractAskUserQuestion(event);
+          if (question && session) {
+            session.pendingQuestion = question;
+            session.status = "waiting_for_input";
+            broadcast({ type: "question", ...question });
+            claude.kill();
+          }
+        }
       }
 
       if (event.type === "result") {
@@ -243,7 +255,7 @@ function attachProcessListeners(
   return { getStderr: () => stderrOutput };
 }
 
-export function startSession(topic: string, workspacePath: string, buildDir: string) {
+export function startSession(topic: string, workspacePath: string, buildDir: string, files?: string[]) {
   // Kill any existing session
   if (session?.process && !session.process.killed) {
     session.process.kill();
@@ -254,9 +266,10 @@ export function startSession(topic: string, workspacePath: string, buildDir: str
 
   const preExistingDirs = snapshotExistingDirs(workspacePath);
 
-  const prompt = `Use the Skill tool to invoke the "assembly-skills:assembly-light" skill. The topic is: ${topic}
+  const fileBlock = buildFileReferenceBlock(files ?? [], workspacePath);
+  const prompt = `Use the Skill tool to invoke the "assembly-skills:assembly-light" skill. The topic is: ${topic}${fileBlock}
 
-IMPORTANT: You are running in non-interactive mode. Do NOT use AskUserQuestion â€” there is no user to answer. Skip any clarifying questions and proceed directly with the assembly using reasonable assumptions and defaults.`;
+If you need critical context to produce a high-quality assembly, you may use AskUserQuestion to ask the user ONE focused clarifying question. Keep it brief and specific. If you can proceed with reasonable assumptions, do so without asking.`;
 
   const args = [
     "-p", prompt,
@@ -287,6 +300,7 @@ IMPORTANT: You are running in non-interactive mode. Do NOT use AskUserQuestion â
     preExistingDirs,
     workspacePath,
     buildDir,
+    pendingQuestion: null,
   };
 
   console.log(`[assembly] Starting session for topic: "${topic.slice(0, 80)}..."`);
@@ -321,6 +335,13 @@ IMPORTANT: You are running in non-interactive mode. Do NOT use AskUserQuestion â
     console.log(`[assembly] Claude exited with code: ${code}, signal: ${signal}`);
 
     if (!session) return;
+
+    // Process was killed because we detected AskUserQuestion â€” not an error
+    if (session.status === "waiting_for_input") {
+      console.log(`[assembly] Process killed for question prompt â€” waiting for user answer`);
+      session.process = null;
+      return;
+    }
 
     if (code === 0) {
       session.process = null;
@@ -392,7 +413,7 @@ IMPORTANT: You are running in non-interactive mode. Do NOT use AskUserQuestion â
  * Send user input by resuming the Claude session.
  * Since stdin: "pipe" blocks Bun, we spawn a new process with --resume.
  */
-export function sendInput(text: string) {
+export function sendInput(text: string, files?: string[]) {
   if (!session || !session.sessionId) {
     return false;
   }
@@ -401,13 +422,17 @@ export function sendInput(text: string) {
 
   session.status = "running";
   session.lastAssistantText = "";
+  session.pendingQuestion = null;
   broadcast({ type: "input_received" });
+
+  const fileBlock = buildFileReferenceBlock(files ?? [], workspacePath);
+  const prompt = text + fileBlock;
 
   console.log(`[assembly] Resuming session ${sessionId} with input: "${text.slice(0, 80)}"`);
 
   const args = [
     "--resume", sessionId,
-    "-p", text,
+    "-p", prompt,
     "--output-format", "stream-json",
     "--verbose",
     "--dangerously-skip-permissions",
@@ -439,6 +464,12 @@ export function sendInput(text: string) {
   claude.on("close", (code, signal) => {
     console.log(`[assembly] Resume process exited with code: ${code}, signal: ${signal}`);
     if (!session) return;
+
+    if (session.status === "waiting_for_input") {
+      console.log(`[assembly] Resume process killed for question prompt â€” waiting for user answer`);
+      session.process = null;
+      return;
+    }
 
     if (code === 0) {
       session.process = null;
@@ -522,6 +553,7 @@ export function addSSEClient(res: ServerResponse) {
     completedPhases: session.completedPhases,
     completedPhaseUrls: session.completedPhaseUrls,
     topicSlug: session.topicSlug,
+    pendingQuestion: session.pendingQuestion,
   })}\n\n`);
 
   session.sseClients.push(res);
@@ -542,6 +574,43 @@ export function getSessionStatus() {
     completedPhaseUrls: session.completedPhaseUrls,
     topicSlug: session.topicSlug,
   };
+}
+
+function extractAskUserQuestion(event: Record<string, unknown>): { question: string; options?: string[] } | null {
+  const getContent = (e: Record<string, unknown>) => {
+    if (e.type === "assistant") {
+      const msg = e.message as Record<string, unknown> | undefined;
+      return msg?.content as Array<Record<string, unknown>> | undefined;
+    }
+    if (e.type === "stream_event") {
+      const inner = e.event as Record<string, unknown> | undefined;
+      if (inner) return getContent(inner);
+    }
+    return undefined;
+  };
+
+  const content = getContent(event);
+  if (!content) return null;
+
+  for (const block of content) {
+    if (block.type !== "tool_use" || block.name !== "AskUserQuestion") continue;
+    const input = block.input as Record<string, unknown> | undefined;
+    if (!input?.questions || !Array.isArray(input.questions)) continue;
+
+    const first = input.questions[0] as Record<string, unknown> | undefined;
+    if (!first?.question) continue;
+
+    const question = first.question as string;
+    const options = Array.isArray(first.options)
+      ? (first.options as Array<Record<string, unknown>>)
+          .map((o) => (o.label as string) || "")
+          .filter(Boolean)
+      : undefined;
+
+    return { question, ...(options?.length ? { options } : {}) };
+  }
+
+  return null;
 }
 
 function extractToolUse(event: Record<string, unknown>): { tool: string; summary: string } | null {

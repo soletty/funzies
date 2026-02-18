@@ -1298,6 +1298,165 @@ details > .details-content {
   }
 }
 
+/* ─── Attachment Widget ─── */
+
+.attachment-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  width: 100%;
+}
+
+.attachment-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  padding: 0;
+}
+
+.attachment-chips:empty {
+  display: none;
+}
+
+.attachment-chips:not(:empty) {
+  margin-bottom: 0.45rem;
+}
+
+.attachment-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.45rem 0.2rem 0.25rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  max-width: 200px;
+  transition: opacity 0.2s;
+}
+
+.attachment-chip.pending {
+  opacity: 0.5;
+}
+
+.attachment-chip-thumb {
+  width: 22px;
+  height: 22px;
+  border-radius: 3px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.attachment-chip-icon {
+  font-size: 0.85rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.attachment-chip-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.2;
+}
+
+.attachment-chip-remove {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.85rem;
+  line-height: 1;
+  color: var(--color-text-muted);
+  padding: 0 0.1rem;
+  flex-shrink: 0;
+  transition: color 0.15s;
+}
+
+.attachment-chip-remove:hover {
+  color: var(--color-low);
+}
+
+.attachment-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.45rem 0.55rem;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  color: var(--color-text-muted);
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.attachment-btn:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  background: var(--color-accent-subtle);
+}
+
+.attachment-btn svg {
+  display: block;
+}
+
+/* Drag-over state on inputs */
+.follow-up-input.drag-over,
+.assembly-start-form input.drag-over,
+.assembly-input-form input.drag-over {
+  border-color: var(--color-accent);
+  background: var(--color-accent-subtle);
+}
+
+/* Inner rows for attachment-wrapped forms */
+.assembly-start-input-row,
+.assembly-input-inner-row,
+.panel-input-inner-row {
+  display: flex;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.assembly-start-input-row input[type="text"],
+.assembly-input-inner-row input[type="text"] {
+  flex: 1;
+}
+
+.panel-input-inner-row {
+  align-items: flex-end;
+}
+
+.panel-input-inner-row .follow-up-input {
+  flex: 1;
+}
+
+@media (max-width: 768px) {
+  .attachment-chips {
+    gap: 0.25rem;
+  }
+
+  .attachment-chip {
+    max-width: 160px;
+    font-size: 0.7rem;
+  }
+
+  .assembly-start-input-row,
+  .assembly-input-inner-row {
+    flex-direction: column;
+  }
+
+  .assembly-start-input-row button,
+  .assembly-input-inner-row button {
+    align-self: stretch;
+    text-align: center;
+  }
+
+  .panel-input-inner-row {
+    flex-direction: column;
+  }
+}
+
 /* ─── Demo Banner ─── */
 
 .demo-banner {
@@ -1315,6 +1474,230 @@ details > .details-content {
   background: rgba(146, 100, 26, 0.1);
   color: var(--color-medium);
   border-color: var(--color-medium-border);
+}
+
+/* ─── Micro-Delight Animations ─── */
+
+/* 1. Streaming cursor */
+.follow-up-streaming .debate-content:last-child::after,
+.highlight-chat-panel .follow-up-exchange:last-child .debate-content:last-child::after {
+  content: "";
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  background: var(--color-accent);
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  animation: cursor-blink 0.8s step-end infinite;
+}
+
+.follow-up-complete .debate-content:last-child::after {
+  display: none;
+}
+
+@keyframes cursor-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/* 2. Phase completion bloom */
+@keyframes phase-bloom {
+  0% { box-shadow: 0 0 0 0 rgba(26, 127, 55, 0.5); }
+  100% { box-shadow: 0 0 0 10px rgba(26, 127, 55, 0); }
+}
+
+.assembly-phase-dot.just-completed .dot {
+  animation: phase-bloom 0.7s ease-out;
+}
+
+.assembly-completed-phase {
+  animation: slideInLeft 0.3s ease both;
+}
+
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-8px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+/* 3. Assembly complete — curtain call */
+@keyframes orbits-collapse {
+  to { transform: scale(0); opacity: 0; }
+}
+
+.assembly-animation.collapsing .orbit-ring {
+  animation: orbits-collapse 0.5s ease-in forwards;
+}
+
+.assembly-animation.collapsing .orbit-ring.ring-2 {
+  animation-delay: 0.1s;
+}
+
+.assembly-animation.collapsing .orbit-ring.ring-3 {
+  animation-delay: 0.2s;
+}
+
+@keyframes done-entrance {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.assembly-done.revealing {
+  animation: done-entrance 0.5s ease both;
+}
+
+.assembly-done::before {
+  content: "";
+  display: block;
+  width: 60px;
+  height: 2px;
+  background: var(--color-accent);
+  margin: 0 auto 1rem;
+  transform: scaleX(0);
+  transition: transform 0.6s ease;
+}
+
+.assembly-done.revealing::before {
+  transform: scaleX(1);
+}
+
+/* 4. Stamp press */
+@keyframes stamp-press {
+  0% { transform: scale(1); }
+  40% { transform: scale(0.92); }
+  100% { transform: scale(1); }
+}
+
+.assembly-start-form button.launching,
+.assembly-input-form button.launching {
+  animation: stamp-press 0.3s ease;
+}
+
+.assembly-progress.entering {
+  animation: fadeInUp 0.4s ease both;
+}
+
+/* 5. Follow-up send ripple */
+.follow-up-button {
+  position: relative;
+  overflow: hidden;
+}
+
+@keyframes ink-ripple {
+  from { transform: translate(-50%, -50%) scale(0); opacity: 0.4; }
+  to { transform: translate(-50%, -50%) scale(3); opacity: 0; }
+}
+
+.follow-up-button.sending::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.4);
+  animation: ink-ripple 0.5s ease-out forwards;
+}
+
+/* 6. Error states */
+.follow-up-error,
+.assembly-error {
+  border-left: 3px solid var(--color-accent);
+  position: relative;
+  padding: 0.75rem 0.75rem 0.75rem 1rem;
+}
+
+.follow-up-error::before,
+.assembly-error::before {
+  content: "Something went awry";
+  display: block;
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-accent);
+  margin-bottom: 0.35rem;
+  font-variant: small-caps;
+}
+
+/* 7. Empty state */
+.empty-state {
+  text-align: center;
+  padding: 2.5rem 1.5rem;
+  color: var(--color-text-muted);
+}
+
+.empty-state-icon {
+  font-size: 2rem;
+  opacity: 0.3;
+  margin-bottom: 0.5rem;
+}
+
+.empty-state p:last-child {
+  font-style: italic;
+  font-size: 0.88rem;
+  line-height: 1.6;
+}
+
+/* 8. Loading dots */
+@keyframes loading-dot-pulse {
+  0%, 80%, 100% { opacity: 0.2; transform: scale(0.8); }
+  40% { opacity: 1; transform: scale(1); }
+}
+
+.loading-dots {
+  display: inline-flex;
+  gap: 3px;
+  margin-left: 4px;
+  vertical-align: middle;
+}
+
+.loading-dots span {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  display: inline-block;
+  animation: loading-dot-pulse 1.4s ease-in-out infinite;
+}
+
+.loading-dots span:nth-child(2) { animation-delay: 0.2s; }
+.loading-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+/* 9. Easter egg toast */
+@keyframes toast-enter {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes toast-exit {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(-10px); }
+}
+
+.easter-egg-toast {
+  position: fixed;
+  bottom: 2rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(135deg, #fef9e7, #fdf2d5);
+  border: 1px solid #d4a74a;
+  border-radius: var(--radius);
+  padding: 0.85rem 1.5rem;
+  font-style: italic;
+  font-size: 0.88rem;
+  color: var(--color-medium);
+  box-shadow: var(--shadow-md);
+  z-index: 9000;
+  animation: toast-enter 0.4s ease both;
+  max-width: 500px;
+  text-align: center;
+  line-height: 1.5;
+  pointer-events: none;
+}
+
+.easter-egg-toast.fading {
+  animation: toast-exit 0.4s ease both;
 }
 
 /* ─── Follow-up Section ─── */
@@ -1591,6 +1974,28 @@ details > .details-content {
 @keyframes followUpPulse {
   0%, 100% { opacity: 0.5; }
   50% { opacity: 1; }
+}
+
+.follow-up-pending-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  margin-bottom: 1rem;
+}
+
+.follow-up-pending-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  animation: followUpPulse 1.5s ease-in-out infinite;
+  flex-shrink: 0;
 }
 
 .follow-up-error {

@@ -3,6 +3,8 @@ import { createInterface } from "node:readline";
 import fs from "node:fs";
 import path from "node:path";
 import type { IncomingMessage, ServerResponse } from "node:http";
+import { rebuildTopicPages } from "./rebuild.js";
+import { buildFileReferenceBlock } from "./upload.js";
 
 export interface FollowUpRequest {
   question: string;
@@ -12,15 +14,17 @@ export interface FollowUpRequest {
     page: string;
     section?: string;
   };
-  mode: "ask-assembly" | "ask-character" | "ask-library";
+  mode: "ask-assembly" | "ask-character" | "ask-library" | "debate";
   challenge?: boolean;
   highlightedText?: string;
+  files?: string[];
 }
 
 export function handleFollowUp(
   req: IncomingMessage,
   res: ServerResponse,
-  workspacePath: string
+  workspacePath: string,
+  buildDir: string
 ) {
   let body = "";
   req.on("data", (chunk: Buffer) => {
@@ -44,7 +48,7 @@ export function handleFollowUp(
     }
 
     try {
-      streamFollowUp(request, req, res, workspacePath);
+      streamFollowUp(request, req, res, workspacePath, buildDir);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Unknown error";
       console.error("Follow-up error:", msg);
@@ -63,16 +67,20 @@ function streamFollowUp(
   request: FollowUpRequest,
   req: IncomingMessage,
   res: ServerResponse,
-  workspacePath: string
+  workspacePath: string,
+  buildDir: string
 ) {
   const topicDir = path.join(workspacePath, request.topicSlug);
-  const prompt = buildPrompt(request, topicDir);
+  const basePrompt = buildPrompt(request, topicDir);
 
-  if (!prompt) {
+  if (!basePrompt) {
     res.writeHead(404, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ error: "Topic workspace files not found" }));
     return;
   }
+
+  const fileBlock = buildFileReferenceBlock(request.files ?? [], workspacePath);
+  const prompt = basePrompt + fileBlock;
 
   // SSE headers
   res.writeHead(200, {
@@ -154,6 +162,8 @@ function streamFollowUp(
     const followUpContent = formatFollowUpMarkdown(request, fullText, timestamp);
     const followUpPath = path.join(followUpDir, `follow-up-${timestamp}.md`);
     fs.writeFileSync(followUpPath, followUpContent, "utf-8");
+
+    rebuildTopicPages(workspacePath, buildDir, request.topicSlug);
 
     safeSend(`data: ${JSON.stringify({ type: "done", followUpFile: followUpPath })}\n\n`);
     if (clientConnected) res.end();
@@ -246,6 +256,10 @@ function buildPrompt(request: FollowUpRequest, topicDir: string): string | null 
     return buildReferenceLibraryPrompt(request, files);
   }
 
+  if (request.mode === "debate") {
+    return buildStructuredDebatePrompt(request, files);
+  }
+
   return buildDebatePrompt(request, files);
 }
 
@@ -302,6 +316,44 @@ CRITICAL QUALITY RULES:
 - Characters should AGREE with each other when they genuinely agree. Do not manufacture disagreement.
 - If a character's framework genuinely changes what you'd conclude — not just how you'd label it — then briefly explain how. If it just adds a different lens without changing the practical answer, skip it.
 - No meta-commentary, no "from my framework" throat-clearing, no performative invocations of intellectual traditions.`;
+}
+
+function buildStructuredDebatePrompt(
+  request: FollowUpRequest,
+  files: ReturnType<typeof readTopicFiles>
+): string {
+  let contextBlock = "";
+  if (files.synthesisContent) {
+    contextBlock += `\nPRIOR SYNTHESIS (the assembly's existing conclusions — build on or challenge these):\n${files.synthesisContent}\n`;
+  }
+  if (files.referenceLibraryContent) {
+    contextBlock += `\nREFERENCE LIBRARY (cite these sources where relevant):\n${files.referenceLibraryContent}\n`;
+  }
+  if (files.iterationSyntheses) {
+    contextBlock += `\nPRIOR ITERATION SYNTHESES:\n${files.iterationSyntheses}\n`;
+  }
+
+  return `You are running a structured adversarial debate among the Intellectual Assembly members. The user has posed a question for the assembly to debate.
+
+CHARACTER PROFILES:
+${files.charactersContent}
+${contextBlock}
+DEBATE QUESTION:
+${request.question}
+
+DEBATE RULES:
+1. Choose 3-5 characters whose frameworks are most relevant to this question. Not every character needs to speak — only those whose framework genuinely informs the question.
+2. Each character opens with a concise position statement (2-3 paragraphs) arguing FROM their framework with real specifics: numbers, cases, mechanisms, trade-offs.
+3. After opening positions, characters DIRECTLY CHALLENGE each other. Name the person you're responding to and explain specifically why they're wrong — not framework-vs-framework abstraction, but "this actually works differently because..."
+4. Characters MAY agree and MUST concede specific points where the other side has merit. Do not manufacture disagreement. Real consensus is as valuable as real disagreement.
+5. Include Socrate. Socrate asks 1-2 devastating questions that expose hidden assumptions or force characters to confront the weakest point of their position. Socrate NEVER states opinions — only asks genuine questions.
+6. Framework restatement is not insight. A character who takes a practical question and "reframes" it through their theoretical lens without adding new information has failed. Each response must be >80% direct substance.
+7. End with a brief synthesis: where the assembly converged, where they remain divided, and what emerged from the collision that no single perspective would have produced.
+
+FORMAT:
+Start each character's contribution with their full name in bold: **Full Name:** followed by their argument.
+For Socrate's interventions, use: **Socrate:** followed by their question(s).
+End with: **Synthesis:** followed by a brief summary of convergence, divergence, and emergent insights.`;
 }
 
 function buildReferenceLibraryPrompt(

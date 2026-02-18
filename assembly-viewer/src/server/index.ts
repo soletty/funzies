@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { handleFollowUp, handleDeleteFollowUp, handleDeleteWorkspace } from "./follow-up.js";
 import { startSession, sendInput, addSSEClient, getSessionStatus } from "./assembly-session.js";
+import { handleUpload } from "./upload.js";
 import { buildContentGraph } from "../graph/index.js";
 import { generateExportHtml } from "../export/index.js";
 
@@ -37,7 +38,7 @@ export function startServer(
         res.end(JSON.stringify({ error: "Workspace path not configured" }));
         return;
       }
-      handleFollowUp(req, res, workspacePath);
+      handleFollowUp(req, res, workspacePath, buildDir);
       return;
     }
 
@@ -61,6 +62,17 @@ export function startServer(
       return;
     }
 
+    // Upload API
+    if (req.url === "/api/upload" && req.method === "POST") {
+      if (!workspacePath) {
+        res.writeHead(503, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Workspace path not configured" }));
+        return;
+      }
+      handleUpload(req, res, workspacePath);
+      return;
+    }
+
     // Assembly API routes
     if (req.url === "/api/assembly/start" && req.method === "POST") {
       if (!workspacePath) {
@@ -69,7 +81,7 @@ export function startServer(
         return;
       }
       const body = await readBody(req);
-      let parsed: { topic?: string };
+      let parsed: { topic?: string; files?: string[] };
       try {
         parsed = JSON.parse(body);
       } catch {
@@ -82,7 +94,7 @@ export function startServer(
         res.end(JSON.stringify({ error: "Missing topic" }));
         return;
       }
-      startSession(parsed.topic, workspacePath, buildDir);
+      startSession(parsed.topic, workspacePath, buildDir, parsed.files);
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ok: true }));
       return;
@@ -101,7 +113,7 @@ export function startServer(
 
     if (req.url === "/api/assembly/input" && req.method === "POST") {
       const body = await readBody(req);
-      let parsed: { text?: string };
+      let parsed: { text?: string; files?: string[] };
       try {
         parsed = JSON.parse(body);
       } catch {
@@ -114,7 +126,7 @@ export function startServer(
         res.end(JSON.stringify({ error: "Missing text" }));
         return;
       }
-      const sent = sendInput(parsed.text);
+      const sent = sendInput(parsed.text, parsed.files);
       res.writeHead(sent ? 200 : 400, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ok: sent }));
       return;

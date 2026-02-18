@@ -33,8 +33,14 @@ function truncate(text: string, max: number): string {
   return text.slice(0, max).trimEnd() + "...";
 }
 
+const STRUCTURE_DISPLAY_NAMES: Record<string, string> = {
+  "grande-table": "Town Hall",
+  "rapid-fire": "Crossfire",
+  "deep-dive": "Deep Dive",
+};
+
 function formatStructure(s: string): string {
-  return s.split("-").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+  return STRUCTURE_DISPLAY_NAMES[s] ?? s.split("-").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
 }
 
 function confidenceBadge(confidence: string): string {
@@ -59,6 +65,193 @@ function initials(name: string): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
+// ─── Shared Attachment Widget ───
+
+function renderAttachmentScript(): string {
+  return `
+<script>
+(function() {
+  var ALLOWED_EXT = ['.png','.jpg','.jpeg','.gif','.webp','.pdf','.txt','.csv','.md','.json','.ts','.js','.py','.html','.css','.xml','.yaml','.yml','.toml'];
+  var IMAGE_EXT = ['.png','.jpg','.jpeg','.gif','.webp'];
+
+  window.initAttachments = function(inputId) {
+    var inputEl = document.getElementById(inputId);
+    if (!inputEl) return null;
+    var wrapper = inputEl.closest('.attachment-wrapper') || inputEl.parentElement;
+
+    var attachedFiles = []; // { path, name, pending }
+
+    // Create chips container
+    var chipsRow = document.createElement('div');
+    chipsRow.className = 'attachment-chips';
+    wrapper.insertBefore(chipsRow, wrapper.firstChild);
+
+    // Create attach button
+    var attachBtn = document.createElement('button');
+    attachBtn.type = 'button';
+    attachBtn.className = 'attachment-btn';
+    attachBtn.title = 'Attach file';
+    attachBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>';
+    inputEl.parentElement.insertBefore(attachBtn, inputEl.nextSibling);
+
+    // Hidden file input
+    var fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.multiple = true;
+    fileInput.style.display = 'none';
+    wrapper.appendChild(fileInput);
+
+    attachBtn.addEventListener('click', function() { fileInput.click(); });
+    fileInput.addEventListener('change', function() {
+      if (fileInput.files) handleFiles(fileInput.files);
+      fileInput.value = '';
+    });
+
+    // Drag and drop on the text input
+    inputEl.addEventListener('dragover', function(e) {
+      e.preventDefault();
+      inputEl.classList.add('drag-over');
+    });
+    inputEl.addEventListener('dragleave', function() {
+      inputEl.classList.remove('drag-over');
+    });
+    inputEl.addEventListener('drop', function(e) {
+      e.preventDefault();
+      inputEl.classList.remove('drag-over');
+      if (e.dataTransfer && e.dataTransfer.files.length) {
+        handleFiles(e.dataTransfer.files);
+      }
+    });
+
+    function getExtension(name) {
+      var dot = name.lastIndexOf('.');
+      return dot >= 0 ? name.slice(dot).toLowerCase() : '';
+    }
+
+    function isImage(name) {
+      return IMAGE_EXT.indexOf(getExtension(name)) >= 0;
+    }
+
+    function handleFiles(files) {
+      for (var i = 0; i < files.length; i++) {
+        var file = files[i];
+        var ext = getExtension(file.name);
+        if (ALLOWED_EXT.indexOf(ext) < 0) {
+          alert('File type ' + ext + ' is not supported.');
+          continue;
+        }
+        uploadFile(file);
+      }
+    }
+
+    function uploadFile(file) {
+      var entry = { path: '', name: file.name, pending: true };
+      attachedFiles.push(entry);
+      renderChips();
+
+      var reader = new FileReader();
+      reader.onload = function() {
+        var base64 = reader.result.split(',')[1];
+        fetch('/api/upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fileName: file.name, data: base64 })
+        }).then(function(r) { return r.json(); }).then(function(data) {
+          if (data.path) {
+            entry.path = data.path;
+            entry.pending = false;
+          } else {
+            var idx = attachedFiles.indexOf(entry);
+            if (idx >= 0) attachedFiles.splice(idx, 1);
+            alert('Upload failed: ' + (data.error || 'unknown error'));
+          }
+          renderChips();
+        }).catch(function(err) {
+          var idx = attachedFiles.indexOf(entry);
+          if (idx >= 0) attachedFiles.splice(idx, 1);
+          renderChips();
+          alert('Upload failed: ' + err.message);
+        });
+      };
+
+      // For images, also store thumbnail data URL
+      if (isImage(file.name)) {
+        var thumbReader = new FileReader();
+        thumbReader.onload = function() {
+          entry.thumbUrl = thumbReader.result;
+          renderChips();
+        };
+        thumbReader.readAsDataURL(file);
+      }
+
+      reader.readAsDataURL(file);
+    }
+
+    function renderChips() {
+      var html = '';
+      for (var i = 0; i < attachedFiles.length; i++) {
+        var f = attachedFiles[i];
+        var pendingClass = f.pending ? ' pending' : '';
+        var thumb = '';
+        if (f.thumbUrl) {
+          thumb = '<img class="attachment-chip-thumb" src="' + f.thumbUrl + '" alt="">';
+        } else {
+          thumb = '<span class="attachment-chip-icon">' + getFileIcon(f.name) + '</span>';
+        }
+        html += '<span class="attachment-chip' + pendingClass + '" data-idx="' + i + '">'
+          + thumb
+          + '<span class="attachment-chip-name">' + escHtml(truncName(f.name, 20)) + '</span>'
+          + '<button type="button" class="attachment-chip-remove" data-idx="' + i + '">&times;</button>'
+          + '</span>';
+      }
+      chipsRow.innerHTML = html;
+
+      var removeBtns = chipsRow.querySelectorAll('.attachment-chip-remove');
+      for (var j = 0; j < removeBtns.length; j++) {
+        removeBtns[j].addEventListener('click', function() {
+          var idx = parseInt(this.getAttribute('data-idx'));
+          attachedFiles.splice(idx, 1);
+          renderChips();
+        });
+      }
+    }
+
+    function getFileIcon(name) {
+      var ext = getExtension(name);
+      if (ext === '.pdf') return '\\ud83d\\udcc4';
+      if (['.ts','.js','.py','.html','.css','.json','.xml'].indexOf(ext) >= 0) return '\\ud83d\\udcbb';
+      return '\\ud83d\\udcc1';
+    }
+
+    function truncName(name, max) {
+      if (name.length <= max) return name;
+      var ext = getExtension(name);
+      var base = name.slice(0, name.length - ext.length);
+      var avail = max - ext.length - 1;
+      if (avail < 3) return name.slice(0, max);
+      return base.slice(0, avail) + '\\u2026' + ext;
+    }
+
+    function escHtml(t) {
+      var d = document.createElement('div');
+      d.textContent = t;
+      return d.innerHTML;
+    }
+
+    return {
+      getFiles: function() {
+        return attachedFiles.filter(function(f) { return !f.pending && f.path; }).map(function(f) { return f.path; });
+      },
+      clear: function() {
+        attachedFiles = [];
+        renderChips();
+      }
+    };
+  };
+})();
+</script>`;
+}
+
 // ─── Layout ───
 
 function layout(title: string, content: string, nav: string, bc: string = ""): string {
@@ -81,6 +274,48 @@ function layout(title: string, content: string, nav: string, bc: string = ""): s
     ${bc}
     ${content}
   </main>
+  ${renderAttachmentScript()}
+  <script>
+  (function() {
+    // Konami code easter egg
+    var konamiSeq = [38,38,40,40,37,39,37,39,66,65];
+    var konamiIdx = 0;
+    document.addEventListener('keydown', function(e) {
+      if (e.keyCode === konamiSeq[konamiIdx]) {
+        konamiIdx++;
+        if (konamiIdx === konamiSeq.length) {
+          konamiIdx = 0;
+          var toast = document.createElement('div');
+          toast.className = 'easter-egg-toast';
+          toast.innerHTML = '&ldquo;The unexamined topic is not worth deliberating.&rdquo;<br>&mdash; Socrates, the Gadfly';
+          document.body.appendChild(toast);
+          setTimeout(function() { toast.classList.add('fading'); }, 3000);
+          setTimeout(function() { toast.remove(); }, 3400);
+        }
+      } else {
+        konamiIdx = e.keyCode === konamiSeq[0] ? 1 : 0;
+      }
+    });
+
+    // Brand icon 5x rapid click
+    var brandIcon = document.querySelector('.nav-brand-icon');
+    if (brandIcon) {
+      var clickTimes = [];
+      brandIcon.addEventListener('click', function() {
+        var now = Date.now();
+        clickTimes.push(now);
+        clickTimes = clickTimes.filter(function(t) { return now - t < 1500; });
+        if (clickTimes.length >= 5) {
+          clickTimes = [];
+          var orig = brandIcon.textContent;
+          brandIcon.textContent = '\u2696';
+          brandIcon.style.fontSize = '0.85rem';
+          setTimeout(function() { brandIcon.textContent = orig; brandIcon.style.fontSize = ''; }, 2000);
+        }
+      });
+    }
+  })();
+  </script>
 </body>
 </html>`;
 }
@@ -101,22 +336,19 @@ function buildNav(workspace: Workspace, activePath: string = ""): string {
     html += `
   <div class="nav-divider" data-topic="${esc(topic.slug)}"></div>
   <div class="nav-section" data-topic="${esc(topic.slug)}">
-    <div class="nav-section-title">${esc(shortTitle)}</div>
-    <a href="/${topic.slug}/index.html"${activePath === topic.slug ? ' class="active"' : ""}>
-      <span class="nav-icon">&#9670;</span> Overview
-    </a>`;
+    <a href="/${topic.slug}/${topic.synthesis ? "synthesis" : "index"}.html" class="nav-section-title">${esc(shortTitle)}</a>`;
 
     if (topic.synthesis) {
       html += `
-    <a href="/${topic.slug}/synthesis.html"${activePath === `${topic.slug}/synthesis` ? ' class="active"' : ""}>
-      <span class="nav-icon">&#9733;</span> Synthesis
+    <a href="/${topic.slug}/synthesis.html"${activePath === `${topic.slug}/synthesis` || activePath === topic.slug ? ' class="active"' : ""}>
+      <span class="nav-icon">&#9733;</span> Consensus
     </a>`;
     }
 
     if (topic.characters.length > 0) {
       html += `
     <a href="/${topic.slug}/characters.html"${activePath === `${topic.slug}/characters` ? ' class="active"' : ""}>
-      <span class="nav-icon">&#9823;</span> Characters
+      <span class="nav-icon">&#9823;</span> The Assembly
     </a>`;
     }
 
@@ -134,24 +366,17 @@ function buildNav(workspace: Workspace, activePath: string = ""): string {
     </a>`;
     }
 
-    if (topic.verification.length > 0) {
-      html += `
-    <a href="/${topic.slug}/verification.html"${activePath === `${topic.slug}/verification` ? ' class="active"' : ""}>
-      <span class="nav-icon">&#10003;</span> Verification
-    </a>`;
-    }
-
     if (topic.referenceLibrary) {
       html += `
     <a href="/${topic.slug}/reference-library.html"${activePath === `${topic.slug}/reference-library` ? ' class="active"' : ""}>
-      <span class="nav-icon">&#9783;</span> Reference Library
+      <span class="nav-icon">&#9783;</span> Babylon's Library
     </a>`;
     }
 
     if (topic.followUps.length > 0) {
       html += `
     <a href="/${topic.slug}/trajectory.html"${activePath === `${topic.slug}/trajectory` ? ' class="active"' : ""}>
-      <span class="nav-icon">&#8634;</span> Trajectory
+      <span class="nav-icon">&#8634;</span> Thinking Trail
     </a>`;
     }
 
@@ -180,12 +405,16 @@ function renderAssemblyLauncher(): string {
     <div class="assembly-launcher" id="assembly-launcher">
       <div class="assembly-launcher-header">
         <h2>Start a New Assembly</h2>
-        <p>Launch a 6-character adversarial deliberation on any topic</p>
+        <p>Six minds, one question. See what emerges.</p>
       </div>
 
       <form class="assembly-start-form" id="assembly-start-form">
-        <input type="text" id="assembly-topic" placeholder="What should the assembly deliberate on?" autocomplete="off" />
-        <button type="submit">Go</button>
+        <div class="attachment-wrapper">
+          <div class="assembly-start-input-row">
+            <input type="text" id="assembly-topic" placeholder="What should the assembly deliberate on?" autocomplete="off" />
+            <button type="submit" id="assembly-go-btn">Convene</button>
+          </div>
+        </div>
       </form>
 
       <div class="assembly-progress" id="assembly-progress" style="display:none">
@@ -213,8 +442,12 @@ function renderAssemblyLauncher(): string {
           <p class="assembly-question-label">Claude is asking:</p>
           <div class="assembly-question-text" id="assembly-question-text"></div>
           <form class="assembly-input-form" id="assembly-input-form">
-            <input type="text" id="assembly-input" placeholder="Type your answer..." autocomplete="off" />
-            <button type="submit">Send</button>
+            <div class="attachment-wrapper">
+              <div class="assembly-input-inner-row">
+                <input type="text" id="assembly-input" placeholder="Type your answer..." autocomplete="off" />
+                <button type="submit">Send</button>
+              </div>
+            </div>
           </form>
         </div>
 
@@ -225,8 +458,12 @@ function renderAssemblyLauncher(): string {
 
         <div class="assembly-new-session" id="assembly-new-session" style="display:none">
           <form class="assembly-start-form" id="assembly-restart-form">
-            <input type="text" id="assembly-restart-topic" placeholder="Start a different assembly..." autocomplete="off" />
-            <button type="submit">Go</button>
+            <div class="attachment-wrapper">
+              <div class="assembly-start-input-row">
+                <input type="text" id="assembly-restart-topic" placeholder="Start a different assembly..." autocomplete="off" />
+                <button type="submit">Go</button>
+              </div>
+            </div>
           </form>
           <p class="assembly-restart-note">This will replace the current assembly in progress</p>
         </div>
@@ -259,6 +496,16 @@ function renderAssemblyLauncher(): string {
       var estimateEl = document.getElementById('assembly-estimate');
       var evtSource = null;
       var startTime = null;
+      var startAttachments = null;
+      var inputAttachments = null;
+      var restartAttachments = null;
+
+      // Init attachments after DOM ready
+      setTimeout(function() {
+        startAttachments = window.initAttachments && window.initAttachments('assembly-topic');
+        inputAttachments = window.initAttachments && window.initAttachments('assembly-input');
+        restartAttachments = window.initAttachments && window.initAttachments('assembly-restart-topic');
+      }, 0);
 
       function connectSSE() {
         if (evtSource) evtSource.close();
@@ -284,11 +531,13 @@ function renderAssemblyLauncher(): string {
         startForm.style.display = 'none';
         progress.style.display = 'block';
 
+        var startFiles = startAttachments ? startAttachments.getFiles() : [];
         fetch('/api/assembly/start', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ topic: topic })
+          body: JSON.stringify({ topic: topic, files: startFiles })
         }).then(function() {
+          if (startAttachments) startAttachments.clear();
           connectSSE();
           // Show "start another" form after a short delay
           setTimeout(function() { newSessionArea.style.display = ''; }, 3000);
@@ -298,10 +547,14 @@ function renderAssemblyLauncher(): string {
         });
       }
 
+      var goBtn = document.getElementById('assembly-go-btn');
       startForm.addEventListener('submit', function(e) {
         e.preventDefault();
         var topic = topicInput.value.trim();
-        if (topic) launchSession(topic);
+        if (!topic) return;
+        if (goBtn) { goBtn.classList.add('launching'); setTimeout(function() { goBtn.classList.remove('launching'); }, 300); }
+        progress.classList.add('entering');
+        launchSession(topic);
       });
 
       restartForm.addEventListener('submit', function(e) {
@@ -309,7 +562,11 @@ function renderAssemblyLauncher(): string {
         var topic = restartInput.value.trim();
         if (topic) {
           restartInput.value = '';
+          // Temporarily swap startAttachments so launchSession picks up restart files
+          var origAttachments = startAttachments;
+          startAttachments = restartAttachments;
           launchSession(topic);
+          startAttachments = origAttachments;
         }
       });
 
@@ -318,12 +575,14 @@ function renderAssemblyLauncher(): string {
         var text = inputField.value.trim();
         if (!text) return;
         inputField.value = '';
+        var inFiles = inputAttachments ? inputAttachments.getFiles() : [];
         questionArea.style.display = 'none';
         await fetch('/api/assembly/input', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: text })
+          body: JSON.stringify({ text: text, files: inFiles })
         });
+        if (inputAttachments) inputAttachments.clear();
       });
 
       function updateEstimate() {
@@ -381,10 +640,17 @@ function renderAssemblyLauncher(): string {
         }
 
         if (data.type === 'complete') {
-          animation.style.display = 'none';
           questionArea.style.display = 'none';
           estimateEl.textContent = '';
-          doneArea.style.display = 'block';
+
+          // Curtain call: collapse orbits, then reveal done
+          animation.classList.add('collapsing');
+          setTimeout(function() {
+            animation.style.display = 'none';
+            doneArea.style.display = 'block';
+            doneArea.classList.add('revealing');
+          }, 550);
+
           if (data.topicSlug) doneLink.href = '/' + data.topicSlug + '/index.html';
 
           if (data.partial && data.missingPhases && data.missingPhases.length > 0) {
@@ -409,7 +675,7 @@ function renderAssemblyLauncher(): string {
           estimateEl.textContent = '';
           var errDiv = document.createElement('div');
           errDiv.className = 'assembly-error';
-          errDiv.textContent = 'Error: ' + data.content;
+          errDiv.textContent = data.content;
           progress.appendChild(errDiv);
           if (evtSource) evtSource.close();
         }
@@ -434,10 +700,14 @@ function renderAssemblyLauncher(): string {
         var idx = PHASE_ORDER.indexOf(phase);
         phaseBar.querySelectorAll('.assembly-phase-dot').forEach(function(d) {
           var di = PHASE_ORDER.indexOf(d.dataset.phase);
-          // Mark this phase and all earlier phases as complete
           if (di <= idx) {
+            var wasComplete = d.classList.contains('complete');
             d.classList.remove('active');
             d.classList.add('complete');
+            if (!wasComplete) {
+              d.classList.add('just-completed');
+              setTimeout(function() { d.classList.remove('just-completed'); }, 700);
+            }
           }
         });
       }
@@ -490,6 +760,23 @@ function renderAssemblyLauncher(): string {
           if (status.status !== 'complete') newSessionArea.style.display = '';
         }
       }).catch(function() {});
+
+      // Rotating placeholder text
+      var placeholders = [
+        'What should the assembly deliberate on?',
+        'Pose a question worth six minds\u2026',
+        'What truth deserves adversarial scrutiny?',
+        'Name a conviction to stress-test\u2026'
+      ];
+      var phIdx = 0;
+      var phFocused = false;
+      topicInput.addEventListener('focus', function() { phFocused = true; });
+      topicInput.addEventListener('blur', function() { phFocused = false; });
+      setInterval(function() {
+        if (phFocused || topicInput.value) return;
+        phIdx = (phIdx + 1) % placeholders.length;
+        topicInput.placeholder = placeholders[phIdx];
+      }, 5000);
     })();
     </script>`;
 }
@@ -583,6 +870,7 @@ export function renderWorkspaceIndex(workspace: Workspace): string {
     ${recentHtml}
     <div class="section-header"><h2>Topics</h2><span class="section-count">${workspace.topics.length}</span></div>
     ${topicCards}
+    ${workspace.topics.length === 0 ? `<div class="empty-state"><p class="empty-state-icon">&#9783;</p><p>The assembly hall is quiet.<br>Launch a topic above to convene your first deliberation.</p></div>` : ""}
 
     <div class="confirm-overlay" id="delete-confirm">
       <div class="confirm-dialog">
@@ -692,10 +980,11 @@ export function renderTopicLanding(workspace: Workspace, topic: Topic): string {
   // Emergent insight card
   let insightHtml = "";
   if (topic.synthesis?.emergentIdeas && topic.synthesis.emergentIdeas.length > 0) {
+    const rawInsight = topic.synthesis.emergentIdeas[0].replace(/^-\s*/, "");
     insightHtml = `
     <div class="emergent-insight">
       <span class="emergent-insight-label">Surprising Insight</span>
-      <p class="emergent-insight-text">${esc(topic.synthesis.emergentIdeas[0])}</p>
+      <div class="emergent-insight-text">${md(rawInsight)}</div>
     </div>`;
   }
 
@@ -773,7 +1062,7 @@ export function renderTopicLanding(workspace: Workspace, topic: Topic): string {
   let refHtml = "";
   if (topic.referenceLibrary) {
     refHtml = `
-    <div class="section-header"><h2>Reference Library</h2></div>
+    <div class="section-header"><h2>Babylon's Library</h2></div>
     <div class="action-group">
       <a href="/${topic.slug}/reference-library.html" class="action-pill">
         <span class="pill-icon">&#9783;</span> Intellectual Traditions &amp; Evidence
@@ -785,7 +1074,7 @@ export function renderTopicLanding(workspace: Workspace, topic: Topic): string {
   let trajHtml = "";
   if (topic.followUps.length > 0) {
     trajHtml = `
-    <div class="section-header"><h2>Thinking Trajectory</h2><span class="section-count">${topic.followUps.length} follow-ups</span></div>
+    <div class="section-header"><h2>Thinking Trail</h2><span class="section-count">${topic.followUps.length} follow-ups</span></div>
     <div class="action-group">
       <a href="/${topic.slug}/trajectory.html" class="action-pill">
         <span class="pill-icon">&#8634;</span> View Deliberation History
@@ -815,19 +1104,46 @@ export function renderSynthesis(workspace: Workspace, topic: Topic): string | nu
   const bc = breadcrumb(
     { label: "Home", href: "/index.html" },
     { label: truncate(topic.title, 40), href: `/${topic.slug}/index.html` },
-    { label: "Synthesis" }
+    { label: "Consensus" }
   );
+
+  // Emergent insight (from overview)
+  let insightHtml = "";
+  if (synth.emergentIdeas && synth.emergentIdeas.length > 0) {
+    const rawInsight = synth.emergentIdeas[0].replace(/^-\s*/, "");
+    insightHtml = `
+    <div class="emergent-insight">
+      <span class="emergent-insight-label">Surprising Insight</span>
+      <div class="emergent-insight-text">${md(rawInsight)}</div>
+    </div>`;
+  }
+
+  // Quick-nav action pills
+  let actions = `<div class="action-group">`;
+  if (topic.characters.length > 0)
+    actions += `<a href="/${topic.slug}/characters.html" class="action-pill"><span class="pill-icon">&#9823;</span> ${topic.characters.length} Characters</a>`;
+  for (const iter of topic.iterations) {
+    actions += `<a href="/${topic.slug}/iteration-${iter.number}.html" class="action-pill"><span class="pill-number">${iter.number}</span> ${esc(formatStructure(iter.structure))}</a>`;
+  }
+  if (topic.deliverables.length > 0)
+    actions += `<a href="/${topic.slug}/deliverables.html" class="action-pill"><span class="pill-icon">&#9998;</span> Deliverables</a>`;
+  if (topic.referenceLibrary)
+    actions += `<a href="/${topic.slug}/reference-library.html" class="action-pill"><span class="pill-icon">&#9783;</span> Babylon's Library</a>`;
+  actions += `<a href="/api/export/${topic.slug}" class="action-pill" download="assembly-${topic.slug}.html"><span class="pill-icon">&#8599;</span> Share</a>`;
+  actions += `</div>`;
 
   const followUpHtml = renderFollowUpSection(topic, "synthesis");
 
   const content = `
     <h1>${esc(synth.title)}</h1>
-    <p class="page-subtitle">Final synthesis across all debate iterations</p>
+    <p class="page-subtitle">Where the assembly found common ground — and where they didn't</p>
+    ${insightHtml}
+    ${actions}
     <div class="markdown-content">${md(synth.raw)}</div>
     ${followUpHtml}
     ${renderHighlightChatPanel(topic, "synthesis")}`;
 
-  return layout(`Synthesis — ${topic.title}`, content, nav, bc);
+  return layout(`Consensus — ${topic.title}`, content, nav, bc);
 }
 
 export function renderCharacterGrid(workspace: Workspace, topic: Topic): string | null {
@@ -836,7 +1152,7 @@ export function renderCharacterGrid(workspace: Workspace, topic: Topic): string 
   const bc = breadcrumb(
     { label: "Home", href: "/index.html" },
     { label: truncate(topic.title, 40), href: `/${topic.slug}/index.html` },
-    { label: "Characters" }
+    { label: "The Assembly" }
   );
 
   const cards = topic.characters
@@ -854,11 +1170,11 @@ export function renderCharacterGrid(workspace: Workspace, topic: Topic): string 
     .join("");
 
   const content = `
-    <h1>Characters</h1>
+    <h1>The Assembly</h1>
     <p class="page-subtitle">${topic.characters.length} participants in the assembly debate</p>
     <div class="card-grid">${cards}</div>`;
 
-  return layout(`Characters — ${topic.title}`, content, nav, bc);
+  return layout(`The Assembly — ${topic.title}`, content, nav, bc);
 }
 
 export function renderCharacterProfile(
@@ -871,7 +1187,7 @@ export function renderCharacterProfile(
   const bc = breadcrumb(
     { label: "Home", href: "/index.html" },
     { label: truncate(topic.title, 30), href: `/${topic.slug}/index.html` },
-    { label: "Characters", href: `/${topic.slug}/characters.html` },
+    { label: "The Assembly", href: `/${topic.slug}/characters.html` },
     { label: character.name }
   );
 
@@ -997,8 +1313,8 @@ export function renderIteration(
   );
 
   let content = `
-    <h1>Iteration ${iteration.number}</h1>
-    <p class="page-subtitle">${esc(formatStructure(iteration.structure))} debate format</p>`;
+    <h1>${esc(formatStructure(iteration.structure))}</h1>
+    <p class="page-subtitle">Debate round ${iteration.number}</p>`;
 
   if (iteration.synthesis) {
     content += `<div class="markdown-content">${md(iteration.synthesis.raw)}</div>`;
@@ -1160,7 +1476,7 @@ export function renderTrajectory(workspace: Workspace, topic: Topic): string {
   const bc = breadcrumb(
     { label: "Home", href: "/index.html" },
     { label: truncate(topic.title, 30), href: `/${topic.slug}/index.html` },
-    { label: "Trajectory" }
+    { label: "Thinking Trail" }
   );
 
   const colorMap: Record<string, string> = {};
@@ -1287,12 +1603,12 @@ export function renderTrajectory(workspace: Workspace, topic: Topic): string {
   }
 
   const content = `
-    <h1>Thinking Trajectory</h1>
+    <h1>Thinking Trail</h1>
     <p class="page-subtitle">How the assembly's positions have evolved — ${uniqueDivergences.length} divergence${uniqueDivergences.length !== 1 ? "s" : ""}, ${topic.followUps.length} follow-up${topic.followUps.length !== 1 ? "s" : ""}</p>
     ${divergenceMapHtml}
     ${tensionsHtml}`;
 
-  return layout(`Trajectory — ${topic.title}`, content, nav, bc);
+  return layout(`Thinking Trail — ${topic.title}`, content, nav, bc);
 }
 
 // ─── Structured Reference Library ───
@@ -1304,7 +1620,7 @@ export function renderStructuredReferenceLibrary(workspace: Workspace, topic: To
   const bc = breadcrumb(
     { label: "Home", href: "/index.html" },
     { label: truncate(topic.title, 30), href: `/${topic.slug}/index.html` },
-    { label: "Reference Library" }
+    { label: "Babylon's Library" }
   );
 
   const parsed = topic.parsedReferenceLibrary;
@@ -1313,12 +1629,12 @@ export function renderStructuredReferenceLibrary(workspace: Workspace, topic: To
   if (!parsed) {
     const followUpHtml = renderFollowUpSection(topic, "reference-library");
     const content = `
-      <h1>Reference Library</h1>
+      <h1>Babylon's Library</h1>
       <p class="page-subtitle">Intellectual traditions and empirical evidence grounding the assembly debate</p>
       <div class="markdown-content">${md(topic.referenceLibrary)}</div>
       ${followUpHtml}
       ${renderHighlightChatPanel(topic, "reference-library")}`;
-    return layout(`Reference Library — ${topic.title}`, content, nav, bc);
+    return layout(`Babylon's Library — ${topic.title}`, content, nav, bc);
   }
 
   // Build character color lookup
@@ -1410,14 +1726,14 @@ export function renderStructuredReferenceLibrary(workspace: Workspace, topic: To
   const followUpHtml = renderFollowUpSection(topic, "reference-library");
 
   const content = `
-    <h1>Reference Library</h1>
+    <h1>Babylon's Library</h1>
     <p class="page-subtitle">Intellectual traditions and empirical evidence grounding the assembly debate</p>
     ${sectionsHtml}
     ${crossHtml}
     ${followUpHtml}
     ${renderHighlightChatPanel(topic, "reference-library")}`;
 
-  return layout(`Reference Library — ${topic.title}`, content, nav, bc);
+  return layout(`Babylon's Library — ${topic.title}`, content, nav, bc);
 }
 
 // ─── Highlight Chat Panel (available on all content pages) ───
@@ -1431,12 +1747,13 @@ function renderHighlightChatPanel(topic: Topic, pageContext: string, defaultChar
 
   const isCharacterPage = pageContext.startsWith("character-");
   const isRefLibrary = pageContext === "reference-library";
+  const isIteration = pageContext.startsWith("iteration-");
   const heading = isCharacterPage && defaultCharacter
     ? `Ask ${esc(defaultCharacter)}`
-    : isRefLibrary ? "Explore Sources" : "Ask the Assembly";
+    : isRefLibrary ? "Explore Babylon's Library" : isIteration ? "Debate" : "Ask the Assembly";
   const placeholder = isCharacterPage && defaultCharacter
     ? `Ask ${defaultCharacter} about this...`
-    : isRefLibrary ? "Ask about these sources..." : "Ask about this text...";
+    : isRefLibrary ? "Ask about these sources..." : isIteration ? "What should the assembly debate?" : "Ask about this text...";
 
   return `
     <div class="highlight-chat-panel" id="highlight-chat-panel">
@@ -1445,10 +1762,12 @@ function renderHighlightChatPanel(topic: Topic, pageContext: string, defaultChar
         <button class="panel-collapse-btn" id="panel-collapse-btn" title="Collapse panel">&#8250;</button>
       </div>
       <div class="panel-quote" id="panel-quote"></div>
-      <div class="panel-input-row">
-        <textarea class="follow-up-input" id="panel-input" placeholder="${esc(placeholder)}" rows="2"></textarea>
-        <button class="follow-up-button" id="panel-ask-btn">Ask</button>
-        ${isCharacterPage ? `<button class="follow-up-challenge-btn" id="panel-challenge-btn">Challenge</button>` : ""}
+      <div class="attachment-wrapper panel-input-row">
+        <div class="panel-input-inner-row">
+          <textarea class="follow-up-input" id="panel-input" placeholder="${esc(placeholder)}" rows="2"></textarea>
+          <button class="follow-up-button" id="panel-ask-btn">Ask</button>
+          ${isCharacterPage ? `<button class="follow-up-challenge-btn" id="panel-challenge-btn">Challenge</button>` : ""}
+        </div>
       </div>
       <div class="panel-response-area" id="panel-response-area"></div>
     </div>
@@ -1465,6 +1784,7 @@ function renderHighlightChatPanel(topic: Topic, pageContext: string, defaultChar
   var DEFAULT_CHARACTER = ${JSON.stringify(defaultCharacter ?? "")};
   var IS_CHARACTER_PAGE = ${JSON.stringify(isCharacterPage)};
   var IS_REF_LIBRARY = ${JSON.stringify(isRefLibrary)};
+  var IS_ITERATION = ${JSON.stringify(isIteration)};
 
   var panel = document.getElementById('highlight-chat-panel');
   var collapseBtn = document.getElementById('panel-collapse-btn');
@@ -1473,6 +1793,7 @@ function renderHighlightChatPanel(topic: Topic, pageContext: string, defaultChar
   var panelInput = document.getElementById('panel-input');
   var askBtn = document.getElementById('panel-ask-btn');
   var responseArea = document.getElementById('panel-response-area');
+  var panelAttachments = window.initAttachments ? window.initAttachments('panel-input') : null;
 
   var currentHighlight = '';
 
@@ -1528,6 +1849,9 @@ function renderHighlightChatPanel(topic: Topic, pageContext: string, defaultChar
     if (IS_REF_LIBRARY) {
       return { mode: 'ask-library', chars: [], challenge: false };
     }
+    if (IS_ITERATION) {
+      return { mode: 'debate', chars: [], challenge: false };
+    }
     return { mode: 'ask-assembly', chars: CHARACTERS, challenge: false };
   }
 
@@ -1543,18 +1867,19 @@ function renderHighlightChatPanel(topic: Topic, pageContext: string, defaultChar
     askBtn.disabled = true;
     askBtn.textContent = 'Thinking...';
 
-    responseArea.innerHTML = '<div class="follow-up-loading">' +
-      (IS_CHARACTER_PAGE ? 'Thinking...' : IS_REF_LIBRARY ? 'Researching sources...' : 'Assembly is deliberating...') +
-      '</div>';
+    var panelLoadLabel = IS_CHARACTER_PAGE ? 'Thinking' : IS_REF_LIBRARY ? 'Researching sources' : IS_ITERATION ? 'The assembly is debating' : 'Assembly is deliberating';
+    responseArea.innerHTML = '<div class="follow-up-loading">' + panelLoadLabel + '<span class="loading-dots"><span></span><span></span><span></span></span></div>';
 
     var params = getRequestParams(isChallenge);
+    var pFiles = panelAttachments ? panelAttachments.getFiles() : [];
     var reqBody = {
       question: question,
       topicSlug: TOPIC,
       characters: params.chars,
       context: { page: PAGE_CONTEXT },
       mode: params.mode,
-      highlightedText: currentHighlight
+      highlightedText: currentHighlight,
+      files: pFiles
     };
     if (params.challenge) reqBody.challenge = true;
     var body = JSON.stringify(reqBody);
@@ -1612,6 +1937,7 @@ function renderHighlightChatPanel(topic: Topic, pageContext: string, defaultChar
       askBtn.disabled = false;
       askBtn.textContent = 'Ask';
       panelInput.value = '';
+      if (panelAttachments) panelAttachments.clear();
       panelInput.focus();
     });
   }
@@ -1664,11 +1990,12 @@ function renderHighlightChatPanel(topic: Topic, pageContext: string, defaultChar
 
 // ─── Follow-up Section ───
 
-type PageType = "character" | "reference-library" | "debate";
+type PageType = "character" | "reference-library" | "iteration" | "debate";
 
 function detectPageType(pageContext: string): PageType {
   if (pageContext === "reference-library") return "reference-library";
   if (pageContext.startsWith("character-")) return "character";
+  if (pageContext.startsWith("iteration-")) return "iteration";
   return "debate";
 }
 
@@ -1697,7 +2024,7 @@ function renderFollowUpSection(topic: Topic, pageContext: string, defaultCharact
   let modesHtml: string;
 
   if (pageType === "reference-library") {
-    heading = "Explore the Sources";
+    heading = "Explore Babylon's Library";
     subtitle = "Ask about the intellectual traditions, evidence, and connections in this library";
     placeholder = "What would you like to understand about these sources?";
     modesHtml = "";
@@ -1705,6 +2032,11 @@ function renderFollowUpSection(topic: Topic, pageContext: string, defaultCharact
     heading = `Ask ${esc(defaultCharacter!)}`;
     subtitle = "Ask this character anything — or challenge their position";
     placeholder = `Ask ${defaultCharacter} anything...`;
+    modesHtml = "";
+  } else if (pageType === "iteration") {
+    heading = "Debate";
+    subtitle = "Put a question to the assembly for structured adversarial deliberation";
+    placeholder = "What should the assembly debate?";
     modesHtml = "";
   } else {
     heading = "Ask the Assembly";
@@ -1733,11 +2065,13 @@ function renderFollowUpSection(topic: Topic, pageContext: string, defaultCharact
       ${persistedHtml}
       <div id="follow-up-live"></div>
       <form class="follow-up-form" id="follow-up-form">
-        <div class="follow-up-input-row">
-          <textarea class="follow-up-input" id="follow-up-input"
-                    placeholder="${esc(placeholder)}" autocomplete="off" rows="1"></textarea>
-          <button type="submit" class="follow-up-button" id="follow-up-button">Ask</button>
-          ${pageType === "character" ? `<button type="button" class="follow-up-challenge-btn" id="follow-up-challenge-btn">Challenge</button>` : ""}
+        <div class="attachment-wrapper">
+          <div class="follow-up-input-row">
+            <textarea class="follow-up-input" id="follow-up-input"
+                      placeholder="${esc(placeholder)}" autocomplete="off" rows="1"></textarea>
+            <button type="submit" class="follow-up-button" id="follow-up-button">${pageType === "iteration" ? "Debate" : "Ask"}</button>
+            ${pageType === "character" ? `<button type="button" class="follow-up-challenge-btn" id="follow-up-challenge-btn">Challenge</button>` : ""}
+          </div>
         </div>
         <div class="follow-up-mode-row">
           ${modesHtml}
@@ -1803,6 +2137,7 @@ function renderFollowUpScript(
   var button = document.getElementById('follow-up-button');
   var liveArea = document.getElementById('follow-up-live');
   var charContainer = document.getElementById('follow-up-characters');
+  var followUpAttachments = window.initAttachments ? window.initAttachments('follow-up-input') : null;
 
   var selectedCharacters = new Set();
 
@@ -1936,6 +2271,9 @@ function renderFollowUpScript(
     } else if (PAGE_TYPE === 'reference-library') {
       mode = 'ask-library';
       chars = [];
+    } else if (PAGE_TYPE === 'iteration') {
+      mode = 'debate';
+      chars = [];
     } else {
       var modeEl = document.querySelector('input[name="follow-up-mode"]:checked');
       mode = modeEl ? modeEl.value : 'ask-assembly';
@@ -1945,6 +2283,8 @@ function renderFollowUpScript(
     input.disabled = true;
     button.disabled = true;
     if (challengeBtn) challengeBtn.disabled = true;
+    button.classList.add('sending');
+    setTimeout(function() { button.classList.remove('sending'); }, 500);
     button.textContent = 'Thinking...';
 
     // Create response container
@@ -1962,18 +2302,29 @@ function renderFollowUpScript(
 
     var loadingDiv = document.createElement('div');
     loadingDiv.className = 'follow-up-loading';
-    loadingDiv.textContent = mode === 'ask-library' ? 'Researching sources...' : challenge ? 'Preparing defense...' : 'Assembly is deliberating...';
+    var loadingLabel = mode === 'ask-library' ? 'Researching sources' : mode === 'debate' ? 'The assembly is debating' : challenge ? 'Preparing defense' : 'Assembly is deliberating';
+    loadingDiv.innerHTML = loadingLabel + '<span class="loading-dots"><span></span><span></span><span></span></span>';
     contentDiv.appendChild(loadingDiv);
 
     liveArea.appendChild(responseDiv);
     responseDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
+    // Track pending follow-up so we can recover if the user navigates away
+    var existingCount = document.querySelectorAll('.follow-up-persisted').length;
+    try {
+      sessionStorage.setItem('pending-followup', JSON.stringify({
+        topic: TOPIC, page: PAGE_CONTEXT, count: existingCount, ts: Date.now()
+      }));
+    } catch(e) {}
+
+    var fuFiles = followUpAttachments ? followUpAttachments.getFiles() : [];
     var reqObj = {
       question: question,
       topicSlug: TOPIC,
       characters: chars,
       context: { page: PAGE_CONTEXT },
-      mode: mode
+      mode: mode,
+      files: fuFiles
     };
     if (challenge) reqObj.challenge = true;
     var body = JSON.stringify(reqObj);
@@ -2039,9 +2390,10 @@ function renderFollowUpScript(
       input.disabled = false;
       button.disabled = false;
       if (challengeBtn) challengeBtn.disabled = false;
-      button.textContent = 'Ask';
+      button.textContent = PAGE_TYPE === 'iteration' ? 'Debate' : 'Ask';
       input.value = '';
       input.style.height = 'auto';
+      if (followUpAttachments) followUpAttachments.clear();
       input.focus();
     });
   });
@@ -2074,6 +2426,7 @@ function renderFollowUpScript(
     renderStreamedText(container, fullText);
     responseDiv.classList.remove('follow-up-streaming');
     responseDiv.classList.add('follow-up-complete');
+    try { sessionStorage.removeItem('pending-followup'); } catch(e) {}
   }
 
   function simpleMarkdown(text) {
@@ -2095,6 +2448,50 @@ function renderFollowUpScript(
     div.textContent = text;
     return div.innerHTML;
   }
+
+  // Recover from navigating away during an active follow-up.
+  // If we stored a pending follow-up for this topic+page, poll until the
+  // rebuilt page includes the new follow-up, then reload.
+  (function checkPending() {
+    try {
+      var raw = sessionStorage.getItem('pending-followup');
+      if (!raw) return;
+      var pending = JSON.parse(raw);
+      if (pending.topic !== TOPIC || pending.page !== PAGE_CONTEXT) return;
+
+      // Expire after 10 minutes
+      if (Date.now() - pending.ts > 600000) {
+        sessionStorage.removeItem('pending-followup');
+        return;
+      }
+
+      var currentCount = document.querySelectorAll('.follow-up-persisted').length;
+      // If the page already has the new follow-up (rebuild happened before we loaded), clear and done
+      if (currentCount > pending.count) {
+        sessionStorage.removeItem('pending-followup');
+        return;
+      }
+
+      // Show a banner and poll
+      var banner = document.createElement('div');
+      banner.className = 'follow-up-pending-banner';
+      banner.innerHTML = '<span class="follow-up-pending-dot"></span> A follow-up is being processed. This page will refresh automatically.';
+      liveArea.appendChild(banner);
+
+      var pollInterval = setInterval(function() {
+        fetch(location.href, { cache: 'no-store' }).then(function(r) { return r.text(); }).then(function(html) {
+          var parser = new DOMParser();
+          var doc = parser.parseFromString(html, 'text/html');
+          var newCount = doc.querySelectorAll('.follow-up-persisted').length;
+          if (newCount > pending.count) {
+            clearInterval(pollInterval);
+            sessionStorage.removeItem('pending-followup');
+            location.reload();
+          }
+        }).catch(function() {});
+      }, 4000);
+    } catch(e) {}
+  })();
 
   // Delete follow-up handler
   document.addEventListener('click', function(e) {
