@@ -3,25 +3,28 @@ import path from "node:path";
 import { marked } from "marked";
 import type { Workspace } from "../types.js";
 
-export function exportToSingleFile(
+export function generateExportHtml(
   workspace: Workspace,
-  outputPath: string
-) {
-  // Read CSS
+  topicSlug?: string
+): string {
   const cssSource = new URL("../renderer/css/styles.css", import.meta.url);
   const css = fs.readFileSync(cssSource, "utf-8");
 
-  // Collect all page sections
+  const topics = topicSlug
+    ? workspace.topics.filter((t) => t.slug === topicSlug)
+    : workspace.topics;
+
   const pages: Array<{ id: string; label: string; html: string }> = [];
 
-  // For single-file export, we render inline without nav — use a different layout
-  pages.push({
-    id: "home",
-    label: "Home",
-    html: renderExportSection(workspace),
-  });
+  if (!topicSlug) {
+    pages.push({
+      id: "home",
+      label: "Home",
+      html: renderExportSection(workspace),
+    });
+  }
 
-  for (const topic of workspace.topics) {
+  for (const topic of topics) {
     pages.push({
       id: topic.slug,
       label: topic.title,
@@ -29,24 +32,26 @@ export function exportToSingleFile(
     });
   }
 
-  // Build table of contents
   const toc = pages
     .map((p) => `<li><a href="#${p.id}">${escapeHtml(p.label)}</a></li>`)
     .join("\n");
 
-  // Build all sections
   const sections = pages
     .map(
       (p) => `<section id="${p.id}" class="export-section">${p.html}</section>`
     )
     .join("\n<hr>\n");
 
-  const html = `<!DOCTYPE html>
+  const title = topicSlug && topics.length === 1
+    ? escapeHtml(topics[0].title)
+    : "Assembly Workspace Export";
+
+  return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Assembly Viewer Export</title>
+  <title>${title}</title>
   <style>
 ${css}
 /* Export-specific overrides */
@@ -61,18 +66,24 @@ main { margin-left: 0; max-width: 900px; margin: 0 auto; padding: 2rem; }
 </head>
 <body>
   <main>
-    <h1>Assembly Workspace Export</h1>
+    <h1>${title}</h1>
     <p class="subtitle">Generated ${new Date().toISOString().split("T")[0]}</p>
-    <nav class="export-toc" style="display: block;">
+    ${!topicSlug ? `<nav class="export-toc" style="display: block;">
       <h2>Contents</h2>
       <ul>${toc}</ul>
     </nav>
-    <hr>
+    <hr>` : ""}
     ${sections}
   </main>
 </body>
 </html>`;
+}
 
+export function exportToSingleFile(
+  workspace: Workspace,
+  outputPath: string
+) {
+  const html = generateExportHtml(workspace);
   fs.writeFileSync(outputPath, html, "utf-8");
 
   const sizeKB = Math.round(Buffer.byteLength(html) / 1024);

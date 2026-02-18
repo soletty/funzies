@@ -3,6 +3,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { handleFollowUp, handleDeleteFollowUp, handleDeleteWorkspace } from "./follow-up.js";
 import { startSession, sendInput, addSSEClient, getSessionStatus } from "./assembly-session.js";
+import { buildContentGraph } from "../graph/index.js";
+import { generateExportHtml } from "../export/index.js";
 
 const MIME_TYPES: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
@@ -122,6 +124,31 @@ export function startServer(
       const status = getSessionStatus();
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(status ?? { status: "idle" }));
+      return;
+    }
+
+    // Export API
+    const exportMatch = req.url?.match(/^\/api\/export\/([a-z0-9-]+)$/);
+    if (exportMatch && req.method === "GET") {
+      if (!workspacePath) {
+        res.writeHead(503, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Workspace path not configured" }));
+        return;
+      }
+      const topicSlug = exportMatch[1];
+      const workspace = buildContentGraph(workspacePath);
+      const topic = workspace.topics.find((t) => t.slug === topicSlug);
+      if (!topic) {
+        res.writeHead(404, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Topic not found" }));
+        return;
+      }
+      const html = generateExportHtml(workspace, topicSlug);
+      res.writeHead(200, {
+        "Content-Type": "text/html; charset=utf-8",
+        "Content-Disposition": `attachment; filename="assembly-${topicSlug}.html"`,
+      });
+      res.end(html);
       return;
     }
 

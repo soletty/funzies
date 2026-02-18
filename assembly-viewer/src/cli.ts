@@ -4,6 +4,7 @@ import { Command } from "commander";
 import { exec } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { buildContentGraph } from "./graph/index.js";
 import { renderWorkspace } from "./renderer/index.js";
 import { startServer } from "./server/index.js";
@@ -23,19 +24,32 @@ program
   .option("--port <number>", "Server port", "3456")
   .option("--export", "Export to a single self-contained HTML file")
   .option("--out <path>", "Export output path", "assembly-viewer-export.html")
+  .option("--demo", "Load the bundled demo assembly")
   .action((opts) => {
-    const workspacePath = resolveWorkspace(opts.dir);
+    let isDemo = false;
+    let workspacePath = opts.demo ? getDemoPath() : resolveWorkspace(opts.dir);
+
     if (!workspacePath) {
-      console.error(
-        "No assembly workspace found.\n" +
-          "Expected an `assembly-workspace/` directory in the current folder.\n" +
-          "Use --dir to specify a custom path."
-      );
-      process.exit(1);
+      const demoPath = getDemoPath();
+      if (demoPath) {
+        console.log("No workspace found. Loading demo assembly...");
+        workspacePath = demoPath;
+        isDemo = true;
+      } else {
+        console.error(
+          "No assembly workspace found.\n" +
+            "Expected an `assembly-workspace/` directory in the current folder.\n" +
+            "Use --dir to specify a custom path."
+        );
+        process.exit(1);
+      }
+    } else if (opts.demo) {
+      isDemo = true;
     }
 
     console.log(`Scanning workspace: ${workspacePath}`);
     const workspace = buildContentGraph(workspacePath);
+    workspace.isDemo = isDemo;
     console.log(
       `Found ${workspace.topics.length} topic(s): ${workspace.topics.map((t) => t.slug).join(", ")}`
     );
@@ -49,7 +63,7 @@ program
       renderWorkspace(workspace, buildDir);
 
       const port = parseInt(opts.port, 10);
-      startServer(buildDir, port, workspacePath);
+      startServer(buildDir, port, isDemo ? undefined : workspacePath);
 
       openBrowser(`http://localhost:${port}`);
     }
@@ -74,6 +88,14 @@ function resolveWorkspace(dirOpt?: string): string | null {
     }
   }
 
+  return null;
+}
+
+function getDemoPath(): string | null {
+  const demoDir = fileURLToPath(new URL("../demo-data", import.meta.url));
+  if (fs.existsSync(demoDir) && fs.statSync(demoDir).isDirectory()) {
+    return demoDir;
+  }
   return null;
 }
 

@@ -12,7 +12,8 @@ export interface FollowUpRequest {
     page: string;
     section?: string;
   };
-  mode: "multi-character" | "reconvene" | "ask-character" | "explore-explain" | "explore-connect" | "explore-deep-dive";
+  mode: "ask-assembly" | "ask-character" | "ask-library";
+  challenge?: boolean;
   highlightedText?: string;
 }
 
@@ -233,7 +234,7 @@ function readTopicFiles(topicDir: string) {
 }
 
 function isReferenceLibraryMode(mode: string): boolean {
-  return mode.startsWith("explore-");
+  return mode === "ask-library";
 }
 
 function buildPrompt(request: FollowUpRequest, topicDir: string): string | null {
@@ -262,7 +263,9 @@ function buildDebatePrompt(
 
   const isCharacterPage = request.context.page.startsWith("character-");
   const modeInstructions = getModeInstructions(request.mode, isCharacterPage);
-  const challengeInstructions = getChallengeInstructions(request.mode, isCharacterPage);
+  const challengeInstructions = request.challenge
+    ? getChallengeMode()
+    : getChallengeInstructions(request.mode, isCharacterPage);
 
   let contextBlock = "";
   if (files.synthesisContent) {
@@ -309,7 +312,7 @@ function buildReferenceLibraryPrompt(
     return buildDebatePrompt(request, files);
   }
 
-  const modePrompt = getReferenceLibraryModePrompt(request.mode);
+  const modePrompt = getReferenceLibraryModePrompt();
 
   let contextBlock = "";
   if (files.charactersContent) {
@@ -344,94 +347,62 @@ Structure your response:
 Go deep on substance. The user wants to understand, not to be lectured at through a theoretical lens.`;
   }
 
-  if (mode === "reconvene") {
-    return `MODE: RECONVENE — STRUCTURED DEBATE
-
-Run a structured debate among ALL assembly members on this question.
-
-Structure:
-1. OPENING POSITIONS — Each character answers the question from their area of genuine expertise. Characters whose expertise is most relevant to THIS SPECIFIC QUESTION should give the longest, most detailed responses. Characters whose frameworks are less relevant should be briefer and focus on what they can genuinely add.
-2. DIRECT CHALLENGES — Characters challenge each other by name, but ONLY where they genuinely disagree on something that would change what you'd actually do. "I disagree with [Name] because in practice X works differently than Y" — not abstract framework disputes.
-3. SOCRATE INTERVENTION — Identify the real unresolved question that the assembly's debate reveals. What does nobody in this room actually know the answer to?
-4. SYNTHESIS — Where does the assembly actually stand? What's settled, what's genuinely contested, and what would you need to know to resolve it?
-
-Rules: Characters MAY agree with each other. Do not force disagreement. Real consensus is as valuable as real disagreement. The goal is truth, not theater.`;
-  }
-
-  // multi-character
+  // ask-assembly (default)
   if (isCharacterPage) {
-    return `MODE: BRING IN THE ASSEMBLY
+    return `MODE: ASK THE ASSEMBLY
 
 The user is on a specific character's profile page and wants to hear from multiple perspectives. Include this character plus 1-2 others whose expertise is most relevant to THIS SPECIFIC QUESTION.
+
+Choose 2-4 most relevant characters. If the question warrants structured debate, use opening positions → challenges → synthesis. Otherwise, a focused multi-perspective exchange.
 
 Each character should:
 1. Answer the question with substance and specifics — real examples, real numbers, real trade-offs from their area of expertise
 2. Where they genuinely disagree with another character, explain why in concrete terms (not framework-vs-framework, but "this actually works differently because...")
 3. Where they agree, say so and add what they can
 
-Not every character needs to invoke their theoretical framework. Only do so when it genuinely changes the answer.`;
+Characters MAY agree. Do not force disagreement. Not every character needs to invoke their theoretical framework — only do so when it genuinely changes the answer.`;
   }
 
-  return `MODE: MULTI-CHARACTER EXCHANGE
+  return `MODE: ASK THE ASSEMBLY
 
-You are facilitating a focused exchange between selected members of the Intellectual Assembly.
+Choose 2-4 most relevant characters based on the question. If the question warrants structured debate, use opening positions → challenges → synthesis. Otherwise, a focused multi-perspective exchange.
 
 Each character should:
 1. Answer the question with substance and specifics — real examples, real data, real operational details from their area of expertise. The user is an intelligent person who wants to understand how things actually work.
 2. Where they genuinely disagree with another character, explain why in concrete terms — what would you actually do differently, and why?
 3. Where they agree, say so briefly and build on it rather than manufacturing a fake disagreement.
 
-Characters whose expertise is most relevant to the question should give the longest, most detailed responses. Characters with less relevant expertise should be briefer. Not everyone needs to weigh in on everything.`;
+Characters whose expertise is most relevant should give the longest, most detailed responses. Characters with less relevant expertise should be briefer. Not everyone needs to weigh in on everything. Characters MAY agree — real consensus is as valuable as real disagreement.`;
 }
 
-function getReferenceLibraryModePrompt(mode: string): string {
-  if (mode === "explore-connect") {
-    return `You are mapping the intellectual landscape of this assembly's reference library. The user wants to understand how sources relate.
+function getReferenceLibraryModePrompt(): string {
+  return `You are a scholarly guide to this assembly's reference library. Auto-determine the best approach from the user's question:
 
-Trace the connections:
-- Which sources agree, conflict, or build on each other
-- Where different characters' intellectual traditions converge or diverge
-- Surprising connections between seemingly unrelated sources
-- Gaps in the library — what important works or perspectives are missing
+- If they ask about a specific source: explain its core argument, historical context, lasting influence, how the assembly character interprets it, and the strongest criticism. Go deep.
+- If they ask about connections: trace which sources agree, conflict, or build on each other. Map where different characters' traditions converge or diverge. Identify surprising connections and gaps.
+- If they ask a general question: explain what the relevant sources argue, why they matter for this debate, which characters draw on them, and what they get right or wrong.
 
-Be precise. Name specific works, authors, and the characters who cite them.`;
-  }
-
-  if (mode === "explore-deep-dive") {
-    return `You are conducting a seminar on a specific source from this assembly's reference library.
-
-Go deep:
-- The core argument of the work in the author's own terms
-- Historical context — when it was written and what it was responding to
-- Its lasting influence and how it's been received, challenged, and built upon
-- How the assembly character who cites it interprets it — and whether that interpretation is faithful or selective
-- The strongest criticism of this work
-
-Be scholarly but accessible. Assume the user is intelligent but hasn't read the source.`;
-  }
-
-  // explore-explain (default)
-  return `You are a scholarly guide to this assembly's reference library. The user wants to understand specific sources, traditions, or ideas.
-
-Draw on the reference library content below. Explain clearly and specifically:
-- What the source argues
-- Why it matters for this debate
-- Which assembly character draws on it, and how they use it
-- What the source gets right, and what it gets wrong or overlooks
-
-Be a teacher, not a debater. Cite specific works by name and author.`;
+Be scholarly but accessible. Assume the user is intelligent but may not have read the sources. Cite specific works by name and author. Do NOT adopt character voices — you are a guide, not a debater.`;
 }
 
 function getChallengeInstructions(mode: string, isCharacterPage: boolean): string {
-  if (mode === "ask-character" && isCharacterPage) {
+  if (mode === "ask-character") {
     return `PUSHBACK: If the user's question contains a factual error, a hidden assumption, or an oversimplification that matters, point it out with evidence. But only if it's real — don't invent problems with the question just to seem adversarial. If the question is good, say so and answer it.`;
   }
 
-  if (mode === "reconvene") {
-    return `PUSHBACK: Socrate should identify what the assembly still doesn't know — the genuine open questions, not performative doubt. What evidence would actually settle this?`;
-  }
-
   return `PUSHBACK: If a character sees something wrong or oversimplified in the user's question, they should say so with specifics. But characters should not manufacture challenges — if the question is well-framed, engage with it directly.`;
+}
+
+function getChallengeMode(): string {
+  return `CHALLENGE MODE: The user is pushing back on a position. This is adversarial — they disagree and want the character(s) to defend.
+
+Rules:
+- Acknowledge the specific objection the user is raising — do not talk past it
+- Defend the position with evidence, not by restating the framework
+- Concede specific points where the objection genuinely has merit
+- Reference which other assembly characters would agree or disagree with the user's objection
+- Identify what evidence would settle the dispute
+- Do NOT be sycophantic. Push back firmly where the position is defensible. If the user is wrong, say so with specifics.`;
 }
 
 export function handleDeleteFollowUp(

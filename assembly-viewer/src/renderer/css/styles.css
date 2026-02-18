@@ -597,6 +597,34 @@ th {
   line-height: 1.7;
 }
 
+/* ─── Emergent Insight Card ─── */
+
+.emergent-insight {
+  background: var(--color-surface);
+  border-left: 3px solid var(--color-accent);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  padding: 1.15rem 1.5rem;
+  margin: 1.5rem 0;
+}
+
+.emergent-insight-label {
+  display: block;
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-accent);
+  margin-bottom: 0.45rem;
+}
+
+.emergent-insight-text {
+  font-size: 0.95rem;
+  line-height: 1.65;
+  color: var(--color-text);
+  margin: 0;
+  font-weight: 500;
+}
+
 /* ─── Hero Card (Landing Page Conclusion) ─── */
 
 .hero-card {
@@ -1270,6 +1298,25 @@ details > .details-content {
   }
 }
 
+/* ─── Demo Banner ─── */
+
+.demo-banner {
+  background: var(--color-medium-bg);
+  border: 1px solid var(--color-medium-border);
+  border-radius: var(--radius);
+  padding: 0.85rem 1.25rem;
+  font-size: 0.88rem;
+  color: var(--color-medium);
+  margin-bottom: 1.5rem;
+  line-height: 1.55;
+}
+
+.demo-banner code {
+  background: rgba(146, 100, 26, 0.1);
+  color: var(--color-medium);
+  border-color: var(--color-medium-border);
+}
+
 /* ─── Follow-up Section ─── */
 
 .follow-up-divider {
@@ -1347,6 +1394,30 @@ details > .details-content {
 }
 
 .follow-up-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.follow-up-challenge-btn {
+  padding: 0.65rem 1.1rem;
+  font-family: var(--font-body);
+  font-size: 0.88rem;
+  font-weight: 600;
+  background: var(--color-bg);
+  color: #b54a32;
+  border: 1.5px solid #b54a32;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+
+.follow-up-challenge-btn:hover {
+  background: #b54a32;
+  color: #fff;
+}
+
+.follow-up-challenge-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }

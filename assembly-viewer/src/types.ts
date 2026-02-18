@@ -1,6 +1,7 @@
 export interface Workspace {
   path: string;
   topics: Topic[];
+  isDemo?: boolean;
 }
 
 export interface Topic {

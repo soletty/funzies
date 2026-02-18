@@ -568,11 +568,17 @@ export function renderWorkspaceIndex(workspace: Workspace): string {
     totalFollowUps > 0 ? `${totalFollowUps} follow-ups` : null,
   ].filter(Boolean).join(" &middot; ");
 
+  const demoBanner = workspace.isDemo ? `
+    <div class="demo-banner">
+      This is a demo assembly. Run <code>assembly-viewer --dir your-workspace/</code> to view your own analysis.
+    </div>` : "";
+
   const content = `
     <h1>Assembly Workspace</h1>
     <p class="page-subtitle">${statsLine}</p>
+    ${demoBanner}
 
-    ${renderAssemblyLauncher()}
+    ${workspace.isDemo ? "" : renderAssemblyLauncher()}
 
     ${recentHtml}
     <div class="section-header"><h2>Topics</h2><span class="section-count">${workspace.topics.length}</span></div>
@@ -683,6 +689,16 @@ export function renderTopicLanding(workspace: Workspace, topic: Topic): string {
     topic.deliverables.length > 0 ? `${topic.deliverables.length} deliverable${topic.deliverables.length > 1 ? "s" : ""}` : null,
   ].filter(Boolean).join(" &middot; ");
 
+  // Emergent insight card
+  let insightHtml = "";
+  if (topic.synthesis?.emergentIdeas && topic.synthesis.emergentIdeas.length > 0) {
+    insightHtml = `
+    <div class="emergent-insight">
+      <span class="emergent-insight-label">Surprising Insight</span>
+      <p class="emergent-insight-text">${esc(topic.synthesis.emergentIdeas[0])}</p>
+    </div>`;
+  }
+
   // Hero: top convergence points (prefer high confidence)
   let heroHtml = "";
   if (topic.synthesis && topic.synthesis.convergence.length > 0) {
@@ -711,6 +727,7 @@ export function renderTopicLanding(workspace: Workspace, topic: Topic): string {
     actions += `<a href="/${topic.slug}/synthesis.html" class="action-pill action-pill-primary"><span class="pill-icon">&#9733;</span> Full Synthesis</a>`;
   if (topic.characters.length > 0)
     actions += `<a href="/${topic.slug}/characters.html" class="action-pill"><span class="pill-icon">&#9823;</span> ${topic.characters.length} Characters</a>`;
+  actions += `<a href="/api/export/${topic.slug}" class="action-pill" download="assembly-${topic.slug}.html"><span class="pill-icon">&#8599;</span> Share this analysis</a>`;
   actions += `</div>`;
 
   // Iterations
@@ -779,6 +796,7 @@ export function renderTopicLanding(workspace: Workspace, topic: Topic): string {
   const content = `
     <h1>${esc(topic.title.replace(/\s*—\s*Final.*$/, "").replace(/\s*--\s*Assembly.*$/, ""))}</h1>
     <p class="page-subtitle">${meta}</p>
+    ${insightHtml}
     ${heroHtml}
     ${actions}
     ${iterHtml}
@@ -1430,6 +1448,7 @@ function renderHighlightChatPanel(topic: Topic, pageContext: string, defaultChar
       <div class="panel-input-row">
         <textarea class="follow-up-input" id="panel-input" placeholder="${esc(placeholder)}" rows="2"></textarea>
         <button class="follow-up-button" id="panel-ask-btn">Ask</button>
+        ${isCharacterPage ? `<button class="follow-up-challenge-btn" id="panel-challenge-btn">Challenge</button>` : ""}
       </div>
       <div class="panel-response-area" id="panel-response-area"></div>
     </div>
@@ -1494,23 +1513,29 @@ function renderHighlightChatPanel(topic: Topic, pageContext: string, defaultChar
   panelInput.addEventListener('keydown', function(e) {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      submitQuestion();
+      submitQuestion(false);
     }
   });
 
-  askBtn.addEventListener('click', submitQuestion);
+  askBtn.addEventListener('click', function() { submitQuestion(false); });
 
-  function getRequestParams() {
+  var panelChallengeBtn = document.getElementById('panel-challenge-btn');
+
+  function getRequestParams(isChallenge) {
     if (IS_CHARACTER_PAGE && DEFAULT_CHARACTER) {
-      return { mode: 'ask-character', chars: [DEFAULT_CHARACTER] };
+      return { mode: 'ask-character', chars: [DEFAULT_CHARACTER], challenge: !!isChallenge };
     }
     if (IS_REF_LIBRARY) {
-      return { mode: 'explore-explain', chars: [] };
+      return { mode: 'ask-library', chars: [], challenge: false };
     }
-    return { mode: 'multi-character', chars: CHARACTERS };
+    return { mode: 'ask-assembly', chars: CHARACTERS, challenge: false };
   }
 
-  function submitQuestion() {
+  if (panelChallengeBtn) {
+    panelChallengeBtn.addEventListener('click', function() { submitQuestion(true); });
+  }
+
+  function submitQuestion(isChallenge) {
     var question = panelInput.value.trim();
     if (!question) return;
 
@@ -1522,15 +1547,17 @@ function renderHighlightChatPanel(topic: Topic, pageContext: string, defaultChar
       (IS_CHARACTER_PAGE ? 'Thinking...' : IS_REF_LIBRARY ? 'Researching sources...' : 'Assembly is deliberating...') +
       '</div>';
 
-    var params = getRequestParams();
-    var body = JSON.stringify({
+    var params = getRequestParams(isChallenge);
+    var reqBody = {
       question: question,
       topicSlug: TOPIC,
       characters: params.chars,
       context: { page: PAGE_CONTEXT },
       mode: params.mode,
       highlightedText: currentHighlight
-    });
+    };
+    if (params.challenge) reqBody.challenge = true;
+    var body = JSON.stringify(reqBody);
 
     fetch('/api/follow-up', {
       method: 'POST',
@@ -1673,22 +1700,10 @@ function renderFollowUpSection(topic: Topic, pageContext: string, defaultCharact
     heading = "Explore the Sources";
     subtitle = "Ask about the intellectual traditions, evidence, and connections in this library";
     placeholder = "What would you like to understand about these sources?";
-    modesHtml = `
-          <label class="follow-up-mode-label">
-            <input type="radio" name="follow-up-mode" value="explore-explain" checked>
-            <span>Explain</span>
-          </label>
-          <label class="follow-up-mode-label">
-            <input type="radio" name="follow-up-mode" value="explore-connect">
-            <span>Connect</span>
-          </label>
-          <label class="follow-up-mode-label">
-            <input type="radio" name="follow-up-mode" value="explore-deep-dive">
-            <span>Deep dive</span>
-          </label>`;
+    modesHtml = "";
   } else if (pageType === "character") {
     heading = `Ask ${esc(defaultCharacter!)}`;
-    subtitle = "Ask this character anything";
+    subtitle = "Ask this character anything — or challenge their position";
     placeholder = `Ask ${defaultCharacter} anything...`;
     modesHtml = "";
   } else {
@@ -1697,16 +1712,12 @@ function renderFollowUpSection(topic: Topic, pageContext: string, defaultCharact
     placeholder = "Ask a follow-up question...";
     modesHtml = `
           <label class="follow-up-mode-label">
-            <input type="radio" name="follow-up-mode" value="multi-character" checked>
-            <span>Multi-character</span>
-          </label>
-          <label class="follow-up-mode-label">
-            <input type="radio" name="follow-up-mode" value="reconvene">
-            <span>Reconvene debate</span>
+            <input type="radio" name="follow-up-mode" value="ask-assembly" checked>
+            <span>Ask the Assembly</span>
           </label>
           <label class="follow-up-mode-label">
             <input type="radio" name="follow-up-mode" value="ask-character">
-            <span>Single character</span>
+            <span>Ask a Character</span>
           </label>`;
   }
 
@@ -1726,6 +1737,7 @@ function renderFollowUpSection(topic: Topic, pageContext: string, defaultCharact
           <textarea class="follow-up-input" id="follow-up-input"
                     placeholder="${esc(placeholder)}" autocomplete="off" rows="1"></textarea>
           <button type="submit" class="follow-up-button" id="follow-up-button">Ask</button>
+          ${pageType === "character" ? `<button type="button" class="follow-up-challenge-btn" id="follow-up-challenge-btn">Challenge</button>` : ""}
         </div>
         <div class="follow-up-mode-row">
           ${modesHtml}
@@ -1800,24 +1812,13 @@ function renderFollowUpScript(
     return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
   }
 
+  var challengeBtn = document.getElementById('follow-up-challenge-btn');
+
   function renderCharacterPicker() {
     if (!charContainer || PAGE_TYPE === 'reference-library') return;
 
-    var mode = document.querySelector('input[name="follow-up-mode"]:checked').value;
-
-    // Reference library modes — hide picker
-    if (mode.startsWith('explore-')) {
-      charContainer.style.display = 'none';
-      return;
-    }
-
-    // Reconvene — show "all characters" label
-    if (mode === 'reconvene') {
-      charContainer.style.display = 'block';
-      charContainer.innerHTML = '<div class="follow-up-char-label">All characters will debate</div>';
-      selectedCharacters = new Set(CHARACTERS);
-      return;
-    }
+    var modeEl = document.querySelector('input[name="follow-up-mode"]:checked');
+    var mode = modeEl ? modeEl.value : (PAGE_TYPE === 'character' ? 'ask-character' : 'ask-assembly');
 
     charContainer.style.display = 'block';
     var isSingle = (mode === 'ask-character');
@@ -1879,25 +1880,20 @@ function renderFollowUpScript(
   // Initialize selected characters based on default
   function initializeSelection() {
     selectedCharacters.clear();
-    var mode = document.querySelector('input[name="follow-up-mode"]:checked').value;
+    var modeEl = document.querySelector('input[name="follow-up-mode"]:checked');
+    var mode = modeEl ? modeEl.value : (PAGE_TYPE === 'character' ? 'ask-character' : 'ask-assembly');
 
     if (PAGE_TYPE === 'character' && DEFAULT_CHARACTER) {
       selectedCharacters.add(DEFAULT_CHARACTER);
-      if (mode === 'multi-character') {
-        // Pre-select 1-2 others
+      if (mode === 'ask-assembly') {
         for (var i = 0; i < CHARACTERS.length && selectedCharacters.size < 3; i++) {
           selectedCharacters.add(CHARACTERS[i]);
         }
       }
     } else if (mode === 'ask-character' && CHARACTERS.length > 0) {
       selectedCharacters.add(CHARACTERS[0]);
-    } else if (mode === 'multi-character') {
-      // Pre-select first 2-3
+    } else if (mode === 'ask-assembly') {
       for (var i = 0; i < CHARACTERS.length && i < 3; i++) {
-        selectedCharacters.add(CHARACTERS[i]);
-      }
-    } else if (mode === 'reconvene') {
-      for (var i = 0; i < CHARACTERS.length; i++) {
         selectedCharacters.add(CHARACTERS[i]);
       }
     }
@@ -1933,23 +1929,39 @@ function renderFollowUpScript(
     }
   });
 
+  var isChallenge = false;
+
+  if (challengeBtn) {
+    challengeBtn.addEventListener('click', function() {
+      isChallenge = true;
+      form.dispatchEvent(new Event('submit', { cancelable: true }));
+    });
+  }
+
   form.addEventListener('submit', function(e) {
     e.preventDefault();
     var question = input.value.trim();
     if (!question) return;
 
-    var mode, chars;
+    var mode, chars, challenge;
+    challenge = isChallenge;
+    isChallenge = false;
+
     if (PAGE_TYPE === 'character') {
       mode = 'ask-character';
       chars = [DEFAULT_CHARACTER];
+    } else if (PAGE_TYPE === 'reference-library') {
+      mode = 'ask-library';
+      chars = [];
     } else {
       var modeEl = document.querySelector('input[name="follow-up-mode"]:checked');
-      mode = modeEl ? modeEl.value : 'multi-character';
-      chars = mode.startsWith('explore-') ? [] : Array.from(selectedCharacters);
+      mode = modeEl ? modeEl.value : 'ask-assembly';
+      chars = Array.from(selectedCharacters);
     }
 
     input.disabled = true;
     button.disabled = true;
+    if (challengeBtn) challengeBtn.disabled = true;
     button.textContent = 'Thinking...';
 
     // Create response container
@@ -1967,19 +1979,21 @@ function renderFollowUpScript(
 
     var loadingDiv = document.createElement('div');
     loadingDiv.className = 'follow-up-loading';
-    loadingDiv.textContent = mode.startsWith('explore-') ? 'Researching sources...' : 'Assembly is deliberating...';
+    loadingDiv.textContent = mode === 'ask-library' ? 'Researching sources...' : challenge ? 'Preparing defense...' : 'Assembly is deliberating...';
     contentDiv.appendChild(loadingDiv);
 
     liveArea.appendChild(responseDiv);
     responseDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
-    var body = JSON.stringify({
+    var reqObj = {
       question: question,
       topicSlug: TOPIC,
       characters: chars,
       context: { page: PAGE_CONTEXT },
       mode: mode
-    });
+    };
+    if (challenge) reqObj.challenge = true;
+    var body = JSON.stringify(reqObj);
 
     fetch('/api/follow-up', {
       method: 'POST',
@@ -2041,6 +2055,7 @@ function renderFollowUpScript(
     }).finally(function() {
       input.disabled = false;
       button.disabled = false;
+      if (challengeBtn) challengeBtn.disabled = false;
       button.textContent = 'Ask';
       input.value = '';
       input.style.height = 'auto';
