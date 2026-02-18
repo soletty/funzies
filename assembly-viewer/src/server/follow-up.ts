@@ -85,7 +85,6 @@ function streamFollowUp(
     "--output-format", "stream-json",
     "--verbose",
     "--max-turns", "1",
-    "--no-input",
   ];
 
   const env = { ...process.env };
@@ -98,17 +97,26 @@ function streamFollowUp(
 
   let fullText = "";
 
+  console.log("[follow-up] Spawning claude with args:", args.filter((a, i) => i !== 1).join(" "));
+
   const rl = createInterface({ input: claude.stdout });
   rl.on("line", (line) => {
     if (!line.trim()) return;
     try {
       const event = JSON.parse(line);
+      console.log("[follow-up] event type:", event.type, event.subtype || "");
 
       // Extract text content from various event shapes
       const text = extractText(event);
       if (text) {
         fullText += text;
         res.write(`data: ${JSON.stringify({ type: "text", content: text })}\n\n`);
+      }
+
+      // Fallback: use the final result if streaming produced nothing
+      if (event.type === "result" && typeof event.result === "string" && event.result && !fullText) {
+        fullText = event.result;
+        res.write(`data: ${JSON.stringify({ type: "text", content: event.result })}\n\n`);
       }
     } catch {
       // Skip non-JSON lines
@@ -121,6 +129,7 @@ function streamFollowUp(
   });
 
   claude.on("close", (code) => {
+    console.log("[follow-up] Claude exited with code:", code, "fullText length:", fullText.length, "stderr:", stderrOutput.slice(0, 200));
     if (code !== 0 && !fullText) {
       res.write(`data: ${JSON.stringify({ type: "error", content: stderrOutput || `Claude exited with code ${code}` })}\n\n`);
     }
@@ -143,9 +152,10 @@ function streamFollowUp(
     res.end();
   });
 
-  // Handle client disconnect
-  req.on("close", () => {
-    claude.kill();
+  // Handle client disconnect — listen on response, not request
+  // (req "close" fires when the POST body is consumed, killing claude immediately)
+  res.on("close", () => {
+    if (!claude.killed) claude.kill();
   });
 }
 
@@ -412,6 +422,79 @@ function getChallengeInstructions(mode: string, isCharacterPage: boolean): strin
   }
 
   return `CHALLENGE: Each character should identify one assumption in the user's question that their framework would challenge. Push back on the user's framing. The goal is not to please the user but to sharpen their thinking.`;
+}
+
+export function handleDeleteFollowUp(
+  req: IncomingMessage,
+  res: ServerResponse,
+  workspacePath: string
+) {
+  let body = "";
+  req.on("data", (chunk: Buffer) => {
+    body += chunk.toString();
+  });
+
+  req.on("end", () => {
+    let request: { topicSlug: string; timestamp: string };
+    try {
+      request = JSON.parse(body);
+    } catch {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Invalid JSON" }));
+      return;
+    }
+
+    if (!request.topicSlug || !request.timestamp) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Missing topicSlug or timestamp" }));
+      return;
+    }
+
+    // Validate timestamp format to prevent path traversal
+    if (!/^\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}$/.test(request.timestamp)) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Invalid timestamp format" }));
+      return;
+    }
+
+    // Validate topicSlug has no path separators
+    if (/[/\\]/.test(request.topicSlug)) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Invalid topicSlug" }));
+      return;
+    }
+
+    const followUpPath = path.join(
+      workspacePath,
+      request.topicSlug,
+      "follow-ups",
+      `follow-up-${request.timestamp}.md`
+    );
+
+    // Verify resolved path stays within workspace
+    const resolved = path.resolve(followUpPath);
+    if (!resolved.startsWith(path.resolve(workspacePath))) {
+      res.writeHead(403, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Forbidden" }));
+      return;
+    }
+
+    if (!fs.existsSync(followUpPath)) {
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Follow-up not found" }));
+      return;
+    }
+
+    try {
+      fs.unlinkSync(followUpPath);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ success: true }));
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Unknown error";
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: msg }));
+    }
+  });
 }
 
 function formatFollowUpMarkdown(

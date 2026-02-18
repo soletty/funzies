@@ -688,6 +688,37 @@ export function renderVerification(workspace: Workspace, topic: Topic): string |
 
 // ─── Trajectory Page ───
 
+interface CharacterStance {
+  name: string;
+  framework: string;
+  position: string;
+}
+
+function extractStances(divergenceContent: string): CharacterStance[] {
+  const stances: CharacterStance[] = [];
+  const lines = divergenceContent.split("\n");
+  const stanceRe = /^\s*-\s+\*{0,2}([^*(]+?)\*{0,2}\s*\(([^)]+)\):\s*(.+)/;
+
+  for (let i = 0; i < lines.length; i++) {
+    const match = lines[i].match(stanceRe);
+    if (match) {
+      let position = match[3].trim();
+      // Accumulate continuation lines
+      for (let j = i + 1; j < lines.length; j++) {
+        const nextLine = lines[j];
+        if (/^\s*-\s+\S/.test(nextLine) || nextLine.trim() === "" || /^#{1,3}\s/.test(nextLine)) break;
+        if (/^\s{4,}/.test(nextLine)) {
+          position += " " + nextLine.trim();
+        } else {
+          break;
+        }
+      }
+      stances.push({ name: match[1].trim(), framework: match[2].trim(), position });
+    }
+  }
+  return stances;
+}
+
 export function renderTrajectory(workspace: Workspace, topic: Topic): string {
   const nav = buildNav(workspace, `${topic.slug}/trajectory`);
   const bc = breadcrumb(
@@ -701,66 +732,84 @@ export function renderTrajectory(workspace: Workspace, topic: Topic): string {
     colorMap[char.name] = avatarColor(i);
   });
 
-  // Build timeline entries: iterations + follow-ups, sorted chronologically
-  let timelineHtml = "";
-
-  // Iterations as foundational events
-  for (const iter of topic.iterations) {
-    const speakerNames = new Set<string>();
-    for (const round of iter.rounds) {
-      for (const ex of [...round.exchanges, ...round.assemblyReactions, ...round.socrate]) {
-        speakerNames.add(ex.speaker);
-      }
+  // Fuzzy match character by first name
+  function findCharColor(name: string): string {
+    if (colorMap[name]) return colorMap[name];
+    const lower = name.toLowerCase();
+    for (const fullName of Object.keys(colorMap)) {
+      const firstName = fullName.split(/\s+/)[0].toLowerCase();
+      if (firstName === lower || fullName.toLowerCase().includes(lower)) return colorMap[fullName];
     }
-    const participants = [...speakerNames]
-      .filter((s) => colorMap[s])
-      .map((s) => `<span class="trajectory-avatar-sm" style="background:${colorMap[s]}">${initials(s)}</span>`)
-      .join("");
+    return "var(--color-accent)";
+  }
 
-    timelineHtml += `
-    <div class="trajectory-entry trajectory-iteration">
-      <div class="trajectory-marker"></div>
-      <div class="trajectory-content">
-        <div class="trajectory-label">Debate Iteration ${iter.number}</div>
-        <div class="trajectory-title">
-          <a href="/${topic.slug}/iteration-${iter.number}.html">${esc(formatStructure(iter.structure))}</a>
-        </div>
-        <div class="trajectory-participants">${participants}</div>
-        ${iter.rounds.length > 0 ? `<div class="trajectory-detail">${iter.rounds.length} rounds</div>` : ""}
-      </div>
+  function findCharInitials(name: string): string {
+    for (const fullName of Object.keys(colorMap)) {
+      const firstName = fullName.split(/\s+/)[0].toLowerCase();
+      if (name.toLowerCase() === firstName || fullName.toLowerCase().includes(name.toLowerCase())) return initials(fullName);
+    }
+    return name[0]?.toUpperCase() ?? "?";
+  }
+
+  // --- Divergence Map ---
+  const allDivergences: DivergencePoint[] = [];
+  if (topic.synthesis) allDivergences.push(...topic.synthesis.divergence);
+  for (const iter of topic.iterations) {
+    if (iter.synthesis) allDivergences.push(...iter.synthesis.divergence);
+  }
+
+  // Deduplicate by issue name (main synthesis and iteration synthesis may overlap)
+  const seenIssues = new Set<string>();
+  const uniqueDivergences: DivergencePoint[] = [];
+  for (const dp of allDivergences) {
+    if (!seenIssues.has(dp.issue)) {
+      seenIssues.add(dp.issue);
+      uniqueDivergences.push(dp);
+    }
+  }
+
+  let divergenceMapHtml = "";
+  if (uniqueDivergences.length > 0) {
+    const issueCards = uniqueDivergences.map((dp) => {
+      const stances = extractStances(dp.content);
+      if (stances.length === 0) {
+        return `
+          <div class="divergence-issue">
+            <h3 class="divergence-issue-title">${esc(dp.issue)}</h3>
+            <div class="divergence-prose">${md(dp.content)}</div>
+          </div>`;
+      }
+
+      const stanceHtml = stances.map((s) => {
+        const color = findCharColor(s.name);
+        const ini = findCharInitials(s.name);
+        return `
+          <div class="divergence-stance">
+            <div class="divergence-stance-speaker">
+              <span class="trajectory-avatar-sm" style="background:${color}">${ini}</span>
+              <span class="divergence-stance-name">${esc(s.name)}</span>
+              <span class="badge badge-tag">${esc(s.framework)}</span>
+            </div>
+            <div class="divergence-stance-position">${esc(s.position)}</div>
+          </div>`;
+      }).join("");
+
+      return `
+        <div class="divergence-issue">
+          <h3 class="divergence-issue-title">${esc(dp.issue)}</h3>
+          <div class="divergence-stances">${stanceHtml}</div>
+        </div>`;
+    }).join("");
+
+    divergenceMapHtml = `
+    <div class="trajectory-divergence-map">
+      <h2 class="trajectory-section-heading">Divergence Map</h2>
+      <p class="trajectory-section-subtitle">Key issues where the assembly remains divided</p>
+      ${issueCards}
     </div>`;
   }
 
-  // Follow-ups
-  for (const fu of topic.followUps) {
-    const respondents = fu.responses
-      .map((r) => {
-        const color = colorMap[r.speaker] ?? "var(--color-accent)";
-        return `<span class="trajectory-avatar-sm" style="background:${color}">${initials(r.speaker)}</span>`;
-      })
-      .join("");
-
-    const preview = fu.responses.length > 0
-      ? truncate(fu.responses[0].content, 120)
-      : "";
-
-    timelineHtml += `
-    <div class="trajectory-entry trajectory-followup">
-      <div class="trajectory-marker"></div>
-      <div class="trajectory-content">
-        <div class="trajectory-meta">
-          ${fu.timestamp ? `<span class="trajectory-time">${esc(fu.timestamp)}</span>` : ""}
-          ${fu.mode ? `<span class="badge badge-tag">${esc(fu.mode)}</span>` : ""}
-          ${fu.context ? `<span class="trajectory-context">from ${esc(fu.context)}</span>` : ""}
-        </div>
-        <div class="trajectory-question">${esc(fu.question)}</div>
-        <div class="trajectory-participants">${respondents}</div>
-        ${preview ? `<div class="trajectory-preview">${esc(preview)}</div>` : ""}
-      </div>
-    </div>`;
-  }
-
-  // Detect recurring tensions: characters who clash across multiple follow-ups
+  // --- Recurring Tensions ---
   const clashCounts = new Map<string, number>();
   for (const fu of topic.followUps) {
     if (fu.responses.length >= 2) {
@@ -803,11 +852,9 @@ export function renderTrajectory(workspace: Workspace, topic: Topic): string {
 
   const content = `
     <h1>Thinking Trajectory</h1>
-    <p class="page-subtitle">Chronological history of deliberation — ${topic.iterations.length} iterations, ${topic.followUps.length} follow-ups</p>
-    ${tensionsHtml}
-    <div class="trajectory-timeline">
-      ${timelineHtml}
-    </div>`;
+    <p class="page-subtitle">How the assembly's positions have evolved — ${uniqueDivergences.length} divergence${uniqueDivergences.length !== 1 ? "s" : ""}, ${topic.followUps.length} follow-up${topic.followUps.length !== 1 ? "s" : ""}</p>
+    ${divergenceMapHtml}
+    ${tensionsHtml}`;
 
   return layout(`Trajectory — ${topic.title}`, content, nav, bc);
 }
@@ -952,9 +999,10 @@ function renderFollowUpSection(topic: Topic, pageContext: string, defaultCharact
     colorMap[char.name] = avatarColor(i);
   });
 
-  // Render persisted follow-ups
+  // Render persisted follow-ups — only those matching this page's context
   const persistedHtml = topic.followUps
-    .map((fu) => renderPersistedFollowUp(fu, colorMap))
+    .filter((fu) => fu.context === pageContext)
+    .map((fu) => renderPersistedFollowUp(fu, colorMap, topic.slug))
     .join("");
 
   // Character names for the request
@@ -1047,7 +1095,7 @@ function renderFollowUpSection(topic: Topic, pageContext: string, defaultCharact
     ${renderFollowUpScript(topic.slug, pageContext, characterNames, colorMap, defaultCharacter)}`;
 }
 
-function renderPersistedFollowUp(fu: FollowUp, colorMap: Record<string, string>): string {
+function renderPersistedFollowUp(fu: FollowUp, colorMap: Record<string, string>, topicSlug: string): string {
   const responsesHtml = fu.responses.map((r) => {
     const color = colorMap[r.speaker] ?? "var(--color-accent)";
     return `
@@ -1061,10 +1109,11 @@ function renderPersistedFollowUp(fu: FollowUp, colorMap: Record<string, string>)
   }).join("");
 
   return `
-    <div class="follow-up-response follow-up-persisted">
+    <div class="follow-up-response follow-up-persisted" data-timestamp="${esc(fu.timestamp)}" data-topic="${esc(topicSlug)}">
       <div class="follow-up-meta">
         ${fu.timestamp ? `<span class="follow-up-time">${esc(fu.timestamp)}</span>` : ""}
         ${fu.mode ? `<span class="badge badge-tag">${esc(fu.mode)}</span>` : ""}
+        <button class="follow-up-delete-btn" title="Delete this follow-up">&times;</button>
       </div>
       <div class="follow-up-question-display">
         <strong>Q:</strong> ${esc(fu.question)}
@@ -1377,6 +1426,46 @@ function renderFollowUpScript(
     div.textContent = text;
     return div.innerHTML;
   }
+
+  // Delete follow-up handler
+  document.addEventListener('click', function(e) {
+    var btn = e.target.closest('.follow-up-delete-btn');
+    if (!btn) return;
+
+    var card = btn.closest('.follow-up-persisted');
+    if (!card) return;
+
+    var timestamp = card.getAttribute('data-timestamp');
+    var topic = card.getAttribute('data-topic');
+    if (!timestamp || !topic) return;
+
+    if (!confirm('Delete this follow-up conversation? This cannot be undone.')) return;
+
+    btn.disabled = true;
+    btn.textContent = '...';
+
+    fetch('/api/follow-up', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ topicSlug: topic, timestamp: timestamp })
+    }).then(function(response) {
+      if (!response.ok) throw new Error('Delete failed');
+      card.style.transition = 'opacity 0.3s, max-height 0.3s';
+      card.style.opacity = '0';
+      card.style.maxHeight = card.offsetHeight + 'px';
+      card.style.overflow = 'hidden';
+      setTimeout(function() {
+        card.style.maxHeight = '0';
+        card.style.margin = '0';
+        card.style.padding = '0';
+        setTimeout(function() { card.remove(); }, 300);
+      }, 150);
+    }).catch(function(err) {
+      btn.disabled = false;
+      btn.textContent = '\\u00d7';
+      alert('Failed to delete: ' + err.message);
+    });
+  });
 })();
 </script>`;
 }

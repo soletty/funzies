@@ -1,7 +1,7 @@
 import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
-import { handleFollowUp } from "./follow-up.js";
+import { handleFollowUp, handleDeleteFollowUp } from "./follow-up.js";
 
 const MIME_TYPES: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
@@ -27,6 +27,16 @@ export function startServer(
         return;
       }
       handleFollowUp(req, res, workspacePath);
+      return;
+    }
+
+    if (req.url === "/api/follow-up" && req.method === "DELETE") {
+      if (!workspacePath) {
+        res.writeHead(503, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Workspace path not configured" }));
+        return;
+      }
+      handleDeleteFollowUp(req, res, workspacePath);
       return;
     }
 
