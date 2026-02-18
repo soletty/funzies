@@ -173,6 +173,252 @@ function breadcrumb(...crumbs: Array<{ label: string; href?: string }>): string 
 
 // ─── Pages ───
 
+function renderAssemblyLauncher(): string {
+  return `
+    <div class="assembly-launcher" id="assembly-launcher">
+      <div class="assembly-launcher-header">
+        <h2>Start a New Assembly</h2>
+        <p>Launch a 6-character adversarial deliberation on any topic</p>
+      </div>
+
+      <form class="assembly-start-form" id="assembly-start-form">
+        <input type="text" id="assembly-topic" placeholder="What should the assembly deliberate on?" autocomplete="off" />
+        <button type="submit">Go</button>
+      </form>
+
+      <div class="assembly-progress" id="assembly-progress" style="display:none">
+        <div class="assembly-phase-bar" id="assembly-phase-bar">
+          <div class="assembly-phase-dot" data-phase="analysis"><span class="dot"></span><span class="label">Analysis</span></div>
+          <div class="assembly-phase-dot" data-phase="characters"><span class="dot"></span><span class="label">Characters</span></div>
+          <div class="assembly-phase-dot" data-phase="references"><span class="dot"></span><span class="label">References</span></div>
+          <div class="assembly-phase-dot" data-phase="debate"><span class="dot"></span><span class="label">Debate</span></div>
+          <div class="assembly-phase-dot" data-phase="synthesis"><span class="dot"></span><span class="label">Synthesis</span></div>
+          <div class="assembly-phase-dot" data-phase="deliverable"><span class="dot"></span><span class="label">Deliverable</span></div>
+          <div class="assembly-phase-dot" data-phase="verification"><span class="dot"></span><span class="label">Verification</span></div>
+        </div>
+
+        <div class="assembly-completed-list" id="assembly-completed-list"></div>
+
+        <div class="assembly-animation" id="assembly-animation">
+          <div class="orbit-ring"><div class="orbit-dot"></div></div>
+          <div class="orbit-ring ring-2"><div class="orbit-dot"></div></div>
+          <div class="orbit-ring ring-3"><div class="orbit-dot"></div></div>
+        </div>
+
+        <div class="assembly-question" id="assembly-question" style="display:none">
+          <p class="assembly-question-label">Claude is asking:</p>
+          <div class="assembly-question-text" id="assembly-question-text"></div>
+          <form class="assembly-input-form" id="assembly-input-form">
+            <input type="text" id="assembly-input" placeholder="Type your answer..." autocomplete="off" />
+            <button type="submit">Send</button>
+          </form>
+        </div>
+
+        <div class="assembly-done" id="assembly-done" style="display:none">
+          <p>Assembly complete!</p>
+          <a id="assembly-done-link" href="#">View full assembly &rarr;</a>
+        </div>
+      </div>
+    </div>
+
+    <script>
+    (function() {
+      const startForm = document.getElementById('assembly-start-form');
+      const topicInput = document.getElementById('assembly-topic');
+      const progress = document.getElementById('assembly-progress');
+      const phaseBar = document.getElementById('assembly-phase-bar');
+      const completedList = document.getElementById('assembly-completed-list');
+      const animation = document.getElementById('assembly-animation');
+      const questionArea = document.getElementById('assembly-question');
+      const questionText = document.getElementById('assembly-question-text');
+      const inputForm = document.getElementById('assembly-input-form');
+      const inputField = document.getElementById('assembly-input');
+      const doneArea = document.getElementById('assembly-done');
+      const doneLink = document.getElementById('assembly-done-link');
+      let evtSource = null;
+
+      startForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const topic = topicInput.value.trim();
+        if (!topic) return;
+
+        startForm.style.display = 'none';
+        progress.style.display = 'block';
+
+        try {
+          await fetch('/api/assembly/start', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ topic })
+          });
+        } catch (err) {
+          startForm.style.display = '';
+          progress.style.display = 'none';
+          alert('Failed to start assembly: ' + err.message);
+          return;
+        }
+
+        evtSource = new EventSource('/api/assembly/stream');
+        evtSource.onmessage = function(e) {
+          const data = JSON.parse(e.data);
+          handleEvent(data);
+        };
+        evtSource.onerror = function() {
+          // SSE reconnects automatically; if session ended this is expected
+        };
+      });
+
+      inputForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const text = inputField.value.trim();
+        if (!text) return;
+        inputField.value = '';
+        questionArea.style.display = 'none';
+
+        await fetch('/api/assembly/input', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text })
+        });
+      });
+
+      function handleEvent(data) {
+        if (data.type === 'state') {
+          // Restore state on reconnect
+          if (data.completedPhases) {
+            data.completedPhases.forEach(function(p) { markComplete(p); });
+          }
+          if (data.completedPhaseUrls) {
+            Object.keys(data.completedPhaseUrls).forEach(function(p) {
+              addCompletedLink(p, data.completedPhaseUrls[p]);
+            });
+          }
+          if (data.currentPhase) {
+            setActivePhase(data.currentPhase);
+          }
+          if (data.status === 'waiting_for_input') {
+            questionArea.style.display = 'block';
+          }
+          if (data.status === 'complete') {
+            animation.style.display = 'none';
+            doneArea.style.display = 'block';
+            if (data.topicSlug) doneLink.href = '/' + data.topicSlug + '/index.html';
+          }
+          return;
+        }
+
+        if (data.type === 'phase') {
+          setActivePhase(data.phase);
+        }
+
+        if (data.type === 'phase_complete') {
+          markComplete(data.phase);
+          addCompletedLink(data.phase, data.url);
+        }
+
+        if (data.type === 'text' && questionArea.style.display !== 'none') {
+          // Text during input_needed — it's the question
+        }
+
+        if (data.type === 'input_needed') {
+          questionArea.style.display = 'block';
+          if (data.content) {
+            questionText.textContent = data.content;
+          }
+          inputField.focus();
+        }
+
+        if (data.type === 'text') {
+          // Show latest text as question context
+          questionText.textContent = data.content.slice(-500);
+        }
+
+        if (data.type === 'input_received') {
+          questionArea.style.display = 'none';
+        }
+
+        if (data.type === 'complete') {
+          animation.style.display = 'none';
+          questionArea.style.display = 'none';
+          doneArea.style.display = 'block';
+          if (data.topicSlug) {
+            doneLink.href = '/' + data.topicSlug + '/index.html';
+          }
+          if (evtSource) evtSource.close();
+          // Reload after a moment so nav updates
+          setTimeout(function() { location.reload(); }, 2000);
+        }
+
+        if (data.type === 'error') {
+          animation.style.display = 'none';
+          questionArea.style.display = 'none';
+          var errDiv = document.createElement('div');
+          errDiv.className = 'assembly-error';
+          errDiv.textContent = 'Error: ' + data.content;
+          progress.appendChild(errDiv);
+          if (evtSource) evtSource.close();
+        }
+      }
+
+      function setActivePhase(phase) {
+        var dots = phaseBar.querySelectorAll('.assembly-phase-dot');
+        dots.forEach(function(d) {
+          if (d.dataset.phase === phase) {
+            d.classList.add('active');
+          }
+        });
+      }
+
+      function markComplete(phase) {
+        var dots = phaseBar.querySelectorAll('.assembly-phase-dot');
+        dots.forEach(function(d) {
+          if (d.dataset.phase === phase) {
+            d.classList.remove('active');
+            d.classList.add('complete');
+          }
+        });
+      }
+
+      var addedLinks = {};
+      function addCompletedLink(phase, url) {
+        if (addedLinks[phase]) return;
+        addedLinks[phase] = true;
+        var names = {
+          analysis: 'Analysis', characters: 'Characters', references: 'Reference Library',
+          debate: 'Debate', synthesis: 'Synthesis', deliverable: 'Deliverable', verification: 'Verification'
+        };
+        var item = document.createElement('div');
+        item.className = 'assembly-completed-phase';
+        item.innerHTML = '<span class="check">&#10003;</span> ' + (names[phase] || phase) + ' ready &mdash; <a href="' + url + '">View &rarr;</a>';
+        completedList.appendChild(item);
+      }
+
+      // Check if there's already a running session
+      fetch('/api/assembly/status').then(function(r) { return r.json(); }).then(function(status) {
+        if (status && status.status && status.status !== 'idle') {
+          startForm.style.display = 'none';
+          progress.style.display = 'block';
+          evtSource = new EventSource('/api/assembly/stream');
+          evtSource.onmessage = function(e) { handleEvent(JSON.parse(e.data)); };
+          // Restore already-completed phases with URLs
+          if (status.completedPhases) {
+            status.completedPhases.forEach(function(p) { markComplete(p); });
+          }
+          if (status.completedPhaseUrls) {
+            Object.keys(status.completedPhaseUrls).forEach(function(p) {
+              addCompletedLink(p, status.completedPhaseUrls[p]);
+            });
+          }
+          if (status.currentPhase) setActivePhase(status.currentPhase);
+          if (status.status === 'waiting_for_input') {
+            questionArea.style.display = 'block';
+          }
+        }
+      }).catch(function() { /* no session, that's fine */ });
+    })();
+    </script>`;
+}
+
 export function renderWorkspaceIndex(workspace: Workspace): string {
   const nav = buildNav(workspace, "index");
 
@@ -249,6 +495,9 @@ export function renderWorkspaceIndex(workspace: Workspace): string {
   const content = `
     <h1>Assembly Workspace</h1>
     <p class="page-subtitle">${statsLine}</p>
+
+    ${renderAssemblyLauncher()}
+
     ${recentHtml}
     <div class="section-header"><h2>Topics</h2><span class="section-count">${workspace.topics.length}</span></div>
     ${topicCards}`;
@@ -1439,31 +1688,25 @@ function renderFollowUpScript(
     var topic = card.getAttribute('data-topic');
     if (!timestamp || !topic) return;
 
-    if (!confirm('Delete this follow-up conversation? This cannot be undone.')) return;
+    // Convert readable timestamp (2026-02-18 12:33:01) to filename format (2026-02-18T12-33-01)
+    var fileTimestamp = timestamp.replace(' ', 'T').replace(/:/g, '-');
 
-    btn.disabled = true;
-    btn.textContent = '...';
+    // Animate out immediately — no confirmation
+    card.style.transition = 'opacity 0.3s, max-height 0.3s';
+    card.style.opacity = '0';
+    card.style.maxHeight = card.offsetHeight + 'px';
+    card.style.overflow = 'hidden';
+    setTimeout(function() {
+      card.style.maxHeight = '0';
+      card.style.margin = '0';
+      card.style.padding = '0';
+      setTimeout(function() { card.remove(); }, 300);
+    }, 150);
 
     fetch('/api/follow-up', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ topicSlug: topic, timestamp: timestamp })
-    }).then(function(response) {
-      if (!response.ok) throw new Error('Delete failed');
-      card.style.transition = 'opacity 0.3s, max-height 0.3s';
-      card.style.opacity = '0';
-      card.style.maxHeight = card.offsetHeight + 'px';
-      card.style.overflow = 'hidden';
-      setTimeout(function() {
-        card.style.maxHeight = '0';
-        card.style.margin = '0';
-        card.style.padding = '0';
-        setTimeout(function() { card.remove(); }, 300);
-      }, 150);
-    }).catch(function(err) {
-      btn.disabled = false;
-      btn.textContent = '\\u00d7';
-      alert('Failed to delete: ' + err.message);
+      body: JSON.stringify({ topicSlug: topic, timestamp: fileTimestamp })
     });
   });
 })();

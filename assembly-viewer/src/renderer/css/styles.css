@@ -1542,3 +1542,302 @@ details > .details-content {
     grid-template-columns: 1fr;
   }
 }
+
+/* ─── Assembly Launcher ─── */
+
+.assembly-launcher {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 1.5rem 2rem;
+  margin: 1.5rem 0 2rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.assembly-launcher::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--color-accent), #e88a6e, var(--color-accent));
+}
+
+.assembly-launcher-header h2 {
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  margin: 0 0 0.25rem;
+}
+
+.assembly-launcher-header p {
+  color: var(--color-text-secondary);
+  font-size: 0.88rem;
+  margin: 0 0 1rem;
+}
+
+.assembly-start-form {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.assembly-start-form input[type="text"] {
+  flex: 1;
+  padding: 0.6rem 0.85rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  background: var(--color-surface);
+  color: var(--color-text);
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.assembly-start-form input[type="text"]:focus {
+  border-color: var(--color-accent);
+}
+
+.assembly-start-form button,
+.assembly-input-form button {
+  padding: 0.6rem 1.2rem;
+  background: var(--color-accent);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-family: var(--font-body);
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.assembly-start-form button:hover,
+.assembly-input-form button:hover {
+  background: #9a3d28;
+}
+
+/* Phase bar */
+
+.assembly-phase-bar {
+  display: flex;
+  gap: 0.25rem;
+  justify-content: center;
+  margin: 1rem 0 1.25rem;
+  flex-wrap: wrap;
+}
+
+.assembly-phase-dot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 72px;
+}
+
+.assembly-phase-dot .dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--color-border);
+  background: transparent;
+  display: block;
+  transition: all 0.3s;
+}
+
+.assembly-phase-dot .label {
+  font-size: 0.72rem;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  font-weight: 500;
+}
+
+.assembly-phase-dot.active .dot {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  animation: pulse-dot 1.5s ease-in-out infinite;
+}
+
+.assembly-phase-dot.active .label {
+  color: var(--color-accent);
+  font-weight: 600;
+}
+
+.assembly-phase-dot.complete .dot {
+  border-color: #1a7f37;
+  background: #1a7f37;
+}
+
+.assembly-phase-dot.complete .label {
+  color: #1a7f37;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(181, 74, 50, 0.4); }
+  50% { box-shadow: 0 0 0 6px rgba(181, 74, 50, 0); }
+}
+
+/* Completed phase links */
+
+.assembly-completed-list {
+  margin: 0.75rem 0;
+}
+
+.assembly-completed-phase {
+  padding: 0.4rem 0;
+  font-size: 0.88rem;
+  color: var(--color-text-secondary);
+}
+
+.assembly-completed-phase .check {
+  color: #1a7f37;
+  font-weight: 600;
+}
+
+.assembly-completed-phase a {
+  color: var(--color-accent);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.assembly-completed-phase a:hover {
+  text-decoration: underline;
+}
+
+/* Loading animation */
+
+.assembly-animation {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 60px;
+  position: relative;
+  margin: 0.5rem 0;
+}
+
+.orbit-ring {
+  position: absolute;
+  border: 1px solid rgba(181, 74, 50, 0.15);
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: orbit-spin 3s linear infinite;
+}
+
+.orbit-ring.ring-2 {
+  width: 28px;
+  height: 28px;
+  animation-duration: 2s;
+  animation-direction: reverse;
+}
+
+.orbit-ring.ring-3 {
+  width: 52px;
+  height: 52px;
+  animation-duration: 4s;
+}
+
+.orbit-dot {
+  width: 6px;
+  height: 6px;
+  background: var(--color-accent);
+  border-radius: 50%;
+  position: absolute;
+  top: -3px;
+  left: 50%;
+  margin-left: -3px;
+}
+
+@keyframes orbit-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Question area */
+
+.assembly-question {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 1rem 1.25rem;
+  margin: 1rem 0;
+}
+
+.assembly-question-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin: 0 0 0.5rem;
+}
+
+.assembly-question-text {
+  font-size: 0.9rem;
+  line-height: 1.55;
+  color: var(--color-text);
+  margin: 0 0 0.75rem;
+  white-space: pre-wrap;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.assembly-input-form {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.assembly-input-form input[type="text"] {
+  flex: 1;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  font-family: var(--font-body);
+  font-size: 0.88rem;
+  background: var(--color-bg);
+  color: var(--color-text);
+  outline: none;
+}
+
+.assembly-input-form input[type="text"]:focus {
+  border-color: var(--color-accent);
+}
+
+/* Done state */
+
+.assembly-done {
+  text-align: center;
+  padding: 1rem;
+}
+
+.assembly-done p {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #1a7f37;
+  margin: 0 0 0.5rem;
+}
+
+.assembly-done a {
+  color: var(--color-accent);
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 0.95rem;
+}
+
+.assembly-done a:hover {
+  text-decoration: underline;
+}
+
+/* Error state */
+
+.assembly-error {
+  color: #cf222e;
+  font-size: 0.88rem;
+  padding: 0.75rem;
+  background: rgba(207, 34, 46, 0.05);
+  border-radius: 6px;
+  margin-top: 0.75rem;
+}

@@ -2,6 +2,7 @@ import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
 import { handleFollowUp, handleDeleteFollowUp } from "./follow-up.js";
+import { startSession, sendInput, addSSEClient, getSessionStatus } from "./assembly-session.js";
 
 const MIME_TYPES: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
@@ -13,12 +14,20 @@ const MIME_TYPES: Record<string, string> = {
   ".ico": "image/x-icon",
 };
 
+function readBody(req: http.IncomingMessage): Promise<string> {
+  return new Promise((resolve) => {
+    let body = "";
+    req.on("data", (chunk: Buffer) => { body += chunk.toString(); });
+    req.on("end", () => resolve(body));
+  });
+}
+
 export function startServer(
   buildDir: string,
   port: number,
   workspacePath?: string
 ): http.Server {
-  const server = http.createServer((req, res) => {
+  const server = http.createServer(async (req, res) => {
     // API routes
     if (req.url === "/api/follow-up" && req.method === "POST") {
       if (!workspacePath) {
@@ -37,6 +46,72 @@ export function startServer(
         return;
       }
       handleDeleteFollowUp(req, res, workspacePath);
+      return;
+    }
+
+    // Assembly API routes
+    if (req.url === "/api/assembly/start" && req.method === "POST") {
+      if (!workspacePath) {
+        res.writeHead(503, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Workspace path not configured" }));
+        return;
+      }
+      const body = await readBody(req);
+      let parsed: { topic?: string };
+      try {
+        parsed = JSON.parse(body);
+      } catch {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Invalid JSON" }));
+        return;
+      }
+      if (!parsed.topic) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Missing topic" }));
+        return;
+      }
+      startSession(parsed.topic, workspacePath, buildDir);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true }));
+      return;
+    }
+
+    if (req.url === "/api/assembly/stream" && req.method === "GET") {
+      const status = getSessionStatus();
+      if (!status) {
+        res.writeHead(404, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "No active session" }));
+        return;
+      }
+      addSSEClient(res);
+      return;
+    }
+
+    if (req.url === "/api/assembly/input" && req.method === "POST") {
+      const body = await readBody(req);
+      let parsed: { text?: string };
+      try {
+        parsed = JSON.parse(body);
+      } catch {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Invalid JSON" }));
+        return;
+      }
+      if (!parsed.text) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Missing text" }));
+        return;
+      }
+      const sent = sendInput(parsed.text);
+      res.writeHead(sent ? 200 : 400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: sent }));
+      return;
+    }
+
+    if (req.url === "/api/assembly/status" && req.method === "GET") {
+      const status = getSessionStatus();
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(status ?? { status: "idle" }));
       return;
     }
 

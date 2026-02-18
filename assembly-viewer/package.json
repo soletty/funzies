@@ -8,7 +8,7 @@
   },
   "scripts": {
     "build": "tsc && cp -r src/renderer/css dist/renderer/",
-    "dev": "npm run build && node dist/cli.js --dir ../assembly-workspace",
+    "dev": "npm run build && node dist/cli.js",
     "start": "node dist/cli.js",
     "prepublishOnly": "npm run build"
   },
