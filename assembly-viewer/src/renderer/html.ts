@@ -74,6 +74,8 @@ function layout(title: string, content: string, nav: string, bc: string = ""): s
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Source+Sans+3:wght@400;500;550;600;650;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 </head>
 <body>
+  <button class="nav-hamburger" aria-label="Open menu" onclick="document.body.classList.toggle('nav-open')">&#9776;</button>
+  <div class="nav-overlay" onclick="document.body.classList.remove('nav-open')"></div>
   ${nav}
   <main>
     ${bc}
@@ -384,8 +386,21 @@ function renderAssemblyLauncher(): string {
           estimateEl.textContent = '';
           doneArea.style.display = 'block';
           if (data.topicSlug) doneLink.href = '/' + data.topicSlug + '/index.html';
+
+          if (data.partial && data.missingPhases && data.missingPhases.length > 0) {
+            var doneP = doneArea.querySelector('p');
+            doneP.textContent = 'Assembly finished (some phases were skipped)';
+            // Mark missing phases visually
+            data.missingPhases.forEach(function(p) {
+              var dot = phaseBar.querySelector('[data-phase="' + p + '"]');
+              if (dot && !dot.classList.contains('complete')) {
+                dot.classList.add('skipped');
+              }
+            });
+          }
+
           if (evtSource) evtSource.close();
-          setTimeout(function() { location.reload(); }, 2000);
+          newSessionArea.style.display = '';
         }
 
         if (data.type === 'error') {
