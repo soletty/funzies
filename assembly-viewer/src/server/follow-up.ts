@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import { createInterface } from "node:readline";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { rebuildTopicPages } from "./rebuild.js";
@@ -82,6 +83,9 @@ function streamFollowUp(
   const fileBlock = buildFileReferenceBlock(request.files ?? [], workspacePath);
   const prompt = basePrompt + fileBlock;
 
+  // Write prompt to a temp file to avoid E2BIG when the assembled context is large
+  const promptFile = writePromptFile(prompt);
+
   // SSE headers
   res.writeHead(200, {
     "Content-Type": "text/event-stream",
@@ -91,10 +95,10 @@ function streamFollowUp(
   });
 
   const args = [
-    "-p", prompt,
+    "-p", `Read the file at ${promptFile} for your complete instructions and follow them exactly.`,
     "--output-format", "stream-json",
     "--verbose",
-    "--max-turns", "1",
+    "--max-turns", "3",
   ];
 
   const env = { ...process.env };
@@ -149,6 +153,7 @@ function streamFollowUp(
   });
 
   claude.on("close", (code) => {
+    cleanupPromptFile(promptFile);
     console.log("[follow-up] Claude exited with code:", code, "fullText length:", fullText.length, "stderr:", stderrOutput.slice(0, 200));
     if (code !== 0 && !fullText) {
       safeSend(`data: ${JSON.stringify({ type: "error", content: stderrOutput || `Claude exited with code ${code}` })}\n\n`);
@@ -586,6 +591,17 @@ export function handleDeleteWorkspace(
       res.end(JSON.stringify({ error: msg }));
     }
   });
+}
+
+function writePromptFile(prompt: string): string {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "assembly-"));
+  const file = path.join(tmpDir, "prompt.md");
+  fs.writeFileSync(file, prompt, "utf-8");
+  return file;
+}
+
+function cleanupPromptFile(promptFile: string) {
+  try { fs.rmSync(path.dirname(promptFile), { recursive: true }); } catch { /* ignore */ }
 }
 
 function formatFollowUpMarkdown(

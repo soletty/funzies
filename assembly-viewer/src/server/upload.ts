@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import type { IncomingMessage, ServerResponse } from "node:http";
 
@@ -72,7 +73,7 @@ export function handleUpload(
       return;
     }
 
-    const uploadsDir = path.join(workspacePath, "_uploads");
+    const uploadsDir = path.join(os.tmpdir(), "assembly-uploads");
     fs.mkdirSync(uploadsDir, { recursive: true });
 
     const timestamp = Date.now();
@@ -82,11 +83,10 @@ export function handleUpload(
     const buffer = Buffer.from(parsed.data, "base64");
     fs.writeFileSync(destPath, buffer);
 
-    const relativePath = `_uploads/${destName}`;
-    console.log(`[upload] Saved ${relativePath} (${buffer.length} bytes)`);
+    console.log(`[upload] Saved ${destPath} (${buffer.length} bytes)`);
 
     res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ path: relativePath }));
+    res.end(JSON.stringify({ path: destPath }));
   });
 }
 
@@ -94,15 +94,15 @@ export function isImageFile(filePath: string): boolean {
   return IMAGE_EXTENSIONS.has(path.extname(filePath).toLowerCase());
 }
 
-export function buildFileReferenceBlock(files: string[], workspacePath: string): string {
+export function buildFileReferenceBlock(files: string[], _workspacePath: string): string {
   if (!files || files.length === 0) return "";
 
   const lines = files.map((file) => {
-    const fullPath = path.join(workspacePath, file);
+    // Paths are already absolute (from temp dir)
     if (isImageFile(file)) {
-      return `[Attached image: ${fullPath}]`;
+      return `[Attached image: ${file}]`;
     }
-    return `[Attached file: ${fullPath} — please read this file for context]`;
+    return `[Attached file: ${file} — please read this file for context]`;
   });
 
   return "\n\n" + lines.join("\n");

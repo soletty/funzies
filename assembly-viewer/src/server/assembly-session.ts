@@ -1,6 +1,7 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { createInterface } from "node:readline";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import type { ServerResponse } from "node:http";
 import { buildContentGraph } from "../graph/index.js";
@@ -271,8 +272,11 @@ export function startSession(topic: string, workspacePath: string, buildDir: str
 
 If you need critical context to produce a high-quality assembly, you may use AskUserQuestion to ask the user ONE focused clarifying question. Keep it brief and specific. If you can proceed with reasonable assumptions, do so without asking.`;
 
+  // Write prompt to a temp file to avoid E2BIG on systems with low ARG_MAX
+  const promptFile = writePromptFile(prompt);
+
   const args = [
-    "-p", prompt,
+    "-p", `Read the file at ${promptFile} for your complete instructions and follow them exactly.`,
     "--output-format", "stream-json",
     "--verbose",
     "--dangerously-skip-permissions",
@@ -332,6 +336,7 @@ If you need critical context to produce a high-quality assembly, you may use Ask
   });
 
   claude.on("close", (code, signal) => {
+    cleanupPromptFile(promptFile);
     console.log(`[assembly] Claude exited with code: ${code}, signal: ${signal}`);
 
     if (!session) return;
@@ -427,12 +432,13 @@ export function sendInput(text: string, files?: string[]) {
 
   const fileBlock = buildFileReferenceBlock(files ?? [], workspacePath);
   const prompt = text + fileBlock;
+  const promptFile = writePromptFile(prompt);
 
   console.log(`[assembly] Resuming session ${sessionId} with input: "${text.slice(0, 80)}"`);
 
   const args = [
     "--resume", sessionId,
-    "-p", prompt,
+    "-p", `Read the file at ${promptFile} for the user's response and follow the instructions inside.`,
     "--output-format", "stream-json",
     "--verbose",
     "--dangerously-skip-permissions",
@@ -462,6 +468,7 @@ export function sendInput(text: string, files?: string[]) {
   });
 
   claude.on("close", (code, signal) => {
+    cleanupPromptFile(promptFile);
     console.log(`[assembly] Resume process exited with code: ${code}, signal: ${signal}`);
     if (!session) return;
 
@@ -574,6 +581,17 @@ export function getSessionStatus() {
     completedPhaseUrls: session.completedPhaseUrls,
     topicSlug: session.topicSlug,
   };
+}
+
+function writePromptFile(prompt: string): string {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "assembly-"));
+  const file = path.join(tmpDir, "prompt.md");
+  fs.writeFileSync(file, prompt, "utf-8");
+  return file;
+}
+
+function cleanupPromptFile(promptFile: string) {
+  try { fs.rmSync(path.dirname(promptFile), { recursive: true }); } catch { /* ignore */ }
 }
 
 function extractAskUserQuestion(event: Record<string, unknown>): { question: string; options?: string[] } | null {
