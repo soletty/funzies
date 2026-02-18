@@ -1820,16 +1820,17 @@ function renderFollowUpScript(
     var modeEl = document.querySelector('input[name="follow-up-mode"]:checked');
     var mode = modeEl ? modeEl.value : (PAGE_TYPE === 'character' ? 'ask-character' : 'ask-assembly');
 
-    charContainer.style.display = 'block';
-    var isSingle = (mode === 'ask-character');
-
-    // Build toggle buttons
-    var html = '';
-    if (isSingle) {
-      html += '<div class="follow-up-char-label">Choose a character:</div>';
-    } else {
-      html += '<div class="follow-up-char-label">Select characters:</div>';
+    // Hide picker for ask-assembly — the system picks relevant characters
+    if (mode === 'ask-assembly') {
+      charContainer.style.display = 'none';
+      selectedCharacters.clear();
+      return;
     }
+
+    charContainer.style.display = 'block';
+
+    // Build toggle buttons for ask-character (single select)
+    var html = '<div class="follow-up-char-label">Choose a character:</div>';
     html += '<div class="follow-up-char-row">';
 
     for (var i = 0; i < CHARACTERS.length; i++) {
@@ -1847,56 +1848,38 @@ function renderFollowUpScript(
     html += '</div>';
     charContainer.innerHTML = html;
 
-    // Bind toggle clicks
+    // Bind toggle clicks — single select only
     var toggles = charContainer.querySelectorAll('.follow-up-char-toggle');
     for (var j = 0; j < toggles.length; j++) {
       toggles[j].addEventListener('click', function() {
         var charName = this.getAttribute('data-name');
         if (this.classList.contains('locked')) return;
 
-        if (isSingle) {
-          // Deselect all others, select this one
-          selectedCharacters.clear();
-          selectedCharacters.add(charName);
-          if (DEFAULT_CHARACTER && PAGE_TYPE === 'character') selectedCharacters.add(DEFAULT_CHARACTER);
-          var allToggles = charContainer.querySelectorAll('.follow-up-char-toggle');
-          for (var k = 0; k < allToggles.length; k++) {
-            allToggles[k].classList.toggle('selected', selectedCharacters.has(allToggles[k].getAttribute('data-name')));
-          }
-        } else {
-          // Toggle this character
-          if (selectedCharacters.has(charName)) {
-            selectedCharacters.delete(charName);
-            this.classList.remove('selected');
-          } else {
-            selectedCharacters.add(charName);
-            this.classList.add('selected');
-          }
+        selectedCharacters.clear();
+        selectedCharacters.add(charName);
+        if (DEFAULT_CHARACTER && PAGE_TYPE === 'character') selectedCharacters.add(DEFAULT_CHARACTER);
+        var allToggles = charContainer.querySelectorAll('.follow-up-char-toggle');
+        for (var k = 0; k < allToggles.length; k++) {
+          allToggles[k].classList.toggle('selected', selectedCharacters.has(allToggles[k].getAttribute('data-name')));
         }
       });
     }
   }
 
-  // Initialize selected characters based on default
+  // Initialize selected characters based on mode
   function initializeSelection() {
     selectedCharacters.clear();
     var modeEl = document.querySelector('input[name="follow-up-mode"]:checked');
     var mode = modeEl ? modeEl.value : (PAGE_TYPE === 'character' ? 'ask-character' : 'ask-assembly');
 
-    if (PAGE_TYPE === 'character' && DEFAULT_CHARACTER) {
-      selectedCharacters.add(DEFAULT_CHARACTER);
-      if (mode === 'ask-assembly') {
-        for (var i = 0; i < CHARACTERS.length && selectedCharacters.size < 3; i++) {
-          selectedCharacters.add(CHARACTERS[i]);
-        }
-      }
-    } else if (mode === 'ask-character' && CHARACTERS.length > 0) {
-      selectedCharacters.add(CHARACTERS[0]);
-    } else if (mode === 'ask-assembly') {
-      for (var i = 0; i < CHARACTERS.length && i < 3; i++) {
-        selectedCharacters.add(CHARACTERS[i]);
+    if (mode === 'ask-character') {
+      if (PAGE_TYPE === 'character' && DEFAULT_CHARACTER) {
+        selectedCharacters.add(DEFAULT_CHARACTER);
+      } else if (CHARACTERS.length > 0) {
+        selectedCharacters.add(CHARACTERS[0]);
       }
     }
+    // ask-assembly: no character selection — system picks
   }
 
   // Listen for mode changes (skip for character pages — no mode UI)
@@ -1956,7 +1939,7 @@ function renderFollowUpScript(
     } else {
       var modeEl = document.querySelector('input[name="follow-up-mode"]:checked');
       mode = modeEl ? modeEl.value : 'ask-assembly';
-      chars = Array.from(selectedCharacters);
+      chars = mode === 'ask-assembly' ? [] : Array.from(selectedCharacters);
     }
 
     input.disabled = true;
