@@ -221,6 +221,9 @@ function attachProcessListeners(
       }
 
       if (event.type === "result") {
+        const subtype = event.subtype as string | undefined;
+        const stopReason = (event as Record<string, unknown>).stop_reason as string | undefined;
+        console.log(`[assembly] result event: subtype=${subtype}, stop_reason=${stopReason}`);
         onResult(event);
       }
     } catch {
@@ -251,7 +254,9 @@ export function startSession(topic: string, workspacePath: string, buildDir: str
 
   const preExistingDirs = snapshotExistingDirs(workspacePath);
 
-  const prompt = `Use the Skill tool to invoke the "assembly-skills:assembly-light" skill. The topic is: ${topic}`;
+  const prompt = `Use the Skill tool to invoke the "assembly-skills:assembly-light" skill. The topic is: ${topic}
+
+IMPORTANT: You are running in non-interactive mode. Do NOT use AskUserQuestion — there is no user to answer. Skip any clarifying questions and proceed directly with the assembly using reasonable assumptions and defaults.`;
 
   const args = [
     "-p", prompt,
@@ -261,7 +266,9 @@ export function startSession(topic: string, workspacePath: string, buildDir: str
   ];
 
   // stdin: "ignore" is required — claude's Bun runtime blocks on piped stdin
+  // cwd: workspacePath ensures Claude sees the assembly workspace, not the viewer source code
   const claude = spawn("claude", args, {
+    cwd: workspacePath,
     env: CLAUDE_ENV(),
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -310,25 +317,62 @@ export function startSession(topic: string, workspacePath: string, buildDir: str
     }
   });
 
-  claude.on("close", (code) => {
-    console.log(`[assembly] Claude exited with code: ${code}`);
+  claude.on("close", (code, signal) => {
+    console.log(`[assembly] Claude exited with code: ${code}, signal: ${signal}`);
 
     if (!session) return;
 
     if (code === 0) {
-      session.status = "complete";
       session.process = null;
+
+      // Do a final file-system poll to catch any last-second writes
+      const topicDir = session.topicSlug
+        ? path.join(workspacePath, session.topicSlug)
+        : null;
+      if (topicDir && fs.existsSync(topicDir)) {
+        for (const mapping of FILE_PHASE_MAP) {
+          if (!session.completedPhases.includes(mapping.phase) && checkFileExists(topicDir, mapping.check)) {
+            session.completedPhases.push(mapping.phase);
+            const url = `/${session.topicSlug}/${mapping.urlSuffix}`;
+            session.completedPhaseUrls[mapping.phase] = url;
+            broadcast({ type: "phase_complete", phase: mapping.phase, url });
+          }
+        }
+      }
+
       try {
         rebuildSite(workspacePath, buildDir);
       } catch (err) {
         console.error(`[assembly] Final rebuild error:`, err);
       }
-      broadcast({ type: "complete", topicSlug: session.topicSlug });
+
+      const ALL_PHASES: PhaseId[] = ["analysis", "characters", "references", "debate", "synthesis", "deliverable", "verification"];
+      const missing = ALL_PHASES.filter(
+        (p) => p !== "analysis" && !session!.completedPhases.includes(p)
+      );
+
+      if (missing.length > 0) {
+        console.log(`[assembly] Finished with missing phases: ${missing.join(", ")}`);
+        session.status = "complete";
+        broadcast({
+          type: "complete",
+          topicSlug: session.topicSlug,
+          partial: true,
+          missingPhases: missing,
+        });
+      } else {
+        session.status = "complete";
+        broadcast({ type: "complete", topicSlug: session.topicSlug });
+      }
     } else {
       session.status = "error";
       session.process = null;
       const stderr = getStderr();
-      broadcast({ type: "error", content: stderr || `Claude exited with code ${code}` });
+      const detail = signal
+        ? `Claude was killed by signal ${signal}`
+        : stderr || `Claude exited with code ${code}`;
+      console.error(`[assembly] Error detail: ${detail}`);
+      broadcast({ type: "error", content: detail });
     }
 
     if (session.pollInterval) {
@@ -370,6 +414,7 @@ export function sendInput(text: string) {
   ];
 
   const claude = spawn("claude", args, {
+    cwd: workspacePath,
     env: CLAUDE_ENV(),
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -391,24 +436,58 @@ export function sendInput(text: string) {
     }
   });
 
-  claude.on("close", (code) => {
-    console.log(`[assembly] Resume process exited with code: ${code}`);
+  claude.on("close", (code, signal) => {
+    console.log(`[assembly] Resume process exited with code: ${code}, signal: ${signal}`);
     if (!session) return;
 
     if (code === 0) {
-      session.status = "complete";
       session.process = null;
+
+      // Final file-system poll
+      const topicDir = session.topicSlug
+        ? path.join(workspacePath, session.topicSlug)
+        : null;
+      if (topicDir && fs.existsSync(topicDir)) {
+        for (const mapping of FILE_PHASE_MAP) {
+          if (!session.completedPhases.includes(mapping.phase) && checkFileExists(topicDir, mapping.check)) {
+            session.completedPhases.push(mapping.phase);
+            const url = `/${session.topicSlug}/${mapping.urlSuffix}`;
+            session.completedPhaseUrls[mapping.phase] = url;
+            broadcast({ type: "phase_complete", phase: mapping.phase, url });
+          }
+        }
+      }
+
       try {
         rebuildSite(workspacePath, buildDir);
       } catch (err) {
         console.error(`[assembly] Final rebuild error:`, err);
       }
-      broadcast({ type: "complete", topicSlug: session.topicSlug });
+
+      const ALL_PHASES: PhaseId[] = ["analysis", "characters", "references", "debate", "synthesis", "deliverable", "verification"];
+      const missing = ALL_PHASES.filter(
+        (p) => p !== "analysis" && !session!.completedPhases.includes(p)
+      );
+
+      if (missing.length > 0) {
+        console.log(`[assembly] Finished with missing phases: ${missing.join(", ")}`);
+      }
+
+      session.status = "complete";
+      broadcast({
+        type: "complete",
+        topicSlug: session.topicSlug,
+        ...(missing.length > 0 ? { partial: true, missingPhases: missing } : {}),
+      });
     } else {
       session.status = "error";
       session.process = null;
       const stderr = getStderr();
-      broadcast({ type: "error", content: stderr || `Claude exited with code ${code}` });
+      const detail = signal
+        ? `Claude was killed by signal ${signal}`
+        : stderr || `Claude exited with code ${code}`;
+      console.error(`[assembly] Error detail: ${detail}`);
+      broadcast({ type: "error", content: detail });
     }
 
     if (session.pollInterval) {

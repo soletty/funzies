@@ -1036,25 +1036,95 @@ details > .details-content {
   flex-wrap: wrap;
 }
 
+/* ─── Hamburger Button (hidden on desktop) ─── */
+
+.nav-hamburger {
+  display: none;
+  position: fixed;
+  top: 0.65rem;
+  left: 0.65rem;
+  z-index: 201;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 0.4rem 0.55rem;
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--color-text);
+  box-shadow: var(--shadow-sm);
+  transition: background 0.15s, box-shadow 0.15s;
+}
+
+.nav-hamburger:hover {
+  background: var(--color-surface-hover);
+  box-shadow: var(--shadow-md);
+}
+
+.nav-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(28, 25, 23, 0.35);
+  z-index: 99;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
 /* ─── Responsive ─── */
 
 @media (max-width: 768px) {
-  nav {
-    position: static;
-    width: 100%;
-    height: auto;
-    border-right: none;
-    border-bottom: 1px solid var(--color-border);
-    padding: 0.85rem;
+  /* Show hamburger, hide nav by default */
+  .nav-hamburger {
+    display: block;
   }
 
+  .nav-overlay {
+    display: block;
+    pointer-events: none;
+  }
+
+  body.nav-open .nav-overlay {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* Nav becomes a slide-out drawer */
+  nav {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 280px;
+    height: 100vh;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+    z-index: 200;
+    border-right: 1px solid var(--color-border);
+    box-shadow: none;
+  }
+
+  body.nav-open nav {
+    transform: translateX(0);
+    box-shadow: var(--shadow-lg);
+  }
+
+  /* Main content takes full width */
   main {
     margin-left: 0;
-    padding: 1.75rem 1.35rem 3.5rem;
+    padding: 3rem 1.5rem 3.5rem;
   }
 
   h1 {
     font-size: 1.65rem;
+  }
+
+  h2 {
+    font-size: 1.2rem;
+    margin-top: 2rem;
+  }
+
+  h3 {
+    font-size: 1rem;
   }
 
   .card-grid {
@@ -1062,13 +1132,86 @@ details > .details-content {
   }
 
   .hero-card {
-    padding: 1.35rem 1.5rem;
+    padding: 1.25rem;
+  }
+
+  /* Follow-up form: stack vertically */
+  .follow-up-input-row {
+    flex-direction: column;
+  }
+
+  .follow-up-button {
+    align-self: stretch;
+    text-align: center;
+  }
+
+  .follow-up-mode-row {
+    flex-wrap: wrap;
+    gap: 0.5rem 1rem;
+  }
+
+  /* Debate entries */
+  .debate-exchange {
+    padding: 0.85rem 1rem;
+  }
+
+  /* Tension pairs */
+  .tension-pair {
+    flex-wrap: wrap;
+  }
+
+  /* Reference library grid */
+  .ref-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Convergence / Divergence points */
+  .point-claim {
+    font-size: 0.85rem;
+  }
+
+  /* Assembly launcher forms */
+  .assembly-start-form {
+    flex-direction: column;
+  }
+
+  .assembly-start-form button {
+    align-self: stretch;
+  }
+
+  .assembly-input-form {
+    flex-direction: column;
+  }
+
+  .assembly-input-form button {
+    align-self: stretch;
+  }
+
+  .assembly-phase-bar {
+    gap: 0.35rem 0.5rem;
+  }
+
+  .assembly-phase-dot .label {
+    font-size: 0.6rem;
   }
 }
 
 @media (max-width: 480px) {
   main {
-    padding: 1.15rem;
+    padding: 2.5rem 1rem 3rem;
+  }
+
+  h1 {
+    font-size: 1.4rem;
+  }
+
+  h2 {
+    font-size: 1.1rem;
+    margin-top: 1.75rem;
+  }
+
+  .page-subtitle {
+    margin-bottom: 1.5rem;
   }
 
   .action-group {
@@ -1077,6 +1220,53 @@ details > .details-content {
 
   .action-pill {
     justify-content: center;
+  }
+
+  /* Tighten debate cards */
+  .debate-exchange {
+    padding: 0.75rem 0.85rem;
+    margin: 0.5rem 0;
+  }
+
+  .debate-content {
+    font-size: 0.84rem;
+    line-height: 1.6;
+  }
+
+  /* Follow-up responses */
+  .follow-up-response {
+    padding: 1rem;
+  }
+
+  .follow-up-exchange .debate-content {
+    padding-left: 0;
+  }
+
+  /* Character toggles */
+  .follow-up-char-toggle {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem 0.25rem 0.25rem;
+  }
+
+  .follow-up-char-avatar {
+    width: 20px;
+    height: 20px;
+    font-size: 0.5rem;
+  }
+
+  /* Hero card */
+  .hero-card {
+    padding: 1rem;
+  }
+
+  /* Blockquotes */
+  blockquote {
+    padding: 0.65rem 1rem;
+    margin: 1rem 0;
+  }
+
+  hr {
+    margin: 1.75rem 0;
   }
 }
 
@@ -1654,11 +1844,7 @@ details > .details-content {
   border-bottom: none;
 }
 
-@media (max-width: 768px) {
-  .ref-grid {
-    grid-template-columns: 1fr;
-  }
-}
+/* ref-grid responsive handled in main 768px block */
 
 /* ─── Assembly Launcher ─── */
 
@@ -1789,6 +1975,16 @@ details > .details-content {
 
 .assembly-phase-dot.complete .label {
   color: #1a7f37;
+}
+
+.assembly-phase-dot.skipped .dot {
+  border-color: var(--color-border);
+  background: var(--color-border);
+}
+
+.assembly-phase-dot.skipped .label {
+  color: var(--color-text-muted);
+  text-decoration: line-through;
 }
 
 @keyframes pulse-dot {
@@ -2150,5 +2346,15 @@ details > .details-content {
     top: auto;
     bottom: 1rem;
     right: 0;
+  }
+
+  .panel-input-row {
+    flex-direction: column;
+    padding: 0.65rem 1rem;
+  }
+
+  .panel-quote {
+    margin: 0.5rem 0.75rem;
+    padding: 0.65rem 1rem;
   }
 }
