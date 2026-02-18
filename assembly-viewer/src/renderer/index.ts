@@ -10,6 +10,8 @@ import {
   renderIteration,
   renderDeliverables,
   renderVerification,
+  renderStructuredReferenceLibrary,
+  renderTrajectory,
 } from "./html.js";
 
 export function renderWorkspace(workspace: Workspace, outputDir: string) {
@@ -70,6 +72,17 @@ export function renderWorkspace(workspace: Workspace, outputDir: string) {
     const verHtml = renderVerification(workspace, topic);
     if (verHtml) {
       writeFile(path.join(topicDir, "verification.html"), verHtml);
+    }
+
+    // Reference Library (structured with fallback)
+    const refHtml = renderStructuredReferenceLibrary(workspace, topic);
+    if (refHtml) {
+      writeFile(path.join(topicDir, "reference-library.html"), refHtml);
+    }
+
+    // Trajectory
+    if (topic.followUps.length > 0) {
+      writeFile(path.join(topicDir, "trajectory.html"), renderTrajectory(workspace, topic));
     }
   }
 }

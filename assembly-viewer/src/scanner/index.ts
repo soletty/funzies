@@ -12,6 +12,7 @@ export function scanWorkspace(workspacePath: string): FileManifest {
     verificationFiles: new Map(),
     referenceFiles: new Map(),
     researchFiles: new Map(),
+    followUpFiles: new Map(),
   };
 
   const entries = fs.readdirSync(workspacePath, { withFileTypes: true });
@@ -34,6 +35,7 @@ function scanTopic(topicPath: string, slug: string, manifest: FileManifest) {
   const deliverables: string[] = [];
   const verifications: string[] = [];
   const research: string[] = [];
+  const followUps: string[] = [];
 
   for (const entry of entries) {
     const fullPath = path.join(topicPath, entry.name);
@@ -58,6 +60,8 @@ function scanTopic(topicPath: string, slug: string, manifest: FileManifest) {
         scanMarkdownDir(fullPath, deliverables);
       } else if (entry.name === "verification") {
         scanMarkdownDir(fullPath, verifications);
+      } else if (entry.name === "follow-ups") {
+        scanMarkdownDir(fullPath, followUps);
       }
     }
   }
@@ -70,6 +74,7 @@ function scanTopic(topicPath: string, slug: string, manifest: FileManifest) {
   if (deliverables.length > 0) manifest.deliverableFiles.set(slug, deliverables);
   if (verifications.length > 0) manifest.verificationFiles.set(slug, verifications);
   if (research.length > 0) manifest.researchFiles.set(slug, research);
+  if (followUps.length > 0) manifest.followUpFiles.set(slug, followUps);
 }
 
 function scanIteration(

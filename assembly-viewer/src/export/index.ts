@@ -147,5 +147,39 @@ function renderTopicExportSection(
     </details>`;
   }
 
+  // Reference Library
+  if (topic.referenceLibrary) {
+    html += `<details>
+      <summary>Reference Library</summary>
+      <div class="details-content markdown-content">${renderMd(topic.referenceLibrary)}</div>
+    </details>`;
+  }
+
+  // Follow-ups
+  if (topic.followUps.length > 0) {
+    html += `<details>
+      <summary>Follow-ups (${topic.followUps.length})</summary>
+      <div class="details-content">`;
+
+    for (const fu of topic.followUps) {
+      html += `<div style="margin-bottom:1.5rem;padding-bottom:1rem;border-bottom:1px solid #ddd;">`;
+      html += `<div style="font-size:0.78rem;color:#888;margin-bottom:0.3rem;">`;
+      if (fu.timestamp) html += `${escapeHtml(fu.timestamp)} `;
+      if (fu.mode) html += `[${escapeHtml(fu.mode)}]`;
+      html += `</div>`;
+      html += `<p><strong>Q:</strong> ${escapeHtml(fu.question)}</p>`;
+
+      for (const r of fu.responses) {
+        html += `<div style="margin:0.5rem 0 0.5rem 0.5rem;">
+          <strong>${escapeHtml(r.speaker)}:</strong>
+          <div class="markdown-content">${renderMd(r.content)}</div>
+        </div>`;
+      }
+      html += `</div>`;
+    }
+
+    html += `</div></details>`;
+  }
+
   return html;
 }

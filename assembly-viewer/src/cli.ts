@@ -49,7 +49,7 @@ program
       renderWorkspace(workspace, buildDir);
 
       const port = parseInt(opts.port, 10);
-      startServer(buildDir, port);
+      startServer(buildDir, port, workspacePath);
 
       openBrowser(`http://localhost:${port}`);
     }

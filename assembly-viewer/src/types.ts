@@ -12,7 +12,9 @@ export interface Topic {
   deliverables: Deliverable[];
   verification: VerificationReport[];
   referenceLibrary: string | null;
+  parsedReferenceLibrary: ReferenceLibrary | null;
   researchFiles: ResearchFile[];
+  followUps: FollowUp[];
 }
 
 export interface Character {
@@ -97,6 +99,20 @@ export interface ResearchFile {
   content: string;
 }
 
+export interface FollowUp {
+  timestamp: string;
+  question: string;
+  context: string;
+  mode: string;
+  responses: FollowUpResponse[];
+  raw: string;
+}
+
+export interface FollowUpResponse {
+  speaker: string;
+  content: string;
+}
+
 export interface FileManifest {
   topicDirs: string[];
   characterFiles: Map<string, string[]>;
@@ -106,6 +122,7 @@ export interface FileManifest {
   verificationFiles: Map<string, string[]>;
   referenceFiles: Map<string, string>;
   researchFiles: Map<string, string[]>;
+  followUpFiles: Map<string, string[]>;
 }
 
 export interface IterationManifest {
@@ -114,4 +131,33 @@ export interface IterationManifest {
   structure: string;
   synthesisFile: string | null;
   transcriptFile: string | null;
+}
+
+export interface ReferenceLibrary {
+  sections: ReferenceSection[];
+  crossReadings: CrossReading[];
+}
+
+export interface ReferenceSection {
+  title: string;
+  subsections: ReferenceSubsection[];
+}
+
+export interface ReferenceSubsection {
+  title: string;
+  character: string | null;
+  tag: string | null;
+  entries: ReferenceEntry[];
+}
+
+export interface ReferenceEntry {
+  author: string;
+  work: string;
+  year: string | null;
+  description: string;
+}
+
+export interface CrossReading {
+  character: string;
+  assignment: string;
 }

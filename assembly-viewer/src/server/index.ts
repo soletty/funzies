@@ -1,6 +1,7 @@
 import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
+import { handleFollowUp } from "./follow-up.js";
 
 const MIME_TYPES: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
@@ -14,9 +15,22 @@ const MIME_TYPES: Record<string, string> = {
 
 export function startServer(
   buildDir: string,
-  port: number
+  port: number,
+  workspacePath?: string
 ): http.Server {
   const server = http.createServer((req, res) => {
+    // API routes
+    if (req.url === "/api/follow-up" && req.method === "POST") {
+      if (!workspacePath) {
+        res.writeHead(503, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Workspace path not configured" }));
+        return;
+      }
+      handleFollowUp(req, res, workspacePath);
+      return;
+    }
+
+    // Static file serving
     let urlPath = req.url ?? "/";
 
     // Remove query string
@@ -50,6 +64,9 @@ export function startServer(
 
   server.listen(port, () => {
     console.log(`Assembly Viewer running at http://localhost:${port}`);
+    if (workspacePath) {
+      console.log(`Follow-up API enabled (workspace: ${workspacePath})`);
+    }
   });
 
   return server;
