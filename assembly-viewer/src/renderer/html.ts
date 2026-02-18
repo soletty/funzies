@@ -97,8 +97,8 @@ function buildNav(workspace: Workspace, activePath: string = ""): string {
     const shortTitle = truncate(topic.title.replace(/\s*—.*$/, "").replace(/\s*--.*$/, ""), 30);
 
     html += `
-  <div class="nav-divider"></div>
-  <div class="nav-section">
+  <div class="nav-divider" data-topic="${esc(topic.slug)}"></div>
+  <div class="nav-section" data-topic="${esc(topic.slug)}">
     <div class="nav-section-title">${esc(shortTitle)}</div>
     <a href="/${topic.slug}/index.html"${activePath === topic.slug ? ' class="active"' : ""}>
       <span class="nav-icon">&#9670;</span> Overview
@@ -187,6 +187,8 @@ function renderAssemblyLauncher(): string {
       </form>
 
       <div class="assembly-progress" id="assembly-progress" style="display:none">
+        <p class="assembly-estimate" id="assembly-estimate">Estimated time: ~10 minutes</p>
+
         <div class="assembly-phase-bar" id="assembly-phase-bar">
           <div class="assembly-phase-dot" data-phase="analysis"><span class="dot"></span><span class="label">Analysis</span></div>
           <div class="assembly-phase-dot" data-phase="characters"><span class="dot"></span><span class="label">Characters</span></div>
@@ -218,118 +220,157 @@ function renderAssemblyLauncher(): string {
           <p>Assembly complete!</p>
           <a id="assembly-done-link" href="#">View full assembly &rarr;</a>
         </div>
+
+        <div class="assembly-new-session" id="assembly-new-session" style="display:none">
+          <form class="assembly-start-form" id="assembly-restart-form">
+            <input type="text" id="assembly-restart-topic" placeholder="Start a different assembly..." autocomplete="off" />
+            <button type="submit">Go</button>
+          </form>
+          <p class="assembly-restart-note">This will replace the current assembly in progress</p>
+        </div>
       </div>
     </div>
 
     <script>
     (function() {
-      const startForm = document.getElementById('assembly-start-form');
-      const topicInput = document.getElementById('assembly-topic');
-      const progress = document.getElementById('assembly-progress');
-      const phaseBar = document.getElementById('assembly-phase-bar');
-      const completedList = document.getElementById('assembly-completed-list');
-      const animation = document.getElementById('assembly-animation');
-      const questionArea = document.getElementById('assembly-question');
-      const questionText = document.getElementById('assembly-question-text');
-      const inputForm = document.getElementById('assembly-input-form');
-      const inputField = document.getElementById('assembly-input');
-      const doneArea = document.getElementById('assembly-done');
-      const doneLink = document.getElementById('assembly-done-link');
-      let evtSource = null;
+      var PHASE_ORDER = ['analysis', 'characters', 'references', 'debate', 'synthesis', 'deliverable', 'verification'];
+      var PHASE_NAMES = {
+        analysis: 'Analysis', characters: 'Characters', references: 'Reference Library',
+        debate: 'Debate', synthesis: 'Synthesis', deliverable: 'Deliverable', verification: 'Verification'
+      };
 
-      startForm.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        const topic = topicInput.value.trim();
-        if (!topic) return;
+      var startForm = document.getElementById('assembly-start-form');
+      var topicInput = document.getElementById('assembly-topic');
+      var progress = document.getElementById('assembly-progress');
+      var phaseBar = document.getElementById('assembly-phase-bar');
+      var completedList = document.getElementById('assembly-completed-list');
+      var animation = document.getElementById('assembly-animation');
+      var questionArea = document.getElementById('assembly-question');
+      var questionText = document.getElementById('assembly-question-text');
+      var inputForm = document.getElementById('assembly-input-form');
+      var inputField = document.getElementById('assembly-input');
+      var doneArea = document.getElementById('assembly-done');
+      var doneLink = document.getElementById('assembly-done-link');
+      var newSessionArea = document.getElementById('assembly-new-session');
+      var restartForm = document.getElementById('assembly-restart-form');
+      var restartInput = document.getElementById('assembly-restart-topic');
+      var estimateEl = document.getElementById('assembly-estimate');
+      var evtSource = null;
+      var startTime = null;
+
+      function connectSSE() {
+        if (evtSource) evtSource.close();
+        evtSource = new EventSource('/api/assembly/stream');
+        evtSource.onmessage = function(e) { handleEvent(JSON.parse(e.data)); };
+        evtSource.onerror = function() {};
+      }
+
+      function launchSession(topic) {
+        // Reset UI
+        completedList.innerHTML = '';
+        addedLinks = {};
+        phaseBar.querySelectorAll('.assembly-phase-dot').forEach(function(d) {
+          d.classList.remove('active', 'complete');
+        });
+        doneArea.style.display = 'none';
+        questionArea.style.display = 'none';
+        animation.style.display = '';
+        newSessionArea.style.display = 'none';
+        startTime = Date.now();
+        updateEstimate();
 
         startForm.style.display = 'none';
         progress.style.display = 'block';
 
-        try {
-          await fetch('/api/assembly/start', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ topic })
-          });
-        } catch (err) {
+        fetch('/api/assembly/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ topic: topic })
+        }).then(function() {
+          connectSSE();
+          // Show "start another" form after a short delay
+          setTimeout(function() { newSessionArea.style.display = ''; }, 3000);
+        }).catch(function(err) {
           startForm.style.display = '';
           progress.style.display = 'none';
-          alert('Failed to start assembly: ' + err.message);
-          return;
-        }
+        });
+      }
 
-        evtSource = new EventSource('/api/assembly/stream');
-        evtSource.onmessage = function(e) {
-          const data = JSON.parse(e.data);
-          handleEvent(data);
-        };
-        evtSource.onerror = function() {
-          // SSE reconnects automatically; if session ended this is expected
-        };
+      startForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        var topic = topicInput.value.trim();
+        if (topic) launchSession(topic);
+      });
+
+      restartForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        var topic = restartInput.value.trim();
+        if (topic) {
+          restartInput.value = '';
+          launchSession(topic);
+        }
       });
 
       inputForm.addEventListener('submit', async function(e) {
         e.preventDefault();
-        const text = inputField.value.trim();
+        var text = inputField.value.trim();
         if (!text) return;
         inputField.value = '';
         questionArea.style.display = 'none';
-
         await fetch('/api/assembly/input', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text })
+          body: JSON.stringify({ text: text })
         });
       });
 
+      function updateEstimate() {
+        if (!startTime || !estimateEl) return;
+        var elapsed = Math.floor((Date.now() - startTime) / 60000);
+        if (elapsed < 1) {
+          estimateEl.textContent = 'Estimated time: ~10 minutes';
+        } else {
+          var remaining = Math.max(0, 10 - elapsed);
+          estimateEl.textContent = elapsed + 'm elapsed' + (remaining > 0 ? ' \u00b7 ~' + remaining + 'm remaining' : '');
+        }
+      }
+      setInterval(updateEstimate, 30000);
+
       function handleEvent(data) {
         if (data.type === 'state') {
-          // Restore state on reconnect
           if (data.completedPhases) {
             data.completedPhases.forEach(function(p) { markComplete(p); });
           }
           if (data.completedPhaseUrls) {
-            Object.keys(data.completedPhaseUrls).forEach(function(p) {
-              addCompletedLink(p, data.completedPhaseUrls[p]);
+            PHASE_ORDER.forEach(function(p) {
+              if (data.completedPhaseUrls[p]) addCompletedLink(p, data.completedPhaseUrls[p]);
             });
           }
-          if (data.currentPhase) {
-            setActivePhase(data.currentPhase);
-          }
-          if (data.status === 'waiting_for_input') {
-            questionArea.style.display = 'block';
-          }
+          if (data.currentPhase) setActivePhase(data.currentPhase);
+          if (data.status === 'waiting_for_input') questionArea.style.display = 'block';
           if (data.status === 'complete') {
             animation.style.display = 'none';
             doneArea.style.display = 'block';
             if (data.topicSlug) doneLink.href = '/' + data.topicSlug + '/index.html';
           }
+          if (data.status !== 'complete') newSessionArea.style.display = '';
           return;
         }
 
-        if (data.type === 'phase') {
-          setActivePhase(data.phase);
-        }
+        if (data.type === 'phase') setActivePhase(data.phase);
 
         if (data.type === 'phase_complete') {
           markComplete(data.phase);
           addCompletedLink(data.phase, data.url);
         }
 
-        if (data.type === 'text' && questionArea.style.display !== 'none') {
-          // Text during input_needed — it's the question
-        }
-
         if (data.type === 'input_needed') {
           questionArea.style.display = 'block';
-          if (data.content) {
-            questionText.textContent = data.content;
-          }
+          if (data.content) questionText.textContent = data.content;
           inputField.focus();
         }
 
         if (data.type === 'text') {
-          // Show latest text as question context
           questionText.textContent = data.content.slice(-500);
         }
 
@@ -340,18 +381,17 @@ function renderAssemblyLauncher(): string {
         if (data.type === 'complete') {
           animation.style.display = 'none';
           questionArea.style.display = 'none';
+          estimateEl.textContent = '';
           doneArea.style.display = 'block';
-          if (data.topicSlug) {
-            doneLink.href = '/' + data.topicSlug + '/index.html';
-          }
+          if (data.topicSlug) doneLink.href = '/' + data.topicSlug + '/index.html';
           if (evtSource) evtSource.close();
-          // Reload after a moment so nav updates
           setTimeout(function() { location.reload(); }, 2000);
         }
 
         if (data.type === 'error') {
           animation.style.display = 'none';
           questionArea.style.display = 'none';
+          estimateEl.textContent = '';
           var errDiv = document.createElement('div');
           errDiv.className = 'assembly-error';
           errDiv.textContent = 'Error: ' + data.content;
@@ -361,18 +401,26 @@ function renderAssemblyLauncher(): string {
       }
 
       function setActivePhase(phase) {
-        var dots = phaseBar.querySelectorAll('.assembly-phase-dot');
-        dots.forEach(function(d) {
-          if (d.dataset.phase === phase) {
+        var idx = PHASE_ORDER.indexOf(phase);
+        phaseBar.querySelectorAll('.assembly-phase-dot').forEach(function(d) {
+          var di = PHASE_ORDER.indexOf(d.dataset.phase);
+          if (di < idx && !d.classList.contains('complete')) {
+            // Mark all phases before the active one as complete
+            d.classList.remove('active');
+            d.classList.add('complete');
+          }
+          if (d.dataset.phase === phase && !d.classList.contains('complete')) {
             d.classList.add('active');
           }
         });
       }
 
       function markComplete(phase) {
-        var dots = phaseBar.querySelectorAll('.assembly-phase-dot');
-        dots.forEach(function(d) {
-          if (d.dataset.phase === phase) {
+        var idx = PHASE_ORDER.indexOf(phase);
+        phaseBar.querySelectorAll('.assembly-phase-dot').forEach(function(d) {
+          var di = PHASE_ORDER.indexOf(d.dataset.phase);
+          // Mark this phase and all earlier phases as complete
+          if (di <= idx) {
             d.classList.remove('active');
             d.classList.add('complete');
           }
@@ -383,38 +431,50 @@ function renderAssemblyLauncher(): string {
       function addCompletedLink(phase, url) {
         if (addedLinks[phase]) return;
         addedLinks[phase] = true;
-        var names = {
-          analysis: 'Analysis', characters: 'Characters', references: 'Reference Library',
-          debate: 'Debate', synthesis: 'Synthesis', deliverable: 'Deliverable', verification: 'Verification'
-        };
+
+        // Insert in phase order: find the right position
+        var idx = PHASE_ORDER.indexOf(phase);
+        var children = completedList.children;
+        var insertBefore = null;
+        for (var i = 0; i < children.length; i++) {
+          var childPhase = children[i].dataset.phase;
+          if (PHASE_ORDER.indexOf(childPhase) > idx) {
+            insertBefore = children[i];
+            break;
+          }
+        }
+
         var item = document.createElement('div');
         item.className = 'assembly-completed-phase';
-        item.innerHTML = '<span class="check">&#10003;</span> ' + (names[phase] || phase) + ' ready &mdash; <a href="' + url + '">View &rarr;</a>';
-        completedList.appendChild(item);
+        item.dataset.phase = phase;
+        item.innerHTML = '<span class="check">&#10003;</span> ' + (PHASE_NAMES[phase] || phase) + ' ready &mdash; <a href="' + url + '">View &rarr;</a>';
+
+        if (insertBefore) {
+          completedList.insertBefore(item, insertBefore);
+        } else {
+          completedList.appendChild(item);
+        }
       }
 
-      // Check if there's already a running session
+      // Check for existing session on page load
       fetch('/api/assembly/status').then(function(r) { return r.json(); }).then(function(status) {
         if (status && status.status && status.status !== 'idle') {
           startForm.style.display = 'none';
           progress.style.display = 'block';
-          evtSource = new EventSource('/api/assembly/stream');
-          evtSource.onmessage = function(e) { handleEvent(JSON.parse(e.data)); };
-          // Restore already-completed phases with URLs
+          connectSSE();
           if (status.completedPhases) {
             status.completedPhases.forEach(function(p) { markComplete(p); });
           }
           if (status.completedPhaseUrls) {
-            Object.keys(status.completedPhaseUrls).forEach(function(p) {
-              addCompletedLink(p, status.completedPhaseUrls[p]);
+            PHASE_ORDER.forEach(function(p) {
+              if (status.completedPhaseUrls[p]) addCompletedLink(p, status.completedPhaseUrls[p]);
             });
           }
           if (status.currentPhase) setActivePhase(status.currentPhase);
-          if (status.status === 'waiting_for_input') {
-            questionArea.style.display = 'block';
-          }
+          if (status.status === 'waiting_for_input') questionArea.style.display = 'block';
+          if (status.status !== 'complete') newSessionArea.style.display = '';
         }
-      }).catch(function() { /* no session, that's fine */ });
+      }).catch(function() {});
     })();
     </script>`;
 }
@@ -477,7 +537,8 @@ export function renderWorkspaceIndex(workspace: Workspace): string {
         : "";
 
       return `
-    <div class="topic-card">
+    <div class="topic-card" data-slug="${esc(topic.slug)}">
+      <button class="topic-delete-btn" title="Delete workspace">&times;</button>
       <h2><a href="/${topic.slug}/index.html">${esc(topic.title.replace(/\s*—\s*Final.*$/, "").replace(/\s*--\s*Assembly.*$/, ""))}</a></h2>
       <div class="topic-meta">${meta}</div>
       ${summary ? `<div class="topic-summary">${esc(summary)}</div>` : ""}
@@ -500,7 +561,96 @@ export function renderWorkspaceIndex(workspace: Workspace): string {
 
     ${recentHtml}
     <div class="section-header"><h2>Topics</h2><span class="section-count">${workspace.topics.length}</span></div>
-    ${topicCards}`;
+    ${topicCards}
+
+    <div class="confirm-overlay" id="delete-confirm">
+      <div class="confirm-dialog">
+        <h3>Delete workspace</h3>
+        <p>This will permanently delete <strong id="delete-confirm-name"></strong> and all its data.</p>
+        <div class="confirm-actions">
+          <button class="confirm-cancel" id="delete-cancel">Cancel</button>
+          <button class="confirm-delete" id="delete-proceed">Delete</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+    (function() {
+      var overlay = document.getElementById('delete-confirm');
+      var nameEl = document.getElementById('delete-confirm-name');
+      var cancelBtn = document.getElementById('delete-cancel');
+      var proceedBtn = document.getElementById('delete-proceed');
+      var pendingCard = null;
+      var pendingSlug = null;
+
+      document.addEventListener('click', function(e) {
+        var btn = e.target.closest('.topic-delete-btn');
+        if (!btn) return;
+        e.preventDefault();
+        e.stopPropagation();
+
+        pendingCard = btn.closest('.topic-card');
+        pendingSlug = pendingCard.getAttribute('data-slug');
+        var title = pendingCard.querySelector('h2 a');
+        nameEl.textContent = title ? title.textContent : pendingSlug;
+        overlay.classList.add('visible');
+      });
+
+      cancelBtn.addEventListener('click', function() {
+        overlay.classList.remove('visible');
+        pendingCard = null;
+        pendingSlug = null;
+      });
+
+      overlay.addEventListener('click', function(e) {
+        if (e.target === overlay) {
+          overlay.classList.remove('visible');
+          pendingCard = null;
+          pendingSlug = null;
+        }
+      });
+
+      proceedBtn.addEventListener('click', function() {
+        if (!pendingSlug || !pendingCard) return;
+        var card = pendingCard;
+        var slug = pendingSlug;
+
+        overlay.classList.remove('visible');
+        pendingCard = null;
+        pendingSlug = null;
+
+        card.style.transition = 'opacity 0.3s, max-height 0.3s';
+        card.style.opacity = '0';
+        card.style.maxHeight = card.offsetHeight + 'px';
+        card.style.overflow = 'hidden';
+        setTimeout(function() {
+          card.style.maxHeight = '0';
+          card.style.margin = '0';
+          card.style.padding = '0';
+          setTimeout(function() { card.remove(); }, 300);
+        }, 150);
+
+        // Remove nav entries for this topic
+        var navItems = document.querySelectorAll('[data-topic="' + slug + '"]');
+        for (var i = 0; i < navItems.length; i++) {
+          navItems[i].remove();
+        }
+
+        // Remove activity items linking to this topic
+        var activityLinks = document.querySelectorAll('.activity-item a[href^="/' + slug + '/"]');
+        for (var j = 0; j < activityLinks.length; j++) {
+          var item = activityLinks[j].closest('.activity-item');
+          if (item) item.remove();
+        }
+
+        fetch('/api/workspace', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ topicSlug: slug })
+        });
+      });
+    })();
+    </script>`;
 
   return layout("Home", content, nav);
 }
@@ -641,7 +791,8 @@ export function renderSynthesis(workspace: Workspace, topic: Topic): string | nu
     <h1>${esc(synth.title)}</h1>
     <p class="page-subtitle">Final synthesis across all debate iterations</p>
     <div class="markdown-content">${md(synth.raw)}</div>
-    ${followUpHtml}`;
+    ${followUpHtml}
+    ${renderHighlightChatPanel(topic, "synthesis")}`;
 
   return layout(`Synthesis — ${topic.title}`, content, nav, bc);
 }
@@ -794,7 +945,7 @@ export function renderCharacterProfile(
 
   return layout(
     `${character.name} — ${topic.title}`,
-    `${sections}${followUpHtml}${charNav}`,
+    `${sections}${followUpHtml}${charNav}${renderHighlightChatPanel(topic, `character-${character.number}`, character.name)}`,
     nav,
     bc
   );
@@ -854,6 +1005,7 @@ export function renderIteration(
   iterNav += `</div>`;
 
   content += iterNav;
+  content += renderHighlightChatPanel(topic, `iteration-${iteration.number}`);
 
   return layout(
     `Iteration ${iteration.number} — ${topic.title}`,
@@ -904,7 +1056,8 @@ export function renderDeliverables(workspace: Workspace, topic: Topic): string |
   const content = `
     <h1>Deliverables</h1>
     <p class="page-subtitle">${topic.deliverables.length} output document${topic.deliverables.length > 1 ? "s" : ""}</p>
-    ${sections}`;
+    ${sections}
+    ${renderHighlightChatPanel(topic, "deliverables")}`;
 
   return layout(`Deliverables — ${topic.title}`, content, nav, bc);
 }
@@ -929,7 +1082,8 @@ export function renderVerification(workspace: Workspace, topic: Topic): string |
   const content = `
     <h1>Verification Reports</h1>
     <p class="page-subtitle">${topic.verification.length} verification report${topic.verification.length > 1 ? "s" : ""}</p>
-    ${sections}`;
+    ${sections}
+    ${renderHighlightChatPanel(topic, "verification")}`;
 
   return layout(`Verification — ${topic.title}`, content, nav, bc);
 }
@@ -1129,7 +1283,8 @@ export function renderStructuredReferenceLibrary(workspace: Workspace, topic: To
       <h1>Reference Library</h1>
       <p class="page-subtitle">Intellectual traditions and empirical evidence grounding the assembly debate</p>
       <div class="markdown-content">${md(topic.referenceLibrary)}</div>
-      ${followUpHtml}`;
+      ${followUpHtml}
+      ${renderHighlightChatPanel(topic, "reference-library")}`;
     return layout(`Reference Library — ${topic.title}`, content, nav, bc);
   }
 
@@ -1226,9 +1381,243 @@ export function renderStructuredReferenceLibrary(workspace: Workspace, topic: To
     <p class="page-subtitle">Intellectual traditions and empirical evidence grounding the assembly debate</p>
     ${sectionsHtml}
     ${crossHtml}
-    ${followUpHtml}`;
+    ${followUpHtml}
+    ${renderHighlightChatPanel(topic, "reference-library")}`;
 
   return layout(`Reference Library — ${topic.title}`, content, nav, bc);
+}
+
+// ─── Highlight Chat Panel (available on all content pages) ───
+
+function renderHighlightChatPanel(topic: Topic, pageContext: string, defaultCharacter?: string): string {
+  const colorMap: Record<string, string> = {};
+  topic.characters.forEach((char, i) => {
+    colorMap[char.name] = avatarColor(i);
+  });
+  const characterNames = topic.characters.map((c) => c.name);
+
+  const isCharacterPage = pageContext.startsWith("character-");
+  const isRefLibrary = pageContext === "reference-library";
+  const heading = isCharacterPage && defaultCharacter
+    ? `Ask ${esc(defaultCharacter)}`
+    : isRefLibrary ? "Explore Sources" : "Ask the Assembly";
+  const placeholder = isCharacterPage && defaultCharacter
+    ? `Ask ${defaultCharacter} about this...`
+    : isRefLibrary ? "Ask about these sources..." : "Ask about this text...";
+
+  return `
+    <div class="highlight-chat-panel" id="highlight-chat-panel">
+      <div class="panel-header">
+        <h3>${heading}</h3>
+        <button class="panel-collapse-btn" id="panel-collapse-btn" title="Collapse panel">&#8250;</button>
+      </div>
+      <div class="panel-quote" id="panel-quote"></div>
+      <div class="panel-input-row">
+        <textarea class="follow-up-input" id="panel-input" placeholder="${esc(placeholder)}" rows="2"></textarea>
+        <button class="follow-up-button" id="panel-ask-btn">Ask</button>
+      </div>
+      <div class="panel-response-area" id="panel-response-area"></div>
+    </div>
+    <button class="panel-expand-tab" id="panel-expand-tab" title="Expand chat panel">
+      <span class="tab-icon">&#8249;</span> Ask
+    </button>
+
+    <script>
+(function() {
+  var TOPIC = ${JSON.stringify(topic.slug)};
+  var PAGE_CONTEXT = ${JSON.stringify(pageContext)};
+  var CHARACTERS = ${JSON.stringify(characterNames)};
+  var COLORS = ${JSON.stringify(colorMap)};
+  var DEFAULT_CHARACTER = ${JSON.stringify(defaultCharacter ?? "")};
+  var IS_CHARACTER_PAGE = ${JSON.stringify(isCharacterPage)};
+  var IS_REF_LIBRARY = ${JSON.stringify(isRefLibrary)};
+
+  var panel = document.getElementById('highlight-chat-panel');
+  var collapseBtn = document.getElementById('panel-collapse-btn');
+  var expandTab = document.getElementById('panel-expand-tab');
+  var quoteEl = document.getElementById('panel-quote');
+  var panelInput = document.getElementById('panel-input');
+  var askBtn = document.getElementById('panel-ask-btn');
+  var responseArea = document.getElementById('panel-response-area');
+
+  var currentHighlight = '';
+
+  function expandPanel() {
+    panel.classList.add('open');
+    panelInput.focus();
+  }
+
+  function collapsePanel() {
+    panel.classList.remove('open');
+  }
+
+  function setHighlight(text) {
+    currentHighlight = text;
+    quoteEl.textContent = text;
+  }
+
+  // Text selection opens the panel with that quote
+  document.addEventListener('mouseup', function(e) {
+    if (panel.contains(e.target) || expandTab.contains(e.target)) return;
+    var sel = window.getSelection().toString().trim();
+    if (sel.length > 5) {
+      var markdownContent = e.target.closest('.markdown-content');
+      if (markdownContent) {
+        setHighlight(sel);
+        expandPanel();
+      }
+    }
+  });
+
+  collapseBtn.addEventListener('click', collapsePanel);
+  expandTab.addEventListener('click', expandPanel);
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && panel.classList.contains('open')) collapsePanel();
+  });
+
+  panelInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      submitQuestion();
+    }
+  });
+
+  askBtn.addEventListener('click', submitQuestion);
+
+  function getRequestParams() {
+    if (IS_CHARACTER_PAGE && DEFAULT_CHARACTER) {
+      return { mode: 'ask-character', chars: [DEFAULT_CHARACTER] };
+    }
+    if (IS_REF_LIBRARY) {
+      return { mode: 'explore-explain', chars: [] };
+    }
+    return { mode: 'multi-character', chars: CHARACTERS };
+  }
+
+  function submitQuestion() {
+    var question = panelInput.value.trim();
+    if (!question) return;
+
+    panelInput.disabled = true;
+    askBtn.disabled = true;
+    askBtn.textContent = 'Thinking...';
+
+    responseArea.innerHTML = '<div class="follow-up-loading">' +
+      (IS_CHARACTER_PAGE ? 'Thinking...' : IS_REF_LIBRARY ? 'Researching sources...' : 'Assembly is deliberating...') +
+      '</div>';
+
+    var params = getRequestParams();
+    var body = JSON.stringify({
+      question: question,
+      topicSlug: TOPIC,
+      characters: params.chars,
+      context: { page: PAGE_CONTEXT },
+      mode: params.mode,
+      highlightedText: currentHighlight
+    });
+
+    fetch('/api/follow-up', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: body
+    }).then(function(response) {
+      if (!response.ok) throw new Error('Server error: ' + response.status);
+      var reader = response.body.getReader();
+      var decoder = new TextDecoder();
+      var buffer = '';
+      var fullText = '';
+      var loadingRemoved = false;
+
+      function processChunk() {
+        return reader.read().then(function(result) {
+          if (result.done) {
+            renderStreamedText(responseArea, fullText);
+            return;
+          }
+
+          buffer += decoder.decode(result.value, { stream: true });
+          var lines = buffer.split('\\n');
+          buffer = lines.pop() || '';
+
+          for (var i = 0; i < lines.length; i++) {
+            var line = lines[i].trim();
+            if (!line.startsWith('data: ')) continue;
+            try {
+              var event = JSON.parse(line.slice(6));
+              if (event.type === 'text') {
+                if (!loadingRemoved) {
+                  responseArea.innerHTML = '';
+                  loadingRemoved = true;
+                }
+                fullText += event.content;
+                renderStreamedText(responseArea, fullText);
+              } else if (event.type === 'error') {
+                responseArea.innerHTML = '<div class="follow-up-error">' + escapeHtml(event.content) + '</div>';
+              }
+            } catch(e) {}
+          }
+
+          return processChunk();
+        });
+      }
+
+      return processChunk();
+    }).catch(function(err) {
+      responseArea.innerHTML = '<div class="follow-up-error">Failed to connect: ' + escapeHtml(err.message) + '</div>';
+    }).finally(function() {
+      panelInput.disabled = false;
+      askBtn.disabled = false;
+      askBtn.textContent = 'Ask';
+      panelInput.value = '';
+      panelInput.focus();
+    });
+  }
+
+  function renderStreamedText(container, text) {
+    var parts = text.split(/(?=\\*\\*[A-Z])/);
+    var html = '';
+    var speakerRe = /^\\*\\*([^*]+?)(?:\\s*:)?\\*\\*\\s*([\\s\\S]*)/;
+
+    for (var i = 0; i < parts.length; i++) {
+      var match = parts[i].match(speakerRe);
+      if (match) {
+        var speaker = match[1].trim();
+        var content = match[2].trim();
+        var color = COLORS[speaker] || 'var(--color-accent)';
+        html += '<div class="follow-up-exchange">';
+        html += '<div class="debate-speaker"><span class="debate-speaker-dot" style="background:' + color + '"></span>' + escapeHtml(speaker) + '</div>';
+        html += '<div class="debate-content">' + simpleMarkdown(content) + '</div>';
+        html += '</div>';
+      } else if (parts[i].trim()) {
+        html += '<div class="debate-content">' + simpleMarkdown(parts[i]) + '</div>';
+      }
+    }
+
+    container.innerHTML = html;
+  }
+
+  function simpleMarkdown(text) {
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/\\*\\*([^*]+)\\*\\*/g, '<strong>$1</strong>')
+      .replace(/\\*([^*]+)\\*/g, '<em>$1</em>')
+      .replace(/\\\`([^\\\`]+)\\\`/g, '<code>$1</code>')
+      .replace(/\\n\\n/g, '</p><p>')
+      .replace(/\\n/g, '<br>')
+      .replace(/^/, '<p>')
+      .replace(/$/, '</p>');
+  }
+
+  function escapeHtml(text) {
+    var div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+})();
+</script>`;
 }
 
 // ─── Follow-up Section ───
@@ -1283,22 +1672,10 @@ function renderFollowUpSection(topic: Topic, pageContext: string, defaultCharact
             <span>Deep dive</span>
           </label>`;
   } else if (pageType === "character") {
-    heading = `Think Alongside ${esc(defaultCharacter!)}`;
-    subtitle = "Challenge this character's framework with a question";
-    placeholder = `Ask ${defaultCharacter} a question...`;
-    modesHtml = `
-          <label class="follow-up-mode-label">
-            <input type="radio" name="follow-up-mode" value="ask-character" checked>
-            <span>Think alongside</span>
-          </label>
-          <label class="follow-up-mode-label">
-            <input type="radio" name="follow-up-mode" value="multi-character">
-            <span>Bring in the assembly</span>
-          </label>
-          <label class="follow-up-mode-label">
-            <input type="radio" name="follow-up-mode" value="reconvene">
-            <span>Challenge me</span>
-          </label>`;
+    heading = `Ask ${esc(defaultCharacter!)}`;
+    subtitle = "Ask this character anything";
+    placeholder = `Ask ${defaultCharacter} anything...`;
+    modesHtml = "";
   } else {
     heading = "Ask the Assembly";
     subtitle = "Continue the deliberation with a follow-up question";
@@ -1318,8 +1695,8 @@ function renderFollowUpSection(topic: Topic, pageContext: string, defaultCharact
           </label>`;
   }
 
-  // Character picker (not shown for reference-library)
-  const characterPickerHtml = pageType !== "reference-library" ? `
+  // Character picker (not shown for reference-library or character pages)
+  const characterPickerHtml = pageType === "debate" ? `
         <div class="follow-up-characters" id="follow-up-characters"></div>` : "";
 
   return `
@@ -1331,8 +1708,8 @@ function renderFollowUpSection(topic: Topic, pageContext: string, defaultCharact
       <div id="follow-up-live"></div>
       <form class="follow-up-form" id="follow-up-form">
         <div class="follow-up-input-row">
-          <input type="text" class="follow-up-input" id="follow-up-input"
-                 placeholder="${esc(placeholder)}" autocomplete="off">
+          <textarea class="follow-up-input" id="follow-up-input"
+                    placeholder="${esc(placeholder)}" autocomplete="off" rows="1"></textarea>
           <button type="submit" class="follow-up-button" id="follow-up-button">Ask</button>
         </div>
         <div class="follow-up-mode-row">
@@ -1346,6 +1723,13 @@ function renderFollowUpSection(topic: Topic, pageContext: string, defaultCharact
 
 function renderPersistedFollowUp(fu: FollowUp, colorMap: Record<string, string>, topicSlug: string): string {
   const responsesHtml = fu.responses.map((r) => {
+    if (!r.speaker) {
+      // Guide-style response (no character attribution)
+      return `
+      <div class="follow-up-exchange follow-up-guide">
+        <div class="debate-content">${md(r.content)}</div>
+      </div>`;
+    }
     const color = colorMap[r.speaker] ?? "var(--color-accent)";
     return `
       <div class="follow-up-exchange">
@@ -1504,28 +1888,50 @@ function renderFollowUpScript(
     }
   }
 
-  // Listen for mode changes
-  var modeRadios = document.querySelectorAll('input[name="follow-up-mode"]');
-  for (var m = 0; m < modeRadios.length; m++) {
-    modeRadios[m].addEventListener('change', function() {
-      initializeSelection();
-      renderCharacterPicker();
-    });
+  // Listen for mode changes (skip for character pages — no mode UI)
+  if (PAGE_TYPE !== 'character') {
+    var modeRadios = document.querySelectorAll('input[name="follow-up-mode"]');
+    for (var m = 0; m < modeRadios.length; m++) {
+      modeRadios[m].addEventListener('change', function() {
+        initializeSelection();
+        renderCharacterPicker();
+      });
+    }
+
+    // Initial render
+    initializeSelection();
+    renderCharacterPicker();
   }
 
-  // Initial render
-  initializeSelection();
-  renderCharacterPicker();
+  // Auto-resize textarea as user types
+  function autoResize() {
+    input.style.height = 'auto';
+    input.style.height = Math.min(input.scrollHeight, 200) + 'px';
+  }
+  input.addEventListener('input', autoResize);
+
+  // Enter submits, Shift+Enter inserts newline
+  input.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      form.dispatchEvent(new Event('submit', { cancelable: true }));
+    }
+  });
 
   form.addEventListener('submit', function(e) {
     e.preventDefault();
     var question = input.value.trim();
     if (!question) return;
 
-    var mode = document.querySelector('input[name="follow-up-mode"]:checked').value;
-
-    // Build characters array from selection
-    var chars = mode.startsWith('explore-') ? [] : Array.from(selectedCharacters);
+    var mode, chars;
+    if (PAGE_TYPE === 'character') {
+      mode = 'ask-character';
+      chars = [DEFAULT_CHARACTER];
+    } else {
+      var modeEl = document.querySelector('input[name="follow-up-mode"]:checked');
+      mode = modeEl ? modeEl.value : 'multi-character';
+      chars = mode.startsWith('explore-') ? [] : Array.from(selectedCharacters);
+    }
 
     input.disabled = true;
     button.disabled = true;
@@ -1622,6 +2028,7 @@ function renderFollowUpScript(
       button.disabled = false;
       button.textContent = 'Ask';
       input.value = '';
+      input.style.height = 'auto';
       input.focus();
     });
   });

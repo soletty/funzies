@@ -13,6 +13,7 @@ export interface FollowUpRequest {
     section?: string;
   };
   mode: "multi-character" | "reconvene" | "ask-character" | "explore-explain" | "explore-connect" | "explore-deep-dive";
+  highlightedText?: string;
 }
 
 export function handleFollowUp(
@@ -96,8 +97,18 @@ function streamFollowUp(
   });
 
   let fullText = "";
+  let clientConnected = true;
 
   console.log("[follow-up] Spawning claude with args:", args.filter((a, i) => i !== 1).join(" "));
+
+  const safeSend = (data: string) => {
+    if (!clientConnected) return;
+    try {
+      res.write(data);
+    } catch {
+      clientConnected = false;
+    }
+  };
 
   const rl = createInterface({ input: claude.stdout });
   rl.on("line", (line) => {
@@ -110,13 +121,13 @@ function streamFollowUp(
       const text = extractText(event);
       if (text) {
         fullText += text;
-        res.write(`data: ${JSON.stringify({ type: "text", content: text })}\n\n`);
+        safeSend(`data: ${JSON.stringify({ type: "text", content: text })}\n\n`);
       }
 
       // Fallback: use the final result if streaming produced nothing
       if (event.type === "result" && typeof event.result === "string" && event.result && !fullText) {
         fullText = event.result;
-        res.write(`data: ${JSON.stringify({ type: "text", content: event.result })}\n\n`);
+        safeSend(`data: ${JSON.stringify({ type: "text", content: event.result })}\n\n`);
       }
     } catch {
       // Skip non-JSON lines
@@ -131,10 +142,10 @@ function streamFollowUp(
   claude.on("close", (code) => {
     console.log("[follow-up] Claude exited with code:", code, "fullText length:", fullText.length, "stderr:", stderrOutput.slice(0, 200));
     if (code !== 0 && !fullText) {
-      res.write(`data: ${JSON.stringify({ type: "error", content: stderrOutput || `Claude exited with code ${code}` })}\n\n`);
+      safeSend(`data: ${JSON.stringify({ type: "error", content: stderrOutput || `Claude exited with code ${code}` })}\n\n`);
     }
 
-    // Persist the follow-up
+    // Persist the follow-up even if client disconnected
     const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
     const followUpDir = path.join(topicDir, "follow-ups");
     fs.mkdirSync(followUpDir, { recursive: true });
@@ -143,19 +154,19 @@ function streamFollowUp(
     const followUpPath = path.join(followUpDir, `follow-up-${timestamp}.md`);
     fs.writeFileSync(followUpPath, followUpContent, "utf-8");
 
-    res.write(`data: ${JSON.stringify({ type: "done", followUpFile: followUpPath })}\n\n`);
-    res.end();
+    safeSend(`data: ${JSON.stringify({ type: "done", followUpFile: followUpPath })}\n\n`);
+    if (clientConnected) res.end();
   });
 
   claude.on("error", (err) => {
-    res.write(`data: ${JSON.stringify({ type: "error", content: `Failed to spawn claude: ${err.message}. Is Claude Code installed?` })}\n\n`);
-    res.end();
+    safeSend(`data: ${JSON.stringify({ type: "error", content: `Failed to spawn claude: ${err.message}. Is Claude Code installed?` })}\n\n`);
+    if (clientConnected) res.end();
   });
 
-  // Handle client disconnect — listen on response, not request
-  // (req "close" fires when the POST body is consumed, killing claude immediately)
+  // Track client disconnect but do NOT kill Claude — let it finish so the
+  // follow-up file gets saved. The user will see it when they navigate back.
   res.on("close", () => {
-    if (!claude.killed) claude.kill();
+    clientConnected = false;
   });
 }
 
@@ -264,7 +275,7 @@ function buildDebatePrompt(
     contextBlock += `\nITERATION SYNTHESES (prior debate rounds for context):\n${files.iterationSyntheses}\n`;
   }
 
-  return `You are continuing an Intellectual Assembly session. Respond to the user's follow-up question, staying fully in character as the assembly members.
+  return `You are continuing an Intellectual Assembly session. Respond to the user's follow-up question in character as the assembly members.
 
 CHARACTER PROFILES:
 ${files.charactersContent}
@@ -272,7 +283,7 @@ ${contextBlock}
 CONTEXT:
 ${contextInfo}
 
-USER'S QUESTION:
+${request.highlightedText ? `HIGHLIGHTED TEXT FROM DELIVERABLE:\n> ${request.highlightedText}\n\nUSER'S QUESTION ABOUT THIS TEXT:` : "USER'S QUESTION:"}
 ${request.question}
 
 ${characterFilter}
@@ -281,13 +292,13 @@ ${modeInstructions}
 
 ${challengeInstructions}
 
-FORMAT RULES:
+CRITICAL QUALITY RULES:
 - Start each character's response with their full name in bold: **Full Name:** followed by their response.
-- Each character must argue FROM their ideological framework as defined in their profile.
-- Maintain their distinctive voice, rhetorical tendencies, and specific positions.
-- Do NOT homogenize voices. Preserve disagreement where frameworks genuinely conflict.
-- Where relevant, cite specific intellectual traditions and sources from the reference library.
-- Keep responses focused and substantive — no meta-commentary about being characters.`;
+- STAY ON THE QUESTION. If the user asks about economics, answer about economics. If they ask about a process, explain the process. Do not pivot to your theoretical framework unless it directly changes the practical answer. A character whose framework is thermodynamics, when asked about gate fees, should talk about gate fees — not entropy. The framework can inform your analysis, but the answer must be about what was asked.
+- Each character's response should be >80% direct answer to the question, with real specifics: numbers, companies, mechanisms, trade-offs. If a character spends most of their response on their theoretical framework rather than the question, the response has failed.
+- Characters should AGREE with each other when they genuinely agree. Do not manufacture disagreement.
+- If a character's framework genuinely changes what you'd conclude — not just how you'd label it — then briefly explain how. If it just adds a different lens without changing the practical answer, skip it.
+- No meta-commentary, no "from my framework" throat-clearing, no performative invocations of intellectual traditions.`;
 }
 
 function buildReferenceLibraryPrompt(
@@ -313,7 +324,7 @@ function buildReferenceLibraryPrompt(
 REFERENCE LIBRARY:
 ${files.referenceLibraryContent}
 ${contextBlock}
-USER'S QUESTION:
+${request.highlightedText ? `HIGHLIGHTED TEXT:\n> ${request.highlightedText}\n\nUSER'S QUESTION ABOUT THIS TEXT:` : "USER'S QUESTION:"}
 ${request.question}
 
 TONE: Be scholarly but accessible. Assume the user is intelligent but may not have read the sources. Cite specific works by name and author. Do NOT adopt character voices — you are a guide, not a debater.`;
@@ -323,55 +334,54 @@ function getModeInstructions(mode: string, isCharacterPage: boolean): string {
   if (mode === "ask-character") {
     return `MODE: SINGLE CHARACTER — IN-DEPTH RESPONSE
 
-You are responding as the specified character only.
+You are responding as the specified character only. This is a one-on-one exchange.
 
 Structure your response:
-1. Your direct answer to the question (2-3 paragraphs, grounded in your intellectual tradition)
-2. What your framework reveals that others' frameworks obscure
-3. A challenge: identify one assumption in the user's question and push back on it. Be specific. Name what they're taking for granted.
-4. A question back to the user — what should they think about next?
+1. Answer the question directly and substantively. Use your real domain expertise — specific knowledge, operational details, concrete examples. Your response should be >80% direct answer with real specifics: numbers, companies, mechanisms, trade-offs. Do not pivot to your theoretical framework unless it directly changes the practical answer. If the user asks about economics, talk about economics — not your framework's abstract lens on economics.
+2. Only AFTER answering substantively: if your framework genuinely changes what you'd conclude — not just how you'd label it — then briefly explain how. If it just adds a different lens without changing the practical answer, skip this entirely.
+3. If there's something the user is getting wrong or oversimplifying, push back with specifics. Don't just "challenge their framing" in the abstract — show them what they're missing with evidence.
 
-Go deep. This is a one-on-one exchange, not a panel. Show the full depth of your framework.`;
+Go deep on substance. The user wants to understand, not to be lectured at through a theoretical lens.`;
   }
 
   if (mode === "reconvene") {
-    return `MODE: RECONVENE — STRUCTURED ADVERSARIAL DEBATE
+    return `MODE: RECONVENE — STRUCTURED DEBATE
 
-Run a structured adversarial mini-debate among ALL assembly members on this question.
+Run a structured debate among ALL assembly members on this question.
 
 Structure:
-1. OPENING POSITIONS (each character states their position in 1-2 paragraphs, grounded in their intellectual tradition)
-2. DIRECT CHALLENGES (characters challenge each other by name — "I disagree with [Name] because..." — be specific about what framework assumptions are in tension)
-3. SOCRATE INTERVENTION (Socrate identifies the deepest assumption that divides the assembly and poses a question that none of them can easily answer)
-4. SYNTHESIS (2-3 sentences on where the assembly stands after this exchange — what's resolved and what remains contested)
+1. OPENING POSITIONS — Each character answers the question from their area of genuine expertise. Characters whose expertise is most relevant to THIS SPECIFIC QUESTION should give the longest, most detailed responses. Characters whose frameworks are less relevant should be briefer and focus on what they can genuinely add.
+2. DIRECT CHALLENGES — Characters challenge each other by name, but ONLY where they genuinely disagree on something that would change what you'd actually do. "I disagree with [Name] because in practice X works differently than Y" — not abstract framework disputes.
+3. SOCRATE INTERVENTION — Identify the real unresolved question that the assembly's debate reveals. What does nobody in this room actually know the answer to?
+4. SYNTHESIS — Where does the assembly actually stand? What's settled, what's genuinely contested, and what would you need to know to resolve it?
 
-Rules: No character may agree with more than one other character. Force genuine disagreement. Reference specific intellectual traditions and sources from their profiles. Make the tensions concrete, not abstract.`;
+Rules: Characters MAY agree with each other. Do not force disagreement. Real consensus is as valuable as real disagreement. The goal is truth, not theater.`;
   }
 
   // multi-character
   if (isCharacterPage) {
     return `MODE: BRING IN THE ASSEMBLY
 
-The user is on a specific character's profile page and wants to hear from multiple perspectives. Include this character plus 1-2 others who would have the most productive tension with them on this question.
+The user is on a specific character's profile page and wants to hear from multiple perspectives. Include this character plus 1-2 others whose expertise is most relevant to THIS SPECIFIC QUESTION.
 
-Each character MUST:
-1. Answer the question from within their specific framework — cite the intellectual traditions that ground their position
-2. Directly address where they agree or disagree with the other responding characters
-3. Identify one assumption in the user's question that their framework would challenge
+Each character should:
+1. Answer the question with substance and specifics — real examples, real numbers, real trade-offs from their area of expertise
+2. Where they genuinely disagree with another character, explain why in concrete terms (not framework-vs-framework, but "this actually works differently because...")
+3. Where they agree, say so and add what they can
 
-Structure: Each character responds in 2-4 paragraphs. If characters disagree, make the disagreement specific and grounded in their frameworks. Do not soften tensions.`;
+Not every character needs to invoke their theoretical framework. Only do so when it genuinely changes the answer.`;
   }
 
   return `MODE: MULTI-CHARACTER EXCHANGE
 
 You are facilitating a focused exchange between selected members of the Intellectual Assembly.
 
-Each character MUST:
-1. Answer the question from within their specific framework — cite the intellectual traditions that ground their position
-2. Directly address where they agree or disagree with the other responding characters
-3. Identify one assumption in the user's question that their framework would challenge
+Each character should:
+1. Answer the question with substance and specifics — real examples, real data, real operational details from their area of expertise. The user is an intelligent person who wants to understand how things actually work.
+2. Where they genuinely disagree with another character, explain why in concrete terms — what would you actually do differently, and why?
+3. Where they agree, say so briefly and build on it rather than manufacturing a fake disagreement.
 
-Structure: Each character responds in 2-4 paragraphs. If characters disagree, make the disagreement specific and grounded in their frameworks. Do not soften tensions.`;
+Characters whose expertise is most relevant to the question should give the longest, most detailed responses. Characters with less relevant expertise should be briefer. Not everyone needs to weigh in on everything.`;
 }
 
 function getReferenceLibraryModePrompt(mode: string): string {
@@ -414,14 +424,14 @@ Be a teacher, not a debater. Cite specific works by name and author.`;
 
 function getChallengeInstructions(mode: string, isCharacterPage: boolean): string {
   if (mode === "ask-character" && isCharacterPage) {
-    return `CHALLENGE: After your main response, challenge the user's thinking from your framework. Then ask them a question that pushes them to think more carefully about this topic.`;
+    return `PUSHBACK: If the user's question contains a factual error, a hidden assumption, or an oversimplification that matters, point it out with evidence. But only if it's real — don't invent problems with the question just to seem adversarial. If the question is good, say so and answer it.`;
   }
 
   if (mode === "reconvene") {
-    return `CHALLENGE: The Socrate intervention should question the assumptions that ALL characters (and the user) share. Find the unexamined common ground.`;
+    return `PUSHBACK: Socrate should identify what the assembly still doesn't know — the genuine open questions, not performative doubt. What evidence would actually settle this?`;
   }
 
-  return `CHALLENGE: Each character should identify one assumption in the user's question that their framework would challenge. Push back on the user's framing. The goal is not to please the user but to sharpen their thinking.`;
+  return `PUSHBACK: If a character sees something wrong or oversimplified in the user's question, they should say so with specifics. But characters should not manufacture challenges — if the question is well-framed, engage with it directly.`;
 }
 
 export function handleDeleteFollowUp(
@@ -497,6 +507,64 @@ export function handleDeleteFollowUp(
   });
 }
 
+export function handleDeleteWorkspace(
+  req: IncomingMessage,
+  res: ServerResponse,
+  workspacePath: string
+) {
+  let body = "";
+  req.on("data", (chunk: Buffer) => {
+    body += chunk.toString();
+  });
+
+  req.on("end", () => {
+    let request: { topicSlug: string };
+    try {
+      request = JSON.parse(body);
+    } catch {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Invalid JSON" }));
+      return;
+    }
+
+    if (!request.topicSlug) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Missing topicSlug" }));
+      return;
+    }
+
+    if (/[/\\]/.test(request.topicSlug)) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Invalid topicSlug" }));
+      return;
+    }
+
+    const topicPath = path.join(workspacePath, request.topicSlug);
+    const resolved = path.resolve(topicPath);
+    if (!resolved.startsWith(path.resolve(workspacePath))) {
+      res.writeHead(403, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Forbidden" }));
+      return;
+    }
+
+    if (!fs.existsSync(topicPath) || !fs.statSync(topicPath).isDirectory()) {
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Workspace not found" }));
+      return;
+    }
+
+    try {
+      fs.rmSync(topicPath, { recursive: true, force: true });
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ success: true }));
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Unknown error";
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: msg }));
+    }
+  });
+}
+
 function formatFollowUpMarkdown(
   request: FollowUpRequest,
   responseText: string,
@@ -509,7 +577,7 @@ function formatFollowUpMarkdown(
   return `# Follow-up — ${readableTime}
 
 **Context:** ${request.context.page}${request.context.section ? ` > ${request.context.section}` : ""}
-**Mode:** ${request.mode}
+**Mode:** ${request.mode}${request.highlightedText ? `\n**Highlighted Text:** > ${request.highlightedText}` : ""}
 **Question:** ${request.question}
 
 ---

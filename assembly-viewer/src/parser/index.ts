@@ -193,6 +193,20 @@ function parseFollowUpFile(filePath: string): FollowUp {
     responses.push({ speaker: currentSpeaker, content: currentContent.join("\n").trim() });
   }
 
+  // Fallback: if no speaker-attributed responses were found, capture all
+  // content after the --- separator as a single unspeakered response.
+  // This handles explore-explain, explore-connect, explore-deep-dive modes
+  // which produce guide-style responses without character names.
+  if (responses.length === 0 && pastHeader) {
+    const separatorIdx = raw.indexOf("\n---\n");
+    if (separatorIdx !== -1) {
+      const body = raw.slice(separatorIdx + 5).trim();
+      if (body) {
+        responses.push({ speaker: "", content: body });
+      }
+    }
+  }
+
   // Fallback timestamp from filename if not found in content
   if (!timestamp) {
     const nameMatch = path.basename(filePath, ".md").match(/follow-up-(.+)/);

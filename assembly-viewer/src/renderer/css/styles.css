@@ -466,6 +466,119 @@ th {
   text-decoration: none;
 }
 
+.topic-delete-btn {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.2rem;
+  line-height: 1;
+  color: var(--color-text-muted);
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s, background 0.15s;
+  padding: 0.15rem 0.4rem;
+  border-radius: var(--radius-sm);
+  z-index: 1;
+}
+
+.topic-card:hover .topic-delete-btn {
+  opacity: 1;
+}
+
+.topic-delete-btn:hover {
+  color: var(--color-low);
+  background: var(--color-low-bg);
+}
+
+/* ─── Confirm Dialog ─── */
+
+.confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+  animation: none !important;
+}
+
+.confirm-overlay.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.confirm-dialog {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 1.75rem 2rem;
+  max-width: 400px;
+  width: 90%;
+  box-shadow: var(--shadow-lg);
+  transform: scale(0.95);
+  transition: transform 0.2s;
+}
+
+.confirm-overlay.visible .confirm-dialog {
+  transform: scale(1);
+}
+
+.confirm-dialog h3 {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  margin-bottom: 0.5rem;
+}
+
+.confirm-dialog p {
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+  margin-bottom: 1.25rem;
+  line-height: 1.5;
+}
+
+.confirm-actions {
+  display: flex;
+  gap: 0.6rem;
+  justify-content: flex-end;
+}
+
+.confirm-cancel,
+.confirm-delete {
+  padding: 0.45rem 1rem;
+  border-radius: var(--radius);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid var(--color-border);
+  transition: all 0.15s;
+}
+
+.confirm-cancel {
+  background: var(--color-bg);
+  color: var(--color-text-secondary);
+}
+
+.confirm-cancel:hover {
+  background: var(--color-surface);
+}
+
+.confirm-delete {
+  background: var(--color-low);
+  color: #fff;
+  border-color: var(--color-low);
+}
+
+.confirm-delete:hover {
+  background: #b42626;
+  border-color: #b42626;
+}
+
 .topic-meta {
   font-size: 0.7rem;
   color: var(--color-text-muted);
@@ -998,6 +1111,7 @@ details > .details-content {
 .follow-up-input-row {
   display: flex;
   gap: 0.5rem;
+  align-items: flex-end;
 }
 
 .follow-up-input {
@@ -1011,6 +1125,9 @@ details > .details-content {
   color: var(--color-text);
   outline: none;
   transition: border-color 0.15s;
+  resize: none;
+  overflow-y: auto;
+  line-height: 1.4;
 }
 
 .follow-up-input:focus {
@@ -1831,6 +1948,30 @@ details > .details-content {
   text-decoration: underline;
 }
 
+/* Estimate timer */
+
+.assembly-estimate {
+  text-align: center;
+  font-size: 0.82rem;
+  color: var(--color-text-secondary);
+  margin: 0 0 0.75rem;
+}
+
+/* New session form (while one is running) */
+
+.assembly-new-session {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-border-light);
+}
+
+.assembly-restart-note {
+  font-size: 0.78rem;
+  color: var(--color-text-secondary);
+  margin: 0.4rem 0 0;
+  text-align: center;
+}
+
 /* Error state */
 
 .assembly-error {
@@ -1840,4 +1981,174 @@ details > .details-content {
   background: rgba(207, 34, 46, 0.05);
   border-radius: 6px;
   margin-top: 0.75rem;
+}
+
+/* ─── Highlight Chat Panel ─── */
+
+.highlight-chat-panel,
+.panel-expand-tab {
+  animation: none !important;
+}
+
+.highlight-chat-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 420px;
+  height: 100vh;
+  background: var(--color-bg);
+  border-left: 1px solid var(--color-border);
+  box-shadow: var(--shadow-lg);
+  z-index: 210;
+  transform: translateX(100%);
+  transition: transform 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.highlight-chat-panel.open {
+  transform: translateX(0);
+}
+
+/* Collapsed tab — visible when panel is not open */
+.panel-expand-tab {
+  position: fixed;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+  z-index: 209;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-right: none;
+  border-radius: var(--radius) 0 0 var(--radius);
+  padding: 0.6rem 0.35rem;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: opacity 0.3s, transform 0.3s;
+  display: flex;
+  align-items: center;
+  writing-mode: vertical-rl;
+  font-size: 0.72rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  color: var(--color-accent);
+  gap: 0.35rem;
+  font-family: var(--font-body);
+}
+
+.panel-expand-tab:hover {
+  box-shadow: var(--shadow-md);
+  background: var(--color-surface);
+}
+
+.panel-expand-tab .tab-icon {
+  writing-mode: horizontal-tb;
+  font-size: 0.85rem;
+}
+
+/* Hide the tab when panel is open */
+.highlight-chat-panel.open ~ .panel-expand-tab {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-50%) translateX(100%);
+}
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.panel-header h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.panel-collapse-btn {
+  background: none;
+  border: none;
+  font-size: 1.1rem;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  padding: 0.2rem 0.45rem;
+  border-radius: var(--radius-sm);
+  transition: color 0.15s, background 0.15s;
+  line-height: 1;
+}
+
+.panel-collapse-btn:hover {
+  color: var(--color-text);
+  background: var(--color-surface);
+}
+
+.panel-quote {
+  padding: 0.85rem 1.25rem;
+  margin: 0.75rem 1.25rem;
+  border-left: 2px solid var(--color-accent);
+  background: var(--color-surface);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  font-style: italic;
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  line-height: 1.55;
+  max-height: 120px;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+
+.panel-quote:empty {
+  display: none;
+}
+
+.panel-input-row {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem;
+  flex-shrink: 0;
+  align-items: flex-end;
+}
+
+.panel-input-row .follow-up-input {
+  flex: 1;
+}
+
+.panel-response-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.75rem 1.25rem;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}
+
+.panel-response-area .follow-up-exchange {
+  margin: 0.75rem 0;
+}
+
+.panel-response-area .debate-content {
+  font-size: 0.88rem;
+  line-height: 1.6;
+}
+
+/* Hide empty mode row (for simplified character chat) */
+
+.follow-up-mode-row:empty {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .highlight-chat-panel {
+    width: 100%;
+  }
+
+  .panel-expand-tab {
+    top: auto;
+    bottom: 1rem;
+    right: 0;
+  }
 }

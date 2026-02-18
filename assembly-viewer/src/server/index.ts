@@ -1,7 +1,7 @@
 import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
-import { handleFollowUp, handleDeleteFollowUp } from "./follow-up.js";
+import { handleFollowUp, handleDeleteFollowUp, handleDeleteWorkspace } from "./follow-up.js";
 import { startSession, sendInput, addSSEClient, getSessionStatus } from "./assembly-session.js";
 
 const MIME_TYPES: Record<string, string> = {
@@ -46,6 +46,16 @@ export function startServer(
         return;
       }
       handleDeleteFollowUp(req, res, workspacePath);
+      return;
+    }
+
+    if (req.url === "/api/workspace" && req.method === "DELETE") {
+      if (!workspacePath) {
+        res.writeHead(503, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Workspace path not configured" }));
+        return;
+      }
+      handleDeleteWorkspace(req, res, workspacePath);
       return;
     }
 
