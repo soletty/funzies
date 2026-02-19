@@ -11,6 +11,7 @@ import {
   characterGenerationPrompt,
   avatarMappingPrompt,
   referenceLibraryPrompt,
+  referenceAuditPrompt,
   debatePrompt,
   synthesisPrompt,
   deliverablePrompt,
@@ -222,6 +223,24 @@ export async function runPipeline(config: PipelineConfig): Promise<void> {
       8192
     );
     rawFiles["reference-library.md"] = result;
+    await updateRawFiles(rawFiles);
+    await updateParsedData(buildParsedTopic(rawFiles, slug, topic));
+  }
+
+  // Phase 3.5: Reference Audit
+  if (!rawFiles["reference-audit.md"]) {
+    await updatePhase("reference-audit");
+    const auditResult = await callClaude(
+      client,
+      referenceAuditPrompt(rawFiles["reference-library.md"]),
+      "Audit this reference library for fabricated or uncertain citations.",
+      8192
+    );
+    rawFiles["reference-audit.md"] = auditResult;
+
+    // Extract cleaned library: use content before the Audit Summary as the cleaned version
+    // Replace the reference library with the audited version (which has confidence tags)
+    rawFiles["reference-library.md"] = auditResult;
     await updateRawFiles(rawFiles);
     await updateParsedData(buildParsedTopic(rawFiles, slug, topic));
   }

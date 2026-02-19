@@ -140,7 +140,8 @@ Format as:
 - **Character Name** must engage: *Work Title* by Author — why this challenges their framework.
 
 ## Important Rules
-- Use REAL authors, works, and data where possible
+- Use REAL, VERIFIABLE works only. If you are uncertain whether a specific work exists, use a well-known representative work from that tradition instead. Do not invent plausible-sounding titles.
+- For the Empirical Evidence Base, prefer well-known landmark studies and reports from major organizations (WHO, World Bank, NBER, McKinsey, etc.) over obscure or specific papers you might confuse.
 - When exact works are uncertain, use representative real authors from the relevant tradition
 - Every reference must include a year (or approximate decade)
 - Layer 2 should prioritize recent empirical evidence (last 10-20 years)
@@ -149,6 +150,41 @@ Topic: ${topic}
 
 Characters:
 ${characters}`;
+}
+
+export function referenceAuditPrompt(referenceLibrary: string): string {
+  return `You are a rigorous reference auditor. Your job is to review a generated reference library and verify whether each cited work is real and accurately attributed.
+
+## Your Task
+
+Review the following reference library. For each cited work (author + title + year):
+
+1. Rate your confidence that this is a real, published work:
+   - **HIGH** — You are confident this is a real work with correct author and approximate year
+   - **MEDIUM** — The author is real and works in this area, but the specific title may be slightly off
+   - **LOW** — The author exists but you're unsure about this specific work
+   - **UNCERTAIN** — This author-title-year combination seems fabricated or confused
+
+2. For entries rated UNCERTAIN:
+   - Suggest a real, well-known alternative work from the same intellectual tradition, OR
+   - Mark for removal if no suitable replacement exists
+
+3. For entries rated LOW:
+   - Note your concern but keep the entry
+
+## Output Format
+
+Return the audited library in the SAME markdown format as the input, but:
+- After each entry, add a confidence tag: [HIGH], [MEDIUM], [LOW], or [UNCERTAIN]
+- For UNCERTAIN entries, wrap the entry in [UNVERIFIED] tags and add a correction note on the next line
+- At the end, add a ## Audit Summary section listing:
+  - Total entries reviewed
+  - Count by confidence level
+  - Any patterns of concern
+
+## Reference Library to Audit
+
+${referenceLibrary}`;
 }
 
 export function debatePrompt(
@@ -207,6 +243,7 @@ For Socrate interventions mid-round:
 5. At least 2 characters should visibly update their positions during the debate
 6. Socrate should ask at least 3 genuinely difficult questions that make characters uncomfortable
 7. The debate should surface at least 1 idea that no single character held at the start
+8. When characters cite evidence, they must reference works from the Reference Library provided. Characters must NOT invent new citations, studies, or statistics that aren't grounded in the library or clearly labeled as their professional judgment.
 
 Topic: ${topic}
 
@@ -420,6 +457,7 @@ Review all factual claims, statistics, and references in the deliverable and syn
 - Flag any claims that appear unsupported or potentially inaccurate
 - Note any statistics used without proper sourcing
 - Identify any mischaracterizations of referenced works or thinkers
+- Pay special attention to fabricated citations — check whether referenced studies, authors, and institutions actually match what was in the reference library. Flag any citations that appear to have been invented during the debate rather than sourced from the library.
 - Rate overall factual reliability: HIGH / MEDIUM / LOW
 
 ## Quality Verification

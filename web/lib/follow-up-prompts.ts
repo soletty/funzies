@@ -1,3 +1,10 @@
+const SOURCE_HONESTY_RULES = `SOURCE HONESTY RULES:
+- NEVER fabricate citations, studies, statistics, or data. Do not invent study names, institution names, author names, or specific percentages/numbers that you don't actually have.
+- If you don't have a specific source, say "I don't have a specific study for this" — do not invent one.
+- When referencing works from the Reference Library, cite them by name. When making claims beyond the library, clearly distinguish between established consensus, the character's informed opinion, and speculation.
+- If challenged on a source, NEVER double down with more fabricated details. Admit uncertainty immediately: "I don't have the exact citation for that" is always better than inventing one.
+- Prefer "the evidence suggests" or "based on [specific reference library source]" over fake precision with invented percentages and institution names.`;
+
 export interface TopicFiles {
   charactersContent: string;
   synthesisContent: string;
@@ -102,7 +109,9 @@ CRITICAL QUALITY RULES:
 - Each character's response should be >80% direct answer to the question, with real specifics: numbers, companies, mechanisms, trade-offs. If a character spends most of their response on their theoretical framework rather than the question, the response has failed.
 - Characters should AGREE with each other when they genuinely agree. Do not manufacture disagreement.
 - If a character's framework genuinely changes what you'd conclude — not just how you'd label it — then briefly explain how. If it just adds a different lens without changing the practical answer, skip it.
-- No meta-commentary, no "from my framework" throat-clearing, no performative invocations of intellectual traditions.`;
+- No meta-commentary, no "from my framework" throat-clearing, no performative invocations of intellectual traditions.
+
+${SOURCE_HONESTY_RULES}`;
 }
 
 export function buildStructuredDebatePrompt(
@@ -141,7 +150,9 @@ DEBATE RULES:
 FORMAT:
 Start each character's contribution with their full name in bold: **Full Name:** followed by their argument.
 For Socrate's interventions, use: **Socrate:** followed by their question(s).
-End with: **Synthesis:** followed by a brief summary of convergence, divergence, and emergent insights.`;
+End with: **Synthesis:** followed by a brief summary of convergence, divergence, and emergent insights.
+
+${SOURCE_HONESTY_RULES}`;
 }
 
 export function buildReferenceLibraryPrompt(
@@ -171,7 +182,9 @@ ${contextBlock}
 ${request.highlightedText ? `HIGHLIGHTED TEXT:\n> ${request.highlightedText}\n\nUSER'S QUESTION ABOUT THIS TEXT:` : "USER'S QUESTION:"}
 ${request.question}
 
-TONE: Be scholarly but accessible. Assume the user is intelligent but may not have read the sources. Cite specific works by name and author. Do NOT adopt character voices — you are a guide, not a debater.`;
+TONE: Be scholarly but accessible. Assume the user is intelligent but may not have read the sources. Cite specific works by name and author. Do NOT adopt character voices — you are a guide, not a debater.
+
+${SOURCE_HONESTY_RULES}`;
 }
 
 export function getModeInstructions(mode: string, isCharacterPage: boolean): string {
@@ -185,7 +198,9 @@ Structure your response:
 2. Only AFTER answering substantively: if your framework genuinely changes what you'd conclude — not just how you'd label it — then briefly explain how. If it just adds a different lens without changing the practical answer, skip this entirely.
 3. If there's something the user is getting wrong or oversimplifying, push back with specifics. Don't just "challenge their framing" in the abstract — show them what they're missing with evidence.
 
-Go deep on substance. The user wants to understand, not to be lectured at through a theoretical lens.`;
+Go deep on substance. The user wants to understand, not to be lectured at through a theoretical lens.
+
+${SOURCE_HONESTY_RULES}`;
   }
 
   if (isCharacterPage) {
@@ -200,7 +215,9 @@ Each character should:
 2. Where they genuinely disagree with another character, explain why in concrete terms (not framework-vs-framework, but "this actually works differently because...")
 3. Where they agree, say so and add what they can
 
-Characters MAY agree. Do not force disagreement. Not every character needs to invoke their theoretical framework — only do so when it genuinely changes the answer.`;
+Characters MAY agree. Do not force disagreement. Not every character needs to invoke their theoretical framework — only do so when it genuinely changes the answer.
+
+${SOURCE_HONESTY_RULES}`;
   }
 
   return `MODE: ASK THE ASSEMBLY
@@ -212,7 +229,9 @@ Each character should:
 2. Where they genuinely disagree with another character, explain why in concrete terms — what would you actually do differently, and why?
 3. Where they agree, say so briefly and build on it rather than manufacturing a fake disagreement.
 
-Characters whose expertise is most relevant should give the longest, most detailed responses. Characters with less relevant expertise should be briefer. Not everyone needs to weigh in on everything. Characters MAY agree — real consensus is as valuable as real disagreement.`;
+Characters whose expertise is most relevant should give the longest, most detailed responses. Characters with less relevant expertise should be briefer. Not everyone needs to weigh in on everything. Characters MAY agree — real consensus is as valuable as real disagreement.
+
+${SOURCE_HONESTY_RULES}`;
 }
 
 export function getChallengeMode(): string {
@@ -224,7 +243,10 @@ Rules:
 - Concede specific points where the objection genuinely has merit
 - Reference which other assembly characters would agree or disagree with the user's objection
 - Identify what evidence would settle the dispute
-- Do NOT be sycophantic. Push back firmly where the position is defensible. If the user is wrong, say so with specifics.`;
+- Do NOT be sycophantic. Push back firmly where the position is defensible. If the user is wrong, say so with specifics.
+
+${SOURCE_HONESTY_RULES}
+- This is ESPECIALLY important in challenge mode: when pressed for sources, NEVER fabricate studies or data to defend your position. Either cite from the Reference Library or say "I'm drawing on my professional judgment here, not a specific study."`;
 }
 
 export function getChallengeInstructions(mode: string, isCharacterPage: boolean): string {
