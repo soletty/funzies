@@ -27,7 +27,7 @@ export async function GET() {
 
   const params = new URLSearchParams({
     client_id: clientId,
-    scope: "repo",
+    scope: "read:user",
     state,
     redirect_uri: `${process.env.AUTH_URL || ""}/api/github/callback`,
   });

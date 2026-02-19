@@ -5,9 +5,11 @@ import { query } from "@/lib/db";
 import { cookies } from "next/headers";
 
 export async function GET(request: NextRequest) {
+  const baseUrl = process.env.AUTH_URL || request.url;
+
   const user = await getCurrentUser();
   if (!user?.id) {
-    return NextResponse.redirect(new URL("/?github=error", request.url));
+    return NextResponse.redirect(new URL("/?github=error", baseUrl));
   }
 
   const code = request.nextUrl.searchParams.get("code");
@@ -18,7 +20,7 @@ export async function GET(request: NextRequest) {
   cookieStore.delete("github_oauth_state");
 
   if (!code || !state || state !== storedState) {
-    return NextResponse.redirect(new URL("/?github=error", request.url));
+    return NextResponse.redirect(new URL("/?github=error", baseUrl));
   }
 
   const tokenRes = await fetch("https://github.com/login/oauth/access_token", {
@@ -36,7 +38,7 @@ export async function GET(request: NextRequest) {
 
   const tokenData = await tokenRes.json();
   if (!tokenData.access_token) {
-    return NextResponse.redirect(new URL("/?github=error", request.url));
+    return NextResponse.redirect(new URL("/?github=error", baseUrl));
   }
 
   const profileRes = await fetch("https://api.github.com/user", {
@@ -47,7 +49,7 @@ export async function GET(request: NextRequest) {
   });
 
   if (!profileRes.ok) {
-    return NextResponse.redirect(new URL("/?github=error", request.url));
+    return NextResponse.redirect(new URL("/?github=error", baseUrl));
   }
 
   const profile = await profileRes.json();
@@ -65,5 +67,5 @@ export async function GET(request: NextRequest) {
     [user.id, profile.login, profile.avatar_url, encrypted, iv]
   );
 
-  return NextResponse.redirect(new URL("/?github=connected", request.url));
+  return NextResponse.redirect(new URL("/?github=connected", baseUrl));
 }
