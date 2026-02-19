@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 
 const IMAGE_TYPES = new Set([
   "image/png", "image/jpeg", "image/gif", "image/webp", "image/svg+xml",
@@ -21,10 +21,16 @@ export interface AttachedFile {
   thumbnailUrl?: string;
 }
 
+export interface AttachmentWidgetHandle {
+  openPicker: () => void;
+}
+
 interface AttachmentWidgetProps {
   files: AttachedFile[];
   onChange: (files: AttachedFile[]) => void;
   disabled?: boolean;
+  hideButton?: boolean;
+  handleRef?: (handle: AttachmentWidgetHandle) => void;
 }
 
 function fileIcon(name: string): string {
@@ -44,7 +50,7 @@ function validateFile(file: File): string | null {
   return null;
 }
 
-export default function AttachmentWidget({ files, onChange, disabled }: AttachmentWidgetProps) {
+export default function AttachmentWidget({ files, onChange, disabled, hideButton, handleRef }: AttachmentWidgetProps) {
   const [dragOver, setDragOver] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -73,6 +79,12 @@ export default function AttachmentWidget({ files, onChange, disabled }: Attachme
     if (removed?.thumbnailUrl) URL.revokeObjectURL(removed.thumbnailUrl);
     onChange(files.filter((f) => f.id !== id));
   }
+
+  useEffect(() => {
+    if (handleRef) {
+      handleRef({ openPicker: () => inputRef.current?.click() });
+    }
+  }, [handleRef]);
 
   function handleDrop(e: React.DragEvent) {
     e.preventDefault();
@@ -124,18 +136,20 @@ export default function AttachmentWidget({ files, onChange, disabled }: Attachme
         }}
       />
 
-      <button
-        type="button"
-        className="attachment-btn"
-        onClick={() => inputRef.current?.click()}
-        disabled={disabled}
-        title="Attach files"
-      >
-        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <path d="M14 8.5l-5.5 5.5a4 4 0 01-5.66-5.66l7.08-7.07a2.67 2.67 0 013.77 3.77L6.6 12.1a1.33 1.33 0 01-1.88-1.88L11 3.94" />
-        </svg>
-        Attach
-      </button>
+      {!hideButton && (
+        <button
+          type="button"
+          className="attachment-btn"
+          onClick={() => inputRef.current?.click()}
+          disabled={disabled}
+          title="Attach files"
+        >
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <path d="M14 8.5l-5.5 5.5a4 4 0 01-5.66-5.66l7.08-7.07a2.67 2.67 0 013.77 3.77L6.6 12.1a1.33 1.33 0 01-1.88-1.88L11 3.94" />
+          </svg>
+          Attach
+        </button>
+      )}
     </div>
   );
 }

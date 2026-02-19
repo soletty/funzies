@@ -4,7 +4,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { marked } from "marked";
 import { parseFollowUpResponse, getLoadingMessage } from "@/lib/follow-up-rendering";
 import { findAvatarUrl } from "@/lib/character-utils";
-import AttachmentWidget, { type AttachedFile } from "@/components/AttachmentWidget";
+import AttachmentWidget, { type AttachedFile, type AttachmentWidgetHandle } from "@/components/AttachmentWidget";
 import type { FollowUp } from "@/lib/types";
 
 type Mode = "ask-assembly" | "ask-character" | "ask-library" | "debate";
@@ -91,6 +91,7 @@ export default function FollowUpModal({
     return initial;
   });
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
+  const [attachHandle, setAttachHandle] = useState<AttachmentWidgetHandle | null>(null);
   const threadRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -332,39 +333,30 @@ export default function FollowUpModal({
         </div>
       )}
 
-      {activeMode === "ask-character" && characters.length > 0 && (
-        <div style={{ marginBottom: "1rem" }}>
-          <label style={{ fontSize: "0.85rem", color: "var(--color-text-secondary)", marginBottom: "0.25rem", display: "block" }}>
-            Character
-          </label>
-          <select
-            value={selectedCharacter}
-            onChange={(e) => setSelectedCharacter(e.target.value)}
-            style={{
-              padding: "0.5rem 0.75rem",
-              border: "1px solid var(--color-border)",
-              borderRadius: "var(--radius-sm)",
-              background: "var(--color-bg)",
-              fontSize: "0.9rem",
-              width: "100%",
-              maxWidth: "300px",
-            }}
-          >
-            {characters.map((c) => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-          </select>
-        </div>
-      )}
+      <div className="chat-input-container">
+        {activeMode === "ask-character" && characters.length > 0 && (
+          <div className="chat-input-character-row">
+            <span className="chat-input-character-label">Speaking with</span>
+            <select
+              value={selectedCharacter}
+              onChange={(e) => setSelectedCharacter(e.target.value)}
+              className="chat-input-character-select"
+            >
+              {characters.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          </div>
+        )}
 
-      <AttachmentWidget files={attachedFiles} onChange={setAttachedFiles} disabled={isStreaming} />
+        <AttachmentWidget files={attachedFiles} onChange={setAttachedFiles} disabled={isStreaming} hideButton handleRef={setAttachHandle} />
 
-      <div style={{ marginBottom: "0.75rem" }}>
         <textarea
           ref={textareaRef}
           value={question}
           onChange={(e) => { setQuestion(e.target.value); autoResize(); }}
           onKeyDown={handleKeyDown}
+          className="chat-input-textarea"
           placeholder={
             activeMode === "ask-character"
               ? `Ask ${selectedCharacter} a question...`
@@ -375,57 +367,42 @@ export default function FollowUpModal({
                   : "Ask the assembly a question..."
           }
           rows={2}
-          style={{
-            width: "100%",
-            padding: "0.75rem",
-            border: "1px solid var(--color-border)",
-            borderRadius: "var(--radius-sm)",
-            fontFamily: "var(--font-body)",
-            fontSize: "0.9rem",
-            resize: "none",
-            overflow: "hidden",
-            background: "var(--color-bg)",
-          }}
           disabled={isStreaming}
         />
-      </div>
 
-      <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "1rem" }}>
-        <button
-          onClick={handleSubmit}
-          disabled={isStreaming || !question.trim()}
-          style={{
-            padding: "0.5rem 1.2rem",
-            background: isStreaming ? "var(--color-surface-alt)" : "var(--color-accent)",
-            color: isStreaming ? "var(--color-text-muted)" : "#fff",
-            border: "none",
-            borderRadius: "var(--radius-sm)",
-            cursor: isStreaming ? "not-allowed" : "pointer",
-            fontWeight: 500,
-            fontSize: "0.9rem",
-          }}
-        >
-          {isStreaming ? loadingMsg : config.submitLabel}
-        </button>
-
-        {config.showChallenge && (
-          <button
-            onClick={() => { setIsChallenge(true); handleSubmit(); }}
-            disabled={isStreaming || !question.trim()}
-            style={{
-              padding: "0.5rem 1.2rem",
-              background: isStreaming ? "var(--color-surface-alt)" : "var(--color-error, #cf222e)",
-              color: isStreaming ? "var(--color-text-muted)" : "#fff",
-              border: "none",
-              borderRadius: "var(--radius-sm)",
-              cursor: isStreaming ? "not-allowed" : "pointer",
-              fontWeight: 500,
-              fontSize: "0.9rem",
-            }}
-          >
-            Challenge
-          </button>
-        )}
+        <div className="chat-input-toolbar">
+          <div className="chat-input-toolbar-left">
+            <button
+              type="button"
+              className="chat-input-attach-btn"
+              onClick={() => attachHandle?.openPicker()}
+              disabled={isStreaming}
+              title="Attach files"
+            >
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M14 8.5l-5.5 5.5a4 4 0 01-5.66-5.66l7.08-7.07a2.67 2.67 0 013.77 3.77L6.6 12.1a1.33 1.33 0 01-1.88-1.88L11 3.94" />
+              </svg>
+            </button>
+          </div>
+          <div className="chat-input-toolbar-right">
+            {config.showChallenge && (
+              <button
+                onClick={() => { setIsChallenge(true); handleSubmit(); }}
+                disabled={isStreaming || !question.trim()}
+                className="chat-input-btn chat-input-btn-challenge"
+              >
+                Challenge
+              </button>
+            )}
+            <button
+              onClick={handleSubmit}
+              disabled={isStreaming || !question.trim()}
+              className="chat-input-btn chat-input-btn-submit"
+            >
+              {isStreaming ? loadingMsg : config.submitLabel}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
