@@ -9,8 +9,15 @@ export default function AssemblyOverview() {
   const router = useRouter();
 
   useEffect(() => {
-    router.replace(`/assembly/${topic.slug}/synthesis`);
-  }, [router, topic.slug]);
+    const base = `/assembly/${topic.slug}`;
+    if (topic.synthesis) {
+      router.replace(`${base}/synthesis`);
+    } else if (topic.characters.length > 0) {
+      router.replace(`${base}/characters`);
+    } else {
+      router.replace(`${base}/synthesis`);
+    }
+  }, [router, topic.slug, topic.synthesis, topic.characters.length]);
 
   return null;
 }

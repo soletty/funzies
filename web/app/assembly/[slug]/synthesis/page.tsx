@@ -65,7 +65,14 @@ export default function SynthesisPage() {
     .filter(Boolean)
     .join(" \u00b7 ");
 
-  if (!synth) return <p>No synthesis available.</p>;
+  if (!synth) {
+    return (
+      <div style={{ padding: "2rem 0", color: "var(--color-text-muted)" }}>
+        <h1>{title}</h1>
+        <p>Synthesis is not available yet. The assembly may still be generating.</p>
+      </div>
+    );
+  }
 
   const emergentInsight = synth.emergentIdeas?.[0]?.replace(/^-\s*/, "") ?? null;
 

@@ -49,8 +49,20 @@ export default async function AssemblyLayout({
     notFound();
   }
 
-  const topic: Topic | null = rows[0].parsed_data;
+  const raw = rows[0].parsed_data;
   const isComplete = rows[0].status === "complete";
+
+  const topic: Topic | null = raw
+    ? {
+        ...raw,
+        characters: raw.characters ?? [],
+        iterations: raw.iterations ?? [],
+        deliverables: raw.deliverables ?? [],
+        verification: raw.verification ?? [],
+        followUps: raw.followUps ?? [],
+        researchFiles: raw.researchFiles ?? [],
+      }
+    : null;
 
   if (topic) {
     topic.followUps = followUpRows.map((row): FollowUp => ({
