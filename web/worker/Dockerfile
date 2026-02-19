@@ -5,4 +5,4 @@ RUN npm ci
 COPY . .
 RUN npx tsc -p worker/tsconfig.worker.json
 RUN npm prune --omit=dev
-CMD ["node", "dist/worker/index.js"]
+CMD ["node", "worker/dist/worker/index.js"]
