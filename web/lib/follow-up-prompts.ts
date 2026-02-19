@@ -5,6 +5,12 @@ export interface TopicFiles {
   iterationSyntheses: string;
 }
 
+export interface FileReference {
+  name: string;
+  type: string;
+  content: string;
+}
+
 export interface FollowUpRequest {
   question: string;
   characters: string[];
@@ -12,6 +18,18 @@ export interface FollowUpRequest {
   mode: "ask-assembly" | "ask-character" | "ask-library" | "debate";
   challenge?: boolean;
   highlightedText?: string;
+  files?: FileReference[];
+}
+
+function buildFileReferenceBlock(files?: FileReference[]): string {
+  if (!files || files.length === 0) return "";
+  const blocks = files.map((f) => {
+    const truncated = f.content.length > 10000
+      ? f.content.slice(0, 10000) + "\n\n[... truncated ...]"
+      : f.content;
+    return `--- ${f.name} (${f.type}) ---\n${truncated}`;
+  });
+  return `\nUSER-ATTACHED FILES:\n${blocks.join("\n\n")}\n`;
 }
 
 export function buildPrompt(
@@ -59,6 +77,7 @@ export function buildDebatePrompt(
   if (files.iterationSyntheses) {
     contextBlock += `\nITERATION SYNTHESES (prior debate rounds for context):\n${files.iterationSyntheses}\n`;
   }
+  contextBlock += buildFileReferenceBlock(request.files);
 
   return `You are continuing an Intellectual Assembly session. Respond to the user's follow-up question in character as the assembly members.
 
@@ -100,6 +119,7 @@ export function buildStructuredDebatePrompt(
   if (files.iterationSyntheses) {
     contextBlock += `\nPRIOR ITERATION SYNTHESES:\n${files.iterationSyntheses}\n`;
   }
+  contextBlock += buildFileReferenceBlock(request.files);
 
   return `You are running a structured adversarial debate among the Intellectual Assembly members. The user has posed a question for the assembly to debate.
 
@@ -141,6 +161,7 @@ export function buildReferenceLibraryPrompt(
   if (files.synthesisContent) {
     contextBlock += `\nDEBATE SYNTHESIS (the assembly's conclusions):\n${files.synthesisContent}\n`;
   }
+  contextBlock += buildFileReferenceBlock(request.files);
 
   return `${modePrompt}
 
@@ -212,6 +233,49 @@ export function getChallengeInstructions(mode: string, isCharacterPage: boolean)
   }
 
   return `PUSHBACK: If a character sees something wrong or oversimplified in the user's question, they should say so with specifics. But characters should not manufacture challenges — if the question is well-framed, engage with it directly.`;
+}
+
+export function buildInsightExtractionPrompt(
+  synthesis: string,
+  question: string,
+  response: string
+): string {
+  return `You are an extremely strict evaluator. Your job is to determine whether a follow-up conversation produced genuinely NEW intellectual territory that was NOT already present in the original synthesis.
+
+ORIGINAL SYNTHESIS:
+${synthesis}
+
+FOLLOW-UP QUESTION:
+${question}
+
+FOLLOW-UP RESPONSE:
+${response}
+
+EVALUATION RULES — READ CAREFULLY:
+
+The bar for "new insight" is VERY HIGH. Most follow-up conversations do NOT produce new insights. They are clarifications, elaborations, or restatements of existing positions. That is fine and expected.
+
+Something is NOT a new insight if it:
+- Restates or elaborates on a position already in the synthesis
+- Provides more detail on an existing convergence or divergence point
+- Asks a clarifying question and gets an answer that's consistent with synthesis positions
+- Explores an implication that's obvious from the synthesis
+- Is a stylistic or rhetorical difference without substantive novelty
+
+Something IS a new insight ONLY if it:
+- "position_shift": A character explicitly abandons or significantly modifies a position they held in the synthesis. Not a nuance — an actual change.
+- "new_argument": An entirely new argument or piece of evidence appears that was absent from the synthesis. Not a restatement with different words.
+- "emergent_synthesis": Two or more characters find genuinely unexpected common ground that contradicts the synthesis's divergence map.
+- "exposed_gap": The exchange reveals a critical blind spot or assumption in the synthesis that undermines one of its conclusions.
+- "unexpected_agreement": Characters who the synthesis identified as opposed turn out to agree on something substantive.
+
+If you are uncertain whether something qualifies, it does NOT qualify. Default to hasInsight: false.
+
+Respond with ONLY a JSON object, no other text:
+{"hasInsight": false, "summary": "", "type": "position_shift", "involvedCharacters": []}
+
+Or if there genuinely is new territory:
+{"hasInsight": true, "summary": "one sentence describing the specific new insight", "type": "position_shift|new_argument|emergent_synthesis|exposed_gap|unexpected_agreement", "involvedCharacters": ["Full Name 1", "Full Name 2"]}`;
 }
 
 export function getReferenceLibraryModePrompt(): string {

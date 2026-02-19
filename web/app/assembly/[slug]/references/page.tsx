@@ -2,7 +2,10 @@
 
 import Link from "next/link";
 import { marked } from "marked";
-import { useAssembly } from "@/lib/assembly-context";
+import { useAssembly, useAssemblyId } from "@/lib/assembly-context";
+import FollowUpModal from "@/components/FollowUpModal";
+import HighlightChat from "@/components/HighlightChat";
+import PersistedFollowUps from "@/components/PersistedFollowUps";
 
 const AVATAR_COLORS = [
   "#0969da", "#8250df", "#bf3989", "#0e8a16", "#e16f24",
@@ -16,12 +19,17 @@ function initials(name: string): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
+function isSocrate(name: string): boolean {
+  return name.toLowerCase().includes("socrate");
+}
+
 function md(text: string): string {
   return marked.parse(text, { async: false }) as string;
 }
 
 export default function ReferencesPage() {
   const topic = useAssembly();
+  const assemblyId = useAssemblyId();
   const base = `/assembly/${topic.slug}`;
 
   if (!topic.referenceLibrary) {
@@ -31,8 +39,10 @@ export default function ReferencesPage() {
   const parsed = topic.parsedReferenceLibrary;
 
   const colorMap: Record<string, string> = {};
+  const avatarUrlMap: Record<string, string> = {};
   topic.characters.forEach((char, i) => {
     colorMap[char.name] = AVATAR_COLORS[i % AVATAR_COLORS.length];
+    if (char.avatarUrl) avatarUrlMap[char.name] = char.avatarUrl;
   });
 
   function findCharacterColor(name: string): string {
@@ -45,6 +55,17 @@ export default function ReferencesPage() {
       }
     }
     return "var(--color-accent)";
+  }
+
+  function findCharacterAvatarUrl(name: string): string | undefined {
+    if (avatarUrlMap[name]) return avatarUrlMap[name];
+    const lower = name.toLowerCase();
+    for (const fullName of Object.keys(avatarUrlMap)) {
+      const firstName = fullName.split(/\s+/)[0].toLowerCase();
+      if (firstName === lower || fullName.toLowerCase().includes(lower))
+        return avatarUrlMap[fullName];
+    }
+    return undefined;
   }
 
   const truncatedTitle =
@@ -71,6 +92,21 @@ export default function ReferencesPage() {
         <div
           className="markdown-content"
           dangerouslySetInnerHTML={{ __html: md(topic.referenceLibrary) }}
+        />
+
+        <PersistedFollowUps followUps={topic.followUps} context="references" characters={topic.characters} />
+
+        <FollowUpModal
+          assemblyId={assemblyId}
+          characters={topic.characters.filter((c) => !isSocrate(c.name)).map((c) => c.name)}
+          currentPage="references"
+          pageType="references"
+        />
+        <HighlightChat
+          assemblyId={assemblyId}
+          characters={topic.characters.filter((c) => !isSocrate(c.name)).map((c) => c.name)}
+          currentPage="references"
+          defaultMode="ask-library"
         />
       </>
     );
@@ -100,14 +136,22 @@ export default function ReferencesPage() {
               <div key={subi} className="ref-card">
                 <div className="ref-card-header">
                   {sub.character && (
-                    <span
-                      className="ref-char-badge"
-                      style={{
-                        background: findCharacterColor(sub.character),
-                      }}
-                    >
-                      {initials(sub.character)}
-                    </span>
+                    findCharacterAvatarUrl(sub.character) ? (
+                      <img
+                        src={findCharacterAvatarUrl(sub.character)}
+                        alt={sub.character}
+                        className="ref-char-badge"
+                      />
+                    ) : (
+                      <span
+                        className="ref-char-badge"
+                        style={{
+                          background: findCharacterColor(sub.character),
+                        }}
+                      >
+                        {initials(sub.character)}
+                      </span>
+                    )
                   )}
                   <div>
                     <div className="ref-card-title">{sub.title}</div>
@@ -163,12 +207,20 @@ export default function ReferencesPage() {
           <div className="cross-reading-list">
             {parsed.crossReadings.map((cr, i) => (
               <div key={i} className="cross-reading">
-                <span
-                  className="trajectory-avatar-sm"
-                  style={{ background: findCharacterColor(cr.character) }}
-                >
-                  {initials(cr.character)}
-                </span>
+                {findCharacterAvatarUrl(cr.character) ? (
+                  <img
+                    src={findCharacterAvatarUrl(cr.character)}
+                    alt={cr.character}
+                    className="trajectory-avatar-sm"
+                  />
+                ) : (
+                  <span
+                    className="trajectory-avatar-sm"
+                    style={{ background: findCharacterColor(cr.character) }}
+                  >
+                    {initials(cr.character)}
+                  </span>
+                )}
                 <div>
                   <strong>{cr.character}</strong> must engage: {cr.assignment}
                 </div>
@@ -177,6 +229,21 @@ export default function ReferencesPage() {
           </div>
         </div>
       )}
+
+      <PersistedFollowUps followUps={topic.followUps} context="references" characters={topic.characters} />
+
+      <FollowUpModal
+        assemblyId={assemblyId}
+        characters={topic.characters.map((c) => c.name)}
+        currentPage="references"
+        pageType="references"
+      />
+      <HighlightChat
+        assemblyId={assemblyId}
+        characters={topic.characters.map((c) => c.name)}
+        currentPage="references"
+        defaultMode="ask-library"
+      />
     </>
   );
 }

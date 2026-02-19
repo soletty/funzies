@@ -1,9 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { marked } from "marked";
-import { useAssembly } from "@/lib/assembly-context";
-import type { DivergencePoint } from "@/lib/types";
+import { useAssembly, useAssemblyId } from "@/lib/assembly-context";
+import type { DivergencePoint, FollowUpInsight } from "@/lib/types";
+import FollowUpModal from "@/components/FollowUpModal";
+import HighlightChat from "@/components/HighlightChat";
 
 const AVATAR_COLORS = [
   "#0969da", "#8250df", "#bf3989", "#0e8a16", "#e16f24",
@@ -11,10 +14,30 @@ const AVATAR_COLORS = [
   "#7c3aed", "#d1242f",
 ];
 
+const INSIGHT_TYPE_LABELS: Record<FollowUpInsight["type"], string> = {
+  position_shift: "Position Shift",
+  new_argument: "New Argument",
+  emergent_synthesis: "Emergent Synthesis",
+  exposed_gap: "Exposed Gap",
+  unexpected_agreement: "Unexpected Agreement",
+};
+
+const INSIGHT_TYPE_COLORS: Record<FollowUpInsight["type"], string> = {
+  position_shift: "#cf222e",
+  new_argument: "#0969da",
+  emergent_synthesis: "#8250df",
+  exposed_gap: "#e16f24",
+  unexpected_agreement: "#1a7f37",
+};
+
 function initials(name: string): string {
   const parts = name.replace(/^(Dr\.|Colonel|Col\.)?\s*/i, "").split(/\s+/);
   if (parts.length === 1) return parts[0][0].toUpperCase();
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+function isSocrate(name: string): boolean {
+  return name.toLowerCase().includes("socrate");
 }
 
 function md(text: string): string {
@@ -62,7 +85,11 @@ function extractStances(divergenceContent: string): CharacterStance[] {
 
 export default function TrajectoryPage() {
   const topic = useAssembly();
+  const assemblyId = useAssemblyId();
   const base = `/assembly/${topic.slug}`;
+  const [evolving, setEvolving] = useState(false);
+  const [evolveError, setEvolveError] = useState<string | null>(null);
+  const [evolveSuccess, setEvolveSuccess] = useState(false);
 
   const colorMap: Record<string, string> = {};
   topic.characters.forEach((char, i) => {
@@ -90,6 +117,44 @@ export default function TrajectoryPage() {
         return initials(fullName);
     }
     return name[0]?.toUpperCase() ?? "?";
+  }
+
+  const avatarUrlMap: Record<string, string> = {};
+  topic.characters.forEach((char) => {
+    if (char.avatarUrl) avatarUrlMap[char.name] = char.avatarUrl;
+  });
+
+  function findCharAvatarUrl(name: string): string | undefined {
+    if (avatarUrlMap[name]) return avatarUrlMap[name];
+    const lower = name.toLowerCase();
+    for (const fullName of Object.keys(avatarUrlMap)) {
+      const firstName = fullName.split(/\s+/)[0].toLowerCase();
+      if (firstName === lower || fullName.toLowerCase().includes(lower))
+        return avatarUrlMap[fullName];
+    }
+    return undefined;
+  }
+
+  const insights = topic.followUps.filter((fu) => fu.insight?.hasInsight);
+
+  async function handleEvolve() {
+    setEvolving(true);
+    setEvolveError(null);
+    setEvolveSuccess(false);
+
+    const res = await fetch(`/api/assemblies/${assemblyId}/deliverables`, {
+      method: "POST",
+    });
+
+    if (!res.ok) {
+      const data = await res.json();
+      setEvolveError(data.error || "Failed to evolve deliverable");
+      setEvolving(false);
+      return;
+    }
+
+    setEvolveSuccess(true);
+    setEvolving(false);
   }
 
   // Collect all divergences
@@ -144,11 +209,123 @@ export default function TrajectoryPage() {
       <h1>Thinking Trail</h1>
       <p className="page-subtitle">
         How the assembly&apos;s positions have evolved &mdash;{" "}
-        {uniqueDivergences.length} divergence
-        {uniqueDivergences.length !== 1 ? "s" : ""},{" "}
+        {insights.length} insight{insights.length !== 1 ? "s" : ""},{" "}
         {topic.followUps.length} follow-up
         {topic.followUps.length !== 1 ? "s" : ""}
       </p>
+
+      {/* Intellectual Journal */}
+      {insights.length > 0 && (
+        <div className="trajectory-journal">
+          <h2 className="trajectory-section-heading">Intellectual Journal</h2>
+          <p className="trajectory-section-subtitle">
+            New intellectual territory discovered through follow-up conversations
+          </p>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: "1rem", marginTop: "1rem" }}>
+            {insights.map((fu) => {
+              const insight = fu.insight!;
+              return (
+                <div
+                  key={fu.id || fu.timestamp}
+                  style={{
+                    border: "1px solid var(--color-border)",
+                    borderRadius: "8px",
+                    padding: "1rem 1.25rem",
+                    background: "var(--color-surface)",
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.5rem", flexWrap: "wrap" }}>
+                    <span style={{ fontSize: "0.8rem", color: "var(--color-text-muted)" }}>
+                      {new Date(fu.timestamp).toLocaleDateString(undefined, {
+                        year: "numeric",
+                        month: "short",
+                        day: "numeric",
+                      })}
+                    </span>
+                    <span
+                      className="badge"
+                      style={{
+                        background: INSIGHT_TYPE_COLORS[insight.type],
+                        color: "#fff",
+                        fontSize: "0.7rem",
+                        padding: "0.15rem 0.5rem",
+                        borderRadius: "9999px",
+                      }}
+                    >
+                      {INSIGHT_TYPE_LABELS[insight.type]}
+                    </span>
+                    {insight.involvedCharacters.map((name) => {
+                      const url = findCharAvatarUrl(name);
+                      return url ? (
+                        <img
+                          key={name}
+                          src={url}
+                          alt={name}
+                          title={name}
+                          className="trajectory-avatar-sm"
+                        />
+                      ) : (
+                        <span
+                          key={name}
+                          className="trajectory-avatar-sm"
+                          style={{ background: findCharColor(name) }}
+                          title={name}
+                        >
+                          {findCharInitials(name)}
+                        </span>
+                      );
+                    })}
+                  </div>
+                  <p style={{ margin: "0.5rem 0 0.25rem", fontWeight: 500 }}>
+                    {insight.summary}
+                  </p>
+                  <p style={{ margin: 0, fontSize: "0.85rem", color: "var(--color-text-muted)" }}>
+                    Sparked by: &ldquo;{fu.question.length > 120 ? fu.question.slice(0, 117) + "\u2026" : fu.question}&rdquo;
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+
+          <div style={{ marginTop: "1.5rem" }}>
+            {evolveSuccess ? (
+              <p style={{ color: "var(--color-success, #1a7f37)" }}>
+                Deliverable evolved successfully.{" "}
+                <Link href={`${base}/deliverables`}>View deliverables</Link>
+              </p>
+            ) : (
+              <button
+                onClick={handleEvolve}
+                disabled={evolving}
+                style={{
+                  padding: "0.6rem 1.25rem",
+                  background: "var(--color-accent)",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: "6px",
+                  cursor: evolving ? "wait" : "pointer",
+                  opacity: evolving ? 0.7 : 1,
+                  fontSize: "0.9rem",
+                }}
+              >
+                {evolving ? "Evolving deliverable\u2026" : "Evolve Deliverable"}
+              </button>
+            )}
+            {evolveError && (
+              <p style={{ color: "var(--color-error, #cf222e)", marginTop: "0.5rem" }}>
+                {evolveError}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {topic.followUps.length === 0 && insights.length === 0 && (
+        <div style={{ padding: "2rem 0", color: "var(--color-text-muted)" }}>
+          <p>No follow-up conversations yet. Ask the assembly questions to start building your thinking trail.</p>
+        </div>
+      )}
 
       {uniqueDivergences.length > 0 && (
         <div className="trajectory-divergence-map">
@@ -179,12 +356,20 @@ export default function TrajectoryPage() {
                   {stances.map((s, si) => (
                     <div key={si} className="divergence-stance">
                       <div className="divergence-stance-speaker">
-                        <span
-                          className="trajectory-avatar-sm"
-                          style={{ background: findCharColor(s.name) }}
-                        >
-                          {findCharInitials(s.name)}
-                        </span>
+                        {findCharAvatarUrl(s.name) ? (
+                          <img
+                            src={findCharAvatarUrl(s.name)}
+                            alt={s.name}
+                            className="trajectory-avatar-sm"
+                          />
+                        ) : (
+                          <span
+                            className="trajectory-avatar-sm"
+                            style={{ background: findCharColor(s.name) }}
+                          >
+                            {findCharInitials(s.name)}
+                          </span>
+                        )}
                         <span className="divergence-stance-name">
                           {s.name}
                         </span>
@@ -209,23 +394,27 @@ export default function TrajectoryPage() {
             const [a, b] = pair.split("|");
             return (
               <div key={pair} className="tension-pair">
-                <span
-                  className="trajectory-avatar-sm"
-                  style={{
-                    background: colorMap[a] ?? "var(--color-accent)",
-                  }}
-                >
-                  {initials(a)}
-                </span>
+                {avatarUrlMap[a] ? (
+                  <img src={avatarUrlMap[a]} alt={a} className="trajectory-avatar-sm" />
+                ) : (
+                  <span
+                    className="trajectory-avatar-sm"
+                    style={{ background: colorMap[a] ?? "var(--color-accent)" }}
+                  >
+                    {initials(a)}
+                  </span>
+                )}
                 <span className="tension-vs">vs</span>
-                <span
-                  className="trajectory-avatar-sm"
-                  style={{
-                    background: colorMap[b] ?? "var(--color-accent)",
-                  }}
-                >
-                  {initials(b)}
-                </span>
+                {avatarUrlMap[b] ? (
+                  <img src={avatarUrlMap[b]} alt={b} className="trajectory-avatar-sm" />
+                ) : (
+                  <span
+                    className="trajectory-avatar-sm"
+                    style={{ background: colorMap[b] ?? "var(--color-accent)" }}
+                  >
+                    {initials(b)}
+                  </span>
+                )}
                 <span className="tension-names">
                   {a} &amp; {b}
                 </span>
@@ -235,6 +424,19 @@ export default function TrajectoryPage() {
           })}
         </div>
       )}
+
+      <FollowUpModal
+        assemblyId={assemblyId}
+        characters={topic.characters.filter((c) => !isSocrate(c.name)).map((c) => c.name)}
+        currentPage="trajectory"
+        pageType="trajectory"
+      />
+      <HighlightChat
+        assemblyId={assemblyId}
+        characters={topic.characters.filter((c) => !isSocrate(c.name)).map((c) => c.name)}
+        currentPage="trajectory"
+        defaultMode="ask-assembly"
+      />
     </>
   );
 }

@@ -2,9 +2,12 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { marked } from "marked";
+import { parseFollowUpResponse, getLoadingMessage } from "@/lib/follow-up-rendering";
+import AttachmentWidget, { type AttachedFile } from "@/components/AttachmentWidget";
 
 interface HighlightChatProps {
   assemblyId: string;
+  characters: string[];
   currentPage: string;
   defaultCharacter?: string;
   defaultMode?: "ask-assembly" | "ask-character" | "ask-library" | "debate";
@@ -12,6 +15,7 @@ interface HighlightChatProps {
 
 export default function HighlightChat({
   assemblyId,
+  characters,
   currentPage,
   defaultCharacter,
   defaultMode = "ask-assembly",
@@ -20,8 +24,18 @@ export default function HighlightChat({
   const [highlightedText, setHighlightedText] = useState("");
   const [question, setQuestion] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
+  const [isChallenge, setIsChallenge] = useState(false);
   const [responseText, setResponseText] = useState("");
+  const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
   const panelRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const autoResize = useCallback(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = Math.min(el.scrollHeight, 200) + "px";
+  }, []);
 
   const handleSelection = useCallback((e: MouseEvent) => {
     if (panelRef.current?.contains(e.target as Node)) return;
@@ -50,13 +64,26 @@ export default function HighlightChat({
     return () => document.removeEventListener("keydown", handleEsc);
   }, [isOpen]);
 
-  async function handleSubmit() {
+  const mode = defaultCharacter ? "ask-character" : defaultMode;
+
+  async function handleSubmit(challengeOverride?: boolean) {
     if (!question.trim() || isStreaming) return;
 
+    const useChallenge = challengeOverride ?? isChallenge;
     setIsStreaming(true);
+    setIsChallenge(useChallenge);
     setResponseText("");
 
-    const mode = defaultCharacter ? "ask-character" : defaultMode;
+    let fileRefs: { name: string; type: string; content: string }[] = [];
+    if (attachedFiles.length > 0) {
+      fileRefs = await Promise.all(
+        attachedFiles.map(async (af) => ({
+          name: af.file.name,
+          type: af.file.type || "text/plain",
+          content: await af.file.text(),
+        }))
+      );
+    }
 
     const body = {
       question: question.trim(),
@@ -64,6 +91,8 @@ export default function HighlightChat({
       characters: defaultCharacter ? [defaultCharacter] : [],
       context: { page: currentPage },
       highlightedText: highlightedText || undefined,
+      challenge: useChallenge,
+      files: fileRefs.length > 0 ? fileRefs : undefined,
     };
 
     const res = await fetch(`/api/assemblies/${assemblyId}/follow-ups`, {
@@ -111,9 +140,11 @@ export default function HighlightChat({
     setIsStreaming(false);
   }
 
-  const responseHtml = responseText
-    ? (marked.parse(responseText, { async: false }) as string)
-    : "";
+  const speakerBlocks = responseText
+    ? parseFollowUpResponse(responseText, characters)
+    : [];
+
+  const loadingMsg = getLoadingMessage(mode, isChallenge);
 
   return (
     <>
@@ -144,11 +175,14 @@ export default function HighlightChat({
         )}
 
         <div style={{ padding: "0 0.75rem 0.75rem" }}>
+          <AttachmentWidget files={attachedFiles} onChange={setAttachedFiles} disabled={isStreaming} />
+
           <div style={{ display: "flex", gap: "0.5rem" }}>
             <textarea
+              ref={textareaRef}
               className="follow-up-input"
               value={question}
-              onChange={(e) => setQuestion(e.target.value)}
+              onChange={(e) => { setQuestion(e.target.value); autoResize(); }}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
@@ -161,23 +195,62 @@ export default function HighlightChat({
                   : "Ask about this text..."
               }
               rows={2}
+              style={{ resize: "none", overflow: "hidden" }}
               disabled={isStreaming}
             />
-            <button
-              className="follow-up-button"
-              onClick={handleSubmit}
-              disabled={isStreaming || !question.trim()}
-            >
-              {isStreaming ? "..." : "Ask"}
-            </button>
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem" }}>
+              <button
+                className="follow-up-button"
+                onClick={() => handleSubmit(false)}
+                disabled={isStreaming || !question.trim()}
+              >
+                {isStreaming ? loadingMsg : "Ask"}
+              </button>
+              {defaultCharacter && (
+                <button
+                  className="follow-up-button"
+                  onClick={() => handleSubmit(true)}
+                  disabled={isStreaming || !question.trim()}
+                  style={{
+                    background: "var(--color-low)",
+                    fontSize: "0.78rem",
+                    padding: "0.4rem 0.8rem",
+                  }}
+                  title="Challenge this character to defend their position"
+                >
+                  {isStreaming && isChallenge ? "Preparing defense\u2026" : "\u2694 Challenge"}
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
         {responseText && (
-          <div
-            className="panel-response-area markdown-content"
-            dangerouslySetInnerHTML={{ __html: responseHtml }}
-          />
+          <div className={`panel-response-area${isStreaming ? " follow-up-streaming" : ""}`}>
+            {speakerBlocks.length === 1 && !speakerBlocks[0].speaker ? (
+              <div
+                className="markdown-content"
+                dangerouslySetInnerHTML={{
+                  __html: marked.parse(responseText, { async: false }) as string,
+                }}
+              />
+            ) : (
+              speakerBlocks.map((block, i) => (
+                <div key={i} className="follow-up-exchange">
+                  <div className="debate-speaker">
+                    <span className="debate-speaker-dot" style={{ background: block.color }} />
+                    {block.speaker}
+                  </div>
+                  <div
+                    className="debate-content"
+                    dangerouslySetInnerHTML={{
+                      __html: marked.parse(block.content, { async: false }) as string,
+                    }}
+                  />
+                </div>
+              ))
+            )}
+          </div>
         )}
       </div>
 

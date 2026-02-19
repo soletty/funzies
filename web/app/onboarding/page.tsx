@@ -54,22 +54,17 @@ export default function OnboardingPage() {
   }
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", alignItems: "center", justifyContent: "center" }}>
-      <div style={{ maxWidth: "520px", width: "100%", padding: "2rem" }}>
-        <h1 style={{ fontFamily: "var(--font-display)", fontSize: "1.8rem", fontWeight: 700, marginBottom: "0.5rem", textAlign: "center" }}>
-          Connect your Anthropic account
-        </h1>
-        <p style={{ color: "var(--color-text-secondary)", textAlign: "center", marginBottom: "2.5rem" }}>
-          The Intellectual Assembly uses Claude to generate debates. You&apos;ll need an API key.
-        </p>
+    <div className="standalone-page">
+      <div className="standalone-page-inner">
+        <div className="standalone-header">
+          <h1>Connect your Anthropic account</h1>
+          <p>
+            The Intellectual Assembly uses Claude to generate debates. You&apos;ll need an API key.
+          </p>
+        </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-          <StepCard
-            number={1}
-            title="Get an API key"
-            active={step >= 1}
-            done={step > 1}
-          >
+        <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+          <StepCard number={1} title="Get an API key" active={step >= 1} done={step > 1}>
             <p style={{ color: "var(--color-text-secondary)", marginBottom: "1rem" }}>
               Go to the Anthropic Console and create an API key.
             </p>
@@ -78,19 +73,7 @@ export default function OnboardingPage() {
               target="_blank"
               rel="noopener noreferrer"
               onClick={() => setStep(2)}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "0.5rem",
-                padding: "0.5rem 1rem",
-                background: "var(--color-surface)",
-                border: "1px solid var(--color-border)",
-                borderRadius: "var(--radius-sm)",
-                color: "var(--color-text)",
-                textDecoration: "none",
-                fontSize: "0.9rem",
-                fontWeight: 500,
-              }}
+              className="btn-secondary"
             >
               Open Anthropic Console
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -101,40 +84,18 @@ export default function OnboardingPage() {
             </a>
           </StepCard>
 
-          <StepCard
-            number={2}
-            title='Click "Create Key"'
-            active={step >= 2}
-            done={step > 2}
-          >
+          <StepCard number={2} title='Click "Create Key"' active={step >= 2} done={step > 2}>
             <p style={{ color: "var(--color-text-secondary)" }}>
               Give the key a name (e.g. &quot;Intellectual Assembly&quot;) and copy it.
             </p>
             {step === 2 && (
-              <button
-                onClick={() => setStep(3)}
-                style={{
-                  marginTop: "0.75rem",
-                  padding: "0.4rem 0.8rem",
-                  background: "transparent",
-                  border: "1px solid var(--color-border)",
-                  borderRadius: "var(--radius-sm)",
-                  color: "var(--color-text-secondary)",
-                  cursor: "pointer",
-                  fontSize: "0.85rem",
-                }}
-              >
+              <button onClick={() => setStep(3)} className="btn-secondary" style={{ marginTop: "0.75rem" }}>
                 I&apos;ve copied the key &rarr;
               </button>
             )}
           </StepCard>
 
-          <StepCard
-            number={3}
-            title="Paste your key"
-            active={step >= 3}
-            done={success}
-          >
+          <StepCard number={3} title="Paste your key" active={step >= 3} done={success}>
             {success ? (
               <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", color: "var(--color-high)" }}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -150,9 +111,10 @@ export default function OnboardingPage() {
                     value={apiKey}
                     onChange={(e) => setApiKey(e.target.value)}
                     placeholder="sk-ant-..."
+                    className="form-field"
                     style={{
                       flex: 1,
-                      padding: "0.6rem 0.8rem",
+                      padding: "0.65rem 0.85rem",
                       border: "1px solid var(--color-border)",
                       borderRadius: "var(--radius-sm)",
                       fontFamily: "var(--font-mono)",
@@ -164,16 +126,7 @@ export default function OnboardingPage() {
                   <button
                     onClick={handleValidateAndStore}
                     disabled={validating || !apiKey.trim()}
-                    style={{
-                      padding: "0.6rem 1.2rem",
-                      background: validating ? "var(--color-surface-alt)" : "var(--color-accent)",
-                      color: validating ? "var(--color-text-muted)" : "#fff",
-                      border: "none",
-                      borderRadius: "var(--radius-sm)",
-                      cursor: validating ? "not-allowed" : "pointer",
-                      fontWeight: 500,
-                      fontSize: "0.9rem",
-                    }}
+                    className={`btn-primary ${validating || !apiKey.trim() ? "disabled" : ""}`}
                   >
                     {validating ? "Validating..." : "Connect"}
                   </button>
@@ -182,7 +135,7 @@ export default function OnboardingPage() {
                   <p style={{ color: "var(--color-low)", fontSize: "0.85rem" }}>{error}</p>
                 )}
                 <p style={{ color: "var(--color-text-muted)", fontSize: "0.8rem", marginTop: "0.5rem" }}>
-                  Assemblies typically cost $2–5 in API credits. Your key is encrypted with AES-256-GCM.
+                  Assemblies typically cost ~$0.50 in API credits. Your key is encrypted with AES-256-GCM.
                 </p>
               </>
             )}
@@ -206,39 +159,17 @@ function StepCard({
   done: boolean;
   children: React.ReactNode;
 }) {
+  const className = `step-card ${active ? "active" : ""} ${done ? "done" : ""}`;
+
   return (
-    <div
-      style={{
-        padding: "1.25rem 1.5rem",
-        background: active ? "var(--color-surface)" : "transparent",
-        borderRadius: "var(--radius)",
-        border: `1px solid ${active ? "var(--color-border)" : "var(--color-border-light)"}`,
-        opacity: active ? 1 : 0.5,
-        transition: "var(--transition)",
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.75rem" }}>
-        <div
-          style={{
-            width: "28px",
-            height: "28px",
-            borderRadius: "50%",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: "0.8rem",
-            fontWeight: 600,
-            background: done ? "var(--color-high)" : active ? "var(--color-accent)" : "var(--color-surface-alt)",
-            color: done || active ? "#fff" : "var(--color-text-muted)",
-          }}
-        >
-          {done ? "✓" : number}
+    <div className={className}>
+      <div className="step-card-header">
+        <div className="step-card-number">
+          {done ? "\u2713" : number}
         </div>
-        <h3 style={{ fontFamily: "var(--font-display)", fontSize: "1.05rem", fontWeight: 600 }}>
-          {title}
-        </h3>
+        <h3 className="step-card-title">{title}</h3>
       </div>
-      {active && <div style={{ paddingLeft: "2.75rem" }}>{children}</div>}
+      {active && <div className="step-card-body">{children}</div>}
     </div>
   );
 }

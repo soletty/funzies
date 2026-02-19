@@ -8,12 +8,13 @@
     "start": "next start",
     "lint": "eslint",
     "db:migrate": "npx tsx lib/migrate.ts",
-    "db:seed": "npx tsx lib/seed.ts"
+    "dev:worker": "npx tsx worker/index.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.77.0",
     "@auth/core": "^0.41.0",
     "bcryptjs": "^3.0.3",
+    "dotenv": "^17.3.1",
     "marked": "^17.0.3",
     "next": "16.1.6",
     "next-auth": "^5.0.0-beta.30",

@@ -1,6 +1,11 @@
 import { readFileSync } from "fs";
-import { join } from "path";
+import { join, dirname } from "path";
+import { fileURLToPath } from "url";
 import { Pool } from "pg";
+import { config } from "dotenv";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+config({ path: join(__dirname, "../.env.local") });
 
 async function migrate() {
   const pool = new Pool({

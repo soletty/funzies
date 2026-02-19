@@ -1,8 +1,16 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { marked } from "marked";
-import { useAssembly } from "@/lib/assembly-context";
+import { useAssembly, useAssemblyId } from "@/lib/assembly-context";
+import FollowUpModal from "@/components/FollowUpModal";
+import HighlightChat from "@/components/HighlightChat";
+import PersistedFollowUps from "@/components/PersistedFollowUps";
+
+function isSocrate(name: string): boolean {
+  return name.toLowerCase().includes("socrate");
+}
 
 function md(text: string): string {
   return marked.parse(text, { async: false }) as string;
@@ -10,11 +18,16 @@ function md(text: string): string {
 
 export default function DeliverablesPage() {
   const topic = useAssembly();
+  const assemblyId = useAssemblyId();
   const base = `/assembly/${topic.slug}`;
+  const [activeVersion, setActiveVersion] = useState(topic.deliverables.length - 1);
 
   if (topic.deliverables.length === 0) {
     return <p>No deliverables available.</p>;
   }
+
+  const hasMultipleVersions = topic.deliverables.length > 1;
+  const activeDeliverable = topic.deliverables[activeVersion];
 
   return (
     <>
@@ -32,19 +45,75 @@ export default function DeliverablesPage() {
 
       <h1>Deliverables</h1>
       <p className="page-subtitle">
-        {topic.deliverables.length} output document
-        {topic.deliverables.length > 1 ? "s" : ""}
+        {hasMultipleVersions
+          ? `${topic.deliverables.length} versions`
+          : "1 output document"}
       </p>
 
-      {topic.deliverables.map((d) => (
-        <div key={d.slug} id={d.slug}>
+      {hasMultipleVersions && (
+        <div
+          style={{
+            display: "flex",
+            gap: "0.5rem",
+            marginBottom: "1.5rem",
+            flexWrap: "wrap",
+          }}
+        >
+          {topic.deliverables.map((d, i) => {
+            const version = d.version || i + 1;
+            const label = version === 1
+              ? "v1 — Original"
+              : `v${version}${d.createdAt ? ` — ${new Date(d.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}` : ""}`;
+
+            return (
+              <button
+                key={d.slug}
+                onClick={() => setActiveVersion(i)}
+                style={{
+                  padding: "0.4rem 0.9rem",
+                  border: i === activeVersion
+                    ? "2px solid var(--color-accent)"
+                    : "1px solid var(--color-border)",
+                  borderRadius: "6px",
+                  background: i === activeVersion
+                    ? "var(--color-accent)"
+                    : "var(--color-surface)",
+                  color: i === activeVersion ? "#fff" : "var(--color-text)",
+                  cursor: "pointer",
+                  fontSize: "0.85rem",
+                  fontWeight: i === activeVersion ? 600 : 400,
+                }}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {activeDeliverable && (
+        <div id={activeDeliverable.slug}>
           <div
             className="markdown-content"
-            dangerouslySetInnerHTML={{ __html: md(d.content) }}
+            dangerouslySetInnerHTML={{ __html: md(activeDeliverable.content) }}
           />
-          <hr />
         </div>
-      ))}
+      )}
+
+      <PersistedFollowUps followUps={topic.followUps} context="deliverables" characters={topic.characters} />
+
+      <FollowUpModal
+        assemblyId={assemblyId}
+        characters={topic.characters.filter((c) => !isSocrate(c.name)).map((c) => c.name)}
+        currentPage="deliverables"
+        pageType="deliverables"
+      />
+      <HighlightChat
+        assemblyId={assemblyId}
+        characters={topic.characters.filter((c) => !isSocrate(c.name)).map((c) => c.name)}
+        currentPage="deliverables"
+        defaultMode="ask-assembly"
+      />
     </>
   );
 }

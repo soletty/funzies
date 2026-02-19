@@ -41,5 +41,6 @@ CREATE TABLE IF NOT EXISTS follow_ups (
   attachments JSONB DEFAULT '[]',
   response_md TEXT,
   responses JSONB DEFAULT '[]',
+  insight JSONB,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );

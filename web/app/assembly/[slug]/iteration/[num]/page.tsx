@@ -3,7 +3,10 @@
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { marked } from "marked";
-import { useAssembly } from "@/lib/assembly-context";
+import { useAssembly, useAssemblyId } from "@/lib/assembly-context";
+import FollowUpModal from "@/components/FollowUpModal";
+import HighlightChat from "@/components/HighlightChat";
+import PersistedFollowUps from "@/components/PersistedFollowUps";
 import type { DebateExchange } from "@/lib/types";
 
 const STRUCTURE_DISPLAY_NAMES: Record<string, string> = {
@@ -11,6 +14,10 @@ const STRUCTURE_DISPLAY_NAMES: Record<string, string> = {
   "rapid-fire": "Crossfire",
   "deep-dive": "Deep Dive",
 };
+
+function isSocrate(name: string): boolean {
+  return name.toLowerCase().includes("socrate");
+}
 
 function formatStructure(s: string): string {
   return (
@@ -62,6 +69,7 @@ function Exchange({
 
 export default function IterationPage() {
   const topic = useAssembly();
+  const assemblyId = useAssemblyId();
   const params = useParams<{ slug: string; num: string }>();
   const num = Number(params.num);
   const base = `/assembly/${topic.slug}`;
@@ -158,6 +166,15 @@ export default function IterationPage() {
         </>
       )}
 
+      <PersistedFollowUps followUps={topic.followUps} context={`iteration-${num}`} characters={topic.characters} />
+
+      <FollowUpModal
+        assemblyId={assemblyId}
+        characters={topic.characters.filter((c) => !isSocrate(c.name)).map((c) => c.name)}
+        currentPage={`iteration-${num}`}
+        pageType="iteration"
+      />
+
       <hr />
       <div
         style={{
@@ -181,6 +198,13 @@ export default function IterationPage() {
           <span />
         )}
       </div>
+
+      <HighlightChat
+        assemblyId={assemblyId}
+        characters={topic.characters.filter((c) => !isSocrate(c.name)).map((c) => c.name)}
+        currentPage={`iteration-${num}`}
+        defaultMode="debate"
+      />
     </>
   );
 }

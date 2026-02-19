@@ -25,6 +25,7 @@ export interface Character {
   rhetoricalTendencies: string;
   relationships: string[];
   fullProfile: string;
+  avatarUrl?: string;
 }
 
 export interface Iteration {
@@ -80,6 +81,9 @@ export interface Deliverable {
   slug: string;
   title: string;
   content: string;
+  version?: number;
+  createdAt?: string;
+  basedOnInsights?: string[];
 }
 
 export interface VerificationReport {
@@ -94,13 +98,22 @@ export interface ResearchFile {
   content: string;
 }
 
+export interface FollowUpInsight {
+  hasInsight: boolean;
+  summary: string;
+  type: "position_shift" | "new_argument" | "emergent_synthesis" | "exposed_gap" | "unexpected_agreement";
+  involvedCharacters: string[];
+}
+
 export interface FollowUp {
+  id?: string;
   timestamp: string;
   question: string;
   context: string;
   mode: string;
   responses: FollowUpResponse[];
   raw: string;
+  insight?: FollowUpInsight;
 }
 
 export interface FollowUpResponse {

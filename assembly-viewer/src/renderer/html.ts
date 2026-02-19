@@ -608,7 +608,13 @@ function renderAssemblyLauncher(): string {
             });
           }
           if (data.currentPhase) setActivePhase(data.currentPhase);
-          if (data.status === 'waiting_for_input') questionArea.style.display = 'block';
+          if (data.status === 'waiting_for_input') {
+            questionArea.style.display = 'block';
+            if (data.pendingQuestion && data.pendingQuestion.question) {
+              questionText.textContent = data.pendingQuestion.question;
+            }
+            inputField.focus();
+          }
           if (data.status === 'complete') {
             animation.style.display = 'none';
             doneArea.style.display = 'block';
@@ -625,9 +631,10 @@ function renderAssemblyLauncher(): string {
           addCompletedLink(data.phase, data.url);
         }
 
-        if (data.type === 'input_needed') {
+        if (data.type === 'question' || data.type === 'input_needed') {
           questionArea.style.display = 'block';
-          if (data.content) questionText.textContent = data.content;
+          if (data.question) questionText.textContent = data.question;
+          else if (data.content) questionText.textContent = data.content;
           inputField.focus();
         }
 
@@ -855,17 +862,11 @@ export function renderWorkspaceIndex(workspace: Workspace): string {
     totalFollowUps > 0 ? `${totalFollowUps} follow-ups` : null,
   ].filter(Boolean).join(" &middot; ");
 
-  const demoBanner = workspace.isDemo ? `
-    <div class="demo-banner">
-      This is a demo assembly. Run <code>assembly-viewer --dir your-workspace/</code> to view your own analysis.
-    </div>` : "";
-
   const content = `
     <h1>Assembly Workspace</h1>
     <p class="page-subtitle">${statsLine}</p>
-    ${demoBanner}
 
-    ${workspace.isDemo ? "" : renderAssemblyLauncher()}
+    ${renderAssemblyLauncher()}
 
     ${recentHtml}
     <div class="section-header"><h2>Topics</h2><span class="section-count">${workspace.topics.length}</span></div>

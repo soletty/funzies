@@ -1,6 +1,6 @@
 {
   "name": "assembly-viewer",
-  "version": "1.0.10",
+  "version": "1.0.11",
   "description": "A viewer for multi-agent research and debate assembly workspaces",
   "type": "module",
   "bin": {
@@ -14,7 +14,6 @@
   },
   "files": [
     "dist/",
-    "demo-data/",
     "conventions.md"
   ],
   "engines": {

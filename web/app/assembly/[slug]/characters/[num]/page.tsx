@@ -3,7 +3,10 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { marked } from "marked";
-import { useAssembly } from "@/lib/assembly-context";
+import { useAssembly, useAssemblyId } from "@/lib/assembly-context";
+import FollowUpModal from "@/components/FollowUpModal";
+import HighlightChat from "@/components/HighlightChat";
+import PersistedFollowUps from "@/components/PersistedFollowUps";
 
 const AVATAR_COLORS = [
   "#0969da", "#8250df", "#bf3989", "#0e8a16", "#e16f24",
@@ -45,14 +48,20 @@ function formatStructure(s: string): string {
   );
 }
 
+function isSocrate(name: string): boolean {
+  return name.toLowerCase().includes("socrate");
+}
+
 export default function CharacterProfilePage() {
   const topic = useAssembly();
+  const assemblyId = useAssemblyId();
   const base = `/assembly/${topic.slug}`;
   const params = useParams<{ num: string }>();
   const num = Number(params.num);
 
-  const charIndex = topic.characters.findIndex((c) => c.number === num);
-  const character = topic.characters[charIndex];
+  const nonSocrateChars = topic.characters.filter((c) => !isSocrate(c.name));
+  const charIndex = nonSocrateChars.findIndex((c) => c.number === num);
+  const character = nonSocrateChars[charIndex];
 
   if (!character) return <p>Character not found.</p>;
 
@@ -97,8 +106,8 @@ export default function CharacterProfilePage() {
     }
   }
 
-  const prev = topic.characters[charIndex - 1] ?? null;
-  const next = topic.characters[charIndex + 1] ?? null;
+  const prev = nonSocrateChars[charIndex - 1] ?? null;
+  const next = nonSocrateChars[charIndex + 1] ?? null;
 
   return (
     <>
@@ -115,9 +124,17 @@ export default function CharacterProfilePage() {
       </div>
 
       <div className="profile-header">
-        <div className="profile-avatar" style={{ background: color }}>
-          {initials(character.name)}
-        </div>
+        {character.avatarUrl ? (
+          <img
+            src={character.avatarUrl}
+            alt={character.name}
+            className="profile-avatar"
+          />
+        ) : (
+          <div className="profile-avatar" style={{ background: color }}>
+            {initials(character.name)}
+          </div>
+        )}
         <div>
           <h1 style={{ marginBottom: "0.15rem" }}>{character.name}</h1>
           <div className="profile-meta">
@@ -250,6 +267,16 @@ export default function CharacterProfilePage() {
         </>
       )}
 
+      <PersistedFollowUps followUps={topic.followUps} context={`character-${character.name}`} characters={topic.characters} />
+
+      <FollowUpModal
+        assemblyId={assemblyId}
+        characters={nonSocrateChars.map((c) => c.name)}
+        currentPage={`character-${character.name}`}
+        defaultCharacter={character.name}
+        pageType="character"
+      />
+
       <hr />
       <div
         style={{
@@ -273,6 +300,14 @@ export default function CharacterProfilePage() {
           <span />
         )}
       </div>
+
+      <HighlightChat
+        assemblyId={assemblyId}
+        characters={nonSocrateChars.map((c) => c.name)}
+        currentPage={`character-${character.name}`}
+        defaultCharacter={character.name}
+        defaultMode="ask-character"
+      />
     </>
   );
 }

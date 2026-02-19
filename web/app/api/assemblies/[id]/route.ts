@@ -30,6 +30,8 @@ export async function DELETE(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const { id } = await params;
+
   await query("DELETE FROM assemblies WHERE id = $1 AND user_id = $2", [id, user.id]);
+
   return NextResponse.json({ success: true });
 }

@@ -19,11 +19,16 @@ function initials(name: string): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
+function isSocrate(name: string): boolean {
+  return name.toLowerCase().includes("socrate");
+}
+
 export default function CharactersPage() {
   const topic = useAssembly();
   const base = `/assembly/${topic.slug}`;
+  const characters = topic.characters.filter((c) => !isSocrate(c.name));
 
-  if (topic.characters.length === 0) return <p>No characters available.</p>;
+  if (characters.length === 0) return <p>No characters available.</p>;
 
   return (
     <>
@@ -39,11 +44,11 @@ export default function CharactersPage() {
 
       <h1>The Assembly</h1>
       <p className="page-subtitle">
-        {topic.characters.length} participants in the assembly debate
+        {characters.length} participants in the assembly debate
       </p>
 
       <div className="card-grid">
-        {topic.characters.map((char, i) => (
+        {characters.map((char, i) => (
           <Link
             key={char.number}
             href={`${base}/characters/${char.number}`}
@@ -51,12 +56,20 @@ export default function CharactersPage() {
             style={{ textDecoration: "none", color: "inherit" }}
           >
             <div className="card-header">
-              <div
-                className="card-avatar"
-                style={{ background: avatarColor(i) }}
-              >
-                {initials(char.name)}
-              </div>
+              {char.avatarUrl ? (
+                <img
+                  src={char.avatarUrl}
+                  alt={char.name}
+                  className="card-avatar"
+                />
+              ) : (
+                <div
+                  className="card-avatar"
+                  style={{ background: avatarColor(i) }}
+                >
+                  {initials(char.name)}
+                </div>
+              )}
               <div>
                 <div className="card-title">{char.name}</div>
                 {char.tag && (

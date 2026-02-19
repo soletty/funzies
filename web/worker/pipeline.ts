@@ -9,6 +9,7 @@ import type { Topic } from "../lib/types.js";
 import {
   domainAnalysisPrompt,
   characterGenerationPrompt,
+  avatarMappingPrompt,
   referenceLibraryPrompt,
   debatePrompt,
   synthesisPrompt,
@@ -31,11 +32,12 @@ async function callClaude(
   client: Anthropic,
   systemPrompt: string,
   userMessage: string,
-  maxTokens: number
+  maxTokens: number,
+  model: string = "claude-sonnet-4-20250514"
 ): Promise<string> {
   try {
     const response = await client.messages.create({
-      model: "claude-sonnet-4-20250514",
+      model,
       max_tokens: maxTokens,
       messages: [{ role: "user", content: userMessage }],
       system: systemPrompt,
@@ -60,6 +62,101 @@ async function callClaude(
     }
     throw err;
   }
+}
+
+function attachAvatars(characters: Topic["characters"], rawAvatarJson: string) {
+  try {
+    const avatarMapping = JSON.parse(rawAvatarJson) as Array<{
+      name: string;
+      skinColor: string;
+      hair: string;
+      hairColor: string;
+      eyes: string;
+      eyebrows: string;
+      mouth: string;
+      glasses: string;
+      features: string;
+    }>;
+    for (const char of characters) {
+      const mapping = avatarMapping.find(
+        (m) => m.name.toLowerCase() === char.name.toLowerCase()
+      );
+      if (mapping) {
+        const params = new URLSearchParams({
+          seed: mapping.name,
+          skinColor: mapping.skinColor,
+          hair: mapping.hair,
+          hairColor: mapping.hairColor,
+          eyes: mapping.eyes,
+          eyebrows: mapping.eyebrows,
+          mouth: mapping.mouth,
+        });
+        if (mapping.glasses !== "none") {
+          params.set("glasses", mapping.glasses);
+          params.set("glassesProbability", "100");
+        } else {
+          params.set("glassesProbability", "0");
+        }
+        if (mapping.features !== "none") {
+          params.set("features", mapping.features);
+          params.set("featuresProbability", "100");
+        } else {
+          params.set("featuresProbability", "0");
+        }
+        char.avatarUrl = `https://api.dicebear.com/9.x/adventurer/svg?${params.toString()}`;
+      }
+    }
+  } catch {
+    console.warn("[pipeline] Failed to parse avatar-mapping.json, skipping avatars");
+  }
+}
+
+function buildParsedTopic(rawFiles: Record<string, string>, slug: string, topic: string): Topic {
+  const characters = rawFiles["characters.md"]
+    ? parseCharacterFiles([rawFiles["characters.md"]])
+    : [];
+
+  if (rawFiles["avatar-mapping.json"]) {
+    attachAvatars(characters, rawFiles["avatar-mapping.json"]);
+  }
+
+  const synthesisData = rawFiles["synthesis.md"]
+    ? parseSynthesis(rawFiles["synthesis.md"])
+    : null;
+
+  const rounds = rawFiles["debate-transcript.md"]
+    ? parseTranscript(rawFiles["debate-transcript.md"])
+    : [];
+
+  const parsedRefLib = rawFiles["reference-library.md"]
+    ? parseReferenceLibrary(rawFiles["reference-library.md"])
+    : null;
+
+  return {
+    slug,
+    title: topic,
+    characters,
+    iterations: rawFiles["debate-transcript.md"]
+      ? [{
+          number: 1,
+          structure: "Grande Table",
+          synthesis: synthesisData,
+          transcriptRaw: rawFiles["debate-transcript.md"],
+          rounds,
+        }]
+      : [],
+    synthesis: synthesisData,
+    deliverables: rawFiles["deliverable.md"]
+      ? [{ slug: "main", title: "Deliverable", content: rawFiles["deliverable.md"] }]
+      : [],
+    verification: rawFiles["verification.md"]
+      ? [{ type: "full", title: "Verification Report", content: rawFiles["verification.md"] }]
+      : [],
+    referenceLibrary: rawFiles["reference-library.md"] || null,
+    parsedReferenceLibrary: parsedRefLib,
+    researchFiles: [],
+    followUps: [],
+  };
 }
 
 export async function runPipeline(config: PipelineConfig): Promise<void> {
@@ -95,6 +192,23 @@ export async function runPipeline(config: PipelineConfig): Promise<void> {
     );
     rawFiles["characters.md"] = result;
     await updateRawFiles(rawFiles);
+    await updateParsedData(buildParsedTopic(rawFiles, slug, topic));
+  }
+
+  // Phase 2.5: Avatar Mapping
+  if (!rawFiles["avatar-mapping.json"]) {
+    await updatePhase("avatar-mapping");
+    const result = await callClaude(
+      client,
+      avatarMappingPrompt(rawFiles["characters.md"]),
+      "Map each character to DiceBear Adventurer avatar options based on their biographies.",
+      2048,
+      "claude-haiku-4-5-20251001"
+    );
+    const cleaned = result.replace(/```(?:json)?\s*/g, "").replace(/```/g, "").trim();
+    rawFiles["avatar-mapping.json"] = cleaned;
+    await updateRawFiles(rawFiles);
+    await updateParsedData(buildParsedTopic(rawFiles, slug, topic));
   }
 
   // Phase 3: Reference Library
@@ -108,6 +222,7 @@ export async function runPipeline(config: PipelineConfig): Promise<void> {
     );
     rawFiles["reference-library.md"] = result;
     await updateRawFiles(rawFiles);
+    await updateParsedData(buildParsedTopic(rawFiles, slug, topic));
   }
 
   // Phase 4: Debate
@@ -125,6 +240,7 @@ export async function runPipeline(config: PipelineConfig): Promise<void> {
     );
     rawFiles["debate-transcript.md"] = result;
     await updateRawFiles(rawFiles);
+    await updateParsedData(buildParsedTopic(rawFiles, slug, topic));
   }
 
   // Phase 5: Synthesis
@@ -138,6 +254,7 @@ export async function runPipeline(config: PipelineConfig): Promise<void> {
     );
     rawFiles["synthesis.md"] = result;
     await updateRawFiles(rawFiles);
+    await updateParsedData(buildParsedTopic(rawFiles, slug, topic));
   }
 
   // Phase 6: Deliverable
@@ -151,6 +268,7 @@ export async function runPipeline(config: PipelineConfig): Promise<void> {
     );
     rawFiles["deliverable.md"] = result;
     await updateRawFiles(rawFiles);
+    await updateParsedData(buildParsedTopic(rawFiles, slug, topic));
   }
 
   // Phase 7: Verification
@@ -170,45 +288,6 @@ export async function runPipeline(config: PipelineConfig): Promise<void> {
     await updateRawFiles(rawFiles);
   }
 
-  // Parse all raw files into a Topic object
-  const characters = parseCharacterFiles([rawFiles["characters.md"]]);
-  const synthesisData = parseSynthesis(rawFiles["synthesis.md"]);
-  const rounds = parseTranscript(rawFiles["debate-transcript.md"]);
-  const parsedRefLib = parseReferenceLibrary(rawFiles["reference-library.md"]);
-
-  const parsed: Topic = {
-    slug,
-    title: topic,
-    characters,
-    iterations: [
-      {
-        number: 1,
-        structure: "Grande Table",
-        synthesis: synthesisData,
-        transcriptRaw: rawFiles["debate-transcript.md"],
-        rounds,
-      },
-    ],
-    synthesis: synthesisData,
-    deliverables: [
-      {
-        slug: "main",
-        title: "Deliverable",
-        content: rawFiles["deliverable.md"],
-      },
-    ],
-    verification: [
-      {
-        type: "full",
-        title: "Verification Report",
-        content: rawFiles["verification.md"],
-      },
-    ],
-    referenceLibrary: rawFiles["reference-library.md"],
-    parsedReferenceLibrary: parsedRefLib,
-    researchFiles: [],
-    followUps: [],
-  };
-
-  await updateParsedData(parsed);
+  // Build final parsed data and save
+  await updateParsedData(buildParsedTopic(rawFiles, slug, topic));
 }

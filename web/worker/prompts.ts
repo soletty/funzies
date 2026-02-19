@@ -307,6 +307,90 @@ Synthesis:
 ${synthesis}`;
 }
 
+export function deliverableEvolutionPrompt(
+  topic: string,
+  previousDeliverable: string,
+  insightSummaries: string[],
+  synthesis: string
+): string {
+  return `You are evolving an existing deliverable document based on new insights that emerged from follow-up conversations with the intellectual assembly.
+
+## CRITICAL RULE: This is EVOLUTION, not replacement.
+
+You must preserve the structure, voice, and content of the previous deliverable. Only modify sections where the new insights genuinely change the conclusions. Most of the deliverable should remain intact.
+
+## Previous Deliverable
+${previousDeliverable}
+
+## Original Synthesis
+${synthesis}
+
+## New Insights from Follow-Up Conversations
+${insightSummaries.map((s, i) => `${i + 1}. ${s}`).join("\n")}
+
+## Instructions
+
+1. Read the previous deliverable carefully
+2. For each new insight, determine which section(s) it affects
+3. Integrate the insight naturally — update conclusions, add caveats, strengthen or weaken arguments as warranted
+4. If an insight reveals a position shift, update the relevant recommendation or analysis
+5. If an insight exposes a gap, add a brief acknowledgment in the appropriate section
+6. Preserve all content that is NOT affected by the new insights
+7. End with a "## What Changed in This Version" section listing each modification and which insight prompted it
+
+## Format
+- Same format as the original deliverable (markdown, ## headings, etc.)
+- No more than 3000 words
+- The "What Changed" section should be concise — one bullet per change
+
+Topic: ${topic}`;
+}
+
+export function avatarMappingPrompt(characters: string): string {
+  return `You are a visual character designer. Given a list of fictional character biographies, map each character to DiceBear Adventurer avatar options that visually match their described profile — age, gender, ethnicity, personality, and appearance implied by their biography.
+
+## Available Options
+
+Pick ONE value for each field from these exact options:
+
+- **skinColor**: "9e5622", "763900", "ecad80", "f2d3b1"
+- **hair**: one of: "long01", "long02", "long03", "long04", "long05", "long06", "long07", "long08", "long09", "long10", "long11", "long12", "long13", "long14", "long15", "long16", "long17", "long18", "long19", "long20", "long21", "long22", "long23", "long24", "long25", "long26", "short01", "short02", "short03", "short04", "short05", "short06", "short07", "short08", "short09", "short10", "short11", "short12", "short13", "short14", "short15", "short16", "short17", "short18", "short19"
+- **hairColor**: one of: "0e0e0e", "3eac2c", "6a4e35", "85c2c6", "796a45", "562306", "592454", "ab2a18", "ac6511", "afafaf", "b7a259", "cb6820", "dba3be", "e5d7a3"
+- **eyes**: one of: "variant01", "variant02", "variant03", "variant04", "variant05", "variant06", "variant07", "variant08", "variant09", "variant10", "variant11", "variant12", "variant13", "variant14", "variant15", "variant16", "variant17", "variant18", "variant19", "variant20", "variant21", "variant22", "variant23", "variant24", "variant25", "variant26"
+- **eyebrows**: one of: "variant01", "variant02", "variant03", "variant04", "variant05", "variant06", "variant07", "variant08", "variant09", "variant10", "variant11", "variant12", "variant13", "variant14", "variant15"
+- **mouth**: one of: "variant01", "variant02", "variant03", "variant04", "variant05", "variant06", "variant07", "variant08", "variant09", "variant10", "variant11", "variant12", "variant13", "variant14", "variant15", "variant16", "variant17", "variant18", "variant19", "variant20", "variant21", "variant22", "variant23", "variant24", "variant25", "variant26", "variant27", "variant28", "variant29", "variant30"
+- **glasses**: one of: "variant01", "variant02", "variant03", "variant04", "variant05", or "none"
+- **features**: one of: "birthmark", "blush", "freckles", "mustache", or "none"
+
+## Rules
+- Match skin color to the character's implied ethnicity/background
+- Match hair style and color to gender and age cues in the biography
+- Use glasses for academic/intellectual characters when it fits
+- Use "mustache" feature for older male characters when appropriate
+- Make each character visually distinct from the others
+
+## Output Format
+
+Return ONLY a valid JSON array with no markdown formatting, no code fences, no explanation. Each element:
+
+[
+  {
+    "name": "Character Full Name",
+    "skinColor": "...",
+    "hair": "...",
+    "hairColor": "...",
+    "eyes": "...",
+    "eyebrows": "...",
+    "mouth": "...",
+    "glasses": "...",
+    "features": "..."
+  }
+]
+
+Characters:
+${characters}`;
+}
+
 export function verificationPrompt(
   topic: string,
   deliverable: string,

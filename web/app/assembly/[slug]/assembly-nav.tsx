@@ -14,10 +14,23 @@ function cleanTitle(title: string): string {
   return title.replace(/\s*—\s*Final.*$/, "").replace(/\s*--\s*Assembly.*$/, "");
 }
 
+function isSocrate(name: string): boolean {
+  return name.toLowerCase().includes("socrate");
+}
+
 function formatStructure(structure: string): string {
-  return structure
-    .replace(/_/g, " ")
-    .replace(/\b\w/g, (c) => c.toUpperCase());
+  const names: Record<string, string> = {
+    "grande-table": "Town Hall",
+    "rapid-fire": "Crossfire",
+    "deep-dive": "Deep Dive",
+  };
+  return (
+    names[structure] ??
+    structure
+      .split("-")
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(" ")
+  );
 }
 
 export function AssemblyNav({ topic, slug }: { topic: Topic; slug: string }) {
@@ -33,6 +46,8 @@ export function AssemblyNav({ topic, slug }: { topic: Topic; slug: string }) {
   );
 
   const closeNav = () => setNavOpen(false);
+
+  const titleLink = topic.synthesis ? `${base}/synthesis` : base;
 
   return (
     <>
@@ -58,16 +73,8 @@ export function AssemblyNav({ topic, slug }: { topic: Topic; slug: string }) {
 
         <div className="nav-divider" />
         <div className="nav-section">
-          <Link href={base} className="nav-section-title" onClick={closeNav}>
+          <Link href={titleLink} className="nav-section-title" onClick={closeNav}>
             {shortTitle}
-          </Link>
-
-          <Link
-            href={base}
-            className={isActive(base) ? "active" : ""}
-            onClick={closeNav}
-          >
-            <span className="nav-icon">&#9673;</span> Overview
           </Link>
 
           {topic.synthesis && (
@@ -80,7 +87,7 @@ export function AssemblyNav({ topic, slug }: { topic: Topic; slug: string }) {
             </Link>
           )}
 
-          {topic.characters.length > 0 && (
+          {topic.characters.filter((c) => !isSocrate(c.name)).length > 0 && (
             <Link
               href={`${base}/characters`}
               className={isActive(`${base}/characters`) ? "active" : ""}
@@ -114,16 +121,6 @@ export function AssemblyNav({ topic, slug }: { topic: Topic; slug: string }) {
             </Link>
           )}
 
-          {topic.verification.length > 0 && (
-            <Link
-              href={`${base}/verification`}
-              className={isActive(`${base}/verification`) ? "active" : ""}
-              onClick={closeNav}
-            >
-              <span className="nav-icon">&#10003;</span> Verification
-            </Link>
-          )}
-
           {topic.referenceLibrary && (
             <Link
               href={`${base}/references`}
@@ -134,13 +131,18 @@ export function AssemblyNav({ topic, slug }: { topic: Topic; slug: string }) {
             </Link>
           )}
 
-          {topic.followUps.length > 0 && (
+          {(topic.followUps.length > 0 || (topic as Topic & { isComplete?: boolean }).isComplete) && (
             <Link
               href={`${base}/trajectory`}
               className={isActive(`${base}/trajectory`) ? "active" : ""}
               onClick={closeNav}
             >
               <span className="nav-icon">&#8634;</span> Thinking Trail
+              {topic.followUps.filter(f => f.insight?.hasInsight).length > 0 && (
+                <span className="badge badge-tag" style={{ marginLeft: "0.5rem", fontSize: "0.7rem" }}>
+                  {topic.followUps.filter(f => f.insight?.hasInsight).length}
+                </span>
+              )}
             </Link>
           )}
         </div>

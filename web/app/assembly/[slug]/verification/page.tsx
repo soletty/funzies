@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { marked } from "marked";
-import { useAssembly } from "@/lib/assembly-context";
+import { useAssembly, useAssemblyId } from "@/lib/assembly-context";
+import FollowUpModal from "@/components/FollowUpModal";
+import HighlightChat from "@/components/HighlightChat";
 
 function md(text: string): string {
   return marked.parse(text, { async: false }) as string;
@@ -10,6 +12,7 @@ function md(text: string): string {
 
 export default function VerificationPage() {
   const topic = useAssembly();
+  const assemblyId = useAssemblyId();
   const base = `/assembly/${topic.slug}`;
 
   if (topic.verification.length === 0) {
@@ -45,6 +48,18 @@ export default function VerificationPage() {
           <hr />
         </div>
       ))}
+
+      <FollowUpModal
+        assemblyId={assemblyId}
+        characters={topic.characters.map((c) => c.name)}
+        currentPage="verification"
+      />
+      <HighlightChat
+        assemblyId={assemblyId}
+        characters={topic.characters.map((c) => c.name)}
+        currentPage="verification"
+        defaultMode="ask-assembly"
+      />
     </>
   );
 }

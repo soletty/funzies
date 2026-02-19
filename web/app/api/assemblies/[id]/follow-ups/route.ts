@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth-helpers";
 import { query } from "@/lib/db";
 import { decryptApiKey } from "@/lib/crypto";
 import { buildPrompt, FollowUpRequest, TopicFiles } from "@/lib/follow-up-prompts";
+import { extractInsight } from "@/lib/insight-extraction";
 
 export async function POST(
   request: NextRequest,
@@ -15,7 +16,7 @@ export async function POST(
 
   const { id: assemblyId } = await params;
   const body = await request.json();
-  const { question, mode, characters, context, challenge, highlightedText } = body;
+  const { question, mode, characters, context, challenge, highlightedText, files } = body;
 
   if (!question || !mode || !context) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -48,6 +49,7 @@ export async function POST(
     context,
     challenge,
     highlightedText,
+    files: files || undefined,
   };
 
   const prompt = buildPrompt(followUpRequest, topicFiles);
@@ -148,9 +150,10 @@ export async function POST(
         }
       }
 
-      await query(
+      const insertedRows = await query<{ id: string }>(
         `INSERT INTO follow_ups (id, assembly_id, user_id, question, mode, is_challenge, context_page, context_section, highlighted_text, response_md)
-         VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+         VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9)
+         RETURNING id`,
         [
           assemblyId,
           user.id,
@@ -163,6 +166,10 @@ export async function POST(
           fullText,
         ]
       );
+
+      if (insertedRows.length > 0) {
+        extractInsight(insertedRows[0].id, assemblyId, apiKey).catch(console.error);
+      }
 
       controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "done" })}\n\n`));
       controller.close();
