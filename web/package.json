@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "db:migrate": "npx tsx lib/migrate.ts",
-    "dev:worker": "npx tsx worker/index.ts"
+    "dev:worker": "npx tsx worker/index.ts",
+    "postbuild": "npx tsc -p worker/tsconfig.worker.json || true"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.77.0",

@@ -6,7 +6,9 @@ import { decryptApiKey } from "../lib/crypto.js";
 import { runPipeline } from "./pipeline.js";
 
 const __workerDir = dirname(fileURLToPath(import.meta.url));
-config({ path: join(__workerDir, "../.env.local") });
+if (!process.env.DATABASE_URL) {
+  config({ path: join(__workerDir, "../.env.local") });
+}
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 

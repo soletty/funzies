@@ -5,7 +5,9 @@ import { Pool } from "pg";
 import { config } from "dotenv";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-config({ path: join(__dirname, "../.env.local") });
+if (!process.env.DATABASE_URL) {
+  config({ path: join(__dirname, "../.env.local") });
+}
 
 async function migrate() {
   const pool = new Pool({

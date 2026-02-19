@@ -1,0 +1,7 @@
+[build]
+builder = "dockerfile"
+dockerfilePath = "worker/Dockerfile"
+watchPatterns = ["worker/**", "lib/**", "package.json"]
+
+[deploy]
+restartPolicyType = "always"
