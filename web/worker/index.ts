@@ -123,6 +123,12 @@ async function pollLoop() {
             `UPDATE assemblies SET status = 'error', error_message = $1 WHERE id = $2`,
             [message, job.id]
           );
+          if (message.includes("Invalid API key")) {
+            await pool.query(
+              "UPDATE users SET api_key_valid = false WHERE id = $1",
+              [job.user_id]
+            );
+          }
         }
       }
     } catch (err) {

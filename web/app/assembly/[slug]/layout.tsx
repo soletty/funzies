@@ -3,6 +3,7 @@ import { query } from "@/lib/db";
 import { AssemblyProvider } from "@/lib/assembly-context";
 import type { Topic } from "@/lib/types";
 import { AssemblyNav } from "./assembly-nav";
+import AssemblyErrorBoundary from "@/components/AssemblyErrorBoundary";
 
 interface AssemblyRow {
   id: string;
@@ -32,14 +33,20 @@ export default async function AssemblyLayout({
   const topic: Topic | null = rows[0].parsed_data;
 
   if (!topic) {
-    return <main>{children}</main>;
+    return (
+      <AssemblyErrorBoundary>
+        <main>{children}</main>
+      </AssemblyErrorBoundary>
+    );
   }
 
   return (
-    <AssemblyProvider topic={topic}>
+    <AssemblyProvider topic={topic} assemblyId={rows[0].id}>
       <AssemblyNav topic={topic} slug={slug} />
       <div className="nav-overlay" />
-      <main>{children}</main>
+      <AssemblyErrorBoundary>
+        <main>{children}</main>
+      </AssemblyErrorBoundary>
     </AssemblyProvider>
   );
 }

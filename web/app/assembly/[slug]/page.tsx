@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useAssembly } from "@/lib/assembly-context";
+import { useAssembly, useAssemblyId } from "@/lib/assembly-context";
 
 function cleanTitle(title: string): string {
   return title.replace(/\s*—\s*Final.*$/, "").replace(/\s*--\s*Assembly.*$/, "");
@@ -18,6 +18,7 @@ function confidenceBadgeClass(confidence: string): string {
 
 export default function AssemblyOverview() {
   const topic = useAssembly();
+  const assemblyId = useAssemblyId();
   const base = `/assembly/${topic.slug}`;
   const title = cleanTitle(topic.title);
 
@@ -59,6 +60,26 @@ export default function AssemblyOverview() {
         <Link href="/">Home</Link>
         <span className="separator">/</span>
         <span className="current">{truncate(title, 40)}</span>
+        <a
+          href={`/api/assemblies/${assemblyId}/export`}
+          style={{
+            marginLeft: "auto",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "0.4rem",
+            padding: "0.4rem 0.8rem",
+            background: "transparent",
+            border: "1px solid var(--color-border)",
+            borderRadius: "var(--radius-sm)",
+            color: "var(--color-text-secondary)",
+            fontSize: "0.85rem",
+            textDecoration: "none",
+            cursor: "pointer",
+            fontWeight: 500,
+          }}
+        >
+          Export HTML
+        </a>
       </div>
 
       <h1>{title}</h1>

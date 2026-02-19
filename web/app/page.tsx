@@ -40,6 +40,8 @@ export default async function Dashboard() {
     redirect("/onboarding");
   }
 
+  const user = userRows[0];
+
   const assemblies = await query<AssemblyRow>(
     "SELECT id, slug, topic_input, status, current_phase, created_at, completed_at FROM assemblies WHERE user_id = $1 ORDER BY created_at DESC",
     [userId]
@@ -47,6 +49,19 @@ export default async function Dashboard() {
 
   return (
     <div className="content-area" style={{ maxWidth: "var(--max-width)", margin: "0 auto", padding: "3rem 2rem" }}>
+      {user.api_key_valid === false && (
+        <div style={{
+          padding: "0.75rem 1rem",
+          background: "var(--color-low-subtle, #fff3f3)",
+          border: "1px solid var(--color-low, #c53030)",
+          borderRadius: "var(--radius-sm)",
+          marginBottom: "1.5rem",
+          fontSize: "0.9rem",
+          color: "var(--color-low, #c53030)",
+        }}>
+          Your API key is no longer valid. <a href="/onboarding" style={{ fontWeight: 600, textDecoration: "underline" }}>Update it</a> to continue using assemblies.
+        </div>
+      )}
       <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2rem" }}>
         <div>
           <h1 style={{ fontFamily: "var(--font-display)", fontSize: "1.8rem", fontWeight: 600 }}>

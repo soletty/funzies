@@ -84,6 +84,18 @@ export async function POST(
 
   if (!anthropicResponse.ok) {
     const errorText = await anthropicResponse.text();
+    if (anthropicResponse.status === 401) {
+      return NextResponse.json(
+        { error: "Your API key is invalid or expired. Please update it in Settings." },
+        { status: 401 }
+      );
+    }
+    if (anthropicResponse.status === 429) {
+      return NextResponse.json(
+        { error: "Rate limited by Anthropic. Please wait a moment and try again." },
+        { status: 429 }
+      );
+    }
     return NextResponse.json(
       { error: "Anthropic API error", details: errorText },
       { status: anthropicResponse.status }

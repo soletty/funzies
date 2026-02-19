@@ -33,17 +33,33 @@ async function callClaude(
   userMessage: string,
   maxTokens: number
 ): Promise<string> {
-  const response = await client.messages.create({
-    model: "claude-sonnet-4-20250514",
-    max_tokens: maxTokens,
-    messages: [{ role: "user", content: userMessage }],
-    system: systemPrompt,
-  });
+  try {
+    const response = await client.messages.create({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: maxTokens,
+      messages: [{ role: "user", content: userMessage }],
+      system: systemPrompt,
+    });
 
-  return response.content
-    .filter((block): block is Anthropic.TextBlock => block.type === "text")
-    .map((block) => block.text)
-    .join("\n");
+    return response.content
+      .filter((block): block is Anthropic.TextBlock => block.type === "text")
+      .map((block) => block.text)
+      .join("\n");
+  } catch (err: unknown) {
+    if (err && typeof err === "object" && "status" in err) {
+      const apiErr = err as { status: number; message?: string };
+      if (apiErr.status === 401) {
+        throw new Error("Invalid API key. Please update your key in Settings.");
+      }
+      if (apiErr.status === 429) {
+        throw new Error("Rate limited by Anthropic. Please wait and try again, or check your API plan limits.");
+      }
+      if (apiErr.status === 529) {
+        throw new Error("Anthropic API is temporarily overloaded. Your assembly will be retried.");
+      }
+    }
+    throw err;
+  }
 }
 
 export async function runPipeline(config: PipelineConfig): Promise<void> {
