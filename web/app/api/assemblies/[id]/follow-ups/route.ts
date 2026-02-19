@@ -5,6 +5,27 @@ import { decryptApiKey } from "@/lib/crypto";
 import { buildPrompt, FollowUpRequest, TopicFiles } from "@/lib/follow-up-prompts";
 import { extractInsight } from "@/lib/insight-extraction";
 
+function buildMessages(
+  history: { role: string; content: string }[] | undefined,
+  question: string
+): { role: "user" | "assistant"; content: string }[] {
+  if (!history || history.length <= 1) {
+    return [{ role: "user", content: question }];
+  }
+
+  // Cap to last 20 messages (~10 exchanges) to avoid context overflow
+  const capped = history.slice(-20);
+
+  // Ensure the conversation starts with a user message
+  const startIdx = capped.findIndex((m) => m.role === "user");
+  const trimmed = startIdx >= 0 ? capped.slice(startIdx) : capped;
+
+  return trimmed.map((m) => ({
+    role: m.role === "assistant" ? "assistant" : "user",
+    content: m.content,
+  }));
+}
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -16,7 +37,7 @@ export async function POST(
 
   const { id: assemblyId } = await params;
   const body = await request.json();
-  const { question, mode, characters, context, challenge, highlightedText, files } = body;
+  const { question, mode, characters, context, challenge, highlightedText, files, history } = body;
 
   if (!question || !mode || !context) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -79,7 +100,7 @@ export async function POST(
       model: "claude-sonnet-4-20250514",
       max_tokens: 4096,
       system: prompt,
-      messages: [{ role: "user", content: question }],
+      messages: buildMessages(history, question),
       stream: true,
     }),
   });

@@ -5,7 +5,6 @@ import { marked } from "marked";
 import { useAssembly, useAssemblyId } from "@/lib/assembly-context";
 import FollowUpModal from "@/components/FollowUpModal";
 import HighlightChat from "@/components/HighlightChat";
-import PersistedFollowUps from "@/components/PersistedFollowUps";
 import { buildCharacterMaps, isSocrate } from "@/lib/character-utils";
 
 function md(text: string): string {
@@ -188,14 +187,13 @@ export default function SynthesisPage() {
         dangerouslySetInnerHTML={{ __html: md(synth.raw) }}
       />
 
-      <PersistedFollowUps followUps={topic.followUps} context="synthesis" characters={topic.characters} />
-
       <FollowUpModal
         assemblyId={assemblyId}
         characters={characters.map((c) => c.name)}
         avatarUrlMap={avatarUrlMap}
         currentPage="synthesis"
         pageType="synthesis"
+        followUps={topic.followUps}
       />
       <HighlightChat
         assemblyId={assemblyId}

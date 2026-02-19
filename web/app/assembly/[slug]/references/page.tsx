@@ -5,7 +5,6 @@ import { marked } from "marked";
 import { useAssembly, useAssemblyId } from "@/lib/assembly-context";
 import FollowUpModal from "@/components/FollowUpModal";
 import HighlightChat from "@/components/HighlightChat";
-import PersistedFollowUps from "@/components/PersistedFollowUps";
 import { buildCharacterMaps, findColor, findAvatarUrl, initials, isSocrate } from "@/lib/character-utils";
 
 function md(text: string): string {
@@ -50,14 +49,13 @@ export default function ReferencesPage() {
           dangerouslySetInnerHTML={{ __html: md(topic.referenceLibrary) }}
         />
 
-        <PersistedFollowUps followUps={topic.followUps} context="references" characters={topic.characters} />
-
         <FollowUpModal
           assemblyId={assemblyId}
           characters={topic.characters.filter((c) => !isSocrate(c.name)).map((c) => c.name)}
           avatarUrlMap={avatarUrlMap}
           currentPage="references"
           pageType="references"
+          followUps={topic.followUps}
         />
         <HighlightChat
           assemblyId={assemblyId}
@@ -188,14 +186,13 @@ export default function ReferencesPage() {
         </div>
       )}
 
-      <PersistedFollowUps followUps={topic.followUps} context="references" characters={topic.characters} />
-
       <FollowUpModal
         assemblyId={assemblyId}
         characters={topic.characters.filter((c) => !isSocrate(c.name)).map((c) => c.name)}
         avatarUrlMap={avatarUrlMap}
         currentPage="references"
         pageType="references"
+        followUps={topic.followUps}
       />
       <HighlightChat
         assemblyId={assemblyId}

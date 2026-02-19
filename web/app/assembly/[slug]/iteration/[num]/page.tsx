@@ -6,7 +6,6 @@ import { marked } from "marked";
 import { useAssembly, useAssemblyId } from "@/lib/assembly-context";
 import FollowUpModal from "@/components/FollowUpModal";
 import HighlightChat from "@/components/HighlightChat";
-import PersistedFollowUps from "@/components/PersistedFollowUps";
 import { buildCharacterMaps, findColor, findAvatarUrl, initials, isSocrate } from "@/lib/character-utils";
 import type { DebateExchange } from "@/lib/types";
 
@@ -185,14 +184,13 @@ export default function IterationPage() {
         </>
       )}
 
-      <PersistedFollowUps followUps={topic.followUps} context={`iteration-${num}`} characters={topic.characters} />
-
       <FollowUpModal
         assemblyId={assemblyId}
         characters={nonSocrateNames}
         avatarUrlMap={avatarUrlMap}
         currentPage={`iteration-${num}`}
         pageType="iteration"
+        followUps={topic.followUps}
       />
 
       <hr />

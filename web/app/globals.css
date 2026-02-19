@@ -1319,6 +1319,54 @@
   border-color: var(--color-accent);
 }
 
+/* ─── Chat Thread (Follow-up) ─── */
+
+.chat-thread {
+  max-height: 60vh;
+  overflow-y: auto;
+  margin-bottom: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.chat-message-user {
+  align-self: flex-end;
+  max-width: 80%;
+  padding: 0.6rem 1rem;
+  background: var(--color-accent);
+  color: #fff;
+  border-radius: var(--radius) var(--radius) 4px var(--radius);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.chat-message-assistant {
+  align-self: flex-start;
+  max-width: 90%;
+  padding: 0.75rem 1rem;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius) var(--radius) var(--radius) 4px;
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.chat-message-assistant .markdown-content {
+  font-size: 0.9rem;
+}
+
+.chat-thread-divider {
+  height: 1px;
+  background: var(--color-border-light);
+  margin: 0.25rem 0;
+}
+
 /* ─── Generation progress animation ─── */
 @keyframes pulse {
   0%, 100% { opacity: 1; }

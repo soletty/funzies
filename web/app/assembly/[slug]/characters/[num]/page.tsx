@@ -6,7 +6,6 @@ import { marked } from "marked";
 import { useAssembly, useAssemblyId } from "@/lib/assembly-context";
 import FollowUpModal from "@/components/FollowUpModal";
 import HighlightChat from "@/components/HighlightChat";
-import PersistedFollowUps from "@/components/PersistedFollowUps";
 import { buildCharacterMaps, initials, isSocrate } from "@/lib/character-utils";
 
 function md(text: string): string {
@@ -249,8 +248,6 @@ export default function CharacterProfilePage() {
         </>
       )}
 
-      <PersistedFollowUps followUps={topic.followUps} context={`character-${character.name}`} characters={topic.characters} />
-
       <FollowUpModal
         assemblyId={assemblyId}
         characters={nonSocrateChars.map((c) => c.name)}
@@ -258,6 +255,7 @@ export default function CharacterProfilePage() {
         currentPage={`character-${character.name}`}
         defaultCharacter={character.name}
         pageType="character"
+        followUps={topic.followUps}
       />
 
       <hr />
