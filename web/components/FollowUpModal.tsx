@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback } from "react";
 import { marked } from "marked";
 import { parseFollowUpResponse, getLoadingMessage } from "@/lib/follow-up-rendering";
+import { findAvatarUrl } from "@/lib/character-utils";
 import AttachmentWidget, { type AttachedFile } from "@/components/AttachmentWidget";
 
 type Mode = "ask-assembly" | "ask-character" | "ask-library" | "debate";
@@ -11,6 +12,7 @@ type PageType = "synthesis" | "character" | "iteration" | "references" | "delive
 interface FollowUpModalProps {
   assemblyId: string;
   characters: string[];
+  avatarUrlMap?: Record<string, string>;
   currentPage: string;
   defaultCharacter?: string;
   pageType?: PageType;
@@ -56,6 +58,7 @@ function getPageConfig(pageType: PageType | undefined, characterName?: string) {
 export default function FollowUpModal({
   assemblyId,
   characters,
+  avatarUrlMap = {},
   currentPage,
   defaultCharacter,
   pageType,
@@ -339,10 +342,16 @@ export default function FollowUpModal({
               }}
             />
           ) : (
-            speakerBlocks.map((block, i) => (
+            speakerBlocks.map((block, i) => {
+              const url = findAvatarUrl(block.speaker, avatarUrlMap);
+              return (
               <div key={i} className="follow-up-exchange">
                 <div className="debate-speaker">
-                  <span className="debate-speaker-dot" style={{ background: block.color }} />
+                  {url ? (
+                    <img src={url} alt={block.speaker} style={{ width: 20, height: 20, borderRadius: "50%", objectFit: "cover" }} />
+                  ) : (
+                    <span className="debate-speaker-dot" style={{ background: block.color }} />
+                  )}
                   {block.speaker}
                 </div>
                 <div
@@ -352,7 +361,8 @@ export default function FollowUpModal({
                   }}
                 />
               </div>
-            ))
+              );
+            })
           )}
         </div>
       )}

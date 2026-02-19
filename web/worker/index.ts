@@ -2,6 +2,7 @@ import { config } from "dotenv";
 import { Pool } from "pg";
 import { decryptApiKey } from "../lib/crypto.js";
 import { runPipeline } from "./pipeline.js";
+import { getUserGithubToken, buildCodeContext } from "../lib/github.js";
 
 if (!process.env.DATABASE_URL) {
   config({ path: ".env.local" });
@@ -27,6 +28,9 @@ async function claimJob(): Promise<{
   user_id: string;
   raw_files: Record<string, string>;
   slug: string;
+  github_repo_owner: string | null;
+  github_repo_name: string | null;
+  github_repo_branch: string | null;
 } | null> {
   const result = await pool.query(
     `UPDATE assemblies SET status = 'running', current_phase = 'domain-analysis'
@@ -35,7 +39,7 @@ async function claimJob(): Promise<{
        ORDER BY created_at LIMIT 1
        FOR UPDATE SKIP LOCKED
      )
-     RETURNING id, topic_input, user_id, raw_files, slug`
+     RETURNING id, topic_input, user_id, raw_files, slug, github_repo_owner, github_repo_name, github_repo_branch`
   );
   return result.rows[0] ?? null;
 }
@@ -63,6 +67,9 @@ async function processJob(job: {
   user_id: string;
   raw_files: Record<string, string>;
   slug: string;
+  github_repo_owner: string | null;
+  github_repo_name: string | null;
+  github_repo_branch: string | null;
 }) {
   const { encrypted, iv } = await getUserApiKey(job.user_id);
   const apiKey = decryptApiKey(encrypted, iv);
@@ -75,11 +82,36 @@ async function processJob(job: {
     ]);
   }
 
+  let codeContext: string | undefined;
+  if (job.github_repo_owner && job.github_repo_name) {
+    try {
+      await pool.query(
+        `UPDATE assemblies SET current_phase = 'code-analysis' WHERE id = $1`,
+        [job.id]
+      );
+      const githubToken = await getUserGithubToken(job.user_id);
+      if (githubToken) {
+        codeContext = await buildCodeContext(
+          githubToken,
+          job.github_repo_owner,
+          job.github_repo_name,
+          job.github_repo_branch || "main",
+          job.topic_input,
+          apiKey
+        );
+        console.log(`[worker] Code context fetched: ${codeContext.length} chars`);
+      }
+    } catch (err) {
+      console.warn("[worker] Failed to fetch code context:", err);
+    }
+  }
+
   await runPipeline({
     assemblyId: job.id,
     topic: job.topic_input,
     slug,
     apiKey,
+    codeContext,
     initialRawFiles: job.raw_files || {},
     updatePhase: async (phase: string) => {
       await pool.query(

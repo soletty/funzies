@@ -31,12 +31,15 @@ export async function POST(request: NextRequest) {
   }
 
   const slug = generateSlug(topicInput);
+  const githubRepoOwner = body.githubRepoOwner || null;
+  const githubRepoName = body.githubRepoName || null;
+  const githubRepoBranch = body.githubRepoBranch || "main";
 
   const rows = await query<{ id: string; slug: string }>(
-    `INSERT INTO assemblies (id, user_id, slug, topic_input, status)
-     VALUES (gen_random_uuid(), $1, $2, $3, 'queued')
+    `INSERT INTO assemblies (id, user_id, slug, topic_input, status, github_repo_owner, github_repo_name, github_repo_branch)
+     VALUES (gen_random_uuid(), $1, $2, $3, 'queued', $4, $5, $6)
      RETURNING id, slug`,
-    [user.id, slug, topicInput]
+    [user.id, slug, topicInput, githubRepoOwner, githubRepoName, githubRepoBranch]
   );
 
   return NextResponse.json(rows[0], { status: 201 });

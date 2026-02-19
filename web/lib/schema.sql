@@ -28,6 +28,22 @@ CREATE TABLE IF NOT EXISTS assemblies (
   UNIQUE (user_id, slug)
 );
 
+CREATE TABLE IF NOT EXISTS github_connections (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  github_username TEXT NOT NULL,
+  github_avatar_url TEXT,
+  encrypted_token BYTEA NOT NULL,
+  token_iv BYTEA NOT NULL,
+  connected_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (user_id)
+);
+
+ALTER TABLE assemblies
+  ADD COLUMN IF NOT EXISTS github_repo_owner TEXT,
+  ADD COLUMN IF NOT EXISTS github_repo_name TEXT,
+  ADD COLUMN IF NOT EXISTS github_repo_branch TEXT DEFAULT 'main';
+
 CREATE TABLE IF NOT EXISTS follow_ups (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   assembly_id UUID NOT NULL REFERENCES assemblies(id) ON DELETE CASCADE,

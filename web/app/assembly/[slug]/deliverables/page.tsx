@@ -7,10 +7,7 @@ import { useAssembly, useAssemblyId } from "@/lib/assembly-context";
 import FollowUpModal from "@/components/FollowUpModal";
 import HighlightChat from "@/components/HighlightChat";
 import PersistedFollowUps from "@/components/PersistedFollowUps";
-
-function isSocrate(name: string): boolean {
-  return name.toLowerCase().includes("socrate");
-}
+import { buildCharacterMaps, isSocrate } from "@/lib/character-utils";
 
 function md(text: string): string {
   return marked.parse(text, { async: false }) as string;
@@ -20,6 +17,7 @@ export default function DeliverablesPage() {
   const topic = useAssembly();
   const assemblyId = useAssemblyId();
   const base = `/assembly/${topic.slug}`;
+  const { avatarUrlMap } = buildCharacterMaps(topic.characters);
   const [activeVersion, setActiveVersion] = useState(topic.deliverables.length - 1);
 
   if (topic.deliverables.length === 0) {
@@ -105,12 +103,14 @@ export default function DeliverablesPage() {
       <FollowUpModal
         assemblyId={assemblyId}
         characters={topic.characters.filter((c) => !isSocrate(c.name)).map((c) => c.name)}
+        avatarUrlMap={avatarUrlMap}
         currentPage="deliverables"
         pageType="deliverables"
       />
       <HighlightChat
         assemblyId={assemblyId}
         characters={topic.characters.filter((c) => !isSocrate(c.name)).map((c) => c.name)}
+        avatarUrlMap={avatarUrlMap}
         currentPage="deliverables"
         defaultMode="ask-assembly"
       />

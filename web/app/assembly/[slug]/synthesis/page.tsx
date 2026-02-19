@@ -6,10 +6,7 @@ import { useAssembly, useAssemblyId } from "@/lib/assembly-context";
 import FollowUpModal from "@/components/FollowUpModal";
 import HighlightChat from "@/components/HighlightChat";
 import PersistedFollowUps from "@/components/PersistedFollowUps";
-
-function isSocrate(name: string): boolean {
-  return name.toLowerCase().includes("socrate");
-}
+import { buildCharacterMaps, isSocrate } from "@/lib/character-utils";
 
 function md(text: string): string {
   return marked.parse(text, { async: false }) as string;
@@ -50,6 +47,7 @@ export default function SynthesisPage() {
   const synth = topic.synthesis;
   const title = cleanTitle(topic.title);
   const characters = topic.characters.filter((c) => !isSocrate(c.name));
+  const { avatarUrlMap } = buildCharacterMaps(topic.characters);
 
   const meta = [
     characters.length > 0
@@ -195,12 +193,14 @@ export default function SynthesisPage() {
       <FollowUpModal
         assemblyId={assemblyId}
         characters={characters.map((c) => c.name)}
+        avatarUrlMap={avatarUrlMap}
         currentPage="synthesis"
         pageType="synthesis"
       />
       <HighlightChat
         assemblyId={assemblyId}
         characters={characters.map((c) => c.name)}
+        avatarUrlMap={avatarUrlMap}
         currentPage="synthesis"
         defaultMode="ask-assembly"
       />

@@ -63,6 +63,20 @@ function useTypewriter(prompts: string[], active: boolean) {
   return display;
 }
 
+interface GitHubRepo {
+  fullName: string;
+  name: string;
+  owner: string;
+  defaultBranch: string;
+  description: string | null;
+  private: boolean;
+}
+
+interface GitHubStatus {
+  connected: boolean;
+  username?: string;
+}
+
 export default function NewAssemblyPage() {
   const [topic, setTopic] = useState("");
   const [files, setFiles] = useState<AttachedFile[]>([]);
@@ -71,6 +85,50 @@ export default function NewAssemblyPage() {
   const router = useRouter();
   const typewriterText = useTypewriter(TYPEWRITER_PROMPTS, topic.length === 0 && !submitting);
 
+  const [githubStatus, setGithubStatus] = useState<GitHubStatus | null>(null);
+  const [repoExpanded, setRepoExpanded] = useState(false);
+  const [repoSearch, setRepoSearch] = useState("");
+  const [repos, setRepos] = useState<GitHubRepo[]>([]);
+  const [loadingRepos, setLoadingRepos] = useState(false);
+  const [selectedRepo, setSelectedRepo] = useState<GitHubRepo | null>(null);
+  const [branch, setBranch] = useState("main");
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  useEffect(() => {
+    fetch("/api/github/status")
+      .then((r) => r.json())
+      .then(setGithubStatus)
+      .catch(() => setGithubStatus({ connected: false }));
+  }, []);
+
+  useEffect(() => {
+    if (!githubStatus?.connected || !repoExpanded) return;
+    fetchRepos("");
+  }, [githubStatus?.connected, repoExpanded]);
+
+  function fetchRepos(q: string) {
+    setLoadingRepos(true);
+    const url = q ? `/api/github/repos?q=${encodeURIComponent(q)}` : "/api/github/repos";
+    fetch(url)
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data)) setRepos(data);
+      })
+      .finally(() => setLoadingRepos(false));
+  }
+
+  function handleRepoSearch(value: string) {
+    setRepoSearch(value);
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    searchTimerRef.current = setTimeout(() => fetchRepos(value), 300);
+  }
+
+  function selectRepo(repo: GitHubRepo) {
+    setSelectedRepo(repo);
+    setBranch(repo.defaultBranch);
+    setRepoSearch("");
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!topic.trim() || submitting) return;
@@ -78,10 +136,17 @@ export default function NewAssemblyPage() {
     setError("");
     setSubmitting(true);
 
+    const payload: Record<string, string> = { topicInput: topic.trim() };
+    if (selectedRepo) {
+      payload.githubRepoOwner = selectedRepo.owner;
+      payload.githubRepoName = selectedRepo.name;
+      payload.githubRepoBranch = branch;
+    }
+
     const res = await fetch("/api/assemblies", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ topicInput: topic.trim() }),
+      body: JSON.stringify(payload),
     });
 
     if (!res.ok) {
@@ -138,6 +203,84 @@ export default function NewAssemblyPage() {
             </div>
 
             <AttachmentWidget files={files} onChange={setFiles} disabled={submitting} />
+
+            {githubStatus?.connected && (
+              <div className="repo-section">
+                <button
+                  type="button"
+                  className="repo-toggle"
+                  onClick={() => setRepoExpanded(!repoExpanded)}
+                >
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" style={{ opacity: 0.6 }}>
+                    <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
+                  </svg>
+                  Link a repository (optional)
+                  <span style={{ marginLeft: "auto", fontSize: "0.75rem" }}>
+                    {repoExpanded ? "\u25B2" : "\u25BC"}
+                  </span>
+                </button>
+
+                {repoExpanded && (
+                  <div className="repo-picker">
+                    {selectedRepo ? (
+                      <div className="repo-selected">
+                        <span className="repo-chip">
+                          {selectedRepo.fullName}
+                          <button
+                            type="button"
+                            onClick={() => setSelectedRepo(null)}
+                            className="repo-chip-remove"
+                          >
+                            &times;
+                          </button>
+                        </span>
+                        <div className="repo-branch-input">
+                          <label>Branch:</label>
+                          <input
+                            type="text"
+                            value={branch}
+                            onChange={(e) => setBranch(e.target.value)}
+                            placeholder="main"
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <input
+                          type="text"
+                          value={repoSearch}
+                          onChange={(e) => handleRepoSearch(e.target.value)}
+                          placeholder="Search your repositories..."
+                          className="repo-search-input"
+                        />
+                        <div className="repo-list">
+                          {loadingRepos ? (
+                            <div className="repo-list-empty">Loading...</div>
+                          ) : repos.length === 0 ? (
+                            <div className="repo-list-empty">No repositories found</div>
+                          ) : (
+                            repos.map((r) => (
+                              <button
+                                key={r.fullName}
+                                type="button"
+                                className="repo-list-item"
+                                onClick={() => selectRepo(r)}
+                              >
+                                <span className="repo-list-name">{r.fullName}</span>
+                                {r.private && <span className="repo-list-badge">private</span>}
+                                {r.description && (
+                                  <span className="repo-list-desc">{r.description}</span>
+                                )}
+                              </button>
+                            ))
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
 
             {error && (
               <p style={{ color: "var(--color-low)", fontSize: "0.85rem", marginTop: "0.75rem" }}>

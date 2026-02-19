@@ -1,7 +1,11 @@
-export function domainAnalysisPrompt(topic: string): string {
+export function domainAnalysisPrompt(topic: string, codeContext?: string): string {
+  const codeSection = codeContext
+    ? `\n\n## Codebase Reference\n\nA codebase has been provided for reference. Use it to ground your analysis in the actual implementation, architecture patterns, and technical decisions present in the code. Reference specific files and patterns when relevant.\n\n${codeContext}`
+    : "";
+
   return `You are an expert domain analyst preparing the groundwork for a multi-perspective intellectual assembly on a given topic.
 
-Analyze the following topic and produce a structured domain analysis in markdown.
+Analyze the following topic and produce a structured domain analysis in markdown.${codeSection}
 
 ## Your task
 
@@ -29,9 +33,14 @@ Topic: ${topic}`;
 
 export function characterGenerationPrompt(
   topic: string,
-  domainAnalysis: string
+  domainAnalysis: string,
+  codeContext?: string
 ): string {
-  return `You are a character architect creating a diverse intellectual assembly of 6 domain experts plus a moderator (Socrate) to debate a topic.
+  const codeSection = codeContext
+    ? `\n\n## Codebase Reference\n\nA codebase has been linked to this assembly. Characters should be aware of and reference the actual codebase when forming their positions. The code context is available in the domain analysis.\n`
+    : "";
+
+  return `You are a character architect creating a diverse intellectual assembly of 6 domain experts plus a moderator (Socrate) to debate a topic.${codeSection}
 
 ## Rules for Character Generation
 

@@ -22,6 +22,7 @@ export interface PipelineConfig {
   topic: string;
   slug: string;
   apiKey: string;
+  codeContext?: string;
   initialRawFiles?: Record<string, string>;
   updatePhase: (phase: string) => Promise<void>;
   updateRawFiles: (files: Record<string, string>) => Promise<void>;
@@ -160,7 +161,7 @@ function buildParsedTopic(rawFiles: Record<string, string>, slug: string, topic:
 }
 
 export async function runPipeline(config: PipelineConfig): Promise<void> {
-  const { topic, slug, apiKey, initialRawFiles, updatePhase, updateRawFiles, updateParsedData } =
+  const { topic, slug, apiKey, codeContext, initialRawFiles, updatePhase, updateRawFiles, updateParsedData } =
     config;
 
   const client = new Anthropic({ apiKey });
@@ -173,7 +174,7 @@ export async function runPipeline(config: PipelineConfig): Promise<void> {
     await updatePhase("domain-analysis");
     const result = await callClaude(
       client,
-      domainAnalysisPrompt(topic),
+      domainAnalysisPrompt(topic, codeContext),
       `Analyze this topic: ${topic}`,
       8192
     );
@@ -186,7 +187,7 @@ export async function runPipeline(config: PipelineConfig): Promise<void> {
     await updatePhase("character-generation");
     const result = await callClaude(
       client,
-      characterGenerationPrompt(topic, rawFiles["domain-analysis.md"]),
+      characterGenerationPrompt(topic, rawFiles["domain-analysis.md"], codeContext),
       `Generate 6 characters + Socrate for the assembly on: ${topic}`,
       8192
     );

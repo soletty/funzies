@@ -7,6 +7,7 @@ import { useAssembly, useAssemblyId } from "@/lib/assembly-context";
 import FollowUpModal from "@/components/FollowUpModal";
 import HighlightChat from "@/components/HighlightChat";
 import PersistedFollowUps from "@/components/PersistedFollowUps";
+import { buildCharacterMaps, findColor, findAvatarUrl, initials, isSocrate } from "@/lib/character-utils";
 import type { DebateExchange } from "@/lib/types";
 
 const STRUCTURE_DISPLAY_NAMES: Record<string, string> = {
@@ -14,10 +15,6 @@ const STRUCTURE_DISPLAY_NAMES: Record<string, string> = {
   "rapid-fire": "Crossfire",
   "deep-dive": "Deep Dive",
 };
-
-function isSocrate(name: string): boolean {
-  return name.toLowerCase().includes("socrate");
-}
 
 function formatStructure(s: string): string {
   return (
@@ -35,28 +32,41 @@ function md(text: string): string {
 
 function Exchange({
   ex,
-  isSocrate,
+  isSocrateExchange,
   isReaction,
+  colorMap,
+  avatarUrlMap,
 }: {
   ex: DebateExchange;
-  isSocrate: boolean;
+  isSocrateExchange: boolean;
   isReaction: boolean;
+  colorMap: Record<string, string>;
+  avatarUrlMap: Record<string, string>;
 }) {
-  const cls = isSocrate
+  const cls = isSocrateExchange
     ? "debate-exchange debate-socrate"
     : isReaction
       ? "debate-exchange debate-reaction"
       : "debate-exchange";
 
-  const dotColor = isSocrate ? "var(--color-socrate)" : "var(--color-accent)";
+  const avatarUrl = findAvatarUrl(ex.speaker, avatarUrlMap);
+  const color = isSocrateExchange ? "var(--color-socrate)" : findColor(ex.speaker, colorMap);
 
   return (
     <div className={cls}>
       <div className="debate-speaker">
-        <span
-          className="debate-speaker-dot"
-          style={{ background: dotColor }}
-        />
+        {avatarUrl ? (
+          <img
+            src={avatarUrl}
+            alt={ex.speaker}
+            style={{ width: 20, height: 20, borderRadius: "50%", objectFit: "cover" }}
+          />
+        ) : (
+          <span
+            className="debate-speaker-dot"
+            style={{ background: color }}
+          />
+        )}
         {ex.speaker}
       </div>
       <div
@@ -73,6 +83,9 @@ export default function IterationPage() {
   const params = useParams<{ slug: string; num: string }>();
   const num = Number(params.num);
   const base = `/assembly/${topic.slug}`;
+
+  const { colorMap, avatarUrlMap } = buildCharacterMaps(topic.characters);
+  const nonSocrateNames = topic.characters.filter((c) => !isSocrate(c.name)).map((c) => c.name);
 
   const iteration = topic.iterations.find((i) => i.number === num);
   if (!iteration) {
@@ -130,8 +143,10 @@ export default function IterationPage() {
                   <Exchange
                     key={`ex-${ei}`}
                     ex={ex}
-                    isSocrate={false}
+                    isSocrateExchange={false}
                     isReaction={false}
+                    colorMap={colorMap}
+                    avatarUrlMap={avatarUrlMap}
                   />
                 ))}
                 {round.socrate.length > 0 && (
@@ -141,8 +156,10 @@ export default function IterationPage() {
                       <Exchange
                         key={`soc-${si}`}
                         ex={ex}
-                        isSocrate={true}
+                        isSocrateExchange={true}
                         isReaction={false}
+                        colorMap={colorMap}
+                        avatarUrlMap={avatarUrlMap}
                       />
                     ))}
                   </>
@@ -154,8 +171,10 @@ export default function IterationPage() {
                       <Exchange
                         key={`react-${ai}`}
                         ex={ex}
-                        isSocrate={false}
+                        isSocrateExchange={false}
                         isReaction={true}
+                        colorMap={colorMap}
+                        avatarUrlMap={avatarUrlMap}
                       />
                     ))}
                   </>
@@ -170,7 +189,8 @@ export default function IterationPage() {
 
       <FollowUpModal
         assemblyId={assemblyId}
-        characters={topic.characters.filter((c) => !isSocrate(c.name)).map((c) => c.name)}
+        characters={nonSocrateNames}
+        avatarUrlMap={avatarUrlMap}
         currentPage={`iteration-${num}`}
         pageType="iteration"
       />
@@ -201,7 +221,8 @@ export default function IterationPage() {
 
       <HighlightChat
         assemblyId={assemblyId}
-        characters={topic.characters.filter((c) => !isSocrate(c.name)).map((c) => c.name)}
+        characters={nonSocrateNames}
+        avatarUrlMap={avatarUrlMap}
         currentPage={`iteration-${num}`}
         defaultMode="debate"
       />

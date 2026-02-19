@@ -5,6 +5,7 @@ import { useRouter, useSearchParams, useParams } from "next/navigation";
 import Link from "next/link";
 
 const PHASES = [
+  { key: "code-analysis", label: "Code Analysis", href: null },
   { key: "domain-analysis", label: "Domain Analysis", href: null },
   { key: "character-generation", label: "Character Generation", href: "/characters" },
   { key: "reference-library", label: "Reference Library", href: "/references" },

@@ -6,22 +6,7 @@ import { useAssembly, useAssemblyId } from "@/lib/assembly-context";
 import FollowUpModal from "@/components/FollowUpModal";
 import HighlightChat from "@/components/HighlightChat";
 import PersistedFollowUps from "@/components/PersistedFollowUps";
-
-const AVATAR_COLORS = [
-  "#0969da", "#8250df", "#bf3989", "#0e8a16", "#e16f24",
-  "#cf222e", "#1a7f37", "#6639ba", "#953800", "#0550ae",
-  "#7c3aed", "#d1242f",
-];
-
-function initials(name: string): string {
-  const parts = name.replace(/^(Dr\.|Colonel|Col\.)?\s*/i, "").split(/\s+/);
-  if (parts.length === 1) return parts[0][0].toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-}
-
-function isSocrate(name: string): boolean {
-  return name.toLowerCase().includes("socrate");
-}
+import { buildCharacterMaps, findColor, findAvatarUrl, initials, isSocrate } from "@/lib/character-utils";
 
 function md(text: string): string {
   return marked.parse(text, { async: false }) as string;
@@ -37,36 +22,7 @@ export default function ReferencesPage() {
   }
 
   const parsed = topic.parsedReferenceLibrary;
-
-  const colorMap: Record<string, string> = {};
-  const avatarUrlMap: Record<string, string> = {};
-  topic.characters.forEach((char, i) => {
-    colorMap[char.name] = AVATAR_COLORS[i % AVATAR_COLORS.length];
-    if (char.avatarUrl) avatarUrlMap[char.name] = char.avatarUrl;
-  });
-
-  function findCharacterColor(name: string): string {
-    if (colorMap[name]) return colorMap[name];
-    const lower = name.toLowerCase();
-    for (const fullName of Object.keys(colorMap)) {
-      const firstName = fullName.split(/\s+/)[0].toLowerCase();
-      if (firstName === lower || fullName.toLowerCase().includes(lower)) {
-        return colorMap[fullName];
-      }
-    }
-    return "var(--color-accent)";
-  }
-
-  function findCharacterAvatarUrl(name: string): string | undefined {
-    if (avatarUrlMap[name]) return avatarUrlMap[name];
-    const lower = name.toLowerCase();
-    for (const fullName of Object.keys(avatarUrlMap)) {
-      const firstName = fullName.split(/\s+/)[0].toLowerCase();
-      if (firstName === lower || fullName.toLowerCase().includes(lower))
-        return avatarUrlMap[fullName];
-    }
-    return undefined;
-  }
+  const { colorMap, avatarUrlMap } = buildCharacterMaps(topic.characters);
 
   const truncatedTitle =
     topic.title.length > 30
@@ -99,12 +55,14 @@ export default function ReferencesPage() {
         <FollowUpModal
           assemblyId={assemblyId}
           characters={topic.characters.filter((c) => !isSocrate(c.name)).map((c) => c.name)}
+          avatarUrlMap={avatarUrlMap}
           currentPage="references"
           pageType="references"
         />
         <HighlightChat
           assemblyId={assemblyId}
           characters={topic.characters.filter((c) => !isSocrate(c.name)).map((c) => c.name)}
+          avatarUrlMap={avatarUrlMap}
           currentPage="references"
           defaultMode="ask-library"
         />
@@ -136,9 +94,9 @@ export default function ReferencesPage() {
               <div key={subi} className="ref-card">
                 <div className="ref-card-header">
                   {sub.character && (
-                    findCharacterAvatarUrl(sub.character) ? (
+                    findAvatarUrl(sub.character, avatarUrlMap) ? (
                       <img
-                        src={findCharacterAvatarUrl(sub.character)}
+                        src={findAvatarUrl(sub.character, avatarUrlMap)}
                         alt={sub.character}
                         className="ref-char-badge"
                       />
@@ -146,7 +104,7 @@ export default function ReferencesPage() {
                       <span
                         className="ref-char-badge"
                         style={{
-                          background: findCharacterColor(sub.character),
+                          background: findColor(sub.character, colorMap),
                         }}
                       >
                         {initials(sub.character)}
@@ -207,16 +165,16 @@ export default function ReferencesPage() {
           <div className="cross-reading-list">
             {parsed.crossReadings.map((cr, i) => (
               <div key={i} className="cross-reading">
-                {findCharacterAvatarUrl(cr.character) ? (
+                {findAvatarUrl(cr.character, avatarUrlMap) ? (
                   <img
-                    src={findCharacterAvatarUrl(cr.character)}
+                    src={findAvatarUrl(cr.character, avatarUrlMap)}
                     alt={cr.character}
                     className="trajectory-avatar-sm"
                   />
                 ) : (
                   <span
                     className="trajectory-avatar-sm"
-                    style={{ background: findCharacterColor(cr.character) }}
+                    style={{ background: findColor(cr.character, colorMap) }}
                   >
                     {initials(cr.character)}
                   </span>
@@ -234,13 +192,15 @@ export default function ReferencesPage() {
 
       <FollowUpModal
         assemblyId={assemblyId}
-        characters={topic.characters.map((c) => c.name)}
+        characters={topic.characters.filter((c) => !isSocrate(c.name)).map((c) => c.name)}
+        avatarUrlMap={avatarUrlMap}
         currentPage="references"
         pageType="references"
       />
       <HighlightChat
         assemblyId={assemblyId}
-        characters={topic.characters.map((c) => c.name)}
+        characters={topic.characters.filter((c) => !isSocrate(c.name)).map((c) => c.name)}
+        avatarUrlMap={avatarUrlMap}
         currentPage="references"
         defaultMode="ask-library"
       />

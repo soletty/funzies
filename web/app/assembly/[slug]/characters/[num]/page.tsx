@@ -7,22 +7,7 @@ import { useAssembly, useAssemblyId } from "@/lib/assembly-context";
 import FollowUpModal from "@/components/FollowUpModal";
 import HighlightChat from "@/components/HighlightChat";
 import PersistedFollowUps from "@/components/PersistedFollowUps";
-
-const AVATAR_COLORS = [
-  "#0969da", "#8250df", "#bf3989", "#0e8a16", "#e16f24",
-  "#cf222e", "#1a7f37", "#6639ba", "#953800", "#0550ae",
-  "#7c3aed", "#d1242f",
-];
-
-function avatarColor(index: number): string {
-  return AVATAR_COLORS[index % AVATAR_COLORS.length];
-}
-
-function initials(name: string): string {
-  const parts = name.replace(/^(Dr\.|Colonel|Col\.)?\s*/i, "").split(/\s+/);
-  if (parts.length === 1) return parts[0][0].toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-}
+import { buildCharacterMaps, initials, isSocrate } from "@/lib/character-utils";
 
 function md(text: string): string {
   return marked.parse(text, { async: false }) as string;
@@ -48,10 +33,6 @@ function formatStructure(s: string): string {
   );
 }
 
-function isSocrate(name: string): boolean {
-  return name.toLowerCase().includes("socrate");
-}
-
 export default function CharacterProfilePage() {
   const topic = useAssembly();
   const assemblyId = useAssemblyId();
@@ -59,13 +40,14 @@ export default function CharacterProfilePage() {
   const params = useParams<{ num: string }>();
   const num = Number(params.num);
 
+  const { colorMap, avatarUrlMap } = buildCharacterMaps(topic.characters);
   const nonSocrateChars = topic.characters.filter((c) => !isSocrate(c.name));
   const charIndex = nonSocrateChars.findIndex((c) => c.number === num);
   const character = nonSocrateChars[charIndex];
 
   if (!character) return <p>Character not found.</p>;
 
-  const color = avatarColor(charIndex >= 0 ? charIndex : 0);
+  const color = colorMap[character.name] ?? "var(--color-accent)";
 
   const debateHistory: Array<{
     type: string;
@@ -272,6 +254,7 @@ export default function CharacterProfilePage() {
       <FollowUpModal
         assemblyId={assemblyId}
         characters={nonSocrateChars.map((c) => c.name)}
+        avatarUrlMap={avatarUrlMap}
         currentPage={`character-${character.name}`}
         defaultCharacter={character.name}
         pageType="character"
@@ -304,6 +287,7 @@ export default function CharacterProfilePage() {
       <HighlightChat
         assemblyId={assemblyId}
         characters={nonSocrateChars.map((c) => c.name)}
+        avatarUrlMap={avatarUrlMap}
         currentPage={`character-${character.name}`}
         defaultCharacter={character.name}
         defaultMode="ask-character"

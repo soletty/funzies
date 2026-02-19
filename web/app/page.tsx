@@ -5,6 +5,7 @@ import Link from "next/link";
 import AuthForm from "@/components/AuthForm";
 import { AssemblyCard } from "@/components/AssemblyCard";
 import EmptyDashboard from "@/components/EmptyDashboard";
+import GitHubConnect from "@/components/GitHubConnect";
 
 interface AssemblyRow {
   id: string;
@@ -51,6 +52,10 @@ export default async function Dashboard() {
           Your API key is no longer valid. <a href="/onboarding">Update it</a> to continue using assemblies.
         </div>
       )}
+
+      <div className="dashboard-github-bar">
+        <GitHubConnect />
+      </div>
 
       {assemblies.length === 0 ? (
         <EmptyDashboard />

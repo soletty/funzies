@@ -7,12 +7,7 @@ import { useAssembly, useAssemblyId } from "@/lib/assembly-context";
 import type { DivergencePoint, FollowUpInsight } from "@/lib/types";
 import FollowUpModal from "@/components/FollowUpModal";
 import HighlightChat from "@/components/HighlightChat";
-
-const AVATAR_COLORS = [
-  "#0969da", "#8250df", "#bf3989", "#0e8a16", "#e16f24",
-  "#cf222e", "#1a7f37", "#6639ba", "#953800", "#0550ae",
-  "#7c3aed", "#d1242f",
-];
+import { buildCharacterMaps, findColor, findAvatarUrl, initials, isSocrate } from "@/lib/character-utils";
 
 const INSIGHT_TYPE_LABELS: Record<FollowUpInsight["type"], string> = {
   position_shift: "Position Shift",
@@ -29,16 +24,6 @@ const INSIGHT_TYPE_COLORS: Record<FollowUpInsight["type"], string> = {
   exposed_gap: "#e16f24",
   unexpected_agreement: "#1a7f37",
 };
-
-function initials(name: string): string {
-  const parts = name.replace(/^(Dr\.|Colonel|Col\.)?\s*/i, "").split(/\s+/);
-  if (parts.length === 1) return parts[0][0].toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-}
-
-function isSocrate(name: string): boolean {
-  return name.toLowerCase().includes("socrate");
-}
 
 function md(text: string): string {
   return marked.parse(text, { async: false }) as string;
@@ -91,49 +76,7 @@ export default function TrajectoryPage() {
   const [evolveError, setEvolveError] = useState<string | null>(null);
   const [evolveSuccess, setEvolveSuccess] = useState(false);
 
-  const colorMap: Record<string, string> = {};
-  topic.characters.forEach((char, i) => {
-    colorMap[char.name] = AVATAR_COLORS[i % AVATAR_COLORS.length];
-  });
-
-  function findCharColor(name: string): string {
-    if (colorMap[name]) return colorMap[name];
-    const lower = name.toLowerCase();
-    for (const fullName of Object.keys(colorMap)) {
-      const firstName = fullName.split(/\s+/)[0].toLowerCase();
-      if (firstName === lower || fullName.toLowerCase().includes(lower))
-        return colorMap[fullName];
-    }
-    return "var(--color-accent)";
-  }
-
-  function findCharInitials(name: string): string {
-    for (const fullName of Object.keys(colorMap)) {
-      const firstName = fullName.split(/\s+/)[0].toLowerCase();
-      if (
-        name.toLowerCase() === firstName ||
-        fullName.toLowerCase().includes(name.toLowerCase())
-      )
-        return initials(fullName);
-    }
-    return name[0]?.toUpperCase() ?? "?";
-  }
-
-  const avatarUrlMap: Record<string, string> = {};
-  topic.characters.forEach((char) => {
-    if (char.avatarUrl) avatarUrlMap[char.name] = char.avatarUrl;
-  });
-
-  function findCharAvatarUrl(name: string): string | undefined {
-    if (avatarUrlMap[name]) return avatarUrlMap[name];
-    const lower = name.toLowerCase();
-    for (const fullName of Object.keys(avatarUrlMap)) {
-      const firstName = fullName.split(/\s+/)[0].toLowerCase();
-      if (firstName === lower || fullName.toLowerCase().includes(lower))
-        return avatarUrlMap[fullName];
-    }
-    return undefined;
-  }
+  const { colorMap, avatarUrlMap } = buildCharacterMaps(topic.characters);
 
   const insights = topic.followUps.filter((fu) => fu.insight?.hasInsight);
 
@@ -256,7 +199,7 @@ export default function TrajectoryPage() {
                       {INSIGHT_TYPE_LABELS[insight.type]}
                     </span>
                     {insight.involvedCharacters.map((name) => {
-                      const url = findCharAvatarUrl(name);
+                      const url = findAvatarUrl(name, avatarUrlMap);
                       return url ? (
                         <img
                           key={name}
@@ -269,10 +212,10 @@ export default function TrajectoryPage() {
                         <span
                           key={name}
                           className="trajectory-avatar-sm"
-                          style={{ background: findCharColor(name) }}
+                          style={{ background: findColor(name, colorMap) }}
                           title={name}
                         >
-                          {findCharInitials(name)}
+                          {initials(name)}
                         </span>
                       );
                     })}
@@ -356,18 +299,18 @@ export default function TrajectoryPage() {
                   {stances.map((s, si) => (
                     <div key={si} className="divergence-stance">
                       <div className="divergence-stance-speaker">
-                        {findCharAvatarUrl(s.name) ? (
+                        {findAvatarUrl(s.name, avatarUrlMap) ? (
                           <img
-                            src={findCharAvatarUrl(s.name)}
+                            src={findAvatarUrl(s.name, avatarUrlMap)}
                             alt={s.name}
                             className="trajectory-avatar-sm"
                           />
                         ) : (
                           <span
                             className="trajectory-avatar-sm"
-                            style={{ background: findCharColor(s.name) }}
+                            style={{ background: findColor(s.name, colorMap) }}
                           >
-                            {findCharInitials(s.name)}
+                            {initials(s.name)}
                           </span>
                         )}
                         <span className="divergence-stance-name">
@@ -428,12 +371,14 @@ export default function TrajectoryPage() {
       <FollowUpModal
         assemblyId={assemblyId}
         characters={topic.characters.filter((c) => !isSocrate(c.name)).map((c) => c.name)}
+        avatarUrlMap={avatarUrlMap}
         currentPage="trajectory"
         pageType="trajectory"
       />
       <HighlightChat
         assemblyId={assemblyId}
         characters={topic.characters.filter((c) => !isSocrate(c.name)).map((c) => c.name)}
+        avatarUrlMap={avatarUrlMap}
         currentPage="trajectory"
         defaultMode="ask-assembly"
       />
