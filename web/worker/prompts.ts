@@ -18,6 +18,7 @@ Analyze the following topic and produce a structured domain analysis in markdown
    - **Research Synthesis** — for scientific/empirical questions
    - **Design Principles** — for creative/design challenges
    - **Action Plan** — for practical "how to" questions
+   - **Architecture Plan** — for software/coding/engineering topics (detailed architecture, design decisions, and implementation roadmap — NOT actual code)
 
 5. **Scope Boundaries**: Define what is in scope and out of scope for a productive discussion. Identify 2-3 aspects that might seem related but should be excluded to maintain focus.
 
@@ -297,7 +298,9 @@ Use clean markdown with:
 - Bold for key terms and recommendations
 - No more than 3000 words
 
-The deliverable should read as a professional document — a policy brief, strategic analysis, ethical framework, research synthesis, design principles document, or action plan — depending on what the domain analysis determined was most appropriate.
+The deliverable should read as a professional document — a policy brief, strategic analysis, ethical framework, research synthesis, design principles document, action plan, or architecture plan — depending on what the domain analysis determined was most appropriate.
+
+**IMPORTANT: For software, coding, or engineering topics, the deliverable must be an architecture plan — covering system design, technology choices, trade-offs, component diagrams (in text), API contracts, and an implementation roadmap. Do NOT write actual code. Focus on the WHY behind architectural decisions, informed by the debate's multiple perspectives.**
 
 Include an "Executive Summary" section at the top (3-5 bullet points) and a "Key Recommendations" section near the end.
 
