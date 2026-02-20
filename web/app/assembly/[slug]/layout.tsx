@@ -93,7 +93,7 @@ export default async function AssemblyLayout({
   }
 
   return (
-    <AssemblyProvider topic={topic} assemblyId={rows[0].id}>
+    <AssemblyProvider topic={topic} assemblyId={rows[0].id} isComplete={isComplete}>
       <AssemblyNav topic={topic} slug={slug} />
       <div className="nav-overlay" />
       <AssemblyErrorBoundary>

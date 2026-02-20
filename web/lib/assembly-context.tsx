@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext } from "react";
+import { createContext, useContext, useState, useEffect, useCallback } from "react";
 import type { Topic } from "@/lib/types";
 
 interface AssemblyContextValue {
@@ -11,14 +11,49 @@ interface AssemblyContextValue {
 const AssemblyContext = createContext<AssemblyContextValue | null>(null);
 
 export function AssemblyProvider({
-  topic,
+  topic: initialTopic,
   assemblyId,
+  isComplete: initialIsComplete,
   children,
 }: {
   topic: Topic;
   assemblyId: string;
+  isComplete?: boolean;
   children: React.ReactNode;
 }) {
+  const [topic, setTopic] = useState<Topic>(initialTopic);
+  const [isComplete, setIsComplete] = useState(initialIsComplete ?? true);
+
+  const poll = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/assemblies/${assemblyId}`);
+      if (!res.ok) return;
+      const row = await res.json();
+
+      if (row.parsed_data) {
+        setTopic((prev) => ({
+          ...prev,
+          ...row.parsed_data,
+          // Preserve follow-ups from the layout's server query (they come from a separate table)
+          followUps: prev.followUps,
+        }));
+      }
+
+      if (row.status === "complete" || row.status === "error" || row.status === "cancelled") {
+        setIsComplete(true);
+      }
+    } catch {
+      // Silently ignore poll failures
+    }
+  }, [assemblyId]);
+
+  useEffect(() => {
+    if (isComplete) return;
+
+    const interval = setInterval(poll, 5000);
+    return () => clearInterval(interval);
+  }, [isComplete, poll]);
+
   return (
     <AssemblyContext.Provider value={{ topic, assemblyId }}>
       {children}

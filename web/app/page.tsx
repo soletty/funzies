@@ -64,7 +64,7 @@ export default async function Dashboard() {
           <header className="dashboard-header">
             <div>
               <h1>Your Panels</h1>
-              <p>Adversarial debates powered by Million Mind</p>
+              <p>Adversarial debates powered by a Million Minds</p>
             </div>
             <Link href="/new" className="dashboard-cta">
               + New Panel

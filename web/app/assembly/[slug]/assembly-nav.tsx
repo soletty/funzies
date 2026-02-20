@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useAssembly } from "@/lib/assembly-context";
 import type { Topic } from "@/lib/types";
 
 function truncate(text: string, max: number): string {
@@ -33,7 +34,8 @@ function formatStructure(structure: string): string {
   );
 }
 
-export function AssemblyNav({ topic, slug }: { topic: Topic; slug: string }) {
+export function AssemblyNav({ slug }: { topic?: Topic; slug: string }) {
+  const topic = useAssembly();
   const pathname = usePathname();
   const [navOpen, setNavOpen] = useState(false);
 

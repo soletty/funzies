@@ -84,9 +84,9 @@ function GeneratingContent() {
       }
     };
 
-    es.onerror = () => {
-      es.close();
-    };
+    // Don't close on error — EventSource auto-reconnects.
+    // Only close explicitly when generation completes, errors, or is cancelled.
+    es.onerror = () => {};
 
     return () => {
       es.close();
