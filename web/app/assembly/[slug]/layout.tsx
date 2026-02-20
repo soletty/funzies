@@ -82,23 +82,8 @@ export default async function AssemblyLayout({
 
   if (!topic) {
     if (rows[0].status === "running" || rows[0].status === "queued") {
-      return (
-        <main className="no-nav">
-          <div className="standalone-page">
-            <div className="standalone-page-inner" style={{ textAlign: "center" }}>
-              <h1 style={{ fontFamily: "var(--font-display)", fontSize: "1.5rem", fontWeight: 700, marginBottom: "0.75rem" }}>
-                Still generating...
-              </h1>
-              <p style={{ color: "var(--color-text-secondary)", marginBottom: "1.5rem" }}>
-                This section isn&apos;t ready yet. Check back in a moment.
-              </p>
-              <a href={`/assembly/${slug}/generating`} className="btn-primary">
-                View progress
-              </a>
-            </div>
-          </div>
-        </main>
-      );
+      const { redirect } = await import("next/navigation");
+      redirect(`/assembly/${slug}/generating`);
     }
     return (
       <AssemblyErrorBoundary>

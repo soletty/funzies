@@ -102,8 +102,20 @@ export default function FollowUpModal({
     el.style.height = Math.min(el.scrollHeight, 200) + "px";
   }, []);
 
+  const isNearBottomRef = useRef(true);
+
   useEffect(() => {
-    if (threadRef.current) {
+    const el = threadRef.current;
+    if (!el) return;
+    const handleScroll = () => {
+      isNearBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    };
+    el.addEventListener("scroll", handleScroll);
+    return () => el.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  useEffect(() => {
+    if (threadRef.current && isNearBottomRef.current) {
       threadRef.current.scrollTop = threadRef.current.scrollHeight;
     }
   }, [messages]);

@@ -15,7 +15,16 @@ Analyze the following topic and produce a structured domain analysis in markdown
 
 3. **Key Stakeholders**: Identify 5-8 distinct stakeholder perspectives that would have meaningfully different views on this topic. Think across disciplines, ideologies, and lived experiences.
 
-4. **Output Type Determination**: Based on the topic, recommend the most appropriate deliverable format:
+4. **Register & Tone**: Classify the topic's natural register:
+   - **Academic** — theoretical, philosophical, policy-oriented (e.g., "ethics of AI surveillance")
+   - **Professional** — business strategy, career, technical architecture (e.g., "microservices vs monolith")
+   - **Practical** — how-to, everyday advice, skill-building (e.g., "how to negotiate a raise")
+   - **Casual/Social** — dating, lifestyle, social dynamics, humor (e.g., "how to flirt at a bar")
+   - **Creative** — art, writing, music, design aesthetics (e.g., "how to develop a personal style")
+
+   Pick ONE. This determines the character types, debate tone, and deliverable style for the entire assembly. If in doubt, lean toward the less academic option.
+
+5. **Output Type Determination**: Based on the topic, recommend the most appropriate deliverable format:
    - **Policy Brief** — for governance/regulation topics
    - **Strategic Analysis** — for business/technology strategy
    - **Ethical Framework** — for moral/philosophical questions
@@ -24,7 +33,7 @@ Analyze the following topic and produce a structured domain analysis in markdown
    - **Action Plan** — for practical "how to" questions
    - **Architecture Plan** — for software/coding/engineering topics (detailed architecture, design decisions, and implementation roadmap — NOT actual code)
 
-5. **Scope Boundaries**: Define what is in scope and out of scope for a productive discussion. Identify 2-3 aspects that might seem related but should be excluded to maintain focus.
+6. **Scope Boundaries**: Define what is in scope and out of scope for a productive discussion. Identify 2-3 aspects that might seem related but should be excluded to maintain focus.
 
 Format your output as clean markdown with ## headings for each section.
 
@@ -57,6 +66,20 @@ export function characterGenerationPrompt(
 3. **No Strawmen**: Every character must be the strongest possible version of their perspective. Even if a position seems wrong to most people, the character holding it must articulate it with sophistication and evidence.
 
 4. **Tag System**: Each character gets a single-word TAG in caps that captures their core archetype (e.g., PRAGMATIST, RADICAL, GUARDIAN, BRIDGE, DISSENTER, EMPIRICIST).
+
+## Register Adaptation
+
+Read the "Register & Tone" section from the domain analysis. Adapt characters accordingly:
+
+**If Academic**: Use the standard diversity requirements above (establishment, progressive, conservative, practitioner, non-Western, heterodox). Characters have ideological frameworks, intellectual heroes, and formal rhetorical styles.
+
+**If Professional**: Characters are industry practitioners, not academics. Replace "Intellectual Heroes" with "Key Influences" (mentors, companies, experiences). Replace "Ideological Framework" with "Operating Philosophy." Frameworks should be practical mental models, not academic theories.
+
+**If Practical**: Characters are people with real-world experience, not theorists. A mix of: someone who's done it successfully, someone who learned the hard way, a coach/mentor type, a contrarian who challenges conventional advice, someone from a different cultural context, and someone who brings relevant adjacent expertise. Replace "Intellectual Heroes" with "People They Learned From" (can be personal, not famous). Replace "Ideological Framework" with "Core Belief" (one sentence). Biographies should emphasize lived experience over credentials.
+
+**If Casual/Social**: Characters are real people you'd actually ask for this kind of advice — the friend who's naturally good at it, someone who figured it out after being bad at it, someone with the opposite perspective (e.g., what the other side thinks), a brutally honest person, someone from a different scene/culture, and a wildcard. NO academic frameworks. Replace "Intellectual Heroes" with "Who They Learned From" (real people in their life, not authors). Replace "Ideological Framework" with "Their Take" (1-2 sentences, conversational). Biographies should be short and relatable, not CV-like. Rhetorical style should match how they'd actually talk (casual, blunt, funny, etc.).
+
+**If Creative**: Characters are practitioners and tastemakers, not critics. Include working artists/creators, someone commercial, someone experimental, a different cultural tradition, someone who bridges disciplines, and a provocateur. Replace "Intellectual Heroes" with "Influences" (artists, movements, works). Frameworks should be aesthetic philosophies, not academic theories.
 
 ## Required Format (follow exactly)
 
@@ -107,6 +130,11 @@ export function referenceLibraryPrompt(
   characters: string
 ): string {
   return `You are a research librarian building a 2-layer reference library for an intellectual assembly on a topic. The library must provide the evidential foundation for a rigorous debate.
+
+**IMPORTANT — Register Adaptation**: Read the domain analysis register.
+- For **Academic** topics: use the standard format (intellectual traditions + empirical evidence).
+- For **Professional** topics: replace "Intellectual Traditions" with "Professional Knowledge Base" — industry reports, case studies, frameworks from practitioners (not just academics).
+- For **Practical/Casual/Creative** topics: replace "Intellectual Traditions" with "Experience & Sources" — books, podcasts, Reddit threads, personal blogs, YouTube channels, cultural references, whatever a real person with this perspective would actually learn from. Skip Layer 2 (empirical evidence) entirely — it's not useful here. Instead add a "Common Myths vs Reality" section.
 
 ## Layer 1: Intellectual Traditions
 
@@ -245,6 +273,15 @@ For Socrate interventions mid-round:
 7. The debate should surface at least 1 idea that no single character held at the start
 8. When characters cite evidence, they must reference works from the Reference Library provided. Characters must NOT invent new citations, studies, or statistics that aren't grounded in the library or clearly labeled as their professional judgment.
 
+## Tone Adaptation
+
+Read the register from the domain analysis:
+- **Academic**: Use the formal debate structure above as-is.
+- **Professional**: Characters speak like they're at an industry panel, not an academic conference. Less citation, more war stories and pattern recognition.
+- **Practical**: Characters speak like they're giving advice to a friend. Direct, actionable, specific examples from experience. Less "I would argue that..." more "Here's what I did..." and "The thing nobody tells you is..."
+- **Casual/Social**: Characters speak like real people having this conversation at a bar or group chat. Slang is fine. Humor is encouraged. Hot takes welcome. They can disagree bluntly. Socrate's role shifts from "moderator" to "the friend who asks the awkward follow-up question everyone's thinking."
+- **Creative**: Characters speak like they're at a studio visit or workshop crit. Show don't tell. Reference specific works. Aesthetic disagreements are personal — lean into that.
+
 Topic: ${topic}
 
 Characters:
@@ -260,10 +297,15 @@ export function synthesisPrompt(
 ): string {
   return `You are an expert synthesizer analyzing the transcript of a multi-perspective intellectual debate (Grande Table) on a topic. Your job is to produce a rigorous synthesis that captures the full intellectual landscape revealed by the debate.
 
+**CRITICAL: The user asked a question or posed a topic. Your synthesis MUST directly answer or address it.** Do not just describe the debate abstractly — give the reader a clear, actionable answer informed by the debate. If the topic is a question, state the answer (or best answers) upfront, noting which characters support which position and why. If reasonable people disagree, say so explicitly — but still tell the reader what the weight of argument favors.
+
 ## Required Sections
 
 ### 1. Title
 A descriptive title for the synthesis (use # heading).
+
+### 2. Direct Answer
+Answer the user's question or address their topic head-on in 2-4 paragraphs. State the strongest position(s) that emerged from the debate, who holds them, and why. If there's no consensus, explain the key fault lines and what factors should guide the reader's own decision. Do not hedge everything equally — if the debate leaned one way, say so.
 
 ## Convergence Points
 
@@ -349,6 +391,12 @@ The deliverable should read as a professional document — a policy brief, strat
 **IMPORTANT: For software, coding, or engineering topics, the deliverable must be an architecture plan — covering system design, technology choices, trade-offs, component diagrams (in text), API contracts, and an implementation roadmap. Do NOT write actual code. Focus on the WHY behind architectural decisions, informed by the debate's multiple perspectives.**
 
 Include an "Executive Summary" section at the top (3-5 bullet points) and a "Key Recommendations" section near the end.
+
+**Register Adaptation:**
+- **Academic/Professional**: Use the professional document format described above.
+- **Practical**: Write it as a practical guide. Use "you" language. Include specific do's and don'ts. Structure as: situation → what to do → why it works → common mistakes. Skip the executive summary — start with the most actionable advice.
+- **Casual/Social**: Write it like a really good blog post or group chat summary. Conversational tone. Include specific lines, moves, or tactics — not just principles. Organize by scenario, not by theme. It should feel like advice from a smart friend, not a textbook.
+- **Creative**: Write it as a creative brief or manifesto. Bold aesthetic positions. Specific references to works that embody each principle. Visual/sensory language.
 
 Topic: ${topic}
 
