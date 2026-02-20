@@ -111,7 +111,7 @@ function LandingPage() {
         <div className="landing-hero-inner">
           <div className="landing-badge">Adversarial Deliberation Engine</div>
           <h1 className="landing-title">
-            Million<br />Mind
+            Million<br />Minds
           </h1>
           <p className="landing-subtitle">
             Fresh minds every time. Incompatible frameworks.
