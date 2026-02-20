@@ -5,6 +5,7 @@ import { marked } from "marked";
 import { parseFollowUpResponse, getLoadingMessage } from "@/lib/follow-up-rendering";
 import { findAvatarUrl } from "@/lib/character-utils";
 import AttachmentWidget, { type AttachedFile, type AttachmentWidgetHandle } from "@/components/AttachmentWidget";
+import { useAssemblyAccess } from "@/lib/assembly-context";
 import type { FollowUp } from "@/lib/types";
 
 type Mode = "ask-assembly" | "ask-character" | "ask-library" | "debate";
@@ -71,7 +72,10 @@ export default function FollowUpModal({
   pageType,
   followUps = [],
 }: FollowUpModalProps) {
+  const accessLevel = useAssemblyAccess();
   const config = getPageConfig(pageType, defaultCharacter);
+
+  if (accessLevel === "read") return null;
 
   const [mode, setMode] = useState<Mode>(config.fixedMode ?? (defaultCharacter ? "ask-character" : "ask-assembly"));
   const [question, setQuestion] = useState("");

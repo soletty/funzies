@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth-helpers";
+import { getAssemblyAccessBySlug } from "@/lib/assembly-access";
 import { query } from "@/lib/db";
 
 export async function GET(
@@ -13,9 +14,14 @@ export async function GET(
 
   const { slug } = await params;
 
+  const { access, assemblyId } = await getAssemblyAccessBySlug(slug, user.id);
+  if (!access || !assemblyId) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
   const rows = await query(
-    "SELECT id, status FROM assemblies WHERE slug = $1 AND user_id = $2 LIMIT 1",
-    [slug, user.id]
+    "SELECT id, status FROM assemblies WHERE id = $1 LIMIT 1",
+    [assemblyId]
   );
 
   if (!rows.length) {

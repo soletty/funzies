@@ -3,7 +3,8 @@
 import { useCallback, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useAssembly } from "@/lib/assembly-context";
+import { useAssembly, useAssemblyId, useAssemblyAccess } from "@/lib/assembly-context";
+import SharePanel from "@/components/SharePanel";
 import type { Topic } from "@/lib/types";
 
 function truncate(text: string, max: number): string {
@@ -36,8 +37,11 @@ function formatStructure(structure: string): string {
 
 export function AssemblyNav({ slug }: { topic?: Topic; slug: string }) {
   const topic = useAssembly();
+  const assemblyId = useAssemblyId();
+  const accessLevel = useAssemblyAccess();
   const pathname = usePathname();
   const [navOpen, setNavOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
 
   const base = `/assembly/${slug}`;
   const shortTitle = truncate(cleanTitle(topic.title), 30);
@@ -66,7 +70,7 @@ export function AssemblyNav({ slug }: { topic?: Topic; slug: string }) {
       <nav className={navOpen ? "nav-open-mobile" : ""}>
         <div className="nav-brand">
           <div className="nav-brand-icon">M</div>
-          Million Mind
+          Million Minds
         </div>
 
         <Link href="/" onClick={closeNav}>
@@ -148,7 +152,23 @@ export function AssemblyNav({ slug }: { topic?: Topic; slug: string }) {
             </Link>
           )}
         </div>
+
+        {accessLevel === "owner" && (
+          <>
+            <div className="nav-divider" />
+            <button
+              className="nav-share-btn"
+              onClick={() => { setShareOpen(true); closeNav(); }}
+            >
+              <span className="nav-icon">&#8618;</span> Share
+            </button>
+          </>
+        )}
       </nav>
+
+      {shareOpen && (
+        <SharePanel assemblyId={assemblyId} onClose={() => setShareOpen(false)} />
+      )}
     </>
   );
 }

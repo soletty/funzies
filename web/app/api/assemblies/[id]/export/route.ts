@@ -5,6 +5,7 @@ import { marked } from "marked";
 import { readFileSync } from "fs";
 import { join } from "path";
 import type { Topic } from "@/lib/types";
+import { getAssemblyAccess } from "@/lib/assembly-access";
 
 export async function GET(
   _request: NextRequest,
@@ -17,13 +18,18 @@ export async function GET(
 
   const { id } = await params;
 
+  const access = await getAssemblyAccess(id, user.id);
+  if (!access) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
   const rows = await query<{
     parsed_data: Topic;
     topic_input: string;
     raw_files: Record<string, string>;
   }>(
-    "SELECT parsed_data, topic_input, raw_files FROM assemblies WHERE id = $1 AND user_id = $2",
-    [id, user.id]
+    "SELECT parsed_data, topic_input, raw_files FROM assemblies WHERE id = $1",
+    [id]
   );
 
   if (!rows.length || !rows[0].parsed_data) {

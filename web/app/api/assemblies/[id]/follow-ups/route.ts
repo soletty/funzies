@@ -4,6 +4,7 @@ import { query } from "@/lib/db";
 import { decryptApiKey } from "@/lib/crypto";
 import { buildPrompt, FollowUpRequest, TopicFiles } from "@/lib/follow-up-prompts";
 import { extractInsight } from "@/lib/insight-extraction";
+import { getAssemblyAccess } from "@/lib/assembly-access";
 
 function buildMessages(
   history: { role: string; content: string }[] | undefined,
@@ -36,6 +37,12 @@ export async function POST(
   }
 
   const { id: assemblyId } = await params;
+
+  const access = await getAssemblyAccess(assemblyId, user.id);
+  if (!access || access === "read") {
+    return NextResponse.json({ error: access ? "Read-only access" : "Not found" }, { status: access ? 403 : 404 });
+  }
+
   const body = await request.json();
   const { question, mode, characters, context, challenge, highlightedText, files, history } = body;
 
@@ -44,8 +51,8 @@ export async function POST(
   }
 
   const assemblies = await query<{ raw_files: Record<string, string>; parsed_data: unknown }>(
-    "SELECT raw_files, parsed_data FROM assemblies WHERE id = $1 AND user_id = $2",
-    [assemblyId, user.id]
+    "SELECT raw_files, parsed_data FROM assemblies WHERE id = $1",
+    [assemblyId]
   );
 
   if (!assemblies.length) {
@@ -216,6 +223,11 @@ export async function GET(
   }
 
   const { id: assemblyId } = await params;
+
+  const access = await getAssemblyAccess(assemblyId, user.id);
+  if (!access) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
 
   const followUps = await query(
     "SELECT * FROM follow_ups WHERE assembly_id = $1 ORDER BY created_at DESC",

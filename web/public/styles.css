@@ -2853,3 +2853,171 @@ details > .details-content {
     padding: 0.65rem 1rem;
   }
 }
+
+/* Share Panel */
+.nav-share-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.6rem 1rem;
+  background: none;
+  border: none;
+  color: var(--color-text-secondary);
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  cursor: pointer;
+  text-align: left;
+  border-radius: var(--radius-sm);
+  transition: background 0.15s;
+}
+.nav-share-btn:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.share-panel-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.share-panel {
+  background: var(--color-bg);
+  border-radius: var(--radius);
+  border: 1px solid var(--color-border);
+  width: 90%;
+  max-width: 480px;
+  padding: 1.5rem;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.share-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+.share-panel-header h2 {
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  margin: 0;
+}
+.share-panel-close {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  line-height: 1;
+}
+
+.share-panel-form {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+.share-panel-form input[type="email"] {
+  flex: 1;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+.share-panel-form select {
+  padding: 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 0.85rem;
+}
+.share-panel-form button {
+  padding: 0.5rem 1rem;
+  background: var(--color-accent);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+.share-panel-form button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.share-panel-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.share-panel-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+}
+.share-panel-item-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.share-panel-item-email {
+  font-size: 0.9rem;
+  color: var(--color-text);
+}
+.share-panel-remove {
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  line-height: 1;
+  padding: 0 0.25rem;
+}
+.share-panel-remove:hover {
+  color: var(--color-error, #cf222e);
+}
+
+/* Invite Page */
+.invite-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 80vh;
+  padding: 2rem;
+}
+.invite-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 2rem;
+  max-width: 480px;
+  width: 100%;
+}
+.invite-card h1 {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  margin-bottom: 1rem;
+}
+.invite-topic {
+  padding: 0.75rem 1rem;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-sm);
+  margin: 1rem 0;
+  font-style: italic;
+  color: var(--color-text-secondary);
+}

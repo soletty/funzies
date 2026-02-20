@@ -5,6 +5,7 @@ import { marked } from "marked";
 import { parseFollowUpResponse, getLoadingMessage } from "@/lib/follow-up-rendering";
 import { findAvatarUrl } from "@/lib/character-utils";
 import AttachmentWidget, { type AttachedFile } from "@/components/AttachmentWidget";
+import { useAssemblyAccess } from "@/lib/assembly-context";
 
 interface HighlightChatProps {
   assemblyId: string;
@@ -23,6 +24,7 @@ export default function HighlightChat({
   defaultCharacter,
   defaultMode = "ask-assembly",
 }: HighlightChatProps) {
+  const accessLevel = useAssemblyAccess();
   const [isOpen, setIsOpen] = useState(false);
   const [highlightedText, setHighlightedText] = useState("");
   const [question, setQuestion] = useState("");
@@ -148,6 +150,8 @@ export default function HighlightChat({
     : [];
 
   const loadingMsg = getLoadingMessage(mode, isChallenge);
+
+  if (accessLevel === "read") return null;
 
   return (
     <>

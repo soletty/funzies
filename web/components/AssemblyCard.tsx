@@ -21,9 +21,11 @@ interface Props {
     current_phase: string | null;
     created_at: string;
   };
+  sharedBy?: string | null;
+  sharedRole?: string | null;
 }
 
-export function AssemblyCard({ assembly }: Props) {
+export function AssemblyCard({ assembly, sharedBy, sharedRole }: Props) {
   const router = useRouter();
   const [deleting, setDeleting] = useState(false);
   const status = STATUS_STYLES[assembly.status] ?? STATUS_STYLES.queued;
@@ -37,6 +39,8 @@ export function AssemblyCard({ assembly }: Props) {
     assembly.status === "running" || assembly.status === "queued"
       ? `/assembly/${assembly.slug}/generating?id=${assembly.id}`
       : `/assembly/${assembly.slug}`;
+
+  const isOwner = !sharedBy;
 
   async function handleDelete(e: React.MouseEvent) {
     e.preventDefault();
@@ -61,18 +65,28 @@ export function AssemblyCard({ assembly }: Props) {
             {assembly.current_phase && assembly.status === "running" && (
               <> &middot; {assembly.current_phase}</>
             )}
+            {sharedBy && (
+              <> &middot; Shared by {sharedBy}</>
+            )}
           </p>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+          {sharedRole && (
+            <span className={`badge ${sharedRole === "write" ? "badge-medium-high" : "badge-medium"}`}>
+              {sharedRole}
+            </span>
+          )}
           <span className={status.className}>{status.label}</span>
-          <button
-            onClick={handleDelete}
-            className="assembly-delete-btn"
-            title="Remove assembly"
-            disabled={deleting}
-          >
-            &times;
-          </button>
+          {isOwner && (
+            <button
+              onClick={handleDelete}
+              className="assembly-delete-btn"
+              title="Remove assembly"
+              disabled={deleting}
+            >
+              &times;
+            </button>
+          )}
         </div>
       </div>
     </Link>

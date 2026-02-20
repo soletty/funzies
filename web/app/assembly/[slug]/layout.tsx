@@ -2,6 +2,8 @@ export const dynamic = "force-dynamic";
 
 import { notFound } from "next/navigation";
 import { query } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth-helpers";
+import { getAssemblyAccessBySlug } from "@/lib/assembly-access";
 import { AssemblyProvider } from "@/lib/assembly-context";
 import type { Topic, FollowUp, FollowUpInsight } from "@/lib/types";
 import { AssemblyNav } from "./assembly-nav";
@@ -33,6 +35,16 @@ export default async function AssemblyLayout({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
+
+  const user = await getCurrentUser();
+  if (!user?.id) {
+    notFound();
+  }
+
+  const { access } = await getAssemblyAccessBySlug(slug, user.id);
+  if (!access) {
+    notFound();
+  }
 
   const [rows, followUpRows] = await Promise.all([
     query<AssemblyRow>(
@@ -93,7 +105,7 @@ export default async function AssemblyLayout({
   }
 
   return (
-    <AssemblyProvider topic={topic} assemblyId={rows[0].id} isComplete={isComplete}>
+    <AssemblyProvider topic={topic} assemblyId={rows[0].id} isComplete={isComplete} accessLevel={access}>
       <AssemblyNav topic={topic} slug={slug} />
       <div className="nav-overlay" />
       <AssemblyErrorBoundary>

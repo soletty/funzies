@@ -2,10 +2,12 @@
 
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
 import type { Topic } from "@/lib/types";
+export type AccessLevel = "owner" | "write" | "read" | null;
 
 interface AssemblyContextValue {
   topic: Topic;
   assemblyId: string;
+  accessLevel: AccessLevel;
 }
 
 const AssemblyContext = createContext<AssemblyContextValue | null>(null);
@@ -14,11 +16,13 @@ export function AssemblyProvider({
   topic: initialTopic,
   assemblyId,
   isComplete: initialIsComplete,
+  accessLevel,
   children,
 }: {
   topic: Topic;
   assemblyId: string;
   isComplete?: boolean;
+  accessLevel: AccessLevel;
   children: React.ReactNode;
 }) {
   const [topic, setTopic] = useState<Topic>(initialTopic);
@@ -55,7 +59,7 @@ export function AssemblyProvider({
   }, [isComplete, poll]);
 
   return (
-    <AssemblyContext.Provider value={{ topic, assemblyId }}>
+    <AssemblyContext.Provider value={{ topic, assemblyId, accessLevel }}>
       {children}
     </AssemblyContext.Provider>
   );
@@ -75,4 +79,12 @@ export function useAssemblyId(): string {
     throw new Error("useAssemblyId must be used within an AssemblyProvider");
   }
   return ctx.assemblyId;
+}
+
+export function useAssemblyAccess(): AccessLevel {
+  const ctx = useContext(AssemblyContext);
+  if (!ctx) {
+    throw new Error("useAssemblyAccess must be used within an AssemblyProvider");
+  }
+  return ctx.accessLevel;
 }

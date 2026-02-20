@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth-helpers";
 import { query } from "@/lib/db";
+import { getAssemblyAccess } from "@/lib/assembly-access";
 
 export async function GET(
   _request: NextRequest,
@@ -11,9 +12,15 @@ export async function GET(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const { id } = await params;
+
+  const access = await getAssemblyAccess(id, user.id);
+  if (!access) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
   const rows = await query(
-    "SELECT * FROM assemblies WHERE id = $1 AND user_id = $2",
-    [id, user.id]
+    "SELECT * FROM assemblies WHERE id = $1",
+    [id]
   );
   if (!rows.length) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });

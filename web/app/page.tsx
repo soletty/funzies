@@ -15,6 +15,8 @@ interface AssemblyRow {
   current_phase: string | null;
   created_at: string;
   completed_at: string | null;
+  shared_by?: string | null;
+  shared_role?: string | null;
 }
 
 export default async function Dashboard() {
@@ -37,19 +39,35 @@ export default async function Dashboard() {
 
   const user = userRows[0];
 
-  const assemblies = await query<AssemblyRow>(
-    `SELECT id, slug, topic_input, status, current_phase, created_at, completed_at
-     FROM assemblies
-     WHERE user_id = $1
-     ORDER BY created_at DESC`,
-    [userId]
+  const [ownAssemblies, sharedAssemblies] = await Promise.all([
+    query<AssemblyRow>(
+      `SELECT id, slug, topic_input, status, current_phase, created_at, completed_at
+       FROM assemblies
+       WHERE user_id = $1
+       ORDER BY created_at DESC`,
+      [userId]
+    ),
+    query<AssemblyRow>(
+      `SELECT a.id, a.slug, a.topic_input, a.status, a.current_phase, a.created_at, a.completed_at,
+              COALESCE(u.name, u.email) as shared_by, s.role as shared_role
+       FROM assembly_shares s
+       JOIN assemblies a ON s.assembly_id = a.id
+       JOIN users u ON a.user_id = u.id
+       WHERE s.shared_with_user_id = $1 AND s.accepted_at IS NOT NULL
+       ORDER BY a.created_at DESC`,
+      [userId]
+    ),
+  ]);
+
+  const assemblies = [...ownAssemblies, ...sharedAssemblies].sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
   );
 
   return (
     <div className="dashboard">
       {user.api_key_valid === false && (
         <div className="api-key-warning">
-          Your API key is no longer valid. <a href="/onboarding">Update it</a> to continue using Million Mind.
+          Your API key is no longer valid. <a href="/onboarding">Update it</a> to continue using Million Minds.
         </div>
       )}
 
@@ -72,7 +90,12 @@ export default async function Dashboard() {
           </header>
           <div className="assembly-list">
             {assemblies.map((a) => (
-              <AssemblyCard key={a.id} assembly={a} />
+              <AssemblyCard
+                key={a.id}
+                assembly={a}
+                sharedBy={a.shared_by}
+                sharedRole={a.shared_role}
+              />
             ))}
           </div>
         </>
@@ -134,6 +157,3 @@ function LandingPage() {
     </div>
   );
 }
-
-
-

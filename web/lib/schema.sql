@@ -44,6 +44,18 @@ ALTER TABLE assemblies
   ADD COLUMN IF NOT EXISTS github_repo_name TEXT,
   ADD COLUMN IF NOT EXISTS github_repo_branch TEXT DEFAULT 'main';
 
+CREATE TABLE IF NOT EXISTS assembly_shares (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  assembly_id UUID NOT NULL REFERENCES assemblies(id) ON DELETE CASCADE,
+  shared_with_email TEXT NOT NULL,
+  shared_with_user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  role TEXT NOT NULL CHECK (role IN ('read', 'write')),
+  invite_token TEXT UNIQUE,
+  accepted_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (assembly_id, shared_with_email)
+);
+
 CREATE TABLE IF NOT EXISTS follow_ups (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   assembly_id UUID NOT NULL REFERENCES assemblies(id) ON DELETE CASCADE,

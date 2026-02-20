@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { getCurrentUser } from "@/lib/auth-helpers";
 import { query } from "@/lib/db";
+import { getAssemblyAccess } from "@/lib/assembly-access";
 
 export async function GET(
   request: NextRequest,
@@ -12,6 +13,12 @@ export async function GET(
   }
 
   const { id } = await params;
+  const userId = user.id;
+
+  const access = await getAssemblyAccess(id, userId);
+  if (!access) {
+    return new Response("Not found", { status: 404 });
+  }
 
   const encoder = new TextEncoder();
   let lastPhase = "";
@@ -24,8 +31,8 @@ export async function GET(
       };
 
       const rows = await query(
-        "SELECT status, current_phase, slug FROM assemblies WHERE id = $1 AND user_id = $2",
-        [id, user.id]
+        "SELECT status, current_phase, slug FROM assemblies WHERE id = $1",
+        [id]
       );
       if (!rows.length) {
         sendEvent({ type: "error", content: "Assembly not found" });

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { marked } from "marked";
-import { useAssembly, useAssemblyId } from "@/lib/assembly-context";
+import { useAssembly, useAssemblyId, useAssemblyAccess } from "@/lib/assembly-context";
 import type { DivergencePoint, FollowUpInsight } from "@/lib/types";
 import FollowUpModal from "@/components/FollowUpModal";
 import HighlightChat from "@/components/HighlightChat";
@@ -71,7 +71,9 @@ function extractStances(divergenceContent: string): CharacterStance[] {
 export default function TrajectoryPage() {
   const topic = useAssembly();
   const assemblyId = useAssemblyId();
+  const accessLevel = useAssemblyAccess();
   const base = `/assembly/${topic.slug}`;
+  const canWrite = accessLevel === "owner" || accessLevel === "write";
   const [evolving, setEvolving] = useState(false);
   const [evolveError, setEvolveError] = useState<string | null>(null);
   const [evolveSuccess, setEvolveSuccess] = useState(false);
@@ -231,36 +233,38 @@ export default function TrajectoryPage() {
             })}
           </div>
 
-          <div style={{ marginTop: "1.5rem" }}>
-            {evolveSuccess ? (
-              <p style={{ color: "var(--color-success, #1a7f37)" }}>
-                Deliverable evolved successfully.{" "}
-                <Link href={`${base}/deliverables`}>View deliverables</Link>
-              </p>
-            ) : (
-              <button
-                onClick={handleEvolve}
-                disabled={evolving}
-                style={{
-                  padding: "0.6rem 1.25rem",
-                  background: "var(--color-accent)",
-                  color: "#fff",
-                  border: "none",
-                  borderRadius: "6px",
-                  cursor: evolving ? "wait" : "pointer",
-                  opacity: evolving ? 0.7 : 1,
-                  fontSize: "0.9rem",
-                }}
-              >
-                {evolving ? "Evolving deliverable\u2026" : "Evolve Deliverable"}
-              </button>
-            )}
-            {evolveError && (
-              <p style={{ color: "var(--color-error, #cf222e)", marginTop: "0.5rem" }}>
-                {evolveError}
-              </p>
-            )}
-          </div>
+          {canWrite && (
+            <div style={{ marginTop: "1.5rem" }}>
+              {evolveSuccess ? (
+                <p style={{ color: "var(--color-success, #1a7f37)" }}>
+                  Deliverable evolved successfully.{" "}
+                  <Link href={`${base}/deliverables`}>View deliverables</Link>
+                </p>
+              ) : (
+                <button
+                  onClick={handleEvolve}
+                  disabled={evolving}
+                  style={{
+                    padding: "0.6rem 1.25rem",
+                    background: "var(--color-accent)",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: "6px",
+                    cursor: evolving ? "wait" : "pointer",
+                    opacity: evolving ? 0.7 : 1,
+                    fontSize: "0.9rem",
+                  }}
+                >
+                  {evolving ? "Evolving deliverable\u2026" : "Evolve Deliverable"}
+                </button>
+              )}
+              {evolveError && (
+                <p style={{ color: "var(--color-error, #cf222e)", marginTop: "0.5rem" }}>
+                  {evolveError}
+                </p>
+              )}
+            </div>
+          )}
         </div>
       )}
 

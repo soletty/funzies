@@ -4,6 +4,7 @@ import { query } from "@/lib/db";
 import { decryptApiKey } from "@/lib/crypto";
 import { deliverableEvolutionPrompt } from "@/worker/prompts";
 import type { Topic, Deliverable, FollowUpInsight } from "@/lib/types";
+import { getAssemblyAccess } from "@/lib/assembly-access";
 
 export async function POST(
   _request: NextRequest,
@@ -16,13 +17,18 @@ export async function POST(
 
   const { id: assemblyId } = await params;
 
+  const access = await getAssemblyAccess(assemblyId, user.id);
+  if (!access || access === "read") {
+    return NextResponse.json({ error: access ? "Read-only access" : "Not found" }, { status: access ? 403 : 404 });
+  }
+
   const assemblies = await query<{
     raw_files: Record<string, string>;
     parsed_data: Topic;
     topic_input: string;
   }>(
-    "SELECT raw_files, parsed_data, topic_input FROM assemblies WHERE id = $1 AND user_id = $2",
-    [assemblyId, user.id]
+    "SELECT raw_files, parsed_data, topic_input FROM assemblies WHERE id = $1",
+    [assemblyId]
   );
 
   if (!assemblies.length) {
