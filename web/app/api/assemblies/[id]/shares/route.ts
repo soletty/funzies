@@ -43,7 +43,8 @@ export async function POST(
     [assemblyId, email, sharedWithUserId, role, inviteToken]
   );
 
-  const baseUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+  const origin = request.headers.get("origin") || request.headers.get("referer")?.replace(/\/[^/]*$/, "") || "http://localhost:3000";
+  const baseUrl = process.env.NEXTAUTH_URL || origin;
   const inviteUrl = `${baseUrl}/invite/${inviteToken}`;
 
   return NextResponse.json({ id: rows[0].id, inviteUrl });
