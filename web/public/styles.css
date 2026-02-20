@@ -2879,115 +2879,254 @@ details > .details-content {
 .share-panel-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.4);
+  background: rgba(28, 25, 23, 0.35);
+  backdrop-filter: blur(2px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
+  animation: share-overlay-in 0.15s ease-out;
+}
+@keyframes share-overlay-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .share-panel {
   background: var(--color-bg);
-  border-radius: var(--radius);
+  border-radius: 12px;
   border: 1px solid var(--color-border);
+  box-shadow: 0 16px 48px rgba(28, 25, 23, 0.14), 0 2px 8px rgba(28, 25, 23, 0.08);
   width: 90%;
-  max-width: 480px;
-  padding: 1.5rem;
+  max-width: 460px;
+  padding: 1.75rem;
   max-height: 80vh;
   overflow-y: auto;
+  animation: share-panel-in 0.2s ease-out;
+}
+@keyframes share-panel-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .share-panel-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1rem;
+  align-items: flex-start;
+  margin-bottom: 1.25rem;
 }
 .share-panel-header h2 {
   font-family: var(--font-display);
   font-size: 1.2rem;
   margin: 0;
+  line-height: 1.3;
+}
+.share-panel-subtitle {
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
+  margin: 0.15rem 0 0;
 }
 .share-panel-close {
   background: none;
   border: none;
-  font-size: 1.5rem;
+  font-size: 1.4rem;
   cursor: pointer;
   color: var(--color-text-muted);
   line-height: 1;
+  padding: 0.15rem;
+  border-radius: 4px;
+  transition: background 0.15s, color 0.15s;
+}
+.share-panel-close:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
 }
 
 .share-panel-form {
   display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-bottom: 0.75rem;
+}
+.share-panel-input-row {
+  display: flex;
   gap: 0.5rem;
-  margin-bottom: 1rem;
 }
 .share-panel-form input[type="email"] {
   flex: 1;
-  padding: 0.5rem 0.75rem;
+  padding: 0.55rem 0.8rem;
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
+  border-radius: 6px;
   font-size: 0.9rem;
+  font-family: var(--font-body);
   background: var(--color-surface);
   color: var(--color-text);
+  transition: border-color 0.15s;
+}
+.share-panel-form input[type="email"]:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 2px var(--color-accent-subtle);
+}
+.share-panel-form input[type="email"]::placeholder {
+  color: var(--color-text-muted);
 }
 .share-panel-form select {
-  padding: 0.5rem;
+  padding: 0.55rem 0.6rem;
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
+  border-radius: 6px;
   background: var(--color-surface);
   color: var(--color-text);
   font-size: 0.85rem;
+  font-family: var(--font-body);
+  cursor: pointer;
 }
-.share-panel-form button {
-  padding: 0.5rem 1rem;
+.share-panel-invite-btn {
+  padding: 0.6rem 1rem;
   background: var(--color-accent);
   color: #fff;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: 6px;
   cursor: pointer;
   font-size: 0.9rem;
+  font-family: var(--font-body);
+  font-weight: 500;
+  transition: background 0.15s;
 }
-.share-panel-form button:disabled {
+.share-panel-invite-btn:hover {
+  background: var(--color-accent-hover);
+}
+.share-panel-invite-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.share-panel-error {
+  font-size: 0.85rem;
+  color: var(--color-error, #cf222e);
+  margin: 0 0 0.5rem;
+}
+.share-panel-copied {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  color: var(--color-high, #1a7f37);
+  margin: 0 0 0.75rem;
+  animation: share-copied-in 0.2s ease-out;
+}
+@keyframes share-copied-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .share-panel-list {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0;
+  border-top: 1px solid var(--color-border-light);
+  padding-top: 0.75rem;
+  margin-top: 0.25rem;
+}
+.share-panel-list-header {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+  margin-bottom: 0.5rem;
 }
 
 .share-panel-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0.6rem 0.75rem;
-  border: 1px solid var(--color-border-light);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface);
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--color-border-light);
 }
-.share-panel-item-info {
+.share-panel-item:last-child {
+  border-bottom: none;
+}
+.share-panel-item-left {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
+  gap: 0.65rem;
+  min-width: 0;
+}
+.share-panel-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--color-surface-alt);
+  border: 1px solid var(--color-border-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
+}
+.share-panel-item-details {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.share-panel-item-name {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .share-panel-item-email {
-  font-size: 0.9rem;
-  color: var(--color-text);
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.share-panel-item-right {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+.share-panel-badge-role {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  padding: 0.15rem 0.5rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: 9999px;
+}
+.share-panel-badge-pending {
+  font-size: 0.7rem;
+  color: var(--color-medium, #c77d1a);
+  padding: 0.1rem 0.45rem;
+  border-radius: 9999px;
+  border: 1px solid currentColor;
+  opacity: 0.8;
 }
 .share-panel-remove {
   background: none;
   border: none;
-  font-size: 1.2rem;
   cursor: pointer;
   color: var(--color-text-muted);
-  line-height: 1;
-  padding: 0 0.25rem;
+  padding: 0.3rem;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+  opacity: 0;
+}
+.share-panel-item:hover .share-panel-remove {
+  opacity: 1;
 }
 .share-panel-remove:hover {
+  background: rgba(207, 34, 46, 0.08);
   color: var(--color-error, #cf222e);
 }
 

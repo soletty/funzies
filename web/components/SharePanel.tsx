@@ -36,6 +36,14 @@ export default function SharePanel({ assemblyId, onClose }: SharePanelProps) {
     fetchShares();
   }, [fetchShares]);
 
+  useEffect(() => {
+    function handleEsc(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", handleEsc);
+    return () => document.removeEventListener("keydown", handleEsc);
+  }, [onClose]);
+
   async function handleInvite(e: React.FormEvent) {
     e.preventDefault();
     if (!email.trim()) return;
@@ -75,52 +83,75 @@ export default function SharePanel({ assemblyId, onClose }: SharePanelProps) {
     <div className="share-panel-overlay" onClick={onClose}>
       <div className="share-panel" onClick={(e) => e.stopPropagation()}>
         <div className="share-panel-header">
-          <h2>Share Panel</h2>
+          <div>
+            <h2>Share this panel</h2>
+            <p className="share-panel-subtitle">Invite others to view or collaborate</p>
+          </div>
           <button onClick={onClose} className="share-panel-close">&times;</button>
         </div>
 
         <form onSubmit={handleInvite} className="share-panel-form">
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="Email address"
-            required
-          />
-          <select value={role} onChange={(e) => setRole(e.target.value as "read" | "write")}>
-            <option value="read">Can view</option>
-            <option value="write">Can edit</option>
-          </select>
-          <button type="submit" disabled={loading}>
-            {loading ? "Sending..." : "Invite"}
+          <div className="share-panel-input-row">
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="name@example.com"
+              required
+            />
+            <select value={role} onChange={(e) => setRole(e.target.value as "read" | "write")}>
+              <option value="read">Can view</option>
+              <option value="write">Can edit</option>
+            </select>
+          </div>
+          <button type="submit" className="share-panel-invite-btn" disabled={loading}>
+            {loading ? "Sending..." : "Send invite"}
           </button>
         </form>
 
-        {error && <p className="auth-error" style={{ margin: "0.5rem 0" }}>{error}</p>}
-        {copiedId && <p style={{ color: "var(--color-accent)", fontSize: "0.85rem", margin: "0.5rem 0" }}>Invite link copied to clipboard</p>}
+        {error && <p className="share-panel-error">{error}</p>}
+        {copiedId && (
+          <div className="share-panel-copied">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M13.25 4.75L6 12 2.75 8.75" />
+            </svg>
+            Invite link copied to clipboard
+          </div>
+        )}
 
         {shares.length > 0 && (
           <div className="share-panel-list">
+            <div className="share-panel-list-header">People with access</div>
             {shares.map((share) => (
               <div key={share.id} className="share-panel-item">
-                <div className="share-panel-item-info">
-                  <span className="share-panel-item-email">
-                    {share.user_name || share.shared_with_email}
-                  </span>
-                  <span className={`badge ${share.role === "write" ? "badge-medium-high" : "badge-medium"}`}>
-                    {share.role}
-                  </span>
-                  {!share.accepted_at && (
-                    <span className="badge badge-low">pending</span>
-                  )}
+                <div className="share-panel-item-left">
+                  <div className="share-panel-avatar">
+                    {(share.user_name || share.shared_with_email)[0].toUpperCase()}
+                  </div>
+                  <div className="share-panel-item-details">
+                    <span className="share-panel-item-name">
+                      {share.user_name || share.shared_with_email}
+                    </span>
+                    {share.user_name && (
+                      <span className="share-panel-item-email">{share.shared_with_email}</span>
+                    )}
+                  </div>
                 </div>
-                <button
-                  onClick={() => handleRemove(share.id)}
-                  className="share-panel-remove"
-                  title="Remove access"
-                >
-                  &times;
-                </button>
+                <div className="share-panel-item-right">
+                  {!share.accepted_at && (
+                    <span className="share-panel-badge-pending">Pending</span>
+                  )}
+                  <span className="share-panel-badge-role">{share.role === "write" ? "Editor" : "Viewer"}</span>
+                  <button
+                    onClick={() => handleRemove(share.id)}
+                    className="share-panel-remove"
+                    title="Remove access"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <path d="M4 4l8 8M12 4l-8 8" />
+                    </svg>
+                  </button>
+                </div>
               </div>
             ))}
           </div>
