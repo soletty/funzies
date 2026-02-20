@@ -63,8 +63,8 @@ export function AssemblyNav({ topic, slug }: { topic: Topic; slug: string }) {
       )}
       <nav className={navOpen ? "nav-open-mobile" : ""}>
         <div className="nav-brand">
-          <div className="nav-brand-icon">A</div>
-          Assembly
+          <div className="nav-brand-icon">M</div>
+          Million Mind
         </div>
 
         <Link href="/" onClick={closeNav}>
@@ -93,7 +93,7 @@ export function AssemblyNav({ topic, slug }: { topic: Topic; slug: string }) {
               className={isActive(`${base}/characters`) ? "active" : ""}
               onClick={closeNav}
             >
-              <span className="nav-icon">&#9823;</span> The Assembly
+              <span className="nav-icon">&#9823;</span> The Panel
             </Link>
           )}
 

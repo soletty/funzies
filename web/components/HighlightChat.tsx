@@ -162,7 +162,7 @@ export default function HighlightChat({
               ? `Ask ${defaultCharacter}`
               : currentPage === "references"
                 ? "Explore Babylon's Library"
-                : "Ask the Assembly"}
+                : "Ask the Panel"}
           </h3>
           <button
             className="panel-collapse-btn"

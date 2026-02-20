@@ -49,7 +49,7 @@ export default async function Dashboard() {
     <div className="dashboard">
       {user.api_key_valid === false && (
         <div className="api-key-warning">
-          Your API key is no longer valid. <a href="/onboarding">Update it</a> to continue using assemblies.
+          Your API key is no longer valid. <a href="/onboarding">Update it</a> to continue using Million Mind.
         </div>
       )}
 
@@ -63,11 +63,11 @@ export default async function Dashboard() {
         <>
           <header className="dashboard-header">
             <div>
-              <h1>Your Assemblies</h1>
-              <p>Adversarial debates powered by the Intellectual Assembly</p>
+              <h1>Your Panels</h1>
+              <p>Adversarial debates powered by Million Mind</p>
             </div>
             <Link href="/new" className="dashboard-cta">
-              + New Assembly
+              + New Panel
             </Link>
           </header>
           <div className="assembly-list">
@@ -88,10 +88,10 @@ function LandingPage() {
         <div className="landing-hero-inner">
           <div className="landing-badge">Adversarial Deliberation Engine</div>
           <h1 className="landing-title">
-            Intellectual<br />Assembly
+            Million<br />Mind
           </h1>
           <p className="landing-subtitle">
-            Six AI characters. Incompatible frameworks.
+            Fresh minds every time. Incompatible frameworks.
             One structured collision that reveals what no single perspective can.
           </p>
 
@@ -120,7 +120,7 @@ function LandingPage() {
           </div>
 
           <div className="landing-colophon">
-            Bring your own Anthropic API key &middot; Full assembly in ~5 minutes
+            Bring your own Anthropic API key &middot; Full panel in ~5 minutes
           </div>
         </div>
       </div>

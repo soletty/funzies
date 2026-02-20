@@ -99,7 +99,7 @@ export default function CharacterProfilePage() {
           {topic.title.length > 30 ? topic.title.slice(0, 30) + "\u2026" : topic.title}
         </Link>
         <span className="separator">/</span>
-        <Link href={`${base}/characters`}>The Assembly</Link>
+        <Link href={`${base}/characters`}>The Panel</Link>
         <span className="separator">/</span>
         <span className="current">{character.name}</span>
       </div>

@@ -177,9 +177,9 @@ export default function NewAssemblyPage() {
         </Link>
 
         <div className="standalone-header" style={{ textAlign: "left" }}>
-          <h1>Launch New Assembly</h1>
+          <h1>Launch New Panel</h1>
           <p style={{ margin: 0 }}>
-            Describe a topic or question. Six AI characters will debate it from radically
+            Describe a topic or question. A fresh panel of AI characters will debate it from radically
             different perspectives.
           </p>
         </div>
@@ -294,7 +294,7 @@ export default function NewAssemblyPage() {
                 disabled={submitting || !topic.trim()}
                 className={`btn-primary ${submitting || !topic.trim() ? "disabled" : ""}`}
               >
-                {submitting ? "Launching..." : "Launch Assembly"}
+                {submitting ? "Launching..." : "Launch Panel"}
               </button>
             </div>
           </div>

@@ -57,7 +57,7 @@ export default function OnboardingPage() {
         <div className="standalone-header">
           <h1>Connect your Anthropic account</h1>
           <p>
-            The Intellectual Assembly uses Claude to generate debates. Paste your API key below.
+            Million Mind uses Claude to generate debates. Paste your API key below.
           </p>
         </div>
 
@@ -164,7 +164,7 @@ export default function OnboardingPage() {
                     </div>
                     <div className="step-card-body">
                       <p style={{ color: "var(--color-text-secondary)" }}>
-                        Give the key a name (e.g. &quot;Intellectual Assembly&quot;) and copy it. Then paste it above.
+                        Give the key a name (e.g. &quot;Million Mind&quot;) and copy it. Then paste it above.
                       </p>
                     </div>
                   </div>

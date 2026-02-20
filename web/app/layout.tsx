@@ -3,7 +3,7 @@ import SessionProvider from "@/components/SessionProvider";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Intellectual Assembly",
+  title: "Million Mind",
   description: "AI-powered adversarial debate platform",
 };
 

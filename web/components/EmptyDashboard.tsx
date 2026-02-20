@@ -49,12 +49,12 @@ export default function EmptyDashboard() {
   return (
     <div className="empty-dashboard" ref={containerRef}>
       <div className="empty-dashboard-center">
-        <h2 className="empty-dashboard-title">What should the assembly debate?</h2>
+        <h2 className="empty-dashboard-title">What should the panel debate?</h2>
         <p className="empty-dashboard-subtitle">
           Any topic. Any question. Six characters will collide over it.
         </p>
         <Link href="/new" className="btn-primary" style={{ fontSize: "1rem", padding: "0.8rem 2rem" }}>
-          Start your first assembly
+          Start your first panel
         </Link>
       </div>
 

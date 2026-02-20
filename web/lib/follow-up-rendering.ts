@@ -67,7 +67,7 @@ export function getLoadingMessage(mode: Mode, isChallenge: boolean): string {
   if (isChallenge) return "Preparing defense\u2026";
   switch (mode) {
     case "ask-library": return "Researching sources\u2026";
-    case "debate": return "The assembly is debating\u2026";
-    default: return "Assembly is deliberating\u2026";
+    case "debate": return "The panel is debating\u2026";
+    default: return "Panel is deliberating\u2026";
   }
 }

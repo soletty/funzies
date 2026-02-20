@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { Suspense, useEffect, useState, useRef } from "react";
 import { useRouter, useSearchParams, useParams } from "next/navigation";
 import Link from "next/link";
 
@@ -9,6 +9,7 @@ const PHASES = [
   { key: "domain-analysis", label: "Domain Analysis", href: null },
   { key: "character-generation", label: "Character Generation", href: "/characters" },
   { key: "reference-library", label: "Reference Library", href: "/references" },
+  { key: "reference-audit", label: "Reference Audit", href: null },
   { key: "debate", label: "Debate (Grande Table)", href: "/iteration/1" },
   { key: "synthesis", label: "Synthesis", href: "/synthesis" },
   { key: "deliverable", label: "Deliverables", href: "/deliverables" },
@@ -21,7 +22,7 @@ function phaseIndex(phase: string): number {
   return PHASES.findIndex((p) => p.key === phase);
 }
 
-export default function GeneratingPage() {
+function GeneratingContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { slug: routeSlug } = useParams<{ slug: string }>();
@@ -40,9 +41,9 @@ export default function GeneratingPage() {
       .then((r) => r.ok ? r.json() : null)
       .then((data) => {
         if (data?.id) setResolvedId(data.id);
-        else setError("Assembly not found.");
+        else setError("Panel not found.");
       })
-      .catch(() => setError("Failed to load assembly."));
+      .catch(() => setError("Failed to load panel."));
   }, [resolvedId, routeSlug]);
 
   useEffect(() => {
@@ -115,12 +116,12 @@ export default function GeneratingPage() {
       <div className="standalone-page">
         <div className="standalone-page-inner" style={{ textAlign: "center" }}>
           <h1 style={{ fontFamily: "var(--font-display)", fontSize: "1.5rem", fontWeight: 700, marginBottom: "0.75rem" }}>
-            Assembly {status === "error" ? "failed" : "cancelled"}
+            Generation {status === "error" ? "failed" : "cancelled"}
           </h1>
           <p style={{ color: "var(--color-text-secondary)", marginBottom: "1.5rem" }}>
             {status === "error"
               ? "An error occurred during generation. Please try again."
-              : "This assembly was cancelled."}
+              : "This panel was cancelled."}
           </p>
           <div style={{ display: "flex", gap: "0.75rem", justifyContent: "center" }}>
             <Link href="/" className="btn-secondary">
@@ -141,7 +142,7 @@ export default function GeneratingPage() {
     <div className="standalone-page">
       <div className="standalone-page-inner">
         <div className="standalone-header">
-          <h1>Assembling your debate</h1>
+          <h1>Assembling your panel</h1>
           <p>
             {status === "queued"
               ? "Waiting to start..."
@@ -191,18 +192,35 @@ export default function GeneratingPage() {
 
         <div style={{ textAlign: "center", marginTop: "2rem", display: "flex", flexDirection: "column", gap: "0.75rem", alignItems: "center" }}>
           <p style={{ color: "var(--color-text-muted)", fontSize: "0.8rem", margin: 0 }}>
-            You can leave this page. The assembly will continue in the background.
+            You can leave this page. Generation will continue in the background.
           </p>
           <div style={{ display: "flex", gap: "0.75rem" }}>
             <Link href="/" className="btn-secondary" style={{ fontSize: "0.8rem", padding: "0.5rem 1rem" }}>
               Dashboard
             </Link>
             <Link href="/new" className="btn-secondary" style={{ fontSize: "0.8rem", padding: "0.5rem 1rem" }}>
-              + New Assembly
+              + New Panel
             </Link>
           </div>
         </div>
       </div>
     </div>
+  );
+}
+
+export default function GeneratingPage() {
+  return (
+    <Suspense fallback={
+      <div className="standalone-page">
+        <div className="standalone-page-inner">
+          <div className="standalone-header">
+            <h1>Assembling your panel</h1>
+            <p>Loading...</p>
+          </div>
+        </div>
+      </div>
+    }>
+      <GeneratingContent />
+    </Suspense>
   );
 }

@@ -39,12 +39,12 @@ export default function CharactersPage() {
           {topic.title.length > 40 ? topic.title.slice(0, 40) + "\u2026" : topic.title}
         </Link>
         <span className="separator">/</span>
-        <span className="current">The Assembly</span>
+        <span className="current">The Panel</span>
       </div>
 
-      <h1>The Assembly</h1>
+      <h1>The Panel</h1>
       <p className="page-subtitle">
-        {characters.length} participants in the assembly debate
+        {characters.length} minds on this panel
       </p>
 
       <div className="card-grid">

@@ -53,7 +53,7 @@ function getPageConfig(pageType: PageType | undefined, characterName?: string) {
       };
     default:
       return {
-        heading: "Ask the Assembly",
+        heading: "Ask the Panel",
         fixedMode: null,
         showModeSelector: true,
         showChallenge: false,
@@ -318,7 +318,7 @@ export default function FollowUpModal({
               onChange={() => setMode("ask-assembly")}
               style={{ display: "none" }}
             />
-            &#9752; Ask Assembly
+            &#9752; Ask Panel
           </label>
           <label style={{
             display: "flex",
@@ -375,8 +375,8 @@ export default function FollowUpModal({
               : activeMode === "ask-library"
                 ? "Ask about these sources..."
                 : activeMode === "debate"
-                  ? "What should the assembly debate?"
-                  : "Ask the assembly a question..."
+                  ? "What should the panel debate?"
+                  : "Ask the panel a question..."
           }
           rows={2}
           disabled={isStreaming}

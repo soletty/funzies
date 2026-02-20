@@ -151,7 +151,7 @@ export default function TrajectoryPage() {
 
       <h1>Thinking Trail</h1>
       <p className="page-subtitle">
-        How the assembly&apos;s positions have evolved &mdash;{" "}
+        How the panel&apos;s positions have evolved &mdash;{" "}
         {insights.length} insight{insights.length !== 1 ? "s" : ""},{" "}
         {topic.followUps.length} follow-up
         {topic.followUps.length !== 1 ? "s" : ""}
@@ -266,7 +266,7 @@ export default function TrajectoryPage() {
 
       {topic.followUps.length === 0 && insights.length === 0 && (
         <div style={{ padding: "2rem 0", color: "var(--color-text-muted)" }}>
-          <p>No follow-up conversations yet. Ask the assembly questions to start building your thinking trail.</p>
+          <p>No follow-up conversations yet. Ask the panel questions to start building your thinking trail.</p>
         </div>
       )}
 
@@ -274,7 +274,7 @@ export default function TrajectoryPage() {
         <div className="trajectory-divergence-map">
           <h2 className="trajectory-section-heading">Divergence Map</h2>
           <p className="trajectory-section-subtitle">
-            Key issues where the assembly remains divided
+            Key issues where the panel remains divided
           </p>
 
           {uniqueDivergences.map((dp, di) => {

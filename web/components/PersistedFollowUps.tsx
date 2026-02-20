@@ -10,7 +10,7 @@ const AVATAR_COLORS = [
 ];
 
 const MODE_LABELS: Record<string, string> = {
-  "ask-assembly": "Assembly",
+  "ask-assembly": "Panel",
   "ask-character": "Character",
   "ask-library": "Library",
   debate: "Debate",
