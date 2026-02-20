@@ -1,6 +1,22 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+
+function copyToClipboard(text: string): boolean {
+  if (navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(text).catch(() => {});
+    return true;
+  }
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.style.position = "fixed";
+  textarea.style.opacity = "0";
+  document.body.appendChild(textarea);
+  textarea.select();
+  const ok = document.execCommand("copy");
+  document.body.removeChild(textarea);
+  return ok;
+}
 
 interface Share {
   id: string;
@@ -71,12 +87,9 @@ export default function SharePanel({ assemblyId, onClose }: SharePanelProps) {
     setLastInviteUrl(data.inviteUrl);
     await fetchShares();
 
-    try {
-      await navigator.clipboard.writeText(data.inviteUrl);
+    if (copyToClipboard(data.inviteUrl)) {
       setCopiedId(data.id);
       setTimeout(() => setCopiedId(null), 3000);
-    } catch {
-      // Clipboard API unavailable (non-HTTPS) — URL shown in UI instead
     }
   }
 
@@ -136,13 +149,10 @@ export default function SharePanel({ assemblyId, onClose }: SharePanelProps) {
             <button
               type="button"
               className="share-panel-url-copy"
-              onClick={async () => {
-                try {
-                  await navigator.clipboard.writeText(lastInviteUrl);
+              onClick={() => {
+                if (copyToClipboard(lastInviteUrl)) {
                   setCopiedId("url");
                   setTimeout(() => setCopiedId(null), 3000);
-                } catch {
-                  // User can manually select and copy from the input
                 }
               }}
             >
