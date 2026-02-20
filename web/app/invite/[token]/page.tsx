@@ -61,7 +61,12 @@ export default function InvitePage() {
     return (
       <div className="invite-page">
         <div className="invite-card">
-          <p className="auth-error">{error}</p>
+          <div className="invite-brand">
+            <div className="invite-brand-icon">M</div>
+            <span>Million Minds</span>
+          </div>
+          <div className="invite-error-icon">!</div>
+          <p className="invite-error-text">{error}</p>
         </div>
       </div>
     );
@@ -71,7 +76,11 @@ export default function InvitePage() {
     return (
       <div className="invite-page">
         <div className="invite-card">
-          <p>Loading invite...</p>
+          <div className="invite-brand">
+            <div className="invite-brand-icon">M</div>
+            <span>Million Minds</span>
+          </div>
+          <p className="invite-loading">Loading invite...</p>
         </div>
       </div>
     );
@@ -81,29 +90,54 @@ export default function InvitePage() {
     return (
       <div className="invite-page">
         <div className="invite-card">
-          <p>Accepting invite...</p>
+          <div className="invite-brand">
+            <div className="invite-brand-icon">M</div>
+            <span>Million Minds</span>
+          </div>
+          <p className="invite-loading">Joining panel...</p>
         </div>
       </div>
     );
   }
 
+  const roleName = invite.role === "write" ? "collaborate on" : "view";
+
   return (
     <div className="invite-page">
       <div className="invite-card">
-        <h1>You&#39;ve been invited</h1>
-        <p>
-          <strong>{invite.inviterName || "Someone"}</strong> invited you to{" "}
-          {invite.role === "write" ? "collaborate on" : "view"} their panel:
-        </p>
-        <p className="invite-topic">{invite.topic}</p>
+        <div className="invite-brand">
+          <div className="invite-brand-icon">M</div>
+          <span>Million Minds</span>
+        </div>
+
+        <div className="invite-hero">
+          <div className="invite-avatar">
+            {(invite.inviterName || "?")[0].toUpperCase()}
+          </div>
+          <h1>
+            <strong>{invite.inviterName || "Someone"}</strong> invited you to {roleName} a panel
+          </h1>
+        </div>
+
+        <div className="invite-topic">
+          <div className="invite-topic-label">Panel topic</div>
+          {invite.topic}
+        </div>
+
+        <div className="invite-role-pill">
+          {invite.role === "write" ? "Editor access" : "View-only access"}
+        </div>
 
         {status === "unauthenticated" && (
-          <>
-            <p style={{ color: "var(--color-text-muted)", fontSize: "0.9rem" }}>
-              Sign in with <strong>{invite.email}</strong> to accept this invite.
+          <div className="invite-auth-section">
+            <div className="invite-auth-divider">
+              <span>Sign in to accept</span>
+            </div>
+            <p className="invite-auth-hint">
+              Use <strong>{invite.email}</strong> to continue
             </p>
             <AuthForm />
-          </>
+          </div>
         )}
       </div>
     </div>
