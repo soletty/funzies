@@ -3130,6 +3130,42 @@ details > .details-content {
   color: var(--color-error, #cf222e);
 }
 
+.share-panel-url-box {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 0.75rem;
+}
+.share-panel-url-input {
+  flex: 1;
+  padding: 0.45rem 0.65rem;
+  font-size: 0.78rem;
+  font-family: var(--font-mono);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  color: var(--color-text-secondary);
+  min-width: 0;
+}
+.share-panel-url-input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+.share-panel-url-copy {
+  padding: 0.45rem 0.75rem;
+  font-size: 0.8rem;
+  font-family: var(--font-body);
+  background: var(--color-surface-alt);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+.share-panel-url-copy:hover {
+  background: var(--color-surface-hover);
+}
+
 /* Invite Page */
 .invite-page {
   display: flex;

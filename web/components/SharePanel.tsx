@@ -23,6 +23,7 @@ export default function SharePanel({ assemblyId, onClose }: SharePanelProps) {
   const [shares, setShares] = useState<Share[]>([]);
   const [loading, setLoading] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [lastInviteUrl, setLastInviteUrl] = useState<string | null>(null);
   const [error, setError] = useState("");
 
   const fetchShares = useCallback(async () => {
@@ -67,11 +68,16 @@ export default function SharePanel({ assemblyId, onClose }: SharePanelProps) {
     const data = await res.json();
     setEmail("");
     setLoading(false);
+    setLastInviteUrl(data.inviteUrl);
     await fetchShares();
 
-    await navigator.clipboard.writeText(data.inviteUrl);
-    setCopiedId(data.id);
-    setTimeout(() => setCopiedId(null), 3000);
+    try {
+      await navigator.clipboard.writeText(data.inviteUrl);
+      setCopiedId(data.id);
+      setTimeout(() => setCopiedId(null), 3000);
+    } catch {
+      // Clipboard API unavailable (non-HTTPS) — URL shown in UI instead
+    }
   }
 
   async function handleRemove(shareId: string) {
@@ -116,6 +122,32 @@ export default function SharePanel({ assemblyId, onClose }: SharePanelProps) {
               <path d="M13.25 4.75L6 12 2.75 8.75" />
             </svg>
             Invite link copied to clipboard
+          </div>
+        )}
+        {lastInviteUrl && !copiedId && (
+          <div className="share-panel-url-box">
+            <input
+              type="text"
+              readOnly
+              value={lastInviteUrl}
+              onFocus={(e) => e.target.select()}
+              className="share-panel-url-input"
+            />
+            <button
+              type="button"
+              className="share-panel-url-copy"
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(lastInviteUrl);
+                  setCopiedId("url");
+                  setTimeout(() => setCopiedId(null), 3000);
+                } catch {
+                  // User can manually select and copy from the input
+                }
+              }}
+            >
+              Copy
+            </button>
           </div>
         )}
 
