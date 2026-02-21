@@ -8,6 +8,7 @@ import { AssemblyProvider } from "@/lib/assembly-context";
 import type { Topic, FollowUp, FollowUpInsight } from "@/lib/types";
 import { AssemblyNav } from "./assembly-nav";
 import AssemblyErrorBoundary from "@/components/AssemblyErrorBoundary";
+import { GeneratingRedirect } from "./generating-redirect";
 
 interface AssemblyRow {
   id: string;
@@ -94,8 +95,13 @@ export default async function AssemblyLayout({
 
   if (!topic) {
     if (rows[0].status === "running" || rows[0].status === "queued") {
-      const { redirect } = await import("next/navigation");
-      redirect(`/assembly/${slug}/generating`);
+      return (
+        <GeneratingRedirect slug={slug}>
+          <AssemblyErrorBoundary>
+            <main className="no-nav">{children}</main>
+          </AssemblyErrorBoundary>
+        </GeneratingRedirect>
+      );
     }
     return (
       <AssemblyErrorBoundary>
