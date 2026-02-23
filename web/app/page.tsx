@@ -53,7 +53,7 @@ export default async function Dashboard() {
        FROM assembly_shares s
        JOIN assemblies a ON s.assembly_id = a.id
        JOIN users u ON a.user_id = u.id
-       WHERE s.shared_with_user_id = $1 AND s.accepted_at IS NOT NULL
+       WHERE s.user_id = $1
        ORDER BY a.created_at DESC`,
       [userId]
     ),

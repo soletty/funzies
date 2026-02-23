@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAssembly, useAssemblyId, useAssemblyAccess } from "@/lib/assembly-context";
@@ -53,6 +53,11 @@ export function AssemblyNav({ slug }: { topic?: Topic; slug: string }) {
 
   const closeNav = () => setNavOpen(false);
 
+  useEffect(() => {
+    document.body.classList.toggle("nav-open", navOpen);
+    return () => document.body.classList.remove("nav-open");
+  }, [navOpen]);
+
   const titleLink = topic.synthesis ? `${base}/synthesis` : base;
 
   return (
@@ -64,10 +69,8 @@ export function AssemblyNav({ slug }: { topic?: Topic; slug: string }) {
       >
         &#9776;
       </button>
-      {navOpen && (
-        <div className="nav-overlay" onClick={closeNav} style={{ display: "block", opacity: 1, pointerEvents: "auto" }} />
-      )}
-      <nav className={navOpen ? "nav-open-mobile" : ""}>
+      <div className="nav-overlay" onClick={closeNav} />
+      <nav>
         <div className="nav-brand">
           <div className="nav-brand-icon">M</div>
           Million Minds

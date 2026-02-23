@@ -7,47 +7,40 @@ export async function POST(
   { params }: { params: Promise<{ token: string }> }
 ) {
   const user = await getCurrentUser();
-  if (!user?.id || !user?.email) {
+  if (!user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const { token } = await params;
 
-  const shares = await query<{
+  const assemblies = await query<{
     id: string;
-    assembly_id: string;
-    shared_with_email: string;
+    slug: string;
+    share_role: string;
+    user_id: string;
   }>(
-    "SELECT id, assembly_id, shared_with_email FROM assembly_shares WHERE invite_token = $1",
+    "SELECT id, slug, share_role, user_id FROM assemblies WHERE share_code = $1",
     [token]
   );
 
-  if (!shares.length) {
+  if (!assemblies.length) {
     return NextResponse.json({ error: "Invalid or expired invite" }, { status: 404 });
   }
 
-  const share = shares[0];
+  const assembly = assemblies[0];
 
-  if (share.shared_with_email.toLowerCase() !== user.email.toLowerCase()) {
-    return NextResponse.json(
-      { error: "This invite was sent to a different email address" },
-      { status: 403 }
-    );
+  if (assembly.user_id === user.id) {
+    return NextResponse.json({ slug: assembly.slug });
   }
 
   await query(
-    "UPDATE assembly_shares SET shared_with_user_id = $1, accepted_at = now(), invite_token = NULL WHERE id = $2",
-    [user.id, share.id]
+    `INSERT INTO assembly_shares (assembly_id, user_id, role)
+     VALUES ($1, $2, $3)
+     ON CONFLICT (assembly_id, user_id) DO UPDATE SET role = $3`,
+    [assembly.id, user.id, assembly.share_role]
   );
 
-  const assemblies = await query<{ slug: string }>(
-    "SELECT slug FROM assemblies WHERE id = $1",
-    [share.assembly_id]
-  );
-
-  const slug = assemblies.length > 0 ? assemblies[0].slug : null;
-
-  return NextResponse.json({ slug });
+  return NextResponse.json({ slug: assembly.slug });
 }
 
 export async function GET(
@@ -56,40 +49,30 @@ export async function GET(
 ) {
   const { token } = await params;
 
-  const shares = await query<{
-    id: string;
-    shared_with_email: string;
-    role: string;
-    assembly_id: string;
+  const assemblies = await query<{
+    topic_input: string;
+    share_role: string;
+    user_id: string;
   }>(
-    "SELECT s.id, s.shared_with_email, s.role, s.assembly_id FROM assembly_shares s WHERE s.invite_token = $1",
+    "SELECT topic_input, share_role, user_id FROM assemblies WHERE share_code = $1",
     [token]
   );
 
-  if (!shares.length) {
+  if (!assemblies.length) {
     return NextResponse.json({ error: "Invalid or expired invite" }, { status: 404 });
   }
 
-  const share = shares[0];
+  const assembly = assemblies[0];
 
-  const assemblies = await query<{ topic_input: string; user_id: string }>(
-    "SELECT topic_input, user_id FROM assemblies WHERE id = $1",
-    [share.assembly_id]
+  const users = await query<{ name: string | null; email: string }>(
+    "SELECT name, email FROM users WHERE id = $1",
+    [assembly.user_id]
   );
-
-  let inviterName: string | null = null;
-  if (assemblies.length > 0) {
-    const users = await query<{ name: string | null; email: string }>(
-      "SELECT name, email FROM users WHERE id = $1",
-      [assemblies[0].user_id]
-    );
-    inviterName = users[0]?.name || users[0]?.email || null;
-  }
+  const ownerName = users[0]?.name || users[0]?.email || null;
 
   return NextResponse.json({
-    email: share.shared_with_email,
-    role: share.role,
-    topic: assemblies[0]?.topic_input || "Unknown",
-    inviterName,
+    role: assembly.share_role,
+    topic: assembly.topic_input,
+    ownerName,
   });
 }

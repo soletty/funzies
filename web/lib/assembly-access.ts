@@ -13,7 +13,7 @@ export async function getAssemblyAccess(
   if (ownerRows.length > 0) return "owner";
 
   const shareRows = await query<{ role: string }>(
-    "SELECT role FROM assembly_shares WHERE assembly_id = $1 AND shared_with_user_id = $2 AND accepted_at IS NOT NULL",
+    "SELECT role FROM assembly_shares WHERE assembly_id = $1 AND user_id = $2",
     [assemblyId, userId]
   );
   if (shareRows.length > 0) return shareRows[0].role as "read" | "write";
@@ -35,7 +35,7 @@ export async function getAssemblyAccessBySlug(
   if (assembly.user_id === userId) return { access: "owner", assemblyId: assembly.id };
 
   const shareRows = await query<{ role: string }>(
-    "SELECT role FROM assembly_shares WHERE assembly_id = $1 AND shared_with_user_id = $2 AND accepted_at IS NOT NULL",
+    "SELECT role FROM assembly_shares WHERE assembly_id = $1 AND user_id = $2",
     [assembly.id, userId]
   );
   if (shareRows.length > 0) return { access: shareRows[0].role as "read" | "write", assemblyId: assembly.id };

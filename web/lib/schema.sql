@@ -44,16 +44,17 @@ ALTER TABLE assemblies
   ADD COLUMN IF NOT EXISTS github_repo_name TEXT,
   ADD COLUMN IF NOT EXISTS github_repo_branch TEXT DEFAULT 'main';
 
+ALTER TABLE assemblies
+  ADD COLUMN IF NOT EXISTS share_code TEXT UNIQUE,
+  ADD COLUMN IF NOT EXISTS share_role TEXT CHECK (share_role IN ('read', 'write'));
+
 CREATE TABLE IF NOT EXISTS assembly_shares (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   assembly_id UUID NOT NULL REFERENCES assemblies(id) ON DELETE CASCADE,
-  shared_with_email TEXT NOT NULL,
-  shared_with_user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   role TEXT NOT NULL CHECK (role IN ('read', 'write')),
-  invite_token TEXT UNIQUE,
-  accepted_at TIMESTAMPTZ,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  UNIQUE (assembly_id, shared_with_email)
+  joined_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (assembly_id, user_id)
 );
 
 CREATE TABLE IF NOT EXISTS follow_ups (

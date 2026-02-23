@@ -6,10 +6,9 @@ import { useSession } from "next-auth/react";
 import AuthForm from "@/components/AuthForm";
 
 interface InviteInfo {
-  email: string;
   role: string;
   topic: string;
-  inviterName: string | null;
+  ownerName: string | null;
 }
 
 export default function InvitePage() {
@@ -31,12 +30,7 @@ export default function InvitePage() {
   }, [token]);
 
   useEffect(() => {
-    if (status !== "authenticated" || !invite || !session?.user?.email) return;
-
-    if (session.user.email.toLowerCase() !== invite.email.toLowerCase()) {
-      setError(`This invite was sent to ${invite.email}. You are signed in as ${session.user.email}.`);
-      return;
-    }
+    if (status !== "authenticated" || !invite) return;
 
     setAccepting(true);
     fetch(`/api/invites/${token}`, { method: "POST" })
@@ -55,18 +49,22 @@ export default function InvitePage() {
         setError("Failed to accept invite.");
         setAccepting(false);
       });
-  }, [status, invite, session, token, router]);
+  }, [status, invite, token, router]);
 
   if (error) {
     return (
       <div className="invite-page">
-        <div className="invite-card">
-          <div className="invite-brand">
-            <div className="invite-brand-icon">M</div>
-            <span>Million Minds</span>
+        <div className="invite-split">
+          <div className="invite-left">
+            <div className="invite-brand">
+              <div className="invite-brand-icon">M</div>
+              <span>Million Minds</span>
+            </div>
+            <div className="invite-left-center">
+              <div className="invite-error-icon">!</div>
+              <p className="invite-error-text">{error}</p>
+            </div>
           </div>
-          <div className="invite-error-icon">!</div>
-          <p className="invite-error-text">{error}</p>
         </div>
       </div>
     );
@@ -75,12 +73,16 @@ export default function InvitePage() {
   if (!invite) {
     return (
       <div className="invite-page">
-        <div className="invite-card">
-          <div className="invite-brand">
-            <div className="invite-brand-icon">M</div>
-            <span>Million Minds</span>
+        <div className="invite-split">
+          <div className="invite-left">
+            <div className="invite-brand">
+              <div className="invite-brand-icon">M</div>
+              <span>Million Minds</span>
+            </div>
+            <div className="invite-left-center">
+              <p className="invite-loading">Loading invite...</p>
+            </div>
           </div>
-          <p className="invite-loading">Loading invite...</p>
         </div>
       </div>
     );
@@ -89,12 +91,17 @@ export default function InvitePage() {
   if (accepting) {
     return (
       <div className="invite-page">
-        <div className="invite-card">
-          <div className="invite-brand">
-            <div className="invite-brand-icon">M</div>
-            <span>Million Minds</span>
+        <div className="invite-split">
+          <div className="invite-left">
+            <div className="invite-brand">
+              <div className="invite-brand-icon">M</div>
+              <span>Million Minds</span>
+            </div>
+            <div className="invite-left-center">
+              <div className="invite-accepting-spinner" />
+              <p className="invite-loading">Joining panel...</p>
+            </div>
           </div>
-          <p className="invite-loading">Joining panel...</p>
         </div>
       </div>
     );
@@ -104,39 +111,43 @@ export default function InvitePage() {
 
   return (
     <div className="invite-page">
-      <div className="invite-card">
-        <div className="invite-brand">
-          <div className="invite-brand-icon">M</div>
-          <span>Million Minds</span>
-        </div>
-
-        <div className="invite-hero">
-          <div className="invite-avatar">
-            {(invite.inviterName || "?")[0].toUpperCase()}
+      <div className="invite-split">
+        <div className="invite-left">
+          <div className="invite-brand">
+            <div className="invite-brand-icon">M</div>
+            <span>Million Minds</span>
           </div>
-          <h1>
-            <strong>{invite.inviterName || "Someone"}</strong> invited you to {roleName} a panel
-          </h1>
-        </div>
 
-        <div className="invite-topic">
-          <div className="invite-topic-label">Panel topic</div>
-          {invite.topic}
-        </div>
+          <div className="invite-left-content">
+            <div className="invite-hero">
+              <div className="invite-avatar">
+                {(invite.ownerName || "?")[0].toUpperCase()}
+              </div>
+              <h1>
+                <strong>{invite.ownerName || "Someone"}</strong> invited you to {roleName} a panel
+              </h1>
+            </div>
 
-        <div className="invite-role-pill">
-          {invite.role === "write" ? "Editor access" : "View-only access"}
+            <div className="invite-topic">
+              <div className="invite-topic-label">Panel topic</div>
+              <div className="invite-topic-text">{invite.topic}</div>
+            </div>
+
+            <div className="invite-role-pill">
+              {invite.role === "write" ? "Editor access" : "View-only access"}
+            </div>
+          </div>
         </div>
 
         {status === "unauthenticated" && (
-          <div className="invite-auth-section">
-            <div className="invite-auth-divider">
-              <span>Sign in to accept</span>
+          <div className="invite-right">
+            <div className="invite-right-inner">
+              <h2 className="invite-right-heading">Sign in to accept</h2>
+              <p className="invite-auth-hint">
+                Sign in or create an account to continue
+              </p>
+              <AuthForm />
             </div>
-            <p className="invite-auth-hint">
-              Use <strong>{invite.email}</strong> to continue
-            </p>
-            <AuthForm />
           </div>
         )}
       </div>

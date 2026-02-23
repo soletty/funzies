@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 
 function copyToClipboard(text: string): boolean {
   if (navigator.clipboard?.writeText) {
@@ -18,14 +18,19 @@ function copyToClipboard(text: string): boolean {
   return ok;
 }
 
-interface Share {
+interface ShareUser {
   id: string;
-  shared_with_email: string;
+  user_id: string;
+  name: string | null;
+  email: string;
   role: string;
-  accepted_at: string | null;
-  invite_token: string | null;
-  user_name: string | null;
-  created_at: string;
+  joined_at: string;
+}
+
+interface ShareInfo {
+  shareCode: string | null;
+  shareRole: string | null;
+  users: ShareUser[];
 }
 
 interface SharePanelProps {
@@ -34,24 +39,26 @@ interface SharePanelProps {
 }
 
 export default function SharePanel({ assemblyId, onClose }: SharePanelProps) {
-  const [email, setEmail] = useState("");
+  const [shareInfo, setShareInfo] = useState<ShareInfo>({ shareCode: null, shareRole: null, users: [] });
   const [role, setRole] = useState<"read" | "write">("read");
-  const [shares, setShares] = useState<Share[]>([]);
   const [loading, setLoading] = useState(false);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [lastInviteUrl, setLastInviteUrl] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
   const [error, setError] = useState("");
 
-  const fetchShares = useCallback(async () => {
+  const fetchShareInfo = useCallback(async () => {
     const res = await fetch(`/api/assemblies/${assemblyId}/shares`);
     if (res.ok) {
-      setShares(await res.json());
+      const data = await res.json();
+      setShareInfo(data);
+      if (data.shareRole) {
+        setRole(data.shareRole);
+      }
     }
   }, [assemblyId]);
 
   useEffect(() => {
-    fetchShares();
-  }, [fetchShares]);
+    fetchShareInfo();
+  }, [fetchShareInfo]);
 
   useEffect(() => {
     function handleEsc(e: KeyboardEvent) {
@@ -61,41 +68,77 @@ export default function SharePanel({ assemblyId, onClose }: SharePanelProps) {
     return () => document.removeEventListener("keydown", handleEsc);
   }, [onClose]);
 
-  async function handleInvite(e: React.FormEvent) {
-    e.preventDefault();
-    if (!email.trim()) return;
+  const sharingEnabled = !!shareInfo.shareCode;
 
+  async function handleEnableSharing() {
     setLoading(true);
     setError("");
 
     const res = await fetch(`/api/assemblies/${assemblyId}/shares`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: email.trim(), role }),
+      body: JSON.stringify({ role }),
     });
 
     if (!res.ok) {
       const data = await res.json();
-      setError(data.error || "Failed to create invite");
+      setError(data.error || "Failed to enable sharing");
       setLoading(false);
       return;
     }
 
-    const data = await res.json();
-    setEmail("");
+    await fetchShareInfo();
     setLoading(false);
-    setLastInviteUrl(data.inviteUrl);
-    await fetchShares();
+  }
 
-    if (copyToClipboard(data.inviteUrl)) {
-      setCopiedId(data.id);
-      setTimeout(() => setCopiedId(null), 3000);
+  async function handleDisableSharing() {
+    setLoading(true);
+    setError("");
+
+    const res = await fetch(`/api/assemblies/${assemblyId}/shares/disable`, {
+      method: "POST",
+    });
+
+    if (!res.ok) {
+      setError("Failed to disable sharing");
+      setLoading(false);
+      return;
+    }
+
+    setShareInfo({ shareCode: null, shareRole: null, users: shareInfo.users });
+    setLoading(false);
+  }
+
+  async function handleRoleChange(newRole: "read" | "write") {
+    setRole(newRole);
+    if (!sharingEnabled) return;
+
+    const res = await fetch(`/api/assemblies/${assemblyId}/shares`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ role: newRole }),
+    });
+
+    if (res.ok) {
+      await fetchShareInfo();
     }
   }
 
   async function handleRemove(shareId: string) {
     await fetch(`/api/assemblies/${assemblyId}/shares/${shareId}`, { method: "DELETE" });
-    setShares((prev) => prev.filter((s) => s.id !== shareId));
+    setShareInfo((prev) => ({
+      ...prev,
+      users: prev.users.filter((u) => u.id !== shareId),
+    }));
+  }
+
+  function handleCopyLink() {
+    if (!shareInfo.shareCode) return;
+    const url = `${window.location.origin}/invite/${shareInfo.shareCode}`;
+    if (copyToClipboard(url)) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 3000);
+    }
   }
 
   return (
@@ -104,88 +147,81 @@ export default function SharePanel({ assemblyId, onClose }: SharePanelProps) {
         <div className="share-panel-header">
           <div>
             <h2>Share this panel</h2>
-            <p className="share-panel-subtitle">Invite others to view or collaborate</p>
+            <p className="share-panel-subtitle">Anyone with the link can join</p>
           </div>
           <button onClick={onClose} className="share-panel-close">&times;</button>
         </div>
 
-        <form onSubmit={handleInvite} className="share-panel-form">
-          <div className="share-panel-input-row">
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="name@example.com"
-              required
-            />
-            <select value={role} onChange={(e) => setRole(e.target.value as "read" | "write")}>
-              <option value="read">Can view</option>
-              <option value="write">Can edit</option>
-            </select>
+        <div className="share-panel-toggle-row">
+          <div className="share-panel-toggle-label">
+            <span className="share-panel-toggle-title">Share via link</span>
+            <span className="share-panel-toggle-desc">
+              {sharingEnabled ? "Anyone with the link can access this panel" : "Generate a link to share this panel"}
+            </span>
           </div>
-          <button type="submit" className="share-panel-invite-btn" disabled={loading}>
-            {loading ? "Sending..." : "Send invite"}
+          <button
+            className={`share-panel-toggle ${sharingEnabled ? "active" : ""}`}
+            onClick={sharingEnabled ? handleDisableSharing : handleEnableSharing}
+            disabled={loading}
+          >
+            <span className="share-panel-toggle-knob" />
           </button>
-        </form>
+        </div>
+
+        {sharingEnabled && (
+          <>
+            <div className="share-panel-link-section">
+              <div className="share-panel-input-row">
+                <select value={role} onChange={(e) => handleRoleChange(e.target.value as "read" | "write")}>
+                  <option value="read">Can view</option>
+                  <option value="write">Can edit</option>
+                </select>
+              </div>
+
+              <div className="share-panel-url-box">
+                <input
+                  type="text"
+                  readOnly
+                  value={`${typeof window !== "undefined" ? window.location.origin : ""}/invite/${shareInfo.shareCode}`}
+                  onFocus={(e) => e.target.select()}
+                  className="share-panel-url-input"
+                />
+                <button
+                  type="button"
+                  className="share-panel-url-copy"
+                  onClick={handleCopyLink}
+                >
+                  {copied ? "Copied!" : "Copy"}
+                </button>
+              </div>
+            </div>
+          </>
+        )}
 
         {error && <p className="share-panel-error">{error}</p>}
-        {copiedId && (
-          <div className="share-panel-copied">
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M13.25 4.75L6 12 2.75 8.75" />
-            </svg>
-            Invite link copied to clipboard
-          </div>
-        )}
-        {lastInviteUrl && !copiedId && (
-          <div className="share-panel-url-box">
-            <input
-              type="text"
-              readOnly
-              value={lastInviteUrl}
-              onFocus={(e) => e.target.select()}
-              className="share-panel-url-input"
-            />
-            <button
-              type="button"
-              className="share-panel-url-copy"
-              onClick={() => {
-                if (copyToClipboard(lastInviteUrl)) {
-                  setCopiedId("url");
-                  setTimeout(() => setCopiedId(null), 3000);
-                }
-              }}
-            >
-              Copy
-            </button>
-          </div>
-        )}
 
-        {shares.length > 0 && (
+        {shareInfo.users.length > 0 && (
           <div className="share-panel-list">
             <div className="share-panel-list-header">People with access</div>
-            {shares.map((share) => (
-              <div key={share.id} className="share-panel-item">
+            {shareInfo.users.map((u) => (
+              <div key={u.id} className="share-panel-item">
                 <div className="share-panel-item-left">
                   <div className="share-panel-avatar">
-                    {(share.user_name || share.shared_with_email)[0].toUpperCase()}
+                    {(u.name || u.email)[0].toUpperCase()}
                   </div>
                   <div className="share-panel-item-details">
                     <span className="share-panel-item-name">
-                      {share.user_name || share.shared_with_email}
+                      {u.name || u.email}
                     </span>
-                    {share.user_name && (
-                      <span className="share-panel-item-email">{share.shared_with_email}</span>
+                    {u.name && (
+                      <span className="share-panel-item-email">{u.email}</span>
                     )}
                   </div>
                 </div>
                 <div className="share-panel-item-right">
-                  {!share.accepted_at && (
-                    <span className="share-panel-badge-pending">Pending</span>
-                  )}
-                  <span className="share-panel-badge-role">{share.role === "write" ? "Editor" : "Viewer"}</span>
+                  <span className="share-panel-badge-role">{u.role === "write" ? "Editor" : "Viewer"}</span>
                   <button
-                    onClick={() => handleRemove(share.id)}
+                    onClick={() => handleRemove(u.id)}
                     className="share-panel-remove"
                     title="Remove access"
                   >
