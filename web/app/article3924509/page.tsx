@@ -50,6 +50,10 @@ export default function ArticlePage() {
           </strong>
         </p>
 
+        <figure className="article-cover">
+          <img src="/article/citrini_1.webp" alt="The 2028 Global Intelligence Crisis" />
+        </figure>
+
         <hr />
 
         {/* ── Macro Memo ── */}
@@ -373,6 +377,11 @@ export default function ArticlePage() {
         <P>
           Mastercard&apos;s Q1 2027 report was the point of no return. Agentic commerce went from being a product story to a plumbing story. MA dropped 9% the following day. Visa did too, but pared losses after analysts pointed out its stronger positioning in stablecoin infrastructure.
         </P>
+
+        <figure className="article-figure">
+          <img src="/article/citrini_2.webp" alt="How Payment Rails are Changing" />
+        </figure>
+
         <P>
           Agentic commerce routing around interchange posed a far greater risk to card-focused banks and mono-line issuers, who collected the majority of that 2-3% fee and had built entire business segments around rewards programs funded by the merchant subsidy.
         </P>
@@ -430,6 +439,11 @@ export default function ArticlePage() {
           possible, even though every year Wharton professors tried to fit the
           data to a new sigmoid.
         </p>
+
+        <figure className="article-figure">
+          <img src="/article/citrini_3.webp" alt="AI Agent Capability Scaling" />
+        </figure>
+
         <p>
           They write essentially all code. The highest performing of them are
           substantially smarter than almost all humans at almost all things. And
@@ -487,6 +501,11 @@ export default function ArticlePage() {
         <p>
           <strong>This cycle&apos;s cause was not cyclical.</strong>
         </p>
+
+        <figure className="article-figure">
+          <img src="/article/citrini_4.webp" alt="The AI Feedback Loop: A Non-Cyclical Disruption" />
+        </figure>
+
         <p>
           AI got better and cheaper. Companies laid off workers, then used the
           savings to buy more AI capability, which let them lay off more workers.
@@ -541,6 +560,11 @@ export default function ArticlePage() {
         <P>
           A friend of ours was a senior product manager at Salesforce in 2025. Title, health insurance, 401k, $180,000 a year. She lost her job in the third round of layoffs. After six months of searching, she started driving for Uber. Her earnings dropped to $45,000. The point is less the individual story and more the second-order math. Multiply this dynamic by a few hundred thousand workers across every major metro. Overqualified labor flooding the service and gig economy pushed down wages for existing workers who were already struggling. Sector-specific disruption metastasized into economy-wide wage compression.
         </P>
+
+        <figure className="article-figure">
+          <img src="/article/citrini_5.webp" alt="The Great Displacement: Tech Workforce to Gig Economy Flow" />
+        </figure>
+
         <p>
           The pool of remaining human-centric had another correction ahead of
           it, happening while we write this. As autonomous delivery and
@@ -752,6 +776,11 @@ export default function ArticlePage() {
           invested alongside insurers into private credit originated by the same
           parent&apos;s asset management arm.
         </p>
+
+        <figure className="article-figure">
+          <img src="/article/citrini_6.webp" alt="2008 vs 2028: Mortgage Concerns" />
+        </figure>
+
         <p>
           The ratings agencies, some of which were themselves PE-owned, had not
           been paragons of transparency (surprising to virtually no one). The
@@ -813,6 +842,7 @@ export default function ArticlePage() {
           or localized economic shocks (a single industry collapsing in a single
           region, like oil in Texas in the 1980s or auto in Michigan in 2009).
         </p>
+
         <p>
           None of these apply here. The borrowers in question are not subprime.
           They&apos;re 780 FICO scores. They put 20% down. They have clean
@@ -826,6 +856,11 @@ export default function ArticlePage() {
           on day one. The world just…changed after the loans were written. People
           borrowed against a future they can no longer afford to believe in.
         </p>
+
+        <figure className="article-figure">
+          <img src="/article/citrini_7.webp" alt="The Mortgage Accelerant to the Intelligence Displacement Spiral" />
+        </figure>
+
         <p>
           In 2027, we flagged early signs of invisible stress: HELOC draws,
           401(k) withdrawals, and credit card debt spiking while mortgage
@@ -853,6 +888,11 @@ export default function ArticlePage() {
           crisis. Delinquencies have risen but remain well below 2008 levels. It
           is the trajectory that&apos;s the real threat.
         </p>
+
+        <figure className="article-figure">
+          <img src="/article/citrini_8.webp" alt="The Three Drivers of the 2028 Global Intelligence Crisis" />
+        </figure>
+
         <p>
           The Intelligence Displacement Spiral now has two financial accelerants
           to the real economy&apos;s decline.
@@ -889,6 +929,7 @@ export default function ArticlePage() {
 
         {/* ── The Battle Against Time ── */}
         <h2>The Battle Against Time</h2>
+
         <p>
           The first negative feedback loop was in the real economy: AI capability
           improves, payroll shrinks, spending softens, margins tighten, companies
@@ -898,6 +939,11 @@ export default function ArticlePage() {
           these have been exacerbated by an insufficient policy response from a
           government that seems, quite frankly, confused.
         </p>
+
+        <figure className="article-figure">
+          <img src="/article/citrini_9.webp" alt="Circular Flow Diagram: Pre vs Post-superintelligence" />
+        </figure>
+
         <p>
           For the entirety of modern economic history, human intelligence has
           been the scarce input. Capital was abundant (or at least, replicable).
@@ -952,6 +998,11 @@ export default function ArticlePage() {
           routing through the IRS either. The circular flow is breaking, and the
           government is expected to step in to fix that.
         </p>
+
+        <figure className="article-figure">
+          <img src="/article/citrini_10.webp" alt="Circular Flow Diagram: Pre vs Post-superintelligence" />
+        </figure>
+
         <p>
           As in every downturn, outlays rise just as receipts fall. The
           difference this time is that the spending pressure is not cyclical.

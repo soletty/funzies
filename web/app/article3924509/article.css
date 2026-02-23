@@ -123,6 +123,49 @@
   font-weight: 500;
 }
 
+/* ── Images ── */
+
+.article-cover {
+  margin: -1rem 0 2.5rem;
+  text-align: center;
+}
+
+.article-cover img {
+  max-width: 360px;
+  width: 100%;
+  height: auto;
+  border-radius: var(--radius);
+}
+
+.article-figure {
+  margin: 2rem -2rem;
+  text-align: center;
+}
+
+.article-figure img {
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+}
+
+@media (max-width: 768px) {
+  .article-figure {
+    margin: 1.5rem -1.25rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .article-figure {
+    margin: 1.25rem -1rem;
+  }
+
+  .article-cover img {
+    max-width: 280px;
+  }
+}
+
 /* ── Company Links ── */
 
 .company-link {
