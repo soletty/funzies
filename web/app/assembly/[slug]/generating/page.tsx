@@ -22,14 +22,32 @@ function phaseIndex(phase: string): number {
   return PHASES.findIndex((p) => p.key === phase);
 }
 
+function getStoredProgress(routeSlug: string): { phase: string; status: Status } {
+  try {
+    const stored = sessionStorage.getItem(`generating-${routeSlug}`);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      return { phase: parsed.phase || "", status: parsed.status || "queued" };
+    }
+  } catch {}
+  return { phase: "", status: "queued" };
+}
+
+function storeProgress(routeSlug: string, phase: string, status: Status) {
+  try {
+    sessionStorage.setItem(`generating-${routeSlug}`, JSON.stringify({ phase, status }));
+  } catch {}
+}
+
 function GeneratingContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { slug: routeSlug } = useParams<{ slug: string }>();
   const assemblyId = searchParams.get("id");
 
-  const [currentPhase, setCurrentPhase] = useState<string>("");
-  const [status, setStatus] = useState<Status>("queued");
+  const stored = getStoredProgress(routeSlug);
+  const [currentPhase, setCurrentPhase] = useState<string>(stored.phase);
+  const [status, setStatus] = useState<Status>(stored.status);
   const [slug, setSlug] = useState<string>(routeSlug || "");
   const [error, setError] = useState("");
   const [resolvedId, setResolvedId] = useState<string | null>(assemblyId);
@@ -52,46 +70,57 @@ function GeneratingContent() {
     const es = new EventSource(`/api/assemblies/${resolvedId}/stream`);
     eventSourceRef.current = es;
 
+    const updatePhase = (phase: string) => {
+      setCurrentPhase(phase);
+      storeProgress(routeSlug, phase, "running");
+    };
+
+    const updateStatus = (newStatus: Status, phase?: string) => {
+      setStatus(newStatus);
+      if (phase !== undefined) setCurrentPhase(phase);
+      storeProgress(routeSlug, phase ?? "", newStatus);
+    };
+
     es.onmessage = (event) => {
       const data = JSON.parse(event.data);
 
       switch (data.type) {
         case "state":
-          setStatus(data.status);
-          setCurrentPhase(data.currentPhase || "");
+          updateStatus(data.status, data.currentPhase || "");
           if (data.slug) setSlug(data.slug);
           if (data.status === "complete" && data.slug) {
+            sessionStorage.removeItem(`generating-${routeSlug}`);
             es.close();
             router.push(`/assembly/${data.slug}`);
           }
           break;
         case "phase":
-          setCurrentPhase(data.phase || "");
+          updatePhase(data.phase || "");
           setStatus("running");
           break;
         case "status":
-          setStatus(data.status);
+          updateStatus(data.status);
           if (data.slug) setSlug(data.slug);
           if (data.status === "complete" && data.slug) {
+            sessionStorage.removeItem(`generating-${routeSlug}`);
             es.close();
             router.push(`/assembly/${data.slug}`);
           }
           break;
         case "error":
+          sessionStorage.removeItem(`generating-${routeSlug}`);
           setError(data.content || "An error occurred.");
           es.close();
           break;
       }
     };
 
-    // Don't close on error — EventSource auto-reconnects.
-    // Only close explicitly when generation completes, errors, or is cancelled.
     es.onerror = () => {};
 
     return () => {
       es.close();
     };
-  }, [resolvedId, router]);
+  }, [resolvedId, router, routeSlug]);
 
   const activeIndex = phaseIndex(currentPhase);
 
