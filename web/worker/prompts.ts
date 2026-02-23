@@ -102,6 +102,9 @@ Numbered list of 3-5 concrete positions they hold on the specific topic.
 ### Intellectual Heroes
 Bullet list of 3-5 real thinkers/practitioners who influence this character.
 
+### Voice Example
+80-150 words modeling incisiveness, not eloquence. A brilliant person's most memorable statements are short. The goal: could you quote this person at a dinner party?
+
 ### Rhetorical Tendencies
 1 paragraph on how this character argues — their style, preferred evidence types, and persuasion approach.
 
@@ -272,6 +275,9 @@ For Socrate interventions mid-round:
 6. Socrate should ask at least 3 genuinely difficult questions that make characters uncomfortable
 7. The debate should surface at least 1 idea that no single character held at the start
 8. When characters cite evidence, they must reference works from the Reference Library provided. Characters must NOT invent new citations, studies, or statistics that aren't grounded in the library or clearly labeled as their professional judgment.
+9. Characters speak only when their framework genuinely informs the question. Not every character needs to respond to every point. If a character's framework doesn't add specific, substantive insight, they stay silent.
+10. Framework restatement is not insight. A character who takes a practical question and "reframes" it through their theoretical lens without answering it has failed. Engage the actual question first.
+11. Brevity signals understanding. A character who needs 300 words to make a point hasn't found the point yet. The best debate contributions are 2-4 sentences that change how everyone else thinks.
 
 ## Tone Adaptation
 
@@ -297,7 +303,7 @@ export function synthesisPrompt(
 ): string {
   return `You are an expert synthesizer analyzing the transcript of a multi-perspective intellectual debate (Grande Table) on a topic. Your job is to produce a rigorous synthesis that captures the full intellectual landscape revealed by the debate.
 
-**CRITICAL: The user asked a question or posed a topic. Your synthesis MUST directly answer or address it.** Do not just describe the debate abstractly — give the reader a clear, actionable answer informed by the debate. If the topic is a question, state the answer (or best answers) upfront, noting which characters support which position and why. If reasonable people disagree, say so explicitly — but still tell the reader what the weight of argument favors.
+**CRITICAL: The user asked a question or posed a topic. Your synthesis MUST directly answer or address it.** Do not just describe the debate abstractly — give the reader a clear, actionable answer informed by the debate. If the topic is a question, state the answer (or best answers) upfront, noting which characters support which position and why. If reasonable people disagree, say so explicitly — but still tell the reader what the weight of argument favors. State insights in plain language first. If an idea needs jargon to express, it hasn't been understood yet.
 
 ## Required Sections
 
@@ -316,7 +322,7 @@ List points where multiple characters converged. For each:
 - Provide the evidence basis
 
 Format:
-- **Claim statement** — Characters A, B, and C converged on this. Confidence: **high**. Evidence: description of supporting evidence.
+- **Bold the claim in one plain-language sentence, no jargon** — Characters A, B, and C converged on this. Confidence: **high**. Evidence: description of supporting evidence.
 
 ## Irreducible Divergences
 
@@ -325,14 +331,14 @@ List fundamental disagreements that the debate could not resolve. For each:
 - Explain the opposing positions and why reconciliation failed
 
 Format:
-- **Issue statement** — Character A argues X because of Y, while Character B maintains Z because of W. This divergence is irreducible because...
+- **Bold the issue in one plain-language sentence, no jargon** — Character A argues X because of Y, while Character B maintains Z because of W. This divergence is irreducible because...
 
 ## Emergent Ideas
 
 List ideas that emerged FROM the debate interaction — insights no single character held at the start but that arose from the exchange.
 
 Format:
-- **Idea statement** — Brief description of how this emerged from the interaction between characters.
+- **Bold the idea in one plain-language sentence, no jargon** — Brief description of how this emerged from the interaction between characters.
 
 ## Knowledge Gaps
 
@@ -355,6 +361,8 @@ Note any surprising agreements between characters who were expected to disagree.
 Format:
 - **Alliance description** — Characters and what they unexpectedly agreed on.
 
+For every claim or recommendation: rewrite it in one sentence using no jargon. If the plain version sounds obvious or empty, the original was disguising a lack of substance — delete it.
+
 Topic: ${topic}
 
 Debate Transcript:
@@ -376,6 +384,8 @@ Based on the synthesis, produce a polished, actionable deliverable document. The
 3. **Acknowledge complexity** — Don't flatten the nuance revealed by the debate
 4. **Be actionable** — Include concrete recommendations or frameworks
 5. **Credit multiple perspectives** — Show how different viewpoints informed the conclusions
+6. **Pass the Plaintext Test** — Every key claim must be expressible in one plain sentence with no jargon. If stripping the jargon makes the idea disappear, there was no idea.
+7. **No slop** — Reject: "in today's rapidly evolving landscape", "it's important to note", "furthermore/moreover/additionally" transitions, "nuanced" as a substitute for a position, "multifaceted/holistic/synergy/stakeholders", sentences that could appear in any document about any topic, five sentences where one would do, restating a simple idea in academic language to make it sound substantial.
 
 ## Format
 
@@ -515,6 +525,8 @@ Assess the intellectual rigor of the assembly output:
 - Did the synthesis accurately reflect the debate dynamics?
 - Are the recommendations well-supported by the discussion?
 - Were any important viewpoints systematically excluded?
+- Run the Plaintext Test: for every claim, strip jargon and framework terminology. If the plain version sounds obvious or empty, the original disguised a lack of substance.
+- Check for slop: "in today's rapidly evolving landscape", "furthermore/moreover/additionally" transitions, "nuanced" without a position, "multifaceted/holistic/synergy", sentences that could appear in any output about any topic, five sentences where one would do, restating simple ideas in academic language.
 - Rate overall quality: HIGH / MEDIUM / LOW
 
 ## Clarity Verification
@@ -524,6 +536,7 @@ Assess the communication quality:
 - Are technical terms defined when first used?
 - Is the structure logical and easy to follow?
 - Are there any sections that are unclear or overly dense?
+- Could every key recommendation be stated in one plain sentence? If not, it's not clear enough.
 - Rate overall clarity: HIGH / MEDIUM / LOW
 
 ## Reality Verification

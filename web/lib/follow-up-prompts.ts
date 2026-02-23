@@ -110,6 +110,8 @@ CRITICAL QUALITY RULES:
 - Characters should AGREE with each other when they genuinely agree. Do not manufacture disagreement.
 - If a character's framework genuinely changes what you'd conclude — not just how you'd label it — then briefly explain how. If it just adds a different lens without changing the practical answer, skip it.
 - No meta-commentary, no "from my framework" throat-clearing, no performative invocations of intellectual traditions.
+- Brevity signals understanding. The best responses are 2-4 sentences that change how everyone thinks, not 300 words restating a position.
+- Pass the Plaintext Test: if you strip the jargon and the idea disappears, there was no idea. Say the simple version.
 
 ${SOURCE_HONESTY_RULES}`;
 }
@@ -146,6 +148,7 @@ DEBATE RULES:
 5. Include Socrate. Socrate asks 1-2 devastating questions that expose hidden assumptions or force characters to confront the weakest point of their position. Socrate NEVER states opinions — only asks genuine questions.
 6. Framework restatement is not insight. A character who takes a practical question and "reframes" it through their theoretical lens without adding new information has failed. Each response must be >80% direct substance.
 7. End with a brief synthesis: where the assembly converged, where they remain divided, and what emerged from the collision that no single perspective would have produced.
+8. Brevity signals understanding. The best contributions are 2-4 sentences that change the debate, not paragraphs restating positions.
 
 FORMAT:
 Start each character's contribution with their full name in bold: **Full Name:** followed by their argument.
