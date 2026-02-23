@@ -1,4 +1,4 @@
 export const COMPANIES: Record<string, string> = {
-  "Anthropic": "/companies/anthropic",
-  "OpenAI": "/companies/openai",
+  "Anthropic": "https://app.patagonmarkets.com/discover/anthropic",
+  "OpenAI": "https://app.patagonmarkets.com/discover/openai",
 };
