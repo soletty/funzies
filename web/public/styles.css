@@ -3201,6 +3201,14 @@ details > .details-content {
   box-shadow: var(--shadow-lg);
   background: var(--color-bg);
 }
+.invite-split-solo {
+  max-width: 440px;
+  min-height: 360px;
+}
+.invite-split-solo .invite-left {
+  flex: 1 1 100%;
+  border-right: none;
+}
 
 /* ─── Left panel: invitation details ─── */
 .invite-left {

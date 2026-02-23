@@ -54,7 +54,7 @@ export default function InvitePage() {
   if (error) {
     return (
       <div className="invite-page">
-        <div className="invite-split">
+        <div className="invite-split invite-split-solo">
           <div className="invite-left">
             <div className="invite-brand">
               <div className="invite-brand-icon">M</div>
@@ -73,7 +73,7 @@ export default function InvitePage() {
   if (!invite) {
     return (
       <div className="invite-page">
-        <div className="invite-split">
+        <div className="invite-split invite-split-solo">
           <div className="invite-left">
             <div className="invite-brand">
               <div className="invite-brand-icon">M</div>
@@ -91,7 +91,7 @@ export default function InvitePage() {
   if (accepting) {
     return (
       <div className="invite-page">
-        <div className="invite-split">
+        <div className="invite-split invite-split-solo">
           <div className="invite-left">
             <div className="invite-brand">
               <div className="invite-brand-icon">M</div>
