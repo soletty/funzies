@@ -4,14 +4,16 @@ import { query } from "@/lib/db";
 
 export async function POST(request: Request) {
   const body = await request.json();
-  const { email, name, password } = body;
+  const { email: rawEmail, name, password } = body;
 
-  if (!email || !password) {
+  if (!rawEmail || !password) {
     return NextResponse.json(
       { error: "Email and password are required" },
       { status: 400 }
     );
   }
+
+  const email = rawEmail.toLowerCase().trim();
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(email)) {
@@ -28,24 +30,23 @@ export async function POST(request: Request) {
     );
   }
 
-  const existing = await query(
-    "SELECT id FROM users WHERE email = $1",
-    [email]
-  );
-
-  if (existing.length > 0) {
-    return NextResponse.json(
-      { error: "Email already registered" },
-      { status: 409 }
-    );
-  }
-
   const passwordHash = await bcrypt.hash(password, 12);
 
-  const rows = await query<{ id: string }>(
-    "INSERT INTO users (id, email, name, password_hash) VALUES (gen_random_uuid(), $1, $2, $3) RETURNING id",
-    [email, name ?? null, passwordHash]
-  );
+  try {
+    const rows = await query<{ id: string }>(
+      "INSERT INTO users (id, email, name, password_hash) VALUES (gen_random_uuid(), $1, $2, $3) RETURNING id",
+      [email, name ?? null, passwordHash]
+    );
 
-  return NextResponse.json({ id: rows[0].id }, { status: 201 });
+    return NextResponse.json({ id: rows[0].id }, { status: 201 });
+  } catch (err: unknown) {
+    const pgError = err as { code?: string };
+    if (pgError.code === "23505") {
+      return NextResponse.json(
+        { error: "Email already registered" },
+        { status: 409 }
+      );
+    }
+    throw err;
+  }
 }

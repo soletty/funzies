@@ -26,7 +26,7 @@ const providers: Provider[] = [
 
       const rows = await query<UserRow>(
         "SELECT id, email, name, password_hash FROM users WHERE email = $1",
-        [email]
+        [email.toLowerCase().trim()]
       );
 
       const user = rows[0];
@@ -59,23 +59,16 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   callbacks: {
     async signIn({ user, account }) {
       if (account?.provider === "google") {
-        const email = user.email;
+        const email = user.email?.toLowerCase().trim();
         if (!email) return false;
 
-        const existing = await query<UserRow>(
-          "SELECT id FROM users WHERE email = $1",
-          [email]
+        const rows = await query<{ id: string }>(
+          `INSERT INTO users (id, email, name) VALUES (gen_random_uuid(), $1, $2)
+           ON CONFLICT (email) DO UPDATE SET email = EXCLUDED.email
+           RETURNING id`,
+          [email, user.name ?? null]
         );
-
-        if (existing.length === 0) {
-          const rows = await query<{ id: string }>(
-            "INSERT INTO users (id, email, name) VALUES (gen_random_uuid(), $1, $2) RETURNING id",
-            [email, user.name ?? null]
-          );
-          user.id = rows[0].id;
-        } else {
-          user.id = existing[0].id;
-        }
+        user.id = rows[0].id;
       }
       return true;
     },
