@@ -191,7 +191,19 @@ export default function CharacterProfilePage() {
         </>
       )}
 
-      {character.rhetoricalTendencies && (
+      {character.debateStyle && (
+        <>
+          <h2>Debate Style</h2>
+          <div
+            className="markdown-content"
+            dangerouslySetInnerHTML={{
+              __html: md(character.debateStyle),
+            }}
+          />
+        </>
+      )}
+
+      {character.rhetoricalTendencies && !character.debateStyle && (
         <>
           <h2>Rhetorical Tendencies</h2>
           <div
@@ -203,7 +215,7 @@ export default function CharacterProfilePage() {
         </>
       )}
 
-      {character.relationships.length > 0 && (
+      {character.relationships && character.relationships.length > 0 && (
         <>
           <h2>Relationships</h2>
           <ul>

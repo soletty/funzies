@@ -11,7 +11,15 @@ Analyze the following topic and produce a structured domain analysis in markdown
 
 1. **Domain Mapping**: Identify the core domain(s) this topic touches (e.g., economics, ethics, technology, governance, culture). List 3-5 relevant domains.
 
-2. **Fundamental Tensions**: Map 3-5 irreducible tensions within this topic. These are opposing forces or trade-offs that cannot be fully resolved (e.g., "individual freedom vs. collective safety"). For each tension, briefly explain why it is irreducible.
+2. **Fundamental Tensions**: Map 3-5 tensions as a table of PREMISE-level disagreements. These are not just trade-offs but fundamental differences in starting assumptions.
+
+   Format as a table:
+
+   | Tension | Pole A | Pole B |
+   |---------|--------|--------|
+   | [short name] | [position/premise] | [opposing position/premise] |
+
+   For each tension, add one sentence below the table explaining why this is a premise-level disagreement (not just a preference difference).
 
 3. **Key Stakeholders**: Identify 5-8 distinct stakeholder perspectives that would have meaningfully different views on this topic. Think across disciplines, ideologies, and lived experiences.
 
@@ -24,16 +32,45 @@ Analyze the following topic and produce a structured domain analysis in markdown
 
    Pick ONE. This determines the character types, debate tone, and deliverable style for the entire assembly. If in doubt, lean toward the less academic option.
 
-5. **Output Type Determination**: Based on the topic, recommend the most appropriate deliverable format:
-   - **Policy Brief** — for governance/regulation topics
-   - **Strategic Analysis** — for business/technology strategy
-   - **Ethical Framework** — for moral/philosophical questions
-   - **Research Synthesis** — for scientific/empirical questions
-   - **Design Principles** — for creative/design challenges
-   - **Action Plan** — for practical "how to" questions
-   - **Architecture Plan** — for software/coding/engineering topics (detailed architecture, design decisions, and implementation roadmap — NOT actual code)
+5. **Output Type Determination**: Based on the topic, recommend the most appropriate deliverable format. State your choice as: "Recommended output type: **[Type]**"
+
+   Options:
+   - **Code** — for specific coding/implementation tasks
+   - **Architecture/Design** — for system design, technical architecture (NOT actual code — design decisions and implementation roadmap)
+   - **Essay/Writing** — for exploratory, philosophical, or narrative topics
+   - **Decision Brief** — for binary or multi-option decisions that need a clear recommendation
+   - **Analysis** — for deep examination of a phenomenon, trend, or system
+   - **Plan** — for actionable "how to" or strategy topics
 
 6. **Scope Boundaries**: Define what is in scope and out of scope for a productive discussion. Identify 2-3 aspects that might seem related but should be excluded to maintain focus.
+
+7. **Complexity Assessment**: Analyze the complexity of this topic and recommend assembly parameters.
+
+   Consider:
+   - How many tensions did you identify? (1-2 = simpler, 3-4 = moderate, 5+ = complex)
+   - What are the decision stakes? (low = preference/style, medium = significant consequences, high = irreversible/high-impact)
+   - Stakes override: even with few tensions, high stakes → Standard or Deep mode
+
+   Output exactly:
+
+   ## Complexity Assessment
+   - Tension count: [N]
+   - Stakes: [low/medium/high]
+   - Recommended mode: [Light/Standard/Deep]
+   - Recommended character count: [N]
+   - Recommended debate structure: [Duels/Grande Table/Tribunal/Socratique]
+   - Reasoning: [1-2 sentences explaining your choices]
+
+   Mode rules:
+   - **Light** (1-2 tensions, low stakes): 3-4 characters + Socrate. Fast, focused.
+   - **Standard** (3-4 tensions, or medium stakes): 5-7 characters + Socrate. Full assembly.
+   - **Deep** (5+ tensions, or high stakes): 7-10 characters + Socrate. Comprehensive.
+
+   Debate structure rules:
+   - **Duels**: Best for binary decisions — paired opponents go 1v1 on specific tensions
+   - **Grande Table**: Best for multi-factor analysis — open discussion with rotating focus
+   - **Tribunal**: Best for stress-testing a specific proposal — prosecutors attack, jury evaluates
+   - **Socratique**: Best for values/philosophical questions — Socrate leads through questions only
 
 Format your output as clean markdown with ## headings for each section.
 
@@ -43,13 +80,14 @@ Topic: ${topic}`;
 export function characterGenerationPrompt(
   topic: string,
   domainAnalysis: string,
+  characterCount: number,
   codeContext?: string
 ): string {
   const codeSection = codeContext
     ? `\n\n## Codebase Reference\n\nA codebase has been linked to this assembly. Characters should be aware of and reference the actual codebase when forming their positions. The code context is available in the domain analysis.\n`
     : "";
 
-  return `You are a character architect creating a diverse intellectual assembly of 6 domain experts plus a moderator (Socrate) to debate a topic.${codeSection}
+  return `You are a character architect creating a diverse intellectual assembly of ${characterCount} domain experts plus a moderator (Socrate) to debate a topic.${codeSection}
 
 ## Rules for Character Generation
 
@@ -61,11 +99,23 @@ export function characterGenerationPrompt(
    - One character representing an underrepresented or non-Western perspective
    - One character who bridges disciplines or takes a heterodox position
 
-2. **Biographical Depth**: Each character needs a believable biography that explains HOW they came to their views — not just WHAT they believe. Include formative experiences, career trajectory, and key turning points.
+2. **Biographical Depth**: Each biography must be 80-100 words focused on TURNING POINTS that CREATED their framework — not a CV summary.
+   - NOT: "Dr. Chen studied economics at MIT and published widely on market theory." (describes credentials)
+   - YES: "When Chen's model predicted the 2008 crash and her department chair told her to bury it, she learned that institutions protect consensus, not truth. She quit academia." (shows how the framework was forged)
 
-3. **No Strawmen**: Every character must be the strongest possible version of their perspective. Even if a position seems wrong to most people, the character holding it must articulate it with sophistication and evidence.
+3. **No Strawmen**: Every character must be the strongest possible version of their perspective. If you can reconcile two characters' positions easily, they're not different enough.
 
 4. **Tag System**: Each character gets a single-word TAG in caps that captures their core archetype (e.g., PRAGMATIST, RADICAL, GUARDIAN, BRIDGE, DISSENTER, EMPIRICIST).
+
+5. **Process Roles**: Distribute these roles across characters (${characterCount >= 5 ? "all 4 required" : "at least 3 required"}):
+   - SKEPTIC — challenges assumptions, asks "what could go wrong?"
+   - CRAFT — insists on quality, precision, and getting details right
+   - ACCESS — advocates for clarity, accessibility, underrepresented perspectives
+   - PRAGMATIST — grounds discussion in practical constraints and implementation
+
+6. **Character Voice Rules**: Characters EMBODY their framework — they don't ANNOUNCE it.
+   - NOT: "As a utilitarian thinker, I believe we should maximize outcomes..."
+   - YES: "The question isn't whether it feels right — it's whether more people are better off."
 
 ## Register Adaptation
 
@@ -88,7 +138,7 @@ For each character, output:
 ## Character N: Full Name [TAG: ROLE]
 
 ### Biography
-2-3 paragraphs of rich biographical detail explaining their background, formative experiences, and career path.
+80-100 words focused on turning points that created the framework. What happened to them that made them think this way?
 
 ### Ideological Framework
 Name and describe their core analytical framework in 1-2 paragraphs. Bold the framework name like **"Framework Name"**.
@@ -100,25 +150,39 @@ Numbered list of 3-5 concrete positions they hold on the specific topic.
 1 paragraph describing what this character systematically fails to see or underweights.
 
 ### Intellectual Heroes
-Bullet list of 3-5 real thinkers/practitioners who influence this character.
+2 real thinkers/practitioners with specific works cited (year + title). These should be real, verifiable works.
 
 ### Voice Example
-80-150 words modeling incisiveness, not eloquence. A brilliant person's most memorable statements are short. The goal: could you quote this person at a dinner party?
+50-80 words modeling incisiveness, not eloquence. A brilliant person's most memorable statements are short. The goal: could you quote this person at a dinner party?
 
-### Rhetorical Tendencies
-1 paragraph on how this character argues — their style, preferred evidence types, and persuasion approach.
+### Debate Style
+1-2 sentences on how they argue, what rhetorical moves they favor, and what makes them concede a point.
 
-### Key Relationships
-Bullet list describing their likely dynamic with 2-3 other characters in the assembly (use "Character N" references).
+---
 
-## Character 7: Socrate [TAG: MODERATOR]
+After all characters, output:
 
-Socrate is the assembly moderator. Give Socrate a brief biography as a veteran facilitator of intellectual discourse. Socrate's role is to:
-- Ask probing questions that expose assumptions
+## Tension Map
+
+A table showing framework incompatibilities and unexpected alliances:
+
+| Character A | Character B | Relationship | Core Disagreement |
+|-------------|-------------|-------------|-------------------|
+| [name] | [name] | [allies/opponents/tension] | [one sentence] |
+
+Include at least ${Math.max(3, characterCount - 1)} pairings. Focus on non-obvious relationships — where do expected allies actually disagree? Where do expected opponents secretly share premises?
+
+---
+
+## Character ${characterCount + 1}: Socrate [TAG: MODERATOR]
+
+Socrate is the assembly moderator. Give Socrate a brief biography as a veteran facilitator of intellectual discourse. Socrate's role is STRICTLY:
+- Ask questions ONLY — never state positions, never offer opinions
+- Expose hidden assumptions by asking characters to justify premises they take for granted
 - Force characters to engage with their blind spots
 - Identify when characters are talking past each other
-- Synthesize points of agreement and crystallize disagreements
-- Challenge the strongest arguments, not just the weakest ones
+- Challenge emerging consensus: "Which framework SHOULD disagree here? Why aren't they?"
+- NEVER smuggle positions as questions. "Don't you think X?" is advocacy, not inquiry. Instead: "What would have to be true for X to be wrong?"
 
 ## Context
 
@@ -141,7 +205,7 @@ export function referenceLibraryPrompt(
 
 ## Layer 1: Intellectual Traditions
 
-For each of the 6 characters (not Socrate), identify their intellectual tradition and list 4-6 key references that inform their worldview. These should be real works by real authors that a person with this character's perspective would draw upon.
+For each character (not Socrate), identify their intellectual tradition and list 4-6 key references that inform their worldview. These should be real works by real authors that a person with this character's perspective would draw upon.
 
 Format each tradition as:
 
@@ -221,43 +285,24 @@ ${referenceLibrary}`;
 export function debatePrompt(
   topic: string,
   characters: string,
-  referenceLibrary: string
+  referenceLibrary: string,
+  structure: string
 ): string {
-  return `You are orchestrating a Grande Table debate — a structured intellectual assembly where 6 expert characters and a moderator (Socrate) engage in rigorous, multi-round debate on a topic.
+  const structureInstructions = getDebateStructureInstructions(structure);
 
-## Debate Structure
+  return `You are orchestrating a ${structure} debate — a structured intellectual assembly where expert characters and a moderator (Socrate) engage in rigorous debate on a topic.
 
-The debate consists of 4 rounds. Each round has a specific structure:
-
-### Round 1: Opening Positions
-Each character states their core position on the topic in 2-3 paragraphs. Socrate introduces the topic and sets ground rules. Characters should reference their intellectual frameworks and key evidence.
-
-### Round 2: Direct Confrontations (Duels)
-Pair characters with opposing views for direct exchanges. Create 3 duels where characters directly challenge each other's positions. Each duel should have 2-3 exchanges per character. Socrate intervenes to sharpen disagreements and prevent talking past each other.
-
-### Round 3: Unexpected Alliances & Deep Dives
-Characters find surprising common ground across ideological lines. Characters who seemed opposed discover shared concerns. Socrate pushes characters to explore WHY they agree — is it genuine convergence or superficial overlap? Include at least one moment where a character updates their position based on evidence presented.
-
-### Round 4: Final Positions & Synthesis Attempt
-Each character gives a final statement (1-2 paragraphs) reflecting what they've learned. They must explicitly state: what they still believe, what they've updated on, and what remains unresolved. Socrate delivers a closing synthesis identifying key convergences, irreducible disagreements, and emergent ideas.
+${structureInstructions}
 
 ## Format Rules
 
-Use ## headings for each round:
-
-## Round 1: Opening Positions
+Use ## headings for each round/phase:
 
 Use bold for speaker names followed by colon:
 
 **Character Name:** Their speech text here spanning one or more paragraphs.
 
 **Socrate:** Moderator intervention text.
-
-For assembly reactions sections, use:
-
-**Assembly Reactions:**
-
-**Character Name:** Brief reaction.
 
 For Socrate interventions mid-round:
 
@@ -267,7 +312,7 @@ For Socrate interventions mid-round:
 
 ## Quality Rules
 
-1. Characters must speak IN CHARACTER — using their rhetorical style, referencing their intellectual heroes, drawing on evidence from the reference library
+1. Characters must speak IN CHARACTER — using their debate style, referencing their intellectual heroes, drawing on evidence from the reference library
 2. Characters must ENGAGE with each other's arguments, not just restate their own
 3. Include specific references to works from the reference library
 4. Show genuine intellectual tension — not polite disagreement but substantive conflict
@@ -277,7 +322,14 @@ For Socrate interventions mid-round:
 8. When characters cite evidence, they must reference works from the Reference Library provided. Characters must NOT invent new citations, studies, or statistics that aren't grounded in the library or clearly labeled as their professional judgment.
 9. Characters speak only when their framework genuinely informs the question. Not every character needs to respond to every point. If a character's framework doesn't add specific, substantive insight, they stay silent.
 10. Framework restatement is not insight. A character who takes a practical question and "reframes" it through their theoretical lens without answering it has failed. Engage the actual question first.
-11. Brevity signals understanding. A character who needs 300 words to make a point hasn't found the point yet. The best debate contributions are 2-4 sentences that change how everyone else thinks.
+11. Brevity signals understanding. If you can't say it in under 50 words, you don't understand it yet. The best debate contributions are 2-4 sentences that change how everyone else thinks.
+
+## Convergence Detection
+
+After every 3rd speaker, Socrate performs a framework audit:
+- Which frameworks are converging? Is the convergence genuine or are they just using different words for the same position?
+- Which framework SHOULD disagree here but isn't? Surface that disagreement.
+- Every convergence point must be tested: "We seem to agree on X — but [Character] should object based on their framework. Why haven't they?"
 
 ## Tone Adaptation
 
@@ -297,11 +349,83 @@ Reference Library:
 ${referenceLibrary}`;
 }
 
+function getDebateStructureInstructions(structure: string): string {
+  switch (structure) {
+    case "Duels":
+      return `## Debate Structure: Duels
+
+Paired framework opponents go 1v1 on specific tensions. This structure is best for binary decisions.
+
+### Setup
+Identify the key tensions from the domain analysis. Pair characters with opposing frameworks on each tension.
+
+### For each Duel:
+1. **Framing**: Socrate states the specific tension being debated in one sentence
+2. **Opening**: Each duelist states their position in 2-3 sentences
+3. **Exchange**: Characters go back and forth (3-5 exchanges each) until they locate the EXACT DIVERGING PREMISE — the specific assumption where they part ways — or one concedes
+4. **Resolution**: State clearly: did they find the diverging premise? Did either concede? What remains unresolved?
+5. **Observers**: 1-2 non-dueling characters state which argument they found more compelling and why
+
+Run 3 duels (or match the number of key tensions from the domain analysis). After all duels, Socrate synthesizes what the pattern of wins/losses reveals.`;
+
+    case "Tribunal":
+      return `## Debate Structure: Tribunal
+
+One member presents a thesis. Prosecutors attack. Jury evaluates survival. Best for stress-testing a specific proposal.
+
+### Run 2-3 Tribunals:
+
+For each Tribunal:
+1. **Thesis**: One character presents their core thesis on the topic in 3-4 sentences
+2. **Prosecution**: 3 characters attack the thesis from different angles. Each prosecutor gets 2-3 exchanges. They must attack PREMISES, not just conclusions.
+3. **Defense**: The thesis-holder responds to each attack
+4. **Jury Verdict**: Remaining characters evaluate: what survived? What was fatally damaged? What was modified?
+5. **Socrate's Summary**: What did this tribunal reveal about the strength of this position?
+
+Choose thesis-holders whose positions are strong enough to survive serious attack. The goal is not to destroy but to reveal which parts are load-bearing.`;
+
+    case "Socratique":
+      return `## Debate Structure: Socratique
+
+Socrate leads the entire assembly through questions only. Best for values-laden or philosophical questions.
+
+### Process:
+1. **Opening Question**: Socrate poses a foundational question about the topic to a specific character
+2. **Directed Inquiry**: Socrate asks follow-up questions to specific characters based on their answers, probing deeper into premises and assumptions
+3. **Cross-Examination**: Socrate asks one character to respond to another's answer: "Character A said X. Character B, does that hold from your perspective?"
+4. **Premise Surfacing**: Through continued questioning, Socrate reveals the fundamental premises each character holds — the bedrock assumptions they cannot give up
+5. **Closing**: Socrate summarizes the fundamental premises surfaced and where they are genuinely incompatible
+
+CRITICAL: Socrate asks questions ONLY throughout this entire structure. Never states positions. Never summarizes until the very end. Never says "Don't you think...?" (that's advocacy). Every question must be genuinely open: "What would have to be true for your position to be wrong?"
+
+Characters answer Socrate's questions. They may also address each other, but Socrate directs the flow.`;
+
+    default: // Grande Table
+      return `## Debate Structure: Grande Table
+
+Open multi-perspective discussion with rotating focus. Best for multi-factor analysis.
+
+The debate consists of 4 rounds:
+
+### Round 1: Opening Positions
+Each character states their core position on the topic in 2-3 sentences (NOT paragraphs — concise positions only). No monologues. Socrate introduces the topic.
+
+### Round 2: Direct Confrontations
+Characters directly challenge each other's positions. Create 3 focused exchanges where characters explain specifically why the other is wrong — not framework-vs-framework, but "this actually works differently because..." Socrate intervenes to sharpen disagreements.
+
+### Round 3: Unexpected Alliances & Deep Dives
+Characters find surprising common ground across ideological lines. Socrate pushes: "Why do you agree? Is this genuine convergence or are you using different words for different things?" At least one character updates their position based on evidence.
+
+### Round 4: Final Positions
+Each character states in 2-3 sentences: what they still believe, what they've updated on, what remains unresolved. Socrate delivers closing synthesis.`;
+  }
+}
+
 export function synthesisPrompt(
   topic: string,
   debateTranscript: string
 ): string {
-  return `You are an expert synthesizer analyzing the transcript of a multi-perspective intellectual debate (Grande Table) on a topic. Your job is to produce a rigorous synthesis that captures the full intellectual landscape revealed by the debate.
+  return `You are an expert synthesizer analyzing the transcript of a multi-perspective intellectual debate on a topic. Your job is to produce a rigorous synthesis that captures the full intellectual landscape revealed by the debate.
 
 **CRITICAL: The user asked a question or posed a topic. Your synthesis MUST directly answer or address it.** Do not just describe the debate abstractly — give the reader a clear, actionable answer informed by the debate. If the topic is a question, state the answer (or best answers) upfront, noting which characters support which position and why. If reasonable people disagree, say so explicitly — but still tell the reader what the weight of argument favors. State insights in plain language first. If an idea needs jargon to express, it hasn't been understood yet.
 
@@ -317,12 +441,12 @@ Answer the user's question or address their topic head-on in 2-4 paragraphs. Sta
 
 List points where multiple characters converged. For each:
 - **Bold the claim**
-- State which characters agreed
+- State which characters agreed AND explain why this convergence is meaningful — which incompatible frameworks agreed despite their differences?
 - Rate confidence: high / medium-high / medium / low
 - Provide the evidence basis
 
 Format:
-- **Bold the claim in one plain-language sentence, no jargon** — Characters A, B, and C converged on this. Confidence: **high**. Evidence: description of supporting evidence.
+- **Bold the claim in one plain-language sentence, no jargon** — Characters A, B, and C converged on this (meaningful because A and B hold incompatible frameworks on X). Confidence: **high**. Evidence: description of supporting evidence.
 
 ## Irreducible Divergences
 
@@ -335,17 +459,17 @@ Format:
 
 ## Emergent Ideas
 
-List ideas that emerged FROM the debate interaction — insights no single character held at the start but that arose from the exchange.
+List ideas that emerged FROM the debate interaction — insights no single character held at the start but that arose from the exchange. State each in under 20 words FIRST, then explain.
 
 Format:
-- **Bold the idea in one plain-language sentence, no jargon** — Brief description of how this emerged from the interaction between characters.
+- **Bold the idea in under 20 words** — Brief description of how this emerged from the interaction between characters.
 
-## Knowledge Gaps
+## Knowledge Gaps & Honest Failures
 
-List questions the debate revealed that current evidence cannot answer.
+Combine two things: (1) questions the debate revealed that current evidence cannot answer, and (2) what this assembly genuinely CANNOT answer — where the debate hit the limits of its expertise. "We don't know" is valid output.
 
 Format:
-- **Gap statement** — Why this matters and what research would be needed.
+- **Gap or failure statement** — Why this matters, whether it's answerable with more information, and what would be needed to resolve it.
 
 ## Recommendations
 
@@ -361,7 +485,12 @@ Note any surprising agreements between characters who were expected to disagree.
 Format:
 - **Alliance description** — Characters and what they unexpectedly agreed on.
 
-For every claim or recommendation: rewrite it in one sentence using no jargon. If the plain version sounds obvious or empty, the original was disguising a lack of substance — delete it.
+## Quality Gates (apply before finalizing)
+
+For every claim or recommendation:
+1. **Plaintext test**: Rewrite it in one sentence using no jargon. If the plain version sounds obvious or empty, the original was disguising a lack of substance — delete it.
+2. **Falsifiability test**: What evidence would disprove this claim? If nothing could disprove it, it's not saying anything.
+3. **Slop test**: Does this contain any of: "in today's rapidly evolving landscape", "it's important to note", "furthermore/moreover/additionally", "nuanced" as a substitute for a position, "multifaceted/holistic/synergy/stakeholders", sentences that could appear in any synthesis about any topic? Delete them.
 
 Topic: ${topic}
 
@@ -371,9 +500,12 @@ ${debateTranscript}`;
 
 export function deliverablePrompt(
   topic: string,
-  synthesis: string
+  synthesis: string,
+  outputType: string
 ): string {
-  return `You are producing the final deliverable document based on the synthesis of a multi-perspective intellectual assembly (Grande Table debate) on a topic.
+  const formatInstructions = getOutputTypeFormat(outputType);
+
+  return `You are producing the final deliverable document based on the synthesis of a multi-perspective intellectual assembly debate on a topic.
 
 ## Instructions
 
@@ -385,7 +517,26 @@ Based on the synthesis, produce a polished, actionable deliverable document. The
 4. **Be actionable** — Include concrete recommendations or frameworks
 5. **Credit multiple perspectives** — Show how different viewpoints informed the conclusions
 6. **Pass the Plaintext Test** — Every key claim must be expressible in one plain sentence with no jargon. If stripping the jargon makes the idea disappear, there was no idea.
-7. **No slop** — Reject: "in today's rapidly evolving landscape", "it's important to note", "furthermore/moreover/additionally" transitions, "nuanced" as a substitute for a position, "multifaceted/holistic/synergy/stakeholders", sentences that could appear in any document about any topic, five sentences where one would do, restating a simple idea in academic language to make it sound substantial.
+7. **Pass the Falsifiability Test** — For every major claim: what evidence would disprove it? If nothing could, the claim is empty.
+
+## Slop Test — BANNED PHRASES
+
+The following are BANNED. If you catch yourself writing any of these, delete and rewrite:
+- "in today's rapidly evolving landscape"
+- "it's important to note"
+- "furthermore" / "moreover" / "additionally" as transitions
+- "nuanced" as a substitute for stating a position
+- "multifaceted" / "holistic" / "synergy" / "stakeholders"
+- "it bears mentioning" / "it's worth noting"
+- "at the end of the day"
+- "navigate" (as metaphor for "deal with")
+- "leverage" (as verb meaning "use")
+- "robust" / "comprehensive" / "cutting-edge"
+- Any sentence that could appear in ANY document about ANY topic
+- Five sentences where one would do
+- Restating a simple idea in academic language to make it sound substantial
+
+${formatInstructions}
 
 ## Format
 
@@ -395,12 +546,6 @@ Use clean markdown with:
 - Numbered or bulleted lists where appropriate
 - Bold for key terms and recommendations
 - No more than 3000 words
-
-The deliverable should read as a professional document — a policy brief, strategic analysis, ethical framework, research synthesis, design principles document, action plan, or architecture plan — depending on what the domain analysis determined was most appropriate.
-
-**IMPORTANT: For software, coding, or engineering topics, the deliverable must be an architecture plan — covering system design, technology choices, trade-offs, component diagrams (in text), API contracts, and an implementation roadmap. Do NOT write actual code. Focus on the WHY behind architectural decisions, informed by the debate's multiple perspectives.**
-
-Include an "Executive Summary" section at the top (3-5 bullet points) and a "Key Recommendations" section near the end.
 
 **Register Adaptation:**
 - **Academic/Professional**: Use the professional document format described above.
@@ -412,6 +557,64 @@ Topic: ${topic}
 
 Synthesis:
 ${synthesis}`;
+}
+
+function getOutputTypeFormat(outputType: string): string {
+  switch (outputType) {
+    case "Decision Brief":
+      return `## Output Type: Decision Brief
+
+Structure as:
+1. **Decision Statement**: What exactly is being decided, in one sentence
+2. **Recommendation**: State the recommended option upfront with confidence level
+3. **Options Evaluated**: For each option, state: what it is, who advocated for it, strongest argument for, strongest argument against, conditions where it wins
+4. **Key Trade-offs**: The 2-3 trade-offs that actually matter (not a comprehensive list — just the ones that change the decision)
+5. **Decision Criteria**: What factors should tip the decision one way or another? Under what conditions would you change the recommendation?
+6. **What We Don't Know**: Uncertainties that could change the answer`;
+
+    case "Architecture/Design":
+      return `## Output Type: Architecture/Design
+
+Structure as:
+1. **Executive Summary**: 3-5 bullet points
+2. **Design Decision**: For each major architectural choice, state: the decision, alternatives considered, why this option wins, conditions where you'd reconsider
+3. **Component Design**: System components, their responsibilities, and interfaces (text diagrams, not code)
+4. **Trade-offs Accepted**: What you're giving up and why it's worth it
+5. **Implementation Roadmap**: Ordered steps with dependencies
+6. **Key Recommendations**: Concrete next steps
+
+Do NOT write actual code. Focus on the WHY behind architectural decisions.`;
+
+    case "Plan":
+      return `## Output Type: Plan
+
+Structure as:
+1. **Goal**: What success looks like, in one sentence
+2. **Key Moves**: The 3-5 actions that actually matter (not a 20-step checklist)
+3. **For Each Move**: What to do, why it works, common mistakes, how to know it's working
+4. **Sequence**: What order, what depends on what
+5. **Risks**: What could go wrong and contingencies
+6. **Key Recommendations**: Prioritized action items`;
+
+    case "Analysis":
+      return `## Output Type: Analysis
+
+Structure as:
+1. **Executive Summary**: 3-5 bullet points
+2. **Core Finding**: The main insight, stated plainly
+3. **Evidence**: What supports this finding, organized by strength
+4. **Counter-Evidence**: What challenges this finding
+5. **Implications**: What follows if this finding is correct
+6. **Limitations**: What this analysis can't tell you
+7. **Key Recommendations**: What to do with this information`;
+
+    default: // Essay/Writing, Code, or fallback
+      return `## Output Type: ${outputType || "Analysis"}
+
+Include an "Executive Summary" section at the top (3-5 bullet points) and a "Key Recommendations" section near the end.
+
+**IMPORTANT: For software, coding, or engineering topics, the deliverable must be an architecture plan — covering system design, technology choices, trade-offs, component diagrams (in text), API contracts, and an implementation roadmap. Do NOT write actual code. Focus on the WHY behind architectural decisions, informed by the debate's multiple perspectives.**`;
+  }
 }
 
 export function deliverableEvolutionPrompt(
@@ -503,56 +706,48 @@ export function verificationPrompt(
   deliverable: string,
   synthesis: string
 ): string {
-  return `You are running 4 verification checklists on the output of a multi-perspective intellectual assembly (Grande Table debate). Your job is to identify weaknesses, errors, and areas for improvement.
+  return `You are a verification agent. Your job is to audit the deliverable from a multi-perspective intellectual assembly and FIX problems inline — not write a separate report.
 
-## Produce 4 Verification Reports
+## Process
 
-For each verification type, use a ## heading and provide a detailed assessment.
+1. **Audit every factual claim, source, and statistic** in the deliverable:
+   - Is this real? (Does this source/statistic actually exist?)
+   - Is this accurate? (Is the claim correctly stated?)
+   - Is this current? (Is this outdated information presented as current?)
+   - Is the reasoning valid? Check for: causation vs correlation errors, overgeneralization, false precision (fake percentages), confidence laundering ("studies show" without citing which studies)
 
-## Fact-Check Verification
+2. **Fix problems inline**: Rewrite the deliverable with corrections applied directly. Do NOT just flag issues — fix them in the text.
+   - Replace fabricated citations with real ones or remove them
+   - Correct inaccurate statistics or remove false precision
+   - Flag genuinely unverifiable claims with [unverified] inline
+   - Fix reasoning errors (e.g., replace "X causes Y" with "X correlates with Y" where appropriate)
 
-Review all factual claims, statistics, and references in the deliverable and synthesis:
-- Flag any claims that appear unsupported or potentially inaccurate
-- Note any statistics used without proper sourcing
-- Identify any mischaracterizations of referenced works or thinkers
-- Pay special attention to fabricated citations — check whether referenced studies, authors, and institutions actually match what was in the reference library. Flag any citations that appear to have been invented during the debate rather than sourced from the library.
-- Rate overall factual reliability: HIGH / MEDIUM / LOW
+3. **Run slop test** on the deliverable and fix violations:
+   - Remove: "in today's rapidly evolving landscape", "it's important to note", "furthermore/moreover/additionally" transitions, "nuanced" without a position, "multifaceted/holistic/synergy/stakeholders", "it bears mentioning", "navigate" (metaphor), "leverage" (verb), "robust/comprehensive/cutting-edge"
+   - Remove any sentence that could appear in any document about any topic
+   - Condense five sentences into one where possible
 
-## Quality Verification
+4. **Run plaintext test**: For every key claim, strip jargon. If the plain version sounds obvious or empty, either rewrite with substance or delete.
 
-Assess the intellectual rigor of the assembly output:
-- Were all major perspectives on the topic represented?
-- Did the synthesis accurately reflect the debate dynamics?
-- Are the recommendations well-supported by the discussion?
-- Were any important viewpoints systematically excluded?
-- Run the Plaintext Test: for every claim, strip jargon and framework terminology. If the plain version sounds obvious or empty, the original disguised a lack of substance.
-- Check for slop: "in today's rapidly evolving landscape", "furthermore/moreover/additionally" transitions, "nuanced" without a position, "multifaceted/holistic/synergy", sentences that could appear in any output about any topic, five sentences where one would do, restating simple ideas in academic language.
-- Rate overall quality: HIGH / MEDIUM / LOW
+5. **Re-audit** the corrected version. Max 2 revision cycles. If something can't be verified, mark it [unverified] and move on.
 
-## Clarity Verification
+## Output Format
 
-Assess the communication quality:
-- Is the deliverable accessible to its target audience?
-- Are technical terms defined when first used?
-- Is the structure logical and easy to follow?
-- Are there any sections that are unclear or overly dense?
-- Could every key recommendation be stated in one plain sentence? If not, it's not clear enough.
-- Rate overall clarity: HIGH / MEDIUM / LOW
+Return the CORRECTED deliverable text — the full deliverable with all fixes applied inline. Then add at the end:
 
-## Reality Verification
+## Verification Notes
 
-Assess the practical applicability:
-- Are the recommendations implementable in the real world?
-- Do the recommendations account for political, economic, and social constraints?
-- Are there any recommendations that sound good in theory but would fail in practice?
-- Are resource requirements and timelines realistic?
-- Rate overall practicality: HIGH / MEDIUM / LOW
+Brief list of what was changed:
+- [what was changed and why]
+- [what was changed and why]
+- Number of corrections applied: N
+- Unverifiable claims flagged: N
 
 Topic: ${topic}
 
-Deliverable:
+Deliverable to verify and fix:
 ${deliverable}
 
-Synthesis:
+Synthesis (for context):
 ${synthesis}`;
 }

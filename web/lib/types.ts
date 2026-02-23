@@ -23,7 +23,8 @@ export interface Character {
   blindSpot: string;
   heroes: string[];
   rhetoricalTendencies: string;
-  relationships: string[];
+  debateStyle: string;
+  relationships?: string[];
   fullProfile: string;
   avatarUrl?: string;
 }

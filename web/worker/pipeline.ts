@@ -30,6 +30,45 @@ export interface PipelineConfig {
   updateParsedData: (data: unknown) => Promise<void>;
 }
 
+interface DomainAnalysisMetadata {
+  mode: string;
+  characterCount: number;
+  debateStructure: string;
+  outputType: string;
+}
+
+function parseDomainAnalysisMetadata(domainAnalysis: string): DomainAnalysisMetadata {
+  const modeMatch = domainAnalysis.match(/Recommended mode:\s*(Light|Standard|Deep)/i);
+  const countMatch = domainAnalysis.match(/Recommended character count:\s*(\d+)/i);
+  const structureMatch = domainAnalysis.match(/Recommended debate structure:\s*(Duels|Grande Table|Tribunal|Socratique)/i);
+  // Primary: match "Recommended output type: **Type**"
+  const recommendedMatch = domainAnalysis.match(/Recommended output type:\s*\*\*([^*]+)\*\*/i);
+  let outputType = recommendedMatch?.[1]?.trim() || "";
+
+  // Fallback: scan the Output Type section for the first bold type that matches a known type
+  if (!outputType) {
+    const outputSection = domainAnalysis.match(/Output Type Determination[\s\S]*?(?=##|$)/i);
+    if (outputSection) {
+      const typePatterns = ["Code", "Architecture/Design", "Essay/Writing", "Decision Brief", "Analysis", "Plan"];
+      for (const pattern of typePatterns) {
+        if (outputSection[0].includes(`**${pattern}**`)) {
+          outputType = pattern;
+          break;
+        }
+      }
+    }
+  }
+
+  if (!outputType) outputType = "Analysis";
+
+  return {
+    mode: modeMatch?.[1] || "Standard",
+    characterCount: countMatch ? parseInt(countMatch[1], 10) : 6,
+    debateStructure: structureMatch?.[1] || "Grande Table",
+    outputType,
+  };
+}
+
 async function callClaude(
   client: Anthropic,
   systemPrompt: string,
@@ -134,6 +173,11 @@ function buildParsedTopic(rawFiles: Record<string, string>, slug: string, topic:
     ? parseReferenceLibrary(rawFiles["reference-library.md"])
     : null;
 
+  // Detect debate structure from domain analysis
+  const debateStructure = rawFiles["domain-analysis.md"]
+    ? parseDomainAnalysisMetadata(rawFiles["domain-analysis.md"]).debateStructure
+    : "Grande Table";
+
   return {
     slug,
     title: topic,
@@ -141,7 +185,7 @@ function buildParsedTopic(rawFiles: Record<string, string>, slug: string, topic:
     iterations: rawFiles["debate-transcript.md"]
       ? [{
           number: 1,
-          structure: "Grande Table",
+          structure: debateStructure,
           synthesis: synthesisData,
           transcriptRaw: rawFiles["debate-transcript.md"],
           rounds,
@@ -151,9 +195,11 @@ function buildParsedTopic(rawFiles: Record<string, string>, slug: string, topic:
     deliverables: rawFiles["deliverable.md"]
       ? [{ slug: "main", title: "Deliverable", content: rawFiles["deliverable.md"] }]
       : [],
-    verification: rawFiles["verification.md"]
-      ? [{ type: "full", title: "Verification Report", content: rawFiles["verification.md"] }]
-      : [],
+    verification: rawFiles["verification-notes.md"]
+      ? [{ type: "notes", title: "Verification Notes", content: rawFiles["verification-notes.md"] }]
+      : rawFiles["verification.md"]
+        ? [{ type: "full", title: "Verification Report", content: rawFiles["verification.md"] }]
+        : [],
     referenceLibrary: rawFiles["reference-library.md"] || null,
     parsedReferenceLibrary: parsedRefLib,
     researchFiles: [],
@@ -183,13 +229,16 @@ export async function runPipeline(config: PipelineConfig): Promise<void> {
     await updateRawFiles(rawFiles);
   }
 
+  // Parse metadata from domain analysis for downstream phases
+  const metadata = parseDomainAnalysisMetadata(rawFiles["domain-analysis.md"]);
+
   // Phase 2: Character Generation
   if (!rawFiles["characters.md"]) {
     await updatePhase("character-generation");
     const result = await callClaude(
       client,
-      characterGenerationPrompt(topic, rawFiles["domain-analysis.md"], codeContext),
-      `Generate 6 characters + Socrate for the assembly on: ${topic}`,
+      characterGenerationPrompt(topic, rawFiles["domain-analysis.md"], metadata.characterCount, codeContext),
+      `Generate ${metadata.characterCount} characters + Socrate for the assembly on: ${topic}`,
       8192
     );
     rawFiles["characters.md"] = result;
@@ -238,7 +287,6 @@ export async function runPipeline(config: PipelineConfig): Promise<void> {
     );
     rawFiles["reference-audit.md"] = auditResult;
 
-    // Extract cleaned library: use content before the Audit Summary as the cleaned version
     // Replace the reference library with the audited version (which has confidence tags)
     rawFiles["reference-library.md"] = auditResult;
     await updateRawFiles(rawFiles);
@@ -253,9 +301,10 @@ export async function runPipeline(config: PipelineConfig): Promise<void> {
       debatePrompt(
         topic,
         rawFiles["characters.md"],
-        rawFiles["reference-library.md"]
+        rawFiles["reference-library.md"],
+        metadata.debateStructure
       ),
-      `Run the Grande Table debate on: ${topic}`,
+      `Run the ${metadata.debateStructure} debate on: ${topic}`,
       16384
     );
     rawFiles["debate-transcript.md"] = result;
@@ -282,7 +331,7 @@ export async function runPipeline(config: PipelineConfig): Promise<void> {
     await updatePhase("deliverable");
     const result = await callClaude(
       client,
-      deliverablePrompt(topic, rawFiles["synthesis.md"]),
+      deliverablePrompt(topic, rawFiles["synthesis.md"], metadata.outputType),
       `Produce the deliverable for: ${topic}`,
       8192
     );
@@ -291,8 +340,8 @@ export async function runPipeline(config: PipelineConfig): Promise<void> {
     await updateParsedData(buildParsedTopic(rawFiles, slug, topic));
   }
 
-  // Phase 7: Verification
-  if (!rawFiles["verification.md"]) {
+  // Phase 7: Verification (inline fixing — returns corrected deliverable)
+  if (!rawFiles["verification-notes.md"]) {
     await updatePhase("verification");
     const result = await callClaude(
       client,
@@ -301,10 +350,24 @@ export async function runPipeline(config: PipelineConfig): Promise<void> {
         rawFiles["deliverable.md"],
         rawFiles["synthesis.md"]
       ),
-      `Verify the assembly output for: ${topic}`,
+      `Verify and fix the deliverable for: ${topic}`,
       8192
     );
-    rawFiles["verification.md"] = result;
+
+    // Store original deliverable for reference
+    rawFiles["deliverable-pre-verification.md"] = rawFiles["deliverable.md"];
+
+    // Parse: everything before "## Verification Notes" is the corrected deliverable
+    const notesMarker = result.indexOf("## Verification Notes");
+    if (notesMarker !== -1) {
+      rawFiles["deliverable.md"] = result.slice(0, notesMarker).trim();
+      rawFiles["verification-notes.md"] = result.slice(notesMarker).trim();
+    } else {
+      // Fallback: treat entire result as corrected deliverable
+      rawFiles["deliverable.md"] = result;
+      rawFiles["verification-notes.md"] = "## Verification Notes\n\nNo explicit notes section returned by verifier.";
+    }
+
     await updateRawFiles(rawFiles);
   }
 

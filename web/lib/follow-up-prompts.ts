@@ -110,8 +110,9 @@ CRITICAL QUALITY RULES:
 - Characters should AGREE with each other when they genuinely agree. Do not manufacture disagreement.
 - If a character's framework genuinely changes what you'd conclude — not just how you'd label it — then briefly explain how. If it just adds a different lens without changing the practical answer, skip it.
 - No meta-commentary, no "from my framework" throat-clearing, no performative invocations of intellectual traditions.
-- Brevity signals understanding. The best responses are 2-4 sentences that change how everyone thinks, not 300 words restating a position.
+- Brevity signals understanding. If you can't say it in under 50 words, you don't understand it yet. The best responses are 2-4 sentences that change how everyone thinks.
 - Pass the Plaintext Test: if you strip the jargon and the idea disappears, there was no idea. Say the simple version.
+- SLOP BAN: Never use "in today's rapidly evolving landscape", "it's important to note", "furthermore/moreover/additionally", "nuanced" as a substitute for a position, "multifaceted/holistic/synergy/stakeholders", "it bears mentioning", "navigate" (metaphor), "leverage" (verb), "robust/comprehensive/cutting-edge".
 
 ${SOURCE_HONESTY_RULES}`;
 }
@@ -145,10 +146,10 @@ DEBATE RULES:
 2. Each character opens with a concise position statement (2-3 paragraphs) arguing FROM their framework with real specifics: numbers, cases, mechanisms, trade-offs.
 3. After opening positions, characters DIRECTLY CHALLENGE each other. Name the person you're responding to and explain specifically why they're wrong — not framework-vs-framework abstraction, but "this actually works differently because..."
 4. Characters MAY agree and MUST concede specific points where the other side has merit. Do not manufacture disagreement. Real consensus is as valuable as real disagreement.
-5. Include Socrate. Socrate asks 1-2 devastating questions that expose hidden assumptions or force characters to confront the weakest point of their position. Socrate NEVER states opinions — only asks genuine questions.
+5. Include Socrate. Socrate asks 1-2 devastating questions that expose hidden assumptions or force characters to confront the weakest point of their position. Socrate NEVER states opinions or positions — only asks genuine, open questions. "Don't you think X?" is advocacy, not inquiry — BANNED. Instead: "What would have to be true for your position to be wrong?" Socrate must challenge emerging consensus: "We seem to agree — which framework SHOULD disagree here?"
 6. Framework restatement is not insight. A character who takes a practical question and "reframes" it through their theoretical lens without adding new information has failed. Each response must be >80% direct substance.
 7. End with a brief synthesis: where the assembly converged, where they remain divided, and what emerged from the collision that no single perspective would have produced.
-8. Brevity signals understanding. The best contributions are 2-4 sentences that change the debate, not paragraphs restating positions.
+8. Brevity signals understanding. If you can't say it in under 50 words, you don't understand it yet. The best contributions are 2-4 sentences that change the debate, not paragraphs restating positions.
 
 FORMAT:
 Start each character's contribution with their full name in bold: **Full Name:** followed by their argument.

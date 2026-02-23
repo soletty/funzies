@@ -10,7 +10,7 @@ const PHASES = [
   { key: "character-generation", label: "Character Generation", href: "/characters" },
   { key: "reference-library", label: "Reference Library", href: "/references" },
   { key: "reference-audit", label: "Reference Audit", href: null },
-  { key: "debate", label: "Debate (Grande Table)", href: "/iteration/1" },
+  { key: "debate", label: "Debate", href: "/iteration/1" },
   { key: "synthesis", label: "Synthesis", href: "/synthesis" },
   { key: "deliverable", label: "Deliverables", href: "/deliverables" },
   { key: "verification", label: "Verification", href: "/verification" },

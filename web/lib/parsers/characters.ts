@@ -56,6 +56,7 @@ function parseCharactersFromMarkdown(markdown: string): Character[] {
         blindSpot: current.blindSpot ?? "",
         heroes: current.heroes ?? [],
         rhetoricalTendencies: current.rhetoricalTendencies ?? "",
+        debateStyle: current.debateStyle ?? "",
         relationships: current.relationships ?? [],
         fullProfile: fullProfileLines.join("\n").trim(),
       });
@@ -152,6 +153,8 @@ function applySection(
     key.includes("heroes")
   ) {
     current.heroes = parseBulletList(text);
+  } else if (key.includes("debate style")) {
+    current.debateStyle = text;
   } else if (key.includes("rhetorical") || key.includes("tendencies")) {
     current.rhetoricalTendencies = text;
   } else if (key.includes("relationship")) {
@@ -181,6 +184,8 @@ function applyInlineLabel(
       .split(/,\s*(?=[A-Z])/)
       .map((s) => s.trim())
       .filter((s) => s.length > 0);
+  } else if (key.includes("debate style")) {
+    current.debateStyle = value;
   } else if (key.includes("rhetorical")) {
     current.rhetoricalTendencies = value;
   } else if (
