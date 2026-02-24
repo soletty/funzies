@@ -73,3 +73,83 @@ CREATE TABLE IF NOT EXISTS follow_ups (
   insight JSONB,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- ============================================================
+-- Investment Committee (IC) tables
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS investor_profiles (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+  investment_philosophy TEXT,
+  risk_tolerance TEXT CHECK (risk_tolerance IN ('conservative', 'moderate', 'aggressive')),
+  asset_classes JSONB DEFAULT '[]',
+  current_portfolio TEXT,
+  geographic_preferences TEXT,
+  esg_preferences TEXT,
+  decision_style TEXT,
+  aum_range TEXT,
+  time_horizons JSONB DEFAULT '{}',
+  beliefs_and_biases TEXT,
+  raw_questionnaire JSONB DEFAULT '{}',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS ic_committees (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  profile_id UUID NOT NULL UNIQUE REFERENCES investor_profiles(id) ON DELETE CASCADE,
+  status TEXT NOT NULL DEFAULT 'queued'
+    CHECK (status IN ('queued', 'generating', 'active', 'error')),
+  members JSONB DEFAULT '[]',
+  avatar_mappings JSONB DEFAULT '{}',
+  raw_files JSONB DEFAULT '{}',
+  error_message TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS ic_evaluations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  committee_id UUID NOT NULL REFERENCES ic_committees(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  opportunity_type TEXT,
+  company_name TEXT,
+  thesis TEXT,
+  terms TEXT,
+  details JSONB DEFAULT '{}',
+  status TEXT NOT NULL DEFAULT 'queued'
+    CHECK (status IN ('queued', 'running', 'complete', 'error')),
+  current_phase TEXT,
+  raw_files JSONB DEFAULT '{}',
+  parsed_data JSONB DEFAULT '{}',
+  dynamic_specialists JSONB DEFAULT '[]',
+  error_message TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  completed_at TIMESTAMPTZ
+);
+
+CREATE TABLE IF NOT EXISTS ic_follow_ups (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  evaluation_id UUID NOT NULL REFERENCES ic_evaluations(id) ON DELETE CASCADE,
+  question TEXT NOT NULL,
+  mode TEXT NOT NULL DEFAULT 'ask-committee'
+    CHECK (mode IN ('ask-committee', 'ask-member', 'debate')),
+  target_member TEXT,
+  response_md TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS ic_ideas (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  committee_id UUID NOT NULL REFERENCES ic_committees(id) ON DELETE CASCADE,
+  focus_area TEXT,
+  status TEXT NOT NULL DEFAULT 'queued'
+    CHECK (status IN ('queued', 'running', 'complete', 'error')),
+  current_phase TEXT,
+  raw_files JSONB DEFAULT '{}',
+  parsed_data JSONB DEFAULT '{}',
+  error_message TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  completed_at TIMESTAMPTZ
+);
