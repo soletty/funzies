@@ -39,8 +39,6 @@ interface FormData {
   currentPortfolio: string;
   geographicPreferences: string;
   esgPreferences: string;
-  decisionApproach: string;
-  dataVsIntuition: string;
   timeHorizon: string;
   aumRange: string;
   regulatoryConstraints: string;
@@ -56,8 +54,6 @@ const INITIAL: FormData = {
   currentPortfolio: "",
   geographicPreferences: "",
   esgPreferences: "",
-  decisionApproach: "",
-  dataVsIntuition: "",
   timeHorizon: "",
   aumRange: "",
   regulatoryConstraints: "",
@@ -71,7 +67,6 @@ const STEPS = [
   { id: "portfolio", title: "Current Portfolio" },
   { id: "geography", title: "Geographic & Sector" },
   { id: "esg", title: "ESG / Impact" },
-  { id: "decision", title: "Decision Style" },
   { id: "aum", title: "AUM & Constraints" },
   { id: "beliefs", title: "Beliefs & Biases" },
 ];
@@ -122,9 +117,7 @@ export default function QuestionnaireForm() {
       currentPortfolio: form.currentPortfolio,
       geographicPreferences: form.geographicPreferences,
       esgPreferences: form.esgPreferences,
-      decisionStyle: [form.decisionApproach, form.dataVsIntuition]
-        .filter(Boolean)
-        .join("; "),
+      decisionStyle: "",
       aumRange: form.aumRange,
       timeHorizons: { primary: form.timeHorizon },
       beliefsAndBiases: form.beliefsAndBiases,
@@ -306,49 +299,19 @@ export default function QuestionnaireForm() {
         {step === 6 && (
           <>
             <div className="ic-field">
-              <label className="ic-field-label">Decision approach</label>
-              <div className="ic-radio-group">
-                {[
-                  { value: "consensus", label: "Consensus-driven" },
-                  { value: "top-down", label: "Top-down / decisive" },
-                ].map((opt) => (
-                  <label key={opt.value} className="ic-radio">
-                    <input
-                      type="radio"
-                      name="decisionApproach"
-                      value={opt.value}
-                      checked={form.decisionApproach === opt.value}
-                      onChange={() => update("decisionApproach", opt.value)}
-                    />
-                    <span className="ic-radio-label">{opt.label}</span>
-                  </label>
+              <label className="ic-field-label">AUM range</label>
+              <select
+                className="ic-select"
+                value={form.aumRange}
+                onChange={(e) => update("aumRange", e.target.value)}
+              >
+                <option value="">Select...</option>
+                {AUM_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
                 ))}
-              </div>
-            </div>
-            <div className="ic-field">
-              <label className="ic-field-label">
-                Analytical orientation
-              </label>
-              <div className="ic-radio-group">
-                {[
-                  { value: "data-driven", label: "Data-driven / quantitative" },
-                  {
-                    value: "intuition",
-                    label: "Intuition / qualitative judgment",
-                  },
-                ].map((opt) => (
-                  <label key={opt.value} className="ic-radio">
-                    <input
-                      type="radio"
-                      name="dataVsIntuition"
-                      value={opt.value}
-                      checked={form.dataVsIntuition === opt.value}
-                      onChange={() => update("dataVsIntuition", opt.value)}
-                    />
-                    <span className="ic-radio-label">{opt.label}</span>
-                  </label>
-                ))}
-              </div>
+              </select>
             </div>
             <div className="ic-field">
               <label className="ic-field-label">Primary time horizon</label>
@@ -359,26 +322,6 @@ export default function QuestionnaireForm() {
               >
                 <option value="">Select...</option>
                 {TIME_HORIZON_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </>
-        )}
-
-        {step === 7 && (
-          <>
-            <div className="ic-field">
-              <label className="ic-field-label">AUM range</label>
-              <select
-                className="ic-select"
-                value={form.aumRange}
-                onChange={(e) => update("aumRange", e.target.value)}
-              >
-                <option value="">Select...</option>
-                {AUM_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>
                     {opt.label}
                   </option>
@@ -402,7 +345,7 @@ export default function QuestionnaireForm() {
           </>
         )}
 
-        {step === 8 && (
+        {step === 7 && (
           <div className="ic-field">
             <label className="ic-field-label">
               What should your committee know about your views?
