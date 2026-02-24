@@ -8,6 +8,11 @@ import {
   runEvaluationPipeline,
   runIdeaPipeline,
 } from "./ic-pipeline.js";
+import {
+  runPanelPipeline,
+  runAnalysisPipeline,
+  runScreeningPipeline,
+} from "./clo-pipeline.js";
 
 if (!process.env.DATABASE_URL) {
   config({ path: ".env.local" });
@@ -178,7 +183,7 @@ async function claimCommitteeJob() {
 
 async function claimEvaluationJob() {
   const result = await pool.query(
-    `UPDATE ic_evaluations SET status = 'running', current_phase = 'opportunity-analysis', updated_at = NOW()
+    `UPDATE ic_evaluations SET status = 'running', current_phase = 'opportunity-analysis'
      WHERE id = (
        SELECT e.id FROM ic_evaluations e
        JOIN ic_committees c ON e.committee_id = c.id
@@ -294,6 +299,155 @@ async function pollIcJobs() {
   }
 }
 
+// ─── CLO Jobs ────────────────────────────────────────────────────────
+
+const CLO_ALLOWED_TABLES = new Set(["clo_panels", "clo_analyses", "clo_screenings"]);
+
+async function handleCloJobError(table: string, jobId: string, userId: string, err: unknown) {
+  const message = err instanceof Error ? err.message : "Unknown error";
+  console.error(`[worker] CLO ${table} ${jobId} failed: ${message}`);
+  if (!CLO_ALLOWED_TABLES.has(table)) throw new Error(`Invalid table name: ${table}`);
+  await pool.query(`UPDATE ${table} SET status = 'error', error_message = $1 WHERE id = $2`, [message, jobId]);
+  if (message.includes("Invalid API key")) {
+    await pool.query("UPDATE users SET api_key_valid = false WHERE id = $1", [userId]);
+  }
+}
+
+async function claimPanelJob() {
+  const result = await pool.query(
+    `UPDATE clo_panels SET status = 'generating', updated_at = NOW()
+     WHERE id = (
+       SELECT p.id FROM clo_panels p
+       JOIN clo_profiles pr ON p.profile_id = pr.id
+       WHERE p.status = 'queued'
+       ORDER BY p.created_at LIMIT 1
+       FOR UPDATE SKIP LOCKED
+     )
+     RETURNING id, profile_id,
+       (SELECT pr.user_id FROM clo_profiles pr WHERE pr.id = clo_panels.profile_id) as user_id,
+       raw_files`
+  );
+  return result.rows[0] ?? null;
+}
+
+async function claimAnalysisJob() {
+  const result = await pool.query(
+    `UPDATE clo_analyses SET status = 'running', current_phase = 'credit-analysis'
+     WHERE id = (
+       SELECT a.id FROM clo_analyses a
+       JOIN clo_panels p ON a.panel_id = p.id
+       JOIN clo_profiles pr ON p.profile_id = pr.id
+       WHERE a.status = 'queued'
+       ORDER BY a.created_at LIMIT 1
+       FOR UPDATE SKIP LOCKED
+     )
+     RETURNING id, panel_id,
+       (SELECT pr.user_id FROM clo_profiles pr
+        JOIN clo_panels p ON p.profile_id = pr.id
+        WHERE p.id = clo_analyses.panel_id) as user_id,
+       raw_files`
+  );
+  return result.rows[0] ?? null;
+}
+
+async function claimScreeningJob() {
+  const result = await pool.query(
+    `UPDATE clo_screenings SET status = 'running', current_phase = 'gap-analysis'
+     WHERE id = (
+       SELECT s.id FROM clo_screenings s
+       JOIN clo_panels p ON s.panel_id = p.id
+       JOIN clo_profiles pr ON p.profile_id = pr.id
+       WHERE s.status = 'queued'
+       ORDER BY s.created_at LIMIT 1
+       FOR UPDATE SKIP LOCKED
+     )
+     RETURNING id, panel_id,
+       (SELECT pr.user_id FROM clo_profiles pr
+        JOIN clo_panels p ON p.profile_id = pr.id
+        WHERE p.id = clo_screenings.panel_id) as user_id,
+       raw_files`
+  );
+  return result.rows[0] ?? null;
+}
+
+async function pollCloJobs() {
+  // Panel jobs
+  const panelJob = await claimPanelJob();
+  if (panelJob) {
+    console.log(`[worker] Claimed CLO panel job ${panelJob.id}`);
+    try {
+      const { encrypted, iv } = await getUserApiKey(panelJob.user_id);
+      const apiKey = decryptApiKey(encrypted, iv);
+      const { members } = await runPanelPipeline(pool, panelJob.profile_id, apiKey, panelJob.raw_files || {}, {
+        updatePhase: async (phase) => { console.log(`[worker] CLO panel ${panelJob.id}: ${phase}`); },
+        updateRawFiles: async (files) => {
+          await pool.query("UPDATE clo_panels SET raw_files = $1::jsonb, updated_at = NOW() WHERE id = $2", [JSON.stringify(files), panelJob.id]);
+        },
+        updateParsedData: async (data) => {
+          const parsed = data as { members: unknown[] };
+          await pool.query("UPDATE clo_panels SET members = $1::jsonb, updated_at = NOW() WHERE id = $2", [JSON.stringify(parsed.members || []), panelJob.id]);
+        },
+      });
+      await pool.query("UPDATE clo_panels SET status = 'active', members = $1::jsonb, updated_at = NOW() WHERE id = $2", [JSON.stringify(members), panelJob.id]);
+      console.log(`[worker] CLO panel ${panelJob.id} completed with ${members.length} members`);
+    } catch (err) {
+      await handleCloJobError("clo_panels", panelJob.id, panelJob.user_id, err);
+    }
+  }
+
+  // Analysis jobs
+  const analysisJob = await claimAnalysisJob();
+  if (analysisJob) {
+    console.log(`[worker] Claimed CLO analysis job ${analysisJob.id}`);
+    try {
+      const { encrypted, iv } = await getUserApiKey(analysisJob.user_id);
+      const apiKey = decryptApiKey(encrypted, iv);
+      await runAnalysisPipeline(pool, analysisJob.id, apiKey, analysisJob.raw_files || {}, {
+        updatePhase: async (phase) => {
+          console.log(`[worker] CLO analysis ${analysisJob.id}: ${phase}`);
+          await pool.query("UPDATE clo_analyses SET current_phase = $1 WHERE id = $2", [phase, analysisJob.id]);
+        },
+        updateRawFiles: async (files) => {
+          await pool.query("UPDATE clo_analyses SET raw_files = $1::jsonb WHERE id = $2", [JSON.stringify(files), analysisJob.id]);
+        },
+        updateParsedData: async (data) => {
+          await pool.query("UPDATE clo_analyses SET parsed_data = $1::jsonb WHERE id = $2", [JSON.stringify(data), analysisJob.id]);
+        },
+      });
+      await pool.query("UPDATE clo_analyses SET status = 'complete', completed_at = NOW() WHERE id = $1", [analysisJob.id]);
+      console.log(`[worker] CLO analysis ${analysisJob.id} completed`);
+    } catch (err) {
+      await handleCloJobError("clo_analyses", analysisJob.id, analysisJob.user_id, err);
+    }
+  }
+
+  // Screening jobs
+  const screeningJob = await claimScreeningJob();
+  if (screeningJob) {
+    console.log(`[worker] Claimed CLO screening job ${screeningJob.id}`);
+    try {
+      const { encrypted, iv } = await getUserApiKey(screeningJob.user_id);
+      const apiKey = decryptApiKey(encrypted, iv);
+      await runScreeningPipeline(pool, screeningJob.id, apiKey, screeningJob.raw_files || {}, {
+        updatePhase: async (phase) => {
+          console.log(`[worker] CLO screening ${screeningJob.id}: ${phase}`);
+          await pool.query("UPDATE clo_screenings SET current_phase = $1 WHERE id = $2", [phase, screeningJob.id]);
+        },
+        updateRawFiles: async (files) => {
+          await pool.query("UPDATE clo_screenings SET raw_files = $1::jsonb WHERE id = $2", [JSON.stringify(files), screeningJob.id]);
+        },
+        updateParsedData: async (data) => {
+          await pool.query("UPDATE clo_screenings SET parsed_data = $1::jsonb WHERE id = $2", [JSON.stringify(data), screeningJob.id]);
+        },
+      });
+      await pool.query("UPDATE clo_screenings SET status = 'complete', completed_at = NOW() WHERE id = $1", [screeningJob.id]);
+      console.log(`[worker] CLO screening ${screeningJob.id} completed`);
+    } catch (err) {
+      await handleCloJobError("clo_screenings", screeningJob.id, screeningJob.user_id, err);
+    }
+  }
+}
+
 // ─── Poll Loop ──────────────────────────────────────────────────────
 
 async function pollLoop() {
@@ -328,6 +482,9 @@ async function pollLoop() {
 
       // IC jobs
       await pollIcJobs();
+
+      // CLO jobs
+      await pollCloJobs();
     } catch (err) {
       console.error("[worker] Poll error:", err);
     }

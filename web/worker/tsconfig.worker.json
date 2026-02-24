@@ -12,6 +12,6 @@
     "sourceMap": false,
     "skipLibCheck": true
   },
-  "include": ["../worker/**/*.ts", "../lib/parsers/**/*.ts", "../lib/ic/**/*.ts", "../lib/types.ts", "../lib/crypto.ts", "../lib/db.ts"],
-  "exclude": ["../lib/ic/access.ts"]
+  "include": ["../worker/**/*.ts", "../lib/parsers/**/*.ts", "../lib/ic/**/*.ts", "../lib/clo/**/*.ts", "../lib/types.ts", "../lib/crypto.ts", "../lib/db.ts"],
+  "exclude": ["../lib/ic/access.ts", "../lib/clo/access.ts"]
 }
