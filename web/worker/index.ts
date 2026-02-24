@@ -203,7 +203,7 @@ async function claimEvaluationJob() {
 
 async function claimIdeaJob() {
   const result = await pool.query(
-    `UPDATE ic_ideas SET status = 'running', current_phase = 'gap-analysis', updated_at = NOW()
+    `UPDATE ic_ideas SET status = 'running', current_phase = 'gap-analysis'
      WHERE id = (
        SELECT i.id FROM ic_ideas i
        JOIN ic_committees c ON i.committee_id = c.id
