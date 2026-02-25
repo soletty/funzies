@@ -14,7 +14,7 @@ const TYPE_LABELS: Record<string, string> = {
 const PRODUCT_PHOTOS: Record<ProductType, string | null> = {
   tshirt: "/merch/tshirt.jpg",
   hoodie: "/merch/hoodie.jpg",
-  poster: "/merch/poster.jpg",
+  poster: null,
   tote: "/merch/tote.jpg",
   sticker: null,
 };
@@ -36,27 +36,41 @@ function StickerSvg({ text }: { text: string }) {
   );
 }
 
+function PosterSvg({ text }: { text: string }) {
+  return (
+    <div className="merch-poster-card">
+      <div className="merch-poster-inner">
+        <div className="merch-poster-text">{text}</div>
+        <div className="merch-poster-accent" />
+      </div>
+    </div>
+  );
+}
+
 function ProductCard({ product }: { product: Product }) {
   const photo = PRODUCT_PHOTOS[product.type];
   const overlayColor = hsl(product.hue, 60, 20);
 
+  const renderContent = () => {
+    if (photo) {
+      return (
+        <>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={photo} alt={TYPE_LABELS[product.type]} />
+          <div className="merch-print-overlay" style={{ color: overlayColor }}>
+            {product.text}
+          </div>
+        </>
+      );
+    }
+    if (product.type === "poster") return <PosterSvg text={product.text} />;
+    return <StickerSvg text={product.text} />;
+  };
+
   return (
     <div className="merch-card">
       <div className={`merch-photo-wrap merch-photo-${product.type}`}>
-        {photo ? (
-          <>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={photo} alt={TYPE_LABELS[product.type]} />
-            <div
-              className="merch-print-overlay"
-              style={{ color: overlayColor }}
-            >
-              {product.text}
-            </div>
-          </>
-        ) : (
-          <StickerSvg text={product.text} />
-        )}
+        {renderContent()}
       </div>
       <div className="merch-card-info">
         <span className="merch-card-type">{TYPE_LABELS[product.type] || product.type}</span>
