@@ -2850,8 +2850,8 @@
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  background: #1a1714;
-  border-right: 1px solid rgba(224, 90, 51, 0.1);
+  background: var(--color-surface);
+  border-right: 1px solid var(--color-border-light);
   padding: 1.5rem 1rem;
 }
 
@@ -2867,12 +2867,12 @@
   font-family: var(--font-display);
   font-size: 1.1rem;
   font-weight: 700;
-  color: #f0ece4;
+  color: var(--color-text);
   text-decoration: none;
 }
 
 .pulse-sidebar-logo:hover {
-  color: #e05a33;
+  color: var(--color-accent);
   text-decoration: none;
 }
 
@@ -2883,10 +2883,9 @@
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: #e05a33;
-  border: 1px solid rgba(224, 90, 51, 0.4);
+  border: 1px solid #e05a33;
   border-radius: 2px;
   padding: 0.15rem 0.4rem;
-  background: rgba(224, 90, 51, 0.08);
 }
 
 .pulse-sidebar-nav {
@@ -2901,22 +2900,22 @@
   align-items: center;
   gap: 0.6rem;
   padding: 0.55rem 0.75rem;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   font-size: 0.88rem;
   font-weight: 500;
-  color: #a8a097;
+  color: var(--color-text-secondary);
   text-decoration: none;
   transition: all 0.15s ease;
 }
 
 .pulse-nav-link:hover {
-  background: rgba(224, 90, 51, 0.08);
-  color: #f0ece4;
+  background: var(--color-surface-hover);
+  color: var(--color-text);
   text-decoration: none;
 }
 
 .pulse-nav-link-muted {
-  color: #6b6560;
+  color: var(--color-text-muted);
   font-size: 0.82rem;
 }
 
@@ -2929,7 +2928,7 @@
 .pulse-sidebar-footer {
   margin-top: auto;
   padding-top: 1rem;
-  border-top: 1px solid rgba(224, 90, 51, 0.1);
+  border-top: 1px solid var(--color-border-light);
 }
 
 .pulse-main {
@@ -2937,8 +2936,6 @@
   min-width: 0;
   padding: 2.5rem 3rem 4rem;
   overflow-y: auto;
-  background: #15120f;
-  color: #e8e4dc;
 }
 
 /* ─── Pulse Access Gate ─── */
@@ -2967,7 +2964,7 @@
   justify-content: center;
   min-height: 100vh;
   width: 100%;
-  background: #0d0b09;
+  background: var(--color-bg);
   overflow: hidden;
 }
 
@@ -3014,7 +3011,7 @@
 
 .pulse-gate-label {
   display: inline-block;
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 0.72rem;
   font-weight: 600;
   letter-spacing: 0.25em;
@@ -3026,11 +3023,11 @@
 }
 
 .pulse-gate-title {
-  font-family: "Playfair Display", Georgia, serif;
+  font-family: var(--font-display);
   font-size: 2.4rem;
   font-weight: 700;
   letter-spacing: -0.02em;
-  color: #f0ece4;
+  color: var(--color-text);
   margin-bottom: 1rem;
   line-height: 1.15;
   opacity: 0;
@@ -3038,8 +3035,8 @@
 }
 
 .pulse-gate-subtitle {
-  font-family: "Source Sans 3", sans-serif;
-  color: #6b6560;
+  font-family: var(--font-body);
+  color: var(--color-text-secondary);
   margin-bottom: 2.5rem;
   font-size: 0.9rem;
   line-height: 1.7;
@@ -3062,12 +3059,12 @@
 .pulse-gate-input {
   width: 100%;
   padding: 0.85rem 1.2rem;
-  border: 1px solid rgba(224, 90, 51, 0.2);
-  border-radius: 4px;
-  font-family: "JetBrains Mono", monospace;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
   font-size: 1rem;
-  background: rgba(224, 90, 51, 0.03);
-  color: #f0ece4;
+  background: var(--color-bg);
+  color: var(--color-text);
   text-align: center;
   letter-spacing: 0.15em;
   transition: border-color 0.25s ease, box-shadow 0.25s ease;
@@ -3076,11 +3073,11 @@
 .pulse-gate-input:focus {
   outline: none;
   border-color: #e05a33;
-  box-shadow: 0 0 0 3px rgba(224, 90, 51, 0.15), 0 0 20px rgba(224, 90, 51, 0.08);
+  box-shadow: 0 0 0 3px rgba(224, 90, 51, 0.15);
 }
 
 .pulse-gate-input::placeholder {
-  color: #3d3630;
+  color: var(--color-text-muted);
   letter-spacing: 0.3em;
   font-size: 1.1rem;
 }
@@ -3101,9 +3098,9 @@
   background: #e05a33;
   color: #fff;
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
-  font-family: "Source Sans 3", sans-serif;
+  font-family: var(--font-body);
   font-weight: 600;
   font-size: 0.9rem;
   letter-spacing: 0.04em;
@@ -3121,8 +3118,8 @@
 }
 
 .pulse-gate-submit:disabled {
-  background: #2a2420;
-  color: #4a4340;
+  background: var(--color-border-light);
+  color: var(--color-text-muted);
   cursor: not-allowed;
   transform: none;
   box-shadow: none;
@@ -3147,7 +3144,7 @@
 .pulse-gate-dot:nth-child(3) { animation-delay: 0.32s; }
 
 .pulse-gate-error {
-  color: #ef6b6b;
+  color: var(--color-low);
   font-size: 0.85rem;
   font-weight: 500;
 }
@@ -3158,11 +3155,11 @@
   justify-content: center;
   gap: 0.5rem;
   margin-top: 3rem;
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 0.65rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #3d3630;
+  color: var(--color-text-muted);
   opacity: 0;
   animation: fadeInUp 0.5s ease 0.9s forwards;
 }
@@ -3194,12 +3191,11 @@
   font-family: var(--font-display);
   font-size: 1.8rem;
   font-weight: 700;
-  color: #f0ece4;
   margin-bottom: 0.2rem;
 }
 
 .pulse-dashboard-header p {
-  color: #6b6560;
+  color: var(--color-text-secondary);
   font-size: 0.9rem;
   margin: 0;
 }
@@ -3227,16 +3223,16 @@
   border-radius: 999px;
   font-size: 0.8rem;
   font-weight: 500;
-  color: #6b6560;
-  background: rgba(224, 90, 51, 0.04);
-  border: 1px solid rgba(224, 90, 51, 0.1);
+  color: var(--color-text-secondary);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
   text-decoration: none;
   transition: all 0.15s ease;
 }
 
 .pulse-filter-chip:hover {
-  border-color: rgba(224, 90, 51, 0.3);
-  color: #a8a097;
+  border-color: var(--color-border);
+  color: var(--color-text);
   text-decoration: none;
 }
 
@@ -3259,12 +3255,11 @@
   font-family: var(--font-display);
   font-size: 1.4rem;
   font-weight: 700;
-  color: #f0ece4;
   margin-bottom: 1rem;
 }
 
 .pulse-empty-state p {
-  color: #6b6560;
+  color: var(--color-text-secondary);
   line-height: 1.7;
   margin-bottom: 2rem;
 }
@@ -3282,18 +3277,17 @@
   flex-direction: column;
   gap: 0.6rem;
   padding: 1.15rem 1.25rem;
-  background: #1a1714;
-  border: 1px solid rgba(224, 90, 51, 0.08);
-  border-radius: 6px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius);
   text-decoration: none;
   color: inherit;
   transition: all 0.2s ease;
 }
 
 .pulse-movement-card:hover {
-  border-color: rgba(224, 90, 51, 0.25);
-  box-shadow: 0 2px 12px rgba(224, 90, 51, 0.06);
-  transform: translateY(-2px);
+  border-color: rgba(224, 90, 51, 0.3);
+  box-shadow: var(--shadow-sm);
   text-decoration: none;
 }
 
@@ -3308,7 +3302,6 @@
   font-family: var(--font-display);
   font-size: 0.95rem;
   font-weight: 600;
-  color: #f0ece4;
   margin: 0;
   line-height: 1.3;
 }
@@ -3326,18 +3319,18 @@
 }
 
 .pulse-stage-detected {
-  background: rgba(100, 130, 220, 0.12);
-  color: #8090d0;
+  background: rgba(100, 100, 200, 0.1);
+  color: #6464c8;
 }
 
 .pulse-stage-verified {
-  background: rgba(45, 106, 79, 0.15);
-  color: #4a9e72;
+  background: rgba(45, 106, 79, 0.1);
+  color: #2d6a4f;
 }
 
 .pulse-stage-growing {
-  background: rgba(224, 170, 51, 0.12);
-  color: #d4a030;
+  background: rgba(224, 150, 51, 0.1);
+  color: #c07020;
 }
 
 .pulse-stage-trending {
@@ -3346,23 +3339,23 @@
 }
 
 .pulse-stage-peaked {
-  background: rgba(181, 74, 50, 0.15);
-  color: #c06040;
+  background: rgba(181, 74, 50, 0.1);
+  color: #b54a32;
 }
 
 .pulse-stage-declining {
-  background: rgba(140, 133, 124, 0.1);
-  color: #6b6560;
+  background: rgba(120, 120, 120, 0.1);
+  color: #888;
 }
 
 .pulse-stage-dormant {
-  background: rgba(80, 80, 80, 0.1);
-  color: #4a4440;
+  background: rgba(80, 80, 80, 0.08);
+  color: #999;
 }
 
 .pulse-card-geo {
   font-size: 0.8rem;
-  color: #6b6560;
+  color: var(--color-text-muted);
 }
 
 .pulse-card-momentum {
@@ -3373,15 +3366,15 @@
 
 .pulse-momentum-bar {
   flex: 1;
-  height: 3px;
-  background: rgba(224, 90, 51, 0.08);
+  height: 4px;
+  background: var(--color-border-light);
   border-radius: 2px;
   overflow: hidden;
 }
 
 .pulse-momentum-fill {
   height: 100%;
-  background: linear-gradient(90deg, #b54a32, #e05a33, #ff7b4f);
+  background: linear-gradient(90deg, #e05a33, #ff7b4f);
   border-radius: 2px;
   transition: width 0.3s ease;
 }
@@ -3390,7 +3383,7 @@
   font-family: var(--font-mono);
   font-size: 0.75rem;
   font-weight: 600;
-  color: #e05a33;
+  color: var(--color-text-secondary);
   min-width: 1.5rem;
   text-align: right;
 }
@@ -3404,7 +3397,7 @@
 .pulse-slogan-tag {
   font-size: 0.78rem;
   font-style: italic;
-  color: #6b6560;
+  color: var(--color-text-secondary);
   line-height: 1.4;
 }
 
@@ -3428,8 +3421,8 @@
   font-weight: 500;
   letter-spacing: 0.02em;
   padding: 0.1rem 0.4rem;
-  background: rgba(224, 90, 51, 0.06);
-  color: #6b6560;
+  background: var(--color-surface-alt, rgba(0, 0, 0, 0.04));
+  color: var(--color-text-muted);
   border-radius: 2px;
 }
 
@@ -3437,7 +3430,7 @@
   font-family: var(--font-mono);
   font-size: 0.7rem;
   font-weight: 600;
-  color: #4a4440;
+  color: var(--color-text-muted);
 }
 
 /* ─── Pulse Detail Page ─── */
@@ -3453,7 +3446,7 @@
   margin-bottom: 1.5rem;
   font-size: 0.82rem;
   font-weight: 500;
-  color: #e05a33;
+  color: var(--color-accent);
   text-decoration: none;
 }
 
@@ -3473,7 +3466,6 @@
   font-family: var(--font-display);
   font-size: 1.8rem;
   font-weight: 700;
-  color: #f0ece4;
   margin-bottom: 0.5rem;
 }
 
@@ -3486,12 +3478,12 @@
 
 .pulse-detail-geo {
   font-size: 0.85rem;
-  color: #a8a097;
+  color: var(--color-text-secondary);
 }
 
 .pulse-detail-date {
   font-size: 0.82rem;
-  color: #6b6560;
+  color: var(--color-text-muted);
 }
 
 .pulse-detail-scores {
@@ -3505,9 +3497,9 @@
   flex-direction: column;
   align-items: center;
   padding: 0.75rem 1rem;
-  background: #1a1714;
-  border: 1px solid rgba(224, 90, 51, 0.12);
-  border-radius: 6px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius);
   min-width: 80px;
 }
 
@@ -3520,7 +3512,7 @@
 
 .pulse-score-label {
   font-size: 0.7rem;
-  color: #6b6560;
+  color: var(--color-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -3533,19 +3525,18 @@
   font-family: var(--font-display);
   font-size: 1.15rem;
   font-weight: 600;
-  color: #f0ece4;
   margin-bottom: 0.75rem;
 }
 
 .pulse-detail-section p {
-  color: #a8a097;
+  color: var(--color-text-secondary);
   line-height: 1.7;
 }
 
 .pulse-detail-description {
   font-size: 0.95rem;
   line-height: 1.7;
-  color: #a8a097;
+  color: var(--color-text-secondary);
 }
 
 .pulse-slogans-list {
@@ -3557,11 +3548,11 @@
 .pulse-slogan-item {
   font-size: 1rem;
   font-style: italic;
-  color: #e8e4dc;
+  color: var(--color-text);
   padding: 0.5rem 0.75rem;
-  background: rgba(224, 90, 51, 0.04);
+  background: var(--color-surface);
   border-left: 3px solid #e05a33;
-  border-radius: 0 4px 4px 0;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
 
 .pulse-detail-tags {
@@ -3573,10 +3564,10 @@
 .pulse-phrase-tag {
   font-size: 0.8rem;
   padding: 0.2rem 0.6rem;
-  background: rgba(224, 90, 51, 0.06);
-  border: 1px solid rgba(224, 90, 51, 0.1);
-  border-radius: 4px;
-  color: #a8a097;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
 }
 
 /* ─── Pulse Signals ─── */
@@ -3589,7 +3580,6 @@
   font-family: var(--font-display);
   font-size: 0.95rem;
   font-weight: 600;
-  color: #f0ece4;
   margin-bottom: 0.5rem;
   display: flex;
   align-items: center;
@@ -3599,7 +3589,7 @@
 .pulse-signal-count {
   font-weight: 400;
   font-size: 0.8rem;
-  color: #4a4440;
+  color: var(--color-text-muted);
 }
 
 .pulse-signal-list {
@@ -3610,20 +3600,19 @@
 
 .pulse-signal-item {
   padding: 0.75rem 1rem;
-  background: #1a1714;
-  border: 1px solid rgba(224, 90, 51, 0.06);
-  border-radius: 4px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-sm);
 }
 
 .pulse-signal-title {
   font-size: 0.88rem;
   font-weight: 500;
-  color: #e8e4dc;
   margin-bottom: 0.25rem;
 }
 
 .pulse-signal-link {
-  color: #e8e4dc;
+  color: var(--color-text);
   text-decoration: none;
 }
 
@@ -3634,14 +3623,14 @@
 
 .pulse-signal-content {
   font-size: 0.8rem;
-  color: #6b6560;
+  color: var(--color-text-muted);
   line-height: 1.5;
   margin: 0;
 }
 
 .pulse-signal-date {
   font-size: 0.72rem;
-  color: #4a4440;
+  color: var(--color-text-muted);
 }
 
 /* ─── Pulse Scan ─── */
@@ -3652,75 +3641,8 @@
   animation: fadeInUp 0.5s ease both;
 }
 
-.pulse-scan .standalone-header h1 {
-  color: #f0ece4;
-}
-
-.pulse-scan .standalone-header p {
-  color: #6b6560;
-}
-
 .pulse-scan-trigger {
   margin-top: 2rem;
-}
-
-.pulse-scan .phase-row.active {
-  background: rgba(224, 90, 51, 0.06);
-  border-color: rgba(224, 90, 51, 0.15);
-}
-
-.pulse-scan .phase-label.done,
-.pulse-scan .phase-label.active {
-  color: #f0ece4;
-}
-
-.pulse-scan .phase-label.upcoming {
-  color: #4a4440;
-}
-
-.pulse-scan .phase-dot.upcoming {
-  background: #2a2420;
-  color: #4a4440;
-}
-
-.pulse-scan .phase-subtitle {
-  color: #6b6560;
-}
-
-.pulse-scan .phase-timing {
-  color: #6b6560;
-}
-
-.pulse-main .btn-primary {
-  background: #e05a33;
-}
-
-.pulse-main .btn-primary:hover {
-  background: #c94a28;
-  box-shadow: 0 4px 16px rgba(224, 90, 51, 0.3);
-}
-
-.pulse-main .btn-primary:disabled {
-  background: #2a2420;
-  color: #4a4440;
-}
-
-.pulse-main .btn-secondary {
-  border-color: rgba(224, 90, 51, 0.2);
-  color: #a8a097;
-  background: transparent;
-}
-
-.pulse-main .btn-secondary:hover {
-  border-color: rgba(224, 90, 51, 0.4);
-  color: #f0ece4;
-  background: rgba(224, 90, 51, 0.06);
-}
-
-.pulse-scan-error-actions {
-  margin-top: 1rem;
-  display: flex;
-  gap: 0.75rem;
 }
 
 .pulse-detail-actions {
@@ -3765,13 +3687,12 @@
   font-family: var(--font-display);
   font-size: 1.8rem;
   font-weight: 700;
-  color: #f0ece4;
   margin-bottom: 0.25rem;
 }
 
 .merch-header-sub {
   font-size: 0.9rem;
-  color: #a8a097;
+  color: var(--color-text-secondary);
   letter-spacing: 0.04em;
 }
 
@@ -3782,23 +3703,23 @@
 }
 
 .merch-card {
-  background: #1a1714;
-  border: 1px solid rgba(224, 90, 51, 0.08);
-  border-radius: 6px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius);
   overflow: hidden;
   transition: all 0.2s ease;
 }
 
 .merch-card:hover {
-  border-color: rgba(224, 90, 51, 0.25);
-  box-shadow: 0 2px 12px rgba(224, 90, 51, 0.06);
+  border-color: rgba(224, 90, 51, 0.3);
+  box-shadow: var(--shadow-sm);
   transform: translateY(-2px);
 }
 
 .merch-photo-wrap {
   position: relative;
   overflow: hidden;
-  background: #15120f;
+  background: var(--color-surface-alt, var(--color-bg));
   aspect-ratio: 4 / 5;
 }
 
@@ -3868,7 +3789,7 @@
   font-family: var(--font-display);
   font-size: 15px;
   font-weight: 800;
-  color: #fff;
+  color: #e05a33;
   text-align: center;
   line-height: 1.2;
   word-break: break-word;
@@ -3877,7 +3798,6 @@
   justify-content: center;
   height: 100%;
   text-transform: uppercase;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
 .merch-card-info {
@@ -3893,19 +3813,18 @@
   font-weight: 500;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: #e05a33;
+  color: var(--color-accent);
 }
 
 .merch-card-name {
   font-size: 0.9rem;
   font-weight: 600;
-  color: #f0ece4;
 }
 
 .merch-card-price {
   font-family: var(--font-mono);
   font-size: 0.85rem;
-  color: #a8a097;
+  color: var(--color-text-secondary);
   margin-top: 0.15rem;
 }
 

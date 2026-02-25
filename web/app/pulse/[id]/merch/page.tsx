@@ -23,22 +23,13 @@ function hsl(hue: number, s: number, l: number) {
   return `hsl(${hue}, ${s}%, ${l}%)`;
 }
 
-function StickerSvg({ text, hue }: { text: string; hue: number }) {
-  const bg = hsl(hue, 55, 50);
-  const bgDark = hsl(hue, 50, 40);
+function StickerSvg({ text }: { text: string }) {
   return (
     <svg viewBox="0 0 260 260" className="merch-sticker-svg">
-      <circle cx="134" cy="134" r="110" fill="rgba(0,0,0,0.12)" />
-      <circle cx="130" cy="130" r="110" fill={bgDark} />
-      <circle cx="130" cy="130" r="98" fill={bg} />
-      <circle
-        cx="130" cy="130" r="88"
-        fill="none" stroke="rgba(255,255,255,0.25)"
-        strokeWidth="1.5" strokeDasharray="6,4"
-      />
-      <text x="60" y="80" fontSize="14" fill="rgba(255,255,255,0.4)">&#9733;</text>
-      <text x="190" y="80" fontSize="14" fill="rgba(255,255,255,0.4)">&#9733;</text>
-      <foreignObject x="55" y="65" width="150" height="130">
+      <circle cx="130" cy="130" r="120" fill="#fff" />
+      <circle cx="130" cy="130" r="112" fill="none" stroke="#e05a33" strokeWidth="3" />
+      <circle cx="130" cy="130" r="104" fill="none" stroke="#e05a33" strokeWidth="1" strokeDasharray="4,3" />
+      <foreignObject x="40" y="55" width="180" height="150">
         <div className="merch-svg-text-sticker">{text}</div>
       </foreignObject>
     </svg>
@@ -64,7 +55,7 @@ function ProductCard({ product }: { product: Product }) {
             </div>
           </>
         ) : (
-          <StickerSvg text={product.text} hue={product.hue} />
+          <StickerSvg text={product.text} />
         )}
       </div>
       <div className="merch-card-info">
