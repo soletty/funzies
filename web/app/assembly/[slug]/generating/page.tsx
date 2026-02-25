@@ -210,13 +210,13 @@ function GeneratingContent() {
 
             if (isCompleted && phase.href && basePath) {
               return (
-                <Link
+                <a
                   key={phase.key}
                   href={`${basePath}${phase.href}`}
                   className={`phase-row ${state} clickable`}
                 >
                   {content}
-                </Link>
+                </a>
               );
             }
 

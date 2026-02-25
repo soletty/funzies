@@ -246,6 +246,18 @@ CREATE TABLE IF NOT EXISTS clo_follow_ups (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS user_api_tokens (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  token_hash TEXT NOT NULL,
+  token_prefix TEXT NOT NULL,
+  last_used_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_user_api_tokens_hash ON user_api_tokens (token_hash);
+CREATE INDEX IF NOT EXISTS idx_user_api_tokens_user ON user_api_tokens (user_id);
+
 CREATE TABLE IF NOT EXISTS clo_screenings (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   panel_id UUID NOT NULL REFERENCES clo_panels(id) ON DELETE CASCADE,
