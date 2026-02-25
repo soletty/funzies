@@ -3795,61 +3795,73 @@
   transform: translateY(-2px);
 }
 
-.merch-mockup {
+.merch-photo-wrap {
+  position: relative;
+  overflow: hidden;
+  background: #15120f;
+  aspect-ratio: 4 / 5;
+}
+
+.merch-photo-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.merch-print-overlay {
+  position: absolute;
+  font-family: var(--font-display);
+  font-weight: 800;
+  text-align: center;
+  line-height: 1.2;
+  word-break: break-word;
+  mix-blend-mode: multiply;
+  pointer-events: none;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.merch-photo-tshirt .merch-print-overlay {
+  top: 32%;
+  left: 25%;
+  width: 50%;
+  font-size: 1rem;
+}
+
+.merch-photo-hoodie .merch-print-overlay {
+  top: 30%;
+  left: 22%;
+  width: 56%;
+  font-size: 0.95rem;
+}
+
+.merch-photo-poster .merch-print-overlay {
+  top: 20%;
+  left: 15%;
+  width: 70%;
+  font-size: 1.3rem;
+  letter-spacing: 0.06em;
+}
+
+.merch-photo-tote .merch-print-overlay {
+  top: 35%;
+  left: 20%;
+  width: 60%;
+  font-size: 0.9rem;
+}
+
+.merch-photo-sticker {
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 1.25rem;
-  background: #15120f;
 }
 
-.merch-svg {
+.merch-sticker-svg {
   width: 100%;
   max-width: 180px;
   height: auto;
-}
-
-.merch-svg-text {
-  font-family: var(--font-display);
-  font-size: 14px;
-  font-weight: 700;
-  color: #fff;
-  text-align: center;
-  line-height: 1.3;
-  word-break: break-word;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
-}
-
-.merch-svg-text-poster {
-  font-family: var(--font-display);
-  font-size: 16px;
-  font-weight: 800;
-  text-align: center;
-  line-height: 1.3;
-  word-break: break-word;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.merch-svg-text-light {
-  font-family: var(--font-display);
-  font-size: 14px;
-  font-weight: 700;
-  text-align: center;
-  line-height: 1.3;
-  word-break: break-word;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
 }
 
 .merch-svg-text-sticker {

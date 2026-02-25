@@ -32,7 +32,8 @@ function deriveHue(name: string, type: ProductType): number {
 
 function derivePrice(seed: string, min: number, max: number): number {
   const h = hashString(seed);
-  return min + (h % ((max - min) * 100)) / 100;
+  const range = max - min;
+  return min + (h % (range + 1));
 }
 
 interface MovementData {
@@ -52,7 +53,7 @@ export function generateProducts(movement: MovementData): Product[] {
       type: "tshirt",
       name: "Classic Tee",
       text: slogan,
-      price: +derivePrice(`tshirt-${slogan}`, 24, 32).toFixed(2),
+      price: derivePrice(`tshirt-${slogan}`, 24, 32),
       hue: deriveHue(movement.name, "tshirt"),
     });
     products.push({
@@ -60,7 +61,7 @@ export function generateProducts(movement: MovementData): Product[] {
       type: "hoodie",
       name: "Pullover Hoodie",
       text: slogan,
-      price: +derivePrice(`hoodie-${slogan}`, 38, 54).toFixed(2),
+      price: derivePrice(`hoodie-${slogan}`, 38, 54),
       hue: deriveHue(movement.name, "hoodie"),
     });
   }
@@ -71,7 +72,7 @@ export function generateProducts(movement: MovementData): Product[] {
       type: "poster",
       name: "Wall Poster",
       text: phrase,
-      price: +derivePrice(`poster-${phrase}`, 18, 28).toFixed(2),
+      price: derivePrice(`poster-${phrase}`, 18, 28),
       hue: deriveHue(movement.name, "poster"),
     });
   }
@@ -81,7 +82,7 @@ export function generateProducts(movement: MovementData): Product[] {
     type: "tote",
     name: "Tote Bag",
     text: movement.name,
-    price: +derivePrice(`tote-${movement.name}`, 22, 30).toFixed(2),
+    price: derivePrice(`tote-${movement.name}`, 22, 30),
     hue: deriveHue(movement.name, "tote"),
   });
 
@@ -90,7 +91,7 @@ export function generateProducts(movement: MovementData): Product[] {
     type: "sticker",
     name: "Die-Cut Sticker",
     text: movement.name,
-    price: +derivePrice(`sticker-${movement.name}`, 4, 8).toFixed(2),
+    price: derivePrice(`sticker-${movement.name}`, 4, 8),
     hue: deriveHue(movement.name, "sticker"),
   });
 
