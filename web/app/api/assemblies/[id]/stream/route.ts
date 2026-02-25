@@ -51,15 +51,23 @@ export async function GET(
         slug: initial.slug,
       });
 
+      let closed = false;
+      const close = () => {
+        if (closed) return;
+        closed = true;
+        clearInterval(interval);
+        controller.close();
+      };
+
       const interval = setInterval(async () => {
+        if (closed) return;
         try {
           const rows = await query(
             "SELECT status, current_phase, slug FROM assemblies WHERE id = $1",
             [id]
           );
           if (!rows.length) {
-            clearInterval(interval);
-            controller.close();
+            close();
             return;
           }
 
@@ -79,19 +87,16 @@ export async function GET(
             });
 
             if (row.status === "complete" || row.status === "error" || row.status === "cancelled") {
-              clearInterval(interval);
-              controller.close();
+              close();
             }
           }
         } catch {
-          clearInterval(interval);
-          controller.close();
+          close();
         }
       }, 3000);
 
       request.signal.addEventListener("abort", () => {
-        clearInterval(interval);
-        controller.close();
+        close();
       });
     },
   });

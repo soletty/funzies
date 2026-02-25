@@ -90,6 +90,7 @@ function GeneratingContent() {
           if (data.slug) setSlug(data.slug);
           if (data.status === "complete" && data.slug) {
             sessionStorage.removeItem(`generating-${routeSlug}`);
+            sessionStorage.setItem(`assembly-complete-${routeSlug}`, "1");
             es.close();
             router.push(`/assembly/${data.slug}`);
           }
@@ -103,6 +104,7 @@ function GeneratingContent() {
           if (data.slug) setSlug(data.slug);
           if (data.status === "complete" && data.slug) {
             sessionStorage.removeItem(`generating-${routeSlug}`);
+            sessionStorage.setItem(`assembly-complete-${routeSlug}`, "1");
             es.close();
             router.push(`/assembly/${data.slug}`);
           }
@@ -115,7 +117,14 @@ function GeneratingContent() {
       }
     };
 
-    es.onerror = () => {};
+    let errorCount = 0;
+    es.onerror = () => {
+      errorCount++;
+      if (errorCount > 5) {
+        es.close();
+        setError("Lost connection to server. Please refresh the page.");
+      }
+    };
 
     return () => {
       es.close();

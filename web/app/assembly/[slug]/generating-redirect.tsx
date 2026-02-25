@@ -17,9 +17,15 @@ export function GeneratingRedirect({
 
   useEffect(() => {
     if (!isOnGenerating) {
+      try {
+        if (sessionStorage.getItem(`assembly-complete-${slug}`)) {
+          sessionStorage.removeItem(`assembly-complete-${slug}`);
+          return;
+        }
+      } catch {}
       router.replace(generatingPath);
     }
-  }, [isOnGenerating, generatingPath, router]);
+  }, [isOnGenerating, generatingPath, router, slug]);
 
   if (!isOnGenerating) return null;
 
