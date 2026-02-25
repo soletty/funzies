@@ -29,29 +29,60 @@ export function PulseAccessGate() {
   }
 
   return (
-    <div className="pulse-access-gate">
-      <div className="pulse-access-inner">
-        <span className="pulse-access-badge">PULSE</span>
-        <h1>Movement Detection Engine</h1>
-        <p>Enter the access code to view Pulse.</p>
-        <form onSubmit={handleSubmit} className="pulse-access-form">
-          <input
-            type="text"
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-            placeholder="Access code"
-            className="pulse-access-input"
-            autoFocus
-          />
+    <div className="pulse-gate">
+      <div className="pulse-gate-bg">
+        <div className="pulse-gate-ring pulse-gate-ring-1" />
+        <div className="pulse-gate-ring pulse-gate-ring-2" />
+        <div className="pulse-gate-ring pulse-gate-ring-3" />
+      </div>
+
+      <div className="pulse-gate-content">
+        <div className="pulse-gate-label">PULSE</div>
+        <h1 className="pulse-gate-title">Movement Detection Engine</h1>
+        <p className="pulse-gate-subtitle">
+          Real-time signal intelligence from six global data sources.
+          <br />
+          Enter access code to proceed.
+        </p>
+
+        <form onSubmit={handleSubmit} className="pulse-gate-form">
+          <div className="pulse-gate-input-wrap">
+            <input
+              type="text"
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              placeholder="&#x2022; &#x2022; &#x2022; &#x2022; &#x2022; &#x2022;"
+              className="pulse-gate-input"
+              autoFocus
+              autoComplete="off"
+              spellCheck={false}
+            />
+            <div className="pulse-gate-input-glow" />
+          </div>
+
           <button
             type="submit"
             disabled={loading || !code.trim()}
-            className="btn-primary"
+            className="pulse-gate-submit"
           >
-            {loading ? "Verifying..." : "Enter"}
+            {loading ? (
+              <span className="pulse-gate-loading">
+                <span className="pulse-gate-dot" />
+                <span className="pulse-gate-dot" />
+                <span className="pulse-gate-dot" />
+              </span>
+            ) : (
+              "Authenticate"
+            )}
           </button>
-          {error && <p className="pulse-access-error">{error}</p>}
+
+          {error && <p className="pulse-gate-error">{error}</p>}
         </form>
+
+        <div className="pulse-gate-footer">
+          <span className="pulse-gate-footer-dot" />
+          <span>Million Minds Intelligence</span>
+        </div>
       </div>
     </div>
   );

@@ -75,15 +75,15 @@ export default function PulseScanPage() {
       )}
 
       {hasError && (
-        <div style={{ marginTop: "1rem", display: "flex", gap: "0.75rem" }}>
+        <div className="pulse-scan-error-actions">
           <button
-            className="btn btn-primary"
+            className="btn-primary"
             onClick={() => router.push("/pulse")}
           >
             Back to Dashboard
           </button>
           <button
-            className="btn btn-secondary"
+            className="btn-secondary"
             onClick={() => {
               setScanId(null);
               setHasError(false);

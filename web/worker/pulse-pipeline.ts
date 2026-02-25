@@ -169,7 +169,11 @@ export async function runScanPipeline(
   initialRawFiles: Record<string, string>,
   callbacks: PipelineCallbacks
 ): Promise<void> {
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    throw new Error("ANTHROPIC_API_KEY environment variable is not set. Add it to your Railway service variables.");
+  }
+  const client = new Anthropic({ apiKey });
   const rawFiles: Record<string, string> = { ...initialRawFiles };
 
   // Phase 1: Fetch Sources

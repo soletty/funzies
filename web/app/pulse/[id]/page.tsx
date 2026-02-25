@@ -79,6 +79,12 @@ export default async function MovementDetailPage({
         </div>
       </header>
 
+      <div className="pulse-detail-actions">
+        <Link href={`/pulse/${movement.id}/merch`} className="pulse-merch-link">
+          View Merch Preview &rarr;
+        </Link>
+      </div>
+
       {movement.description && (
         <section className="pulse-detail-section">
           <p className="pulse-detail-description">{movement.description}</p>
