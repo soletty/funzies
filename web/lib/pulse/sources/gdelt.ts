@@ -1,4 +1,4 @@
-import { RawSignal } from "@/lib/pulse/types";
+import { RawSignal } from "../types";
 
 const GDELT_URL =
   "https://api.gdeltproject.org/api/v2/doc/doc?query=protest OR rally OR grassroots OR activism OR march OR boycott OR movement&mode=ArtList&maxrecords=75&format=json&timespan=60min";

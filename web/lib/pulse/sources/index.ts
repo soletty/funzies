@@ -1,4 +1,4 @@
-import { RawSignal } from "@/lib/pulse/types";
+import { RawSignal } from "../types";
 import { fetchSignals as fetchReddit } from "./reddit";
 import { fetchSignals as fetchGdelt } from "./gdelt";
 import { fetchSignals as fetchBluesky } from "./bluesky";

@@ -1,4 +1,4 @@
-import { RawSignal } from "@/lib/pulse/types";
+import { RawSignal } from "../types";
 import Parser from "rss-parser";
 
 const MOVEMENT_KEYWORDS = [

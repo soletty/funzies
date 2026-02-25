@@ -1,4 +1,4 @@
-import { RawSignal } from "@/lib/pulse/types";
+import { RawSignal } from "../types";
 
 const SUBREDDITS = [
   "activism",
