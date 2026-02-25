@@ -7,13 +7,21 @@ interface MemoViewerProps {
   memo: InvestmentMemo;
 }
 
+function isCaveatSection(heading: string): boolean {
+  const lower = heading.toLowerCase();
+  return lower.includes("what we don't know") || lower.includes("information gaps") || lower.includes("what we don\u2019t know");
+}
+
 export default function MemoViewer({ memo }: MemoViewerProps) {
   if (memo.sections?.length > 0) {
     return (
       <div className="ic-memo">
         <h1 className="ic-memo-title">{memo.title}</h1>
         {memo.sections.map((section, i) => (
-          <div key={i} className="ic-memo-section">
+          <div
+            key={i}
+            className={`ic-memo-section ${isCaveatSection(section.heading) ? "ic-memo-section-caveat" : ""}`}
+          >
             <h2>{section.heading}</h2>
             <div
               className="markdown-content"

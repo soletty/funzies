@@ -94,6 +94,7 @@ export interface ParsedAnalysis {
   recommendation?: CreditRecommendation;
   debate?: CloDebateRound[];
   individualAssessments?: IndividualCreditAssessment[];
+  premortem?: string;
 }
 
 export interface CreditMemo {

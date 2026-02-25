@@ -8,7 +8,15 @@ import type {
   VoteRecord,
 } from "../types.js";
 
-const VALID_VERDICTS: Verdict[] = ["strong_buy", "buy", "hold", "pass", "strong_pass"];
+const VALID_VERDICTS: Verdict[] = ["strongly_favorable", "favorable", "mixed", "unfavorable", "strongly_unfavorable"];
+
+const LEGACY_VERDICT_MAP: Record<string, Verdict> = {
+  strong_buy: "strongly_favorable",
+  buy: "favorable",
+  hold: "mixed",
+  pass: "unfavorable",
+  strong_pass: "strongly_unfavorable",
+};
 
 export function parseMemo(raw: string): InvestmentMemo {
   const lines = raw.split("\n");
@@ -107,39 +115,48 @@ export function parseRiskAssessment(raw: string): RiskAssessment {
   return { overallRisk, categories, mitigants, raw };
 }
 
+function normalizeVerdict(raw: string): Verdict {
+  const lower = raw.toLowerCase().replace(/\s+/g, "_");
+  if (VALID_VERDICTS.includes(lower as Verdict)) return lower as Verdict;
+  if (lower in LEGACY_VERDICT_MAP) return LEGACY_VERDICT_MAP[lower];
+  return "mixed";
+}
+
 export function parseRecommendation(raw: string): Recommendation {
   const votes: VoteRecord[] = [];
   const memberBlocks = raw.split(/\n(?=## \S)/);
+
+  const verdictPattern = /(?:Vote|Perspective)[:\s]*\*?\*?(strongly_favorable|favorable|mixed|unfavorable|strongly_unfavorable|strong_buy|buy|hold|pass|strong_pass)\*?\*?/i;
 
   for (const block of memberBlocks) {
     const nameMatch = block.match(/^## (.+)$/m);
     if (!nameMatch) continue;
     const name = nameMatch[1].trim().replace(/^\[|\]$/g, "");
-    if (name.toLowerCase() === "aggregate recommendation") continue;
+    if (/aggregate|committee perspective/i.test(name)) continue;
 
-    const voteMatch = block.match(/Vote:\s*\*?\*?(strong_buy|buy|hold|pass|strong_pass)\*?\*?/i);
-    const convictionMatch = block.match(/Conviction:\s*\*?\*?(high|medium|low)\*?\*?/i);
+    const voteMatch = block.match(verdictPattern);
+    const engagementMatch = block.match(/(?:Engagement|Conviction)[:\s]*\*?\*?(high|medium|low)\*?\*?/i);
     const rationaleMatch = block.match(/Rationale:\s*([\s\S]*?)(?=^## |\n\n## |$)/m);
 
     if (voteMatch) {
       votes.push({
         memberName: name,
-        vote: voteMatch[1].toLowerCase() as Verdict,
-        conviction: convictionMatch ? convictionMatch[1].toLowerCase() : "medium",
+        vote: normalizeVerdict(voteMatch[1]),
+        engagement: engagementMatch ? engagementMatch[1].toLowerCase() : "medium",
         rationale: rationaleMatch ? rationaleMatch[1].trim() : "",
       });
     }
   }
 
-  const aggregateSection = raw.match(/## Aggregate Recommendation\s*\n([\s\S]*?)$/i);
-  let verdict: Verdict = "hold";
+  const aggregateSection = raw.match(/## (?:Aggregate Recommendation|Committee Perspective)\s*\n([\s\S]*?)$/i);
+  let verdict: Verdict = "mixed";
   const dissents: string[] = [];
   const conditions: string[] = [];
 
   if (aggregateSection) {
-    const verdictMatch = aggregateSection[1].match(/Verdict[:\s]*\*?\*?(strong_buy|buy|hold|pass|strong_pass)\*?\*?/i);
-    if (verdictMatch && VALID_VERDICTS.includes(verdictMatch[1].toLowerCase() as Verdict)) {
-      verdict = verdictMatch[1].toLowerCase() as Verdict;
+    const verdictMatch = aggregateSection[1].match(/(?:Verdict|Perspective)[:\s]*\*?\*?(strongly_favorable|favorable|mixed|unfavorable|strongly_unfavorable|strong_buy|buy|hold|pass|strong_pass)\*?\*?/i);
+    if (verdictMatch) {
+      verdict = normalizeVerdict(verdictMatch[1]);
     }
 
     const dissentsMatch = aggregateSection[1].match(/Dissents?[:\s]*([\s\S]*?)(?=[-*]\s*\*?\*?Conditions?|\*?\*?Conditions?|$)/i);
@@ -162,12 +179,11 @@ export function parseRecommendation(raw: string): Recommendation {
       }
     }
   } else if (votes.length > 0) {
-    const voteCounts: Record<Verdict, number> = { strong_buy: 0, buy: 0, hold: 0, pass: 0, strong_pass: 0 };
+    const voteCounts: Record<Verdict, number> = { strongly_favorable: 0, favorable: 0, mixed: 0, unfavorable: 0, strongly_unfavorable: 0 };
     for (const v of votes) voteCounts[v.vote]++;
     const maxCount = Math.max(...Object.values(voteCounts));
     const tied = (Object.entries(voteCounts) as [Verdict, number][]).filter(([, c]) => c === maxCount);
-    // On tie, default to "hold" (most conservative neutral position)
-    verdict = tied.length === 1 ? tied[0][0] : "hold";
+    verdict = tied.length === 1 ? tied[0][0] : "mixed";
   }
 
   return { verdict, votes, dissents, conditions, raw };

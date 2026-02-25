@@ -47,6 +47,7 @@ export async function POST(request: NextRequest) {
   const {
     title,
     analysisType,
+    hasFiles,
     borrowerName,
     sector,
     loanType,
@@ -106,7 +107,7 @@ export async function POST(request: NextRequest) {
     ) VALUES (
       $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15,
       $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28,
-      $29, $30, $31, 'queued'
+      $29, $30, $31, $32
     ) RETURNING id`,
     [
       panel.id,
@@ -140,6 +141,7 @@ export async function POST(request: NextRequest) {
       switchRevenue || null,
       switchCompanyDescription || null,
       switchNotes || null,
+      hasFiles ? "uploading" : "queued",
     ]
   );
 

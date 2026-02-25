@@ -10,6 +10,7 @@ import {
   runEvaluationPipeline,
   runIdeaPipeline,
 } from "./ic-pipeline.js";
+import { logMonitoringEvent } from "../lib/ic/monitoring.js";
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
@@ -72,6 +73,14 @@ async function processCommitteeJob(job: {
   user_id: string;
   raw_files: Record<string, string>;
 }) {
+  const startTime = Date.now();
+  await logMonitoringEvent(pool, {
+    eventType: "committee_started",
+    entityType: "committee",
+    entityId: job.id,
+    userId: job.user_id,
+  });
+
   const { encrypted, iv } = await getUserApiKey(job.user_id);
   const apiKey = decryptApiKey(encrypted, iv);
 
@@ -104,6 +113,15 @@ async function processCommitteeJob(job: {
     "UPDATE ic_committees SET status = 'active', members = $1::jsonb, updated_at = NOW() WHERE id = $2",
     [JSON.stringify(members), job.id]
   );
+
+  await logMonitoringEvent(pool, {
+    eventType: "committee_complete",
+    entityType: "committee",
+    entityId: job.id,
+    userId: job.user_id,
+    durationMs: Date.now() - startTime,
+    metadata: { memberCount: members.length },
+  });
   console.log(`[ic-worker] Committee ${job.id} completed with ${members.length} members`);
 }
 
@@ -140,11 +158,34 @@ async function processEvaluationJob(job: {
   user_id: string;
   raw_files: Record<string, string>;
 }) {
+  const startTime = Date.now();
+  let lastPhase = "";
+  let phaseStartTime = Date.now();
+
+  await logMonitoringEvent(pool, {
+    eventType: "evaluation_started",
+    entityType: "evaluation",
+    entityId: job.id,
+    userId: job.user_id,
+  });
+
   const { encrypted, iv } = await getUserApiKey(job.user_id);
   const apiKey = decryptApiKey(encrypted, iv);
 
   await runEvaluationPipeline(pool, job.id, apiKey, job.raw_files || {}, {
     updatePhase: async (phase) => {
+      if (lastPhase) {
+        await logMonitoringEvent(pool, {
+          eventType: "evaluation_phase_complete",
+          entityType: "evaluation",
+          entityId: job.id,
+          userId: job.user_id,
+          phase: lastPhase,
+          durationMs: Date.now() - phaseStartTime,
+        });
+      }
+      lastPhase = phase;
+      phaseStartTime = Date.now();
       console.log(`[ic-worker] Evaluation ${job.id}: ${phase}`);
       await pool.query(
         "UPDATE ic_evaluations SET current_phase = $1 WHERE id = $2",
@@ -165,10 +206,29 @@ async function processEvaluationJob(job: {
     },
   });
 
+  if (lastPhase) {
+    await logMonitoringEvent(pool, {
+      eventType: "evaluation_phase_complete",
+      entityType: "evaluation",
+      entityId: job.id,
+      userId: job.user_id,
+      phase: lastPhase,
+      durationMs: Date.now() - phaseStartTime,
+    });
+  }
+
   await pool.query(
     "UPDATE ic_evaluations SET status = 'complete', completed_at = NOW() WHERE id = $1",
     [job.id]
   );
+
+  await logMonitoringEvent(pool, {
+    eventType: "evaluation_complete",
+    entityType: "evaluation",
+    entityId: job.id,
+    userId: job.user_id,
+    durationMs: Date.now() - startTime,
+  });
   console.log(`[ic-worker] Evaluation ${job.id} completed`);
 }
 
@@ -241,6 +301,12 @@ async function processIdeaJob(job: {
 
 const ALLOWED_TABLES = new Set(["ic_committees", "ic_evaluations", "ic_ideas"]);
 
+const TABLE_TO_ENTITY: Record<string, "committee" | "evaluation" | "idea"> = {
+  ic_committees: "committee",
+  ic_evaluations: "evaluation",
+  ic_ideas: "idea",
+};
+
 async function handleJobError(
   table: string,
   jobId: string,
@@ -257,6 +323,16 @@ async function handleJobError(
     `UPDATE ${table} SET status = 'error', error_message = $1 WHERE id = $2`,
     [message, jobId]
   );
+
+  const entityType = TABLE_TO_ENTITY[table] || "evaluation";
+  const eventType = isAuthError(err) ? "api_error" : `${entityType}_error`;
+  await logMonitoringEvent(pool, {
+    eventType: eventType as Parameters<typeof logMonitoringEvent>[1]["eventType"],
+    entityType,
+    entityId: jobId,
+    userId,
+    errorMessage: message,
+  });
 
   if (isAuthError(err)) {
     await pool.query(

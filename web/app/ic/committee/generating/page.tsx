@@ -5,9 +5,24 @@ import { useCallback, useState } from "react";
 import GeneratingProgress from "@/components/ic/GeneratingProgress";
 
 const PHASES = [
-  { key: "profile-analysis", label: "Profile Analysis" },
-  { key: "committee-generation", label: "Committee Generation" },
-  { key: "avatar-mapping", label: "Avatar Mapping" },
+  {
+    key: "profile-analysis",
+    label: "Analyzing Your Investment Profile",
+    subtitle: "Mapping your philosophy, risk tolerance, and asset preferences to identify the expertise your committee needs",
+    estimatedSeconds: 30,
+  },
+  {
+    key: "committee-generation",
+    label: "Assembling Your Committee",
+    subtitle: "Generating 5\u20137 senior investment professionals with diverse frameworks, specializations, and blind spots tailored to your approach",
+    estimatedSeconds: 60,
+  },
+  {
+    key: "avatar-mapping",
+    label: "Crafting Visual Identities",
+    subtitle: "Creating distinctive portraits for each committee member",
+    estimatedSeconds: 15,
+  },
 ];
 
 export default function CommitteeGeneratingPage() {

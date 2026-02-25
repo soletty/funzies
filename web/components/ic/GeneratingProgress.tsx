@@ -5,6 +5,8 @@ import { useEffect, useState, useRef } from "react";
 interface Phase {
   key: string;
   label: string;
+  subtitle?: string;
+  estimatedSeconds?: number;
 }
 
 interface GeneratingProgressProps {
@@ -22,8 +24,13 @@ export default function GeneratingProgress({
 }: GeneratingProgressProps) {
   const [completedPhases, setCompletedPhases] = useState<Set<string>>(new Set());
   const [errorMessage, setErrorMessage] = useState("");
+  const [activeStartTime, setActiveStartTime] = useState<number | null>(null);
+  const [elapsed, setElapsed] = useState(0);
   const eventSourceRef = useRef<EventSource | null>(null);
   const closedRef = useRef(false);
+
+  const activeIndex = phases.findIndex((p) => !completedPhases.has(p.key));
+  const activePhase = activeIndex >= 0 ? phases[activeIndex] : null;
 
   useEffect(() => {
     closedRef.current = false;
@@ -35,6 +42,8 @@ export default function GeneratingProgress({
 
       if (data.phases) {
         setCompletedPhases(new Set(data.phases));
+        setActiveStartTime(Date.now());
+        setElapsed(0);
       }
 
       if (data.status === "complete") {
@@ -65,7 +74,19 @@ export default function GeneratingProgress({
     };
   }, [streamUrl, onComplete, onError]);
 
-  const activeIndex = phases.findIndex((p) => !completedPhases.has(p.key));
+  useEffect(() => {
+    if (!activeStartTime || errorMessage) return;
+    const interval = setInterval(() => {
+      setElapsed(Math.floor((Date.now() - activeStartTime) / 1000));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [activeStartTime, errorMessage]);
+
+  function formatTime(seconds: number): string {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return m > 0 ? `${m}m ${s}s` : `${s}s`;
+  }
 
   return (
     <div className="progress-phases">
@@ -79,7 +100,17 @@ export default function GeneratingProgress({
             <div className={`phase-dot ${status}`}>
               {isDone ? "\u2713" : i + 1}
             </div>
-            <span className={`phase-label ${status}`}>{phase.label}</span>
+            <div className="phase-info">
+              <span className={`phase-label ${status}`}>{phase.label}</span>
+              {phase.subtitle && (
+                <span className={`phase-subtitle ${status}`}>{phase.subtitle}</span>
+              )}
+              {isActive && activePhase?.estimatedSeconds && (
+                <span className="phase-timing">
+                  {elapsed}s{activePhase.estimatedSeconds ? ` / ~${formatTime(activePhase.estimatedSeconds)}` : ""}
+                </span>
+              )}
+            </div>
           </div>
         );
       })}

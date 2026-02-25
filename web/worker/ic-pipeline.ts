@@ -18,6 +18,7 @@ import {
   dynamicSpecialistPrompt,
   individualAssessmentsPrompt,
   evaluationDebatePrompt,
+  premortemPrompt,
   investmentMemoPrompt,
   riskAssessmentPrompt,
   recommendationPrompt,
@@ -37,13 +38,41 @@ async function callClaude(
   systemPrompt: string,
   userMessage: string,
   maxTokens: number,
-  model: string = "claude-sonnet-4-20250514"
+  model: string = "claude-sonnet-4-20250514",
+  documents?: Array<{ name: string; type: string; base64: string }>
 ): Promise<string> {
   try {
+    const content: Anthropic.MessageCreateParams["messages"][0]["content"] =
+      documents && documents.length > 0
+        ? [
+            ...documents.map((doc) => {
+              if (doc.type === "application/pdf") {
+                return {
+                  type: "document" as const,
+                  source: {
+                    type: "base64" as const,
+                    media_type: "application/pdf" as const,
+                    data: doc.base64,
+                  },
+                };
+              }
+              return {
+                type: "image" as const,
+                source: {
+                  type: "base64" as const,
+                  media_type: doc.type as "image/jpeg" | "image/png" | "image/gif" | "image/webp",
+                  data: doc.base64,
+                },
+              };
+            }),
+            { type: "text" as const, text: userMessage },
+          ]
+        : userMessage;
+
     const response = await client.messages.create({
       model,
       max_tokens: maxTokens,
-      messages: [{ role: "user", content: userMessage }],
+      messages: [{ role: "user", content }],
       system: systemPrompt,
     });
 
@@ -238,13 +267,17 @@ export async function runEvaluationPipeline(
   }
   const profile = rowToProfile(profileRows.rows[0]);
 
+  const evalDetails = evalRow.details || {};
+  const documents: Array<{ name: string; type: string; base64: string }> =
+    evalDetails.documents || [];
+
   const evaluation = {
     title: evalRow.title,
     opportunityType: evalRow.opportunity_type,
     companyName: evalRow.company_name,
     thesis: evalRow.thesis,
     terms: evalRow.terms,
-    details: evalRow.details || {},
+    details: evalDetails,
   };
 
   const parsedData: Record<string, unknown> = evalRow.parsed_data || {};
@@ -262,6 +295,9 @@ export async function runEvaluationPipeline(
   if (rawFiles["risk-assessment.md"] && !parsedData.riskAssessment) {
     parsedData.riskAssessment = parseRiskAssessment(rawFiles["risk-assessment.md"]);
   }
+  if (rawFiles["premortem.md"] && !parsedData.premortem) {
+    parsedData.premortem = rawFiles["premortem.md"];
+  }
   if (rawFiles["recommendation.md"] && !parsedData.recommendation) {
     parsedData.recommendation = parseRecommendation(rawFiles["recommendation.md"]);
   }
@@ -270,7 +306,7 @@ export async function runEvaluationPipeline(
   if (!rawFiles["opportunity-analysis.md"]) {
     await callbacks.updatePhase("opportunity-analysis");
     const prompt = opportunityAnalysisPrompt(evaluation, profile);
-    const result = await callClaude(client, prompt.system, prompt.user, 8192);
+    const result = await callClaude(client, prompt.system, prompt.user, 8192, undefined, documents);
     rawFiles["opportunity-analysis.md"] = result;
     await callbacks.updateRawFiles(rawFiles);
   }
@@ -316,7 +352,7 @@ export async function runEvaluationPipeline(
       profile,
       history
     );
-    const result = await callClaude(client, prompt.system, prompt.user, 8192);
+    const result = await callClaude(client, prompt.system, prompt.user, 8192, undefined, documents);
     rawFiles["individual-assessments.md"] = result;
     await callbacks.updateRawFiles(rawFiles);
     parsedData.individualAssessments = parseIndividualAssessments(result);
@@ -332,14 +368,30 @@ export async function runEvaluationPipeline(
       rawFiles["opportunity-analysis.md"],
       profile
     );
-    const result = await callClaude(client, prompt.system, prompt.user, 16384);
+    const result = await callClaude(client, prompt.system, prompt.user, 16384, undefined, documents);
     rawFiles["debate.md"] = result;
     await callbacks.updateRawFiles(rawFiles);
     parsedData.debate = parseDebate(result);
     await callbacks.updateParsedData(parsedData);
   }
 
-  // Phase 5: Investment Memo
+  // Phase 5: Pre-Mortem
+  if (!rawFiles["premortem.md"]) {
+    await callbacks.updatePhase("premortem");
+    const prompt = premortemPrompt(
+      allMembers,
+      rawFiles["debate.md"],
+      rawFiles["opportunity-analysis.md"],
+      profile
+    );
+    const result = await callClaude(client, prompt.system, prompt.user, 8192);
+    rawFiles["premortem.md"] = result;
+    await callbacks.updateRawFiles(rawFiles);
+    parsedData.premortem = result;
+    await callbacks.updateParsedData(parsedData);
+  }
+
+  // Phase 6: Investment Memo
   if (!rawFiles["memo.md"]) {
     await callbacks.updatePhase("memo");
     const prompt = investmentMemoPrompt(
@@ -347,7 +399,8 @@ export async function runEvaluationPipeline(
       rawFiles["individual-assessments.md"],
       rawFiles["opportunity-analysis.md"],
       profile,
-      evaluation.title
+      evaluation.title,
+      rawFiles["premortem.md"]
     );
     const result = await callClaude(client, prompt.system, prompt.user, 8192);
     rawFiles["memo.md"] = result;
@@ -356,13 +409,14 @@ export async function runEvaluationPipeline(
     await callbacks.updateParsedData(parsedData);
   }
 
-  // Phase 6: Risk Assessment
+  // Phase 7: Risk Assessment
   if (!rawFiles["risk-assessment.md"]) {
     await callbacks.updatePhase("risk-assessment");
     const prompt = riskAssessmentPrompt(
       rawFiles["debate.md"],
       rawFiles["opportunity-analysis.md"],
-      profile
+      profile,
+      rawFiles["premortem.md"]
     );
     const result = await callClaude(client, prompt.system, prompt.user, 8192);
     rawFiles["risk-assessment.md"] = result;
@@ -371,7 +425,7 @@ export async function runEvaluationPipeline(
     await callbacks.updateParsedData(parsedData);
   }
 
-  // Phase 7: Recommendation
+  // Phase 8: Recommendation
   if (!rawFiles["recommendation.md"]) {
     await callbacks.updatePhase("recommendation");
     const prompt = recommendationPrompt(
@@ -379,7 +433,8 @@ export async function runEvaluationPipeline(
       rawFiles["risk-assessment.md"],
       rawFiles["debate.md"],
       allMembers,
-      profile
+      profile,
+      rawFiles["premortem.md"]
     );
     const result = await callClaude(client, prompt.system, prompt.user, 8192);
     rawFiles["recommendation.md"] = result;

@@ -9,6 +9,7 @@ const PHASES = [
   { key: "dynamic-specialists", label: "Specialist Check" },
   { key: "individual-assessments", label: "Individual Assessments" },
   { key: "debate", label: "Panel Debate" },
+  { key: "premortem", label: "Pre-Mortem Analysis" },
   { key: "memo", label: "Credit Memo" },
   { key: "risk-assessment", label: "Risk Assessment" },
   { key: "recommendation", label: "Recommendation" },

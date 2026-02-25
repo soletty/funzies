@@ -44,18 +44,18 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { title, opportunityType, companyName, thesis, terms, details } = body;
+  const { title, opportunityType, companyName, thesis, terms, details, hasFiles } = body;
 
-  if (!title || !thesis) {
+  if (!title) {
     return NextResponse.json(
-      { error: "Title and thesis are required" },
+      { error: "Title is required" },
       { status: 400 }
     );
   }
 
   const rows = await query<{ id: string }>(
     `INSERT INTO ic_evaluations (committee_id, title, opportunity_type, company_name, thesis, terms, details, status)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, 'queued')
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
      RETURNING id`,
     [
       committee.id,
@@ -65,6 +65,7 @@ export async function POST(request: NextRequest) {
       thesis,
       terms || null,
       JSON.stringify(details || {}),
+      hasFiles ? "uploading" : "queued",
     ]
   );
 

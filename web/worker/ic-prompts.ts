@@ -6,7 +6,8 @@ const QUALITY_RULES = `
 - Stay on the question: >80% of your response must be direct answer. No filler.
 - Practical and actionable: this is for real investment decisions, not an academic exercise.
 - Speak plainly: if stripping jargon makes the idea disappear, there was no idea.
-- Each member stays in character with their established philosophy and risk personality.`;
+- Each member stays in character with their established philosophy and risk personality.
+- SLOP BAN — the following phrases are BANNED. If you catch yourself writing any, delete and rewrite: "in today's rapidly evolving landscape", "it's important to note", "furthermore/moreover/additionally" as transitions, "nuanced" as a substitute for a position, "multifaceted/holistic/synergy/stakeholders", "it bears mentioning", "at the end of the day", "navigate" (as metaphor), "leverage" (as verb meaning "use"), "robust/comprehensive/cutting-edge", any sentence that could appear in any document about any topic.`;
 
 function formatProfile(profile: InvestorProfile): string {
   return `Investment Philosophy: ${profile.investmentPhilosophy || "Not specified"}
@@ -18,7 +19,10 @@ ESG Preferences: ${profile.esgPreferences || "Not specified"}
 Decision Style: ${profile.decisionStyle || "Not specified"}
 AUM Range: ${profile.aumRange || "Not specified"}
 Time Horizons: ${profile.timeHorizons ? Object.entries(profile.timeHorizons).map(([k, v]) => `${k}: ${v}`).join(", ") : "Not specified"}
-Beliefs & Biases: ${profile.beliefsAndBiases || "Not specified"}`;
+Beliefs & Biases: ${profile.beliefsAndBiases || "Not specified"}
+Max Drawdown Tolerance: ${(profile.rawQuestionnaire?.maxDrawdown as string) || "Not specified"}
+Liquidity Needs: ${(profile.rawQuestionnaire?.liquidityNeeds as string) || "Not specified"}
+Regulatory Constraints: ${(profile.rawQuestionnaire?.regulatoryConstraints as string) || "Not specified"}`;
 }
 
 function formatMembers(members: CommitteeMember[]): string {
@@ -30,13 +34,18 @@ function formatMembers(members: CommitteeMember[]): string {
     .join("\n\n");
 }
 
+function detailsWithoutDocuments(details: Record<string, unknown>): Record<string, unknown> {
+  const { documents, ...rest } = details;
+  return rest;
+}
+
 function formatEvaluation(evaluation: Pick<Evaluation, "title" | "opportunityType" | "companyName" | "thesis" | "terms" | "details">): string {
   return `Title: ${evaluation.title}
 Opportunity Type: ${evaluation.opportunityType || "Not specified"}
 Company: ${evaluation.companyName || "Not specified"}
 Thesis: ${evaluation.thesis || "Not specified"}
 Terms: ${evaluation.terms || "Not specified"}
-Details: ${evaluation.details ? JSON.stringify(evaluation.details, null, 2) : "None"}`;
+Details: ${evaluation.details ? JSON.stringify(detailsWithoutDocuments(evaluation.details), null, 2) : "None"}`;
 }
 
 // ─── Committee Generation ────────────────────────────────────────────
@@ -109,6 +118,9 @@ Their relationship with risk — how they assess it, what makes them comfortable
 ### Full Profile
 A detailed markdown profile (3-5 paragraphs) covering their career arc, investment track record highlights, how they interact with other committee members, and what they bring to the table.
 
+## No Strawmen
+Every member must be the strongest possible version of their perspective. If you can easily reconcile two members' positions, they are not different enough. The risk hawk must have genuinely compelling reasons to be cautious, not just be "the negative one."
+
 ${QUALITY_RULES}`,
     user: `Generate the investment committee based on this analysis:
 
@@ -178,10 +190,16 @@ Extract and organize:
 1. **Key Facts** — What we know for certain from the provided information
 2. **Investment Thesis** — The core argument for this investment
 3. **Terms Summary** — Key deal terms and their implications
-4. **Information Gaps** — What critical information is missing
-5. **Profile Alignment** — How this opportunity aligns (or conflicts) with the investor's stated philosophy, risk tolerance, and asset class preferences
-6. **Preliminary Risk Flags** — Obvious risks based on available information
-7. **Key Questions** — What the committee should focus on
+4. **Valuation Context** — Is the price/valuation reasonable? What are comparable transactions or benchmarks? What assumptions drive the valuation?
+5. **Management / Sponsor Assessment** — Who is running this? What is their track record? Are incentives aligned with the investor?
+6. **Information Gaps** — What critical information is missing
+7. **Profile Alignment** — How this opportunity aligns (or conflicts) with the investor's stated philosophy, risk tolerance, asset class preferences, max drawdown tolerance, liquidity needs, and regulatory constraints
+8. **Preliminary Risk Flags** — Obvious risks based on available information
+9. **Falsifiable Thesis** — State the investment thesis as 2-3 specific, testable claims. For each claim: what specific evidence would disprove it?
+10. **Kill Criteria** — 3-5 specific conditions that, if true, should kill this deal regardless of other merits. These must be concrete and verifiable (e.g., "management has prior fraud convictions" not "management is bad")
+11. **Key Questions** — What the committee should focus on
+
+If source documents are attached (term sheets, pitch decks, prospectuses, etc.), analyze them thoroughly — extract all relevant terms, figures, and details. These documents are the primary source of truth.
 
 Be thorough but concise. Flag uncertainty explicitly — do not fill gaps with assumptions.
 
@@ -275,6 +293,14 @@ Bulleted list of 3-5 points that support or inform their position.
 ### Concerns
 Bulleted list of 2-4 specific concerns from their perspective.
 
+### Assumptions
+Label each key assumption underlying the member's position as one of:
+- [VERIFIED] — backed by data provided or publicly verifiable
+- [MANAGEMENT CLAIM] — stated by company/sponsor but not independently verified
+- [ASSUMPTION] — the member is filling an information gap with judgment
+
+This labeling must carry forward into all subsequent phases.
+
 Members must stay in character. A risk hawk should see different things than a growth optimist. The contrarian should challenge the obvious narrative.
 
 ${QUALITY_RULES}`,
@@ -298,34 +324,39 @@ export function evaluationDebatePrompt(
   profile: InvestorProfile
 ): { system: string; user: string } {
   return {
-    system: `You are orchestrating a structured IC debate with 2-3 rounds. Committee members challenge each other's initial assessments, surface disagreements, and pressure-test the investment thesis.
+    system: `You are orchestrating a structured IC debate with 3 rounds. Committee members challenge each other's assessments with genuine adversarial pressure.
 
 ## Structure
 
-### Round 1: Cross-Examination
-Members directly challenge the weakest points of other members' assessments. Focus on substantive disagreements, not restating positions.
+### Round 1: Steel-Man Then Attack
+Each member must first state the strongest version of a specific opposing member's argument (name them), THEN explain why it's still wrong. No one may simply restate their own position — they must demonstrate they understand the other side before attacking it.
 
-### Round 2: Deep Dive
-Focus on the 2-3 most contentious issues identified in Round 1. Members with relevant expertise take the lead. Others ask pointed questions.
+### Round 2: Kill Criteria Test
+For each kill criterion from the opportunity analysis, members debate whether the evidence meets or fails the threshold. The risk hawk leads, but all members must weigh in. For each criterion, reach an explicit verdict: CLEARED, UNRESOLVED, or FAILED.
 
-### Round 3: Convergence Attempt (if needed)
-Where can the committee align? What remains irreconcilable? What additional information would change minds?
+### Round 3: What Changes Your Mind?
+Each member states the single piece of information that would flip their position. Others challenge whether that information is obtainable and whether the stated threshold is honest. If any member's position hasn't changed at all from their initial assessment, they must explain why — not just restate.
 
 ## Format
 
 Use clear round headers and **Speaker:** attribution:
 
-## Round 1: Cross-Examination
+## Round 1: Steel-Man Then Attack
 
 **MemberName:** Their statement here.
 
 **AnotherMember:** Their response.
 
 ## Rules
-- Members ENGAGE with each other, not just restate positions
+- Members ENGAGE with each other by name, not just restate positions
 - At least one member should visibly update their view during the debate
 - The debate should surface risks or opportunities that no single assessment captured
 - Keep exchanges sharp — 2-4 sentences per turn, not paragraphs
+- Assumption labels ([VERIFIED], [MANAGEMENT CLAIM], [ASSUMPTION]) from assessments must be preserved when referencing claims
+- Convergence check: When members appear to agree, one member must challenge: "Are we actually agreeing, or using different words for different positions?" Surface at least one case where apparent agreement masks a real disagreement.
+- Members speak only when their expertise genuinely informs the point. Not every member needs to respond to every topic. Silence is better than filler.
+- Brevity signals understanding. The best debate contributions are 2-4 sentences that change how others think, not paragraphs that restate a framework.
+- At least once during the debate, a member must be challenged on their stated blind spot (from their profile). The challenger should name the blind spot and explain how it applies to this specific opportunity.
 
 ${QUALITY_RULES}`,
     user: `Run the IC debate:
@@ -344,12 +375,70 @@ ${formatProfile(profile)}`,
   };
 }
 
+export function premortemPrompt(
+  members: CommitteeMember[],
+  debate: string,
+  analysis: string,
+  profile: InvestorProfile
+): { system: string; user: string } {
+  return {
+    system: `You are facilitating a structured pre-mortem exercise for an investment committee. Research shows pre-mortems improve decision accuracy by ~30%.
+
+## Premise
+It is 18 months later and this investment has failed catastrophically. The committee must explain what went wrong.
+
+## Phase 1: Individual Failure Narratives
+Each committee member writes a 3-5 sentence narrative explaining what went wrong — from their specific area of expertise. The risk hawk focuses on what risk materialized, the growth optimist on what market assumption broke, the contrarian on what everyone missed, the operations person on what execution failure occurred, etc.
+
+## Phase 2: Plausibility Ranking
+Given these failure scenarios, rank them from most to least plausible. For the top 3 most plausible scenarios:
+- What specific evidence available TODAY supports or contradicts this failure mode?
+- What would you need to see TODAY to rule it out?
+- Does this failure mode interact with any of the kill criteria from the opportunity analysis?
+
+## Phase 3: Investor-Specific Vulnerabilities
+Given the investor's stated constraints (max drawdown tolerance, liquidity needs, regulatory constraints), which failure scenarios would cause the most damage to THIS specific investor? A failure that's manageable for one investor profile may be catastrophic for another.
+
+## Format
+
+### Failure Narratives
+
+**MemberName (Role):** Their failure narrative here.
+
+### Plausibility Ranking
+
+1. **Most Plausible Failure:** Description
+   - Evidence today: ...
+   - What would rule it out: ...
+   - Kill criteria interaction: ...
+
+### Investor-Specific Vulnerabilities
+Analysis of which failures are most damaging given this investor's constraints.
+
+${QUALITY_RULES}`,
+    user: `Run the pre-mortem exercise:
+
+Debate Transcript:
+${debate}
+
+Opportunity Analysis:
+${analysis}
+
+Committee Members:
+${formatMembers(members)}
+
+Investor Profile:
+${formatProfile(profile)}`,
+  };
+}
+
 export function investmentMemoPrompt(
   debate: string,
   assessments: string,
   analysis: string,
   profile: InvestorProfile,
-  evaluationTitle?: string
+  evaluationTitle?: string,
+  premortem?: string
 ): { system: string; user: string } {
   return {
     system: `You are a senior investment analyst synthesizing an IC debate into a formal investment memo.
@@ -365,19 +454,39 @@ export function investmentMemoPrompt(
 What the opportunity is, key facts, and context.
 
 ## Investment Thesis
-The core argument for the investment, as refined by the committee debate.
+The core argument for the investment, as refined by the committee debate. Include the falsifiable claims and note whether they were challenged or validated during the debate.
 
 ## Key Risks
-Ranked by severity. For each: risk description, likelihood, potential impact, and proposed mitigant.
+Ranked by severity. For each: risk description, likelihood, potential impact, and proposed mitigant. Incorporate the most plausible failure scenarios from the pre-mortem exercise.
 
 ## Financial Analysis
 Key financial metrics discussed, valuation considerations, return expectations. Note: base this on what was discussed, do not fabricate numbers.
 
 ## Strategic Fit
-How this aligns with the investor's stated philosophy, portfolio, and goals.
+How this aligns with the investor's stated philosophy, portfolio, and goals. Flag any constraint violations (max drawdown, liquidity, regulatory).
+
+## What We Don't Know
+Carry forward the "Information Gaps" identified in the opportunity analysis VERBATIM. List each gap exactly as identified, and note which conclusions in this memo depend on assumptions that fill those gaps. Do not minimize, rephrase, or synthesize away these gaps — they are critical context for the decision-maker.
+
+## Pre-Mortem Findings
+Summarize the top 3 most plausible failure scenarios and what evidence today supports or contradicts each. Note which failures are most damaging given this investor's specific constraints.
+
+## Kill Criteria Status
+For each kill criterion from the opportunity analysis, state whether it was CLEARED, UNRESOLVED, or FAILED during the debate.
 
 ## Recommendation
 The committee's synthesized view — not a simple vote count but a reasoned conclusion reflecting the weight of argument.
+
+## Self-Verification
+Before finalizing, audit your own output:
+- Are all financial figures sourced from the debate/analysis, not invented?
+- Does every "Information Gap" from the opportunity analysis appear verbatim?
+- Are assumption labels ([VERIFIED], [MANAGEMENT CLAIM], [ASSUMPTION]) preserved where referenced?
+- Would a reader who hasn't seen the debate understand this memo standalone?
+
+## Quality Gates (apply before finalizing)
+- Plaintext test: For every key claim, rewrite it in one sentence using no jargon. If the plain version sounds obvious or empty, the original was disguising a lack of substance — delete it.
+- Falsifiability test: For every major claim, what evidence would disprove it? If nothing could, the claim is empty — delete it.
 
 ${QUALITY_RULES}`,
     user: `Synthesize this IC debate into an investment memo:
@@ -390,6 +499,7 @@ ${assessments}
 
 Opportunity Analysis:
 ${analysis}
+${premortem ? `\nPre-Mortem Analysis:\n${premortem}` : ""}
 
 Investor Profile:
 ${formatProfile(profile)}`,
@@ -399,7 +509,8 @@ ${formatProfile(profile)}`,
 export function riskAssessmentPrompt(
   debate: string,
   analysis: string,
-  profile: InvestorProfile
+  profile: InvestorProfile,
+  premortem?: string
 ): { system: string; user: string } {
   return {
     system: `You are a risk assessment specialist producing a structured risk report for an investment opportunity based on the IC debate.
@@ -424,10 +535,26 @@ Categories:
 5. **Concentration Risk** — portfolio concentration, single-name exposure
 6. **Liquidity Risk** — exit options, time horizon, lock-up
 
+## Constraint Violations
+Check the opportunity against the investor's stated constraints and flag any violations:
+- **Max Drawdown**: Could worst-case scenarios exceed the investor's stated max drawdown tolerance?
+- **Liquidity Needs**: Does the investment's lock-up period or illiquidity conflict with stated liquidity needs?
+- **Regulatory Constraints**: Does this opportunity trigger any regulatory issues given the investor's stated constraints?
+- **Concentration**: Does adding this position create excessive concentration in any asset class, geography, or sector?
+
+For each constraint, state explicitly: WITHIN LIMITS, AT RISK, or VIOLATED.
+
+## Portfolio Impact
+How does this opportunity interact with the investor's existing portfolio? Does it increase or decrease overall concentration? Does it align with their stated time horizons? Would it improve or worsen portfolio diversification?
+
 ## Mitigants
 Bulleted list of specific actions or conditions that reduce the identified risks.
 
-Ground your analysis primarily in what was discussed during the debate, but you may identify additional risks that are standard for this type of opportunity even if not explicitly raised.
+Ground your analysis primarily in what was discussed during the debate and pre-mortem, but you may identify additional risks that are standard for this type of opportunity even if not explicitly raised. Pay special attention to the most plausible failure scenarios from the pre-mortem.
+
+## Quality Gates (apply before finalizing)
+- Plaintext test: For every key claim, rewrite it in one sentence using no jargon. If the plain version sounds obvious or empty, the original was disguising a lack of substance — delete it.
+- Falsifiability test: For every major claim, what evidence would disprove it? If nothing could, the claim is empty — delete it.
 
 ${QUALITY_RULES}`,
     user: `Produce the risk assessment:
@@ -437,6 +564,7 @@ ${debate}
 
 Opportunity Analysis:
 ${analysis}
+${premortem ? `\nPre-Mortem Analysis:\n${premortem}` : ""}
 
 Investor Profile:
 ${formatProfile(profile)}`,
@@ -448,31 +576,41 @@ export function recommendationPrompt(
   risk: string,
   debate: string,
   members: CommitteeMember[],
-  profile: InvestorProfile
+  profile: InvestorProfile,
+  premortem?: string
 ): { system: string; user: string } {
   return {
-    system: `You are facilitating the final IC vote. Each committee member casts their vote based on the full debate, memo, and risk assessment.
+    system: `You are facilitating the final IC perspective gathering. Each committee member shares their perspective based on the full debate, memo, risk assessment, and pre-mortem.
 
 ## Format
 
 For each member:
 
 ## [MemberName]
-Vote: [strong_buy / buy / hold / pass / strong_pass]
-Conviction: [high / medium / low]
-Rationale: 2-3 sentences explaining their vote, referencing specific points from the debate.
+Perspective: [strongly_favorable / favorable / mixed / unfavorable / strongly_unfavorable]
+Engagement: [high / medium / low]
+Rationale: 2-3 sentences explaining their perspective, referencing specific points from the debate.
 
-After all individual votes, provide:
+After all individual perspectives, provide:
 
-## Aggregate Recommendation
-- **Verdict**: The committee's overall recommendation based on the vote pattern and weight of argument (not just majority)
-- **Dissents**: Any notable dissents and their reasoning
-- **Conditions**: Specific conditions or milestones that would change the recommendation
+## Committee Perspective
+- **Perspective**: The committee's overall perspective based on the pattern of views and weight of argument (not just majority)
+- **Dissents**: Any notable dissenting views and their reasoning
+- **Conditions**: Specific conditions or considerations that could shift the perspective
+- **Kill Criteria Status**: For each kill criterion, confirm whether it has been CLEARED or flag it as UNRESOLVED. Any FAILED criterion must be prominently noted.
+- **Pre-Mortem Response**: Address the top 2-3 most plausible failure scenarios — what makes the committee confident (or not) that they won't occur?
 
-Each member must vote consistently with their established philosophy and the positions they took during the debate. A risk hawk who raised serious concerns should not suddenly vote strong_buy without explanation.
+## Consistency Rules
+- Each member's final perspective must be CONSISTENT with their debate positions. If a member raised serious unresolved concerns during the debate, they cannot be strongly_favorable without explaining what resolved those concerns.
+- If a member's position has shifted from the debate, they must explicitly state what changed their mind.
+- A risk hawk who raised serious concerns should not suddenly be strongly_favorable without explanation.
+
+## Quality Gates (apply before finalizing)
+- Plaintext test: For every key claim, rewrite it in one sentence using no jargon. If the plain version sounds obvious or empty, the original was disguising a lack of substance — delete it.
+- Falsifiability test: For every major claim, what evidence would disprove it? If nothing could, the claim is empty — delete it.
 
 ${QUALITY_RULES}`,
-    user: `Each member casts their final vote:
+    user: `Each member shares their final perspective:
 
 Investment Memo:
 ${memo}
@@ -482,6 +620,7 @@ ${risk}
 
 Debate Transcript:
 ${debate}
+${premortem ? `\nPre-Mortem Analysis:\n${premortem}` : ""}
 
 Committee Members:
 ${formatMembers(members)}
@@ -590,6 +729,15 @@ Why this idea addresses the identified portfolio gaps and aligns with the invest
 
 ### Key Risks
 Bulleted list of 2-4 risks.
+
+### Feasibility Score
+Rate 1-5 — how actionable is this idea given the investor's constraints? (1 = highly constrained, 5 = fully actionable)
+
+### Key Assumption
+The single assumption that, if wrong, makes this idea worthless.
+
+### Constraint Check
+Does this idea violate any stated investor constraints (max drawdown, liquidity needs, regulatory, concentration)? State explicitly: CLEAR or VIOLATION with explanation.
 
 ### Implementation Steps
 Numbered list of 3-5 concrete next steps.

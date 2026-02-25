@@ -13,6 +13,7 @@ import {
   runAnalysisPipeline,
   runScreeningPipeline,
 } from "./clo-pipeline.js";
+import { runScanPipeline } from "./pulse-pipeline.js";
 
 if (!process.env.DATABASE_URL) {
   config({ path: ".env.local" });
@@ -37,6 +38,7 @@ async function claimJob(): Promise<{
   topic_input: string;
   user_id: string;
   raw_files: Record<string, string>;
+  attachments: Array<{ name: string; type: string; size: number; base64: string; textContent?: string }>;
   slug: string;
   github_repo_owner: string | null;
   github_repo_name: string | null;
@@ -49,7 +51,7 @@ async function claimJob(): Promise<{
        ORDER BY created_at LIMIT 1
        FOR UPDATE SKIP LOCKED
      )
-     RETURNING id, topic_input, user_id, raw_files, slug, github_repo_owner, github_repo_name, github_repo_branch`
+     RETURNING id, topic_input, user_id, raw_files, attachments, slug, github_repo_owner, github_repo_name, github_repo_branch`
   );
   return result.rows[0] ?? null;
 }
@@ -76,6 +78,7 @@ async function processJob(job: {
   topic_input: string;
   user_id: string;
   raw_files: Record<string, string>;
+  attachments: Array<{ name: string; type: string; size: number; base64: string; textContent?: string }>;
   slug: string;
   github_repo_owner: string | null;
   github_repo_name: string | null;
@@ -116,12 +119,20 @@ async function processJob(job: {
     }
   }
 
+  const attachments = Array.isArray(job.attachments) && job.attachments.length > 0
+    ? job.attachments
+    : undefined;
+  if (attachments) {
+    console.log(`[worker] Assembly ${job.id}: ${attachments.length} attachment(s)`);
+  }
+
   await runPipeline({
     assemblyId: job.id,
     topic: job.topic_input,
     slug,
     apiKey,
     codeContext,
+    attachments,
     initialRawFiles: job.raw_files || {},
     updatePhase: async (phase: string) => {
       await pool.query(
@@ -448,6 +459,66 @@ async function pollCloJobs() {
   }
 }
 
+// ─── Pulse Jobs ─────────────────────────────────────────────────────
+
+async function claimScanJob() {
+  const result = await pool.query(
+    `UPDATE pulse_scans SET status = 'running', current_phase = 'fetching-sources'
+     WHERE id = (
+       SELECT id FROM pulse_scans WHERE status = 'queued'
+       ORDER BY created_at LIMIT 1
+       FOR UPDATE SKIP LOCKED
+     )
+     RETURNING id, raw_files`
+  );
+  return result.rows[0] ?? null;
+}
+
+const PULSE_SCAN_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
+let lastScheduledScan = 0;
+
+async function maybeScheduleScan() {
+  const now = Date.now();
+  if (now - lastScheduledScan < PULSE_SCAN_INTERVAL_MS) return;
+  lastScheduledScan = now;
+
+  const pending = await pool.query(
+    "SELECT id FROM pulse_scans WHERE status IN ('queued', 'running') LIMIT 1"
+  );
+  if (pending.rows.length > 0) return;
+
+  await pool.query(
+    "INSERT INTO pulse_scans (trigger_type, status) VALUES ('scheduled', 'queued')"
+  );
+  console.log("[worker] Scheduled pulse scan inserted");
+}
+
+async function pollPulseJobs() {
+  await maybeScheduleScan();
+
+  const scanJob = await claimScanJob();
+  if (scanJob) {
+    console.log(`[worker] Claimed pulse scan job ${scanJob.id}`);
+    try {
+      await runScanPipeline(pool, scanJob.id, scanJob.raw_files || {}, {
+        updatePhase: async (phase) => {
+          console.log(`[worker] Pulse scan ${scanJob.id}: ${phase}`);
+          await pool.query("UPDATE pulse_scans SET current_phase = $1 WHERE id = $2", [phase, scanJob.id]);
+        },
+        updateRawFiles: async (files) => {
+          await pool.query("UPDATE pulse_scans SET raw_files = $1::jsonb WHERE id = $2", [JSON.stringify(files), scanJob.id]);
+        },
+      });
+      await pool.query("UPDATE pulse_scans SET status = 'complete', completed_at = NOW() WHERE id = $1", [scanJob.id]);
+      console.log(`[worker] Pulse scan ${scanJob.id} completed`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      console.error(`[worker] Pulse scan ${scanJob.id} failed: ${message}`);
+      await pool.query("UPDATE pulse_scans SET status = 'error', error_message = $1 WHERE id = $2", [message, scanJob.id]);
+    }
+  }
+}
+
 // ─── Poll Loop ──────────────────────────────────────────────────────
 
 async function pollLoop() {
@@ -485,6 +556,9 @@ async function pollLoop() {
 
       // CLO jobs
       await pollCloJobs();
+
+      // Pulse jobs
+      await pollPulseJobs();
     } catch (err) {
       console.error("[worker] Poll error:", err);
     }

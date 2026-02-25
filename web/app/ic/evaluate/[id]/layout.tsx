@@ -46,7 +46,7 @@ export default async function EvaluationLayout({
   const tabs = [
     { label: "Memo", href: `${base}/memo`, show: isComplete },
     { label: "Risk", href: `${base}/risk`, show: isComplete },
-    { label: "Recommendation", href: `${base}/recommendation`, show: isComplete },
+    { label: "Perspective", href: `${base}/recommendation`, show: isComplete },
     { label: "Debate", href: `${base}/debate`, show: isComplete },
     { label: "Q&A", href: `${base}/follow-ups`, show: isComplete },
   ];
@@ -63,9 +63,22 @@ export default async function EvaluationLayout({
           <h1 style={{ fontFamily: "var(--font-display)", fontSize: "1.5rem", fontWeight: 600 }}>
             {evaluation.title}
           </h1>
-          <span className={`ic-eval-status ic-eval-status-${evaluation.status}`}>
-            {evaluation.status}
-          </span>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <span className={`ic-eval-status ic-eval-status-${evaluation.status}`}>
+              {evaluation.status}
+            </span>
+            {isComplete && (
+              <a
+                href={`/api/ic/evaluations/${id}/export`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="ic-export-btn"
+                title="Export as printable PDF"
+              >
+                Export
+              </a>
+            )}
+          </div>
         </div>
 
         {visibleTabs.length > 0 && (
@@ -79,6 +92,10 @@ export default async function EvaluationLayout({
         )}
 
         <div className="ic-eval-body">{children}</div>
+
+        <div className="ic-disclaimer">
+          AI-generated analysis based on user-provided information. Not investment advice. All perspectives reflect simulated committee discussion and should be independently verified before any investment decision.
+        </div>
       </div>
     </div>
   );

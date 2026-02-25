@@ -136,11 +136,14 @@ export default function NewAssemblyPage() {
     setError("");
     setSubmitting(true);
 
-    const payload: Record<string, string> = { topicInput: topic.trim() };
+    const payload: Record<string, string | boolean> = { topicInput: topic.trim() };
     if (selectedRepo) {
       payload.githubRepoOwner = selectedRepo.owner;
       payload.githubRepoName = selectedRepo.name;
       payload.githubRepoBranch = branch;
+    }
+    if (files.length > 0) {
+      payload.hasFiles = true;
     }
 
     const res = await fetch("/api/assemblies", {
@@ -159,10 +162,19 @@ export default function NewAssemblyPage() {
     const { id, slug } = await res.json();
 
     if (files.length > 0) {
-      for (const f of files) {
-        const form = new FormData();
-        form.append("file", f.file);
-        await fetch(`/api/assemblies/${id}/upload`, { method: "POST", body: form });
+      try {
+        for (const f of files) {
+          const form = new FormData();
+          form.append("file", f.file);
+          const uploadRes = await fetch(`/api/assemblies/${id}/upload`, { method: "POST", body: form });
+          if (!uploadRes.ok) throw new Error("Upload failed");
+        }
+        await fetch(`/api/assemblies/${id}/upload`, { method: "PATCH" });
+      } catch {
+        await fetch(`/api/assemblies/${id}/upload`, { method: "DELETE" });
+        setError("File upload failed. Please try again.");
+        setSubmitting(false);
+        return;
       }
     }
 

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import AttachmentWidget, { type AttachedFile } from "@/components/AttachmentWidget";
 
 const OPPORTUNITY_TYPES = [
   "Equity",
@@ -21,12 +22,14 @@ export default function EvaluationForm() {
   const [thesis, setThesis] = useState("");
   const [terms, setTerms] = useState("");
   const [details, setDetails] = useState("");
+  const [files, setFiles] = useState<AttachedFile[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!title.trim() || !thesis.trim()) return;
+    const hasContent = thesis.trim() || files.length > 0;
+    if (!title.trim() || !hasContent) return;
 
     setError("");
     setSubmitting(true);
@@ -41,6 +44,7 @@ export default function EvaluationForm() {
         thesis: thesis.trim(),
         terms: terms.trim(),
         details: details.trim() ? { additional: details.trim() } : {},
+        hasFiles: files.length > 0,
       }),
     });
 
@@ -52,6 +56,29 @@ export default function EvaluationForm() {
     }
 
     const { id } = await res.json();
+
+    // Upload attached files, then flip status to 'queued'
+    for (const attached of files) {
+      const formData = new FormData();
+      formData.append("file", attached.file);
+      const uploadRes = await fetch(`/api/ic/evaluations/${id}/upload`, {
+        method: "POST",
+        body: formData,
+      });
+      if (!uploadRes.ok) {
+        const data = await uploadRes.json();
+        await fetch(`/api/ic/evaluations/${id}/upload?action=abort`, { method: "DELETE" });
+        setError(data.error || `Failed to upload ${attached.file.name}`);
+        setSubmitting(false);
+        return;
+      }
+    }
+
+    // All uploads succeeded — signal the worker to start
+    if (files.length > 0) {
+      await fetch(`/api/ic/evaluations/${id}/upload?action=ready`, { method: "PATCH" });
+    }
+
     router.push(`/ic/evaluate/${id}/generating`);
   }
 
@@ -95,15 +122,23 @@ export default function EvaluationForm() {
       </div>
 
       <div className="ic-field">
-        <label className="ic-field-label">Investment Thesis *</label>
+        <label className="ic-field-label">
+          Investment Thesis {files.length === 0 ? "*" : ""}
+        </label>
         <textarea
           className="ic-textarea"
           rows={5}
           value={thesis}
           onChange={(e) => setThesis(e.target.value)}
           placeholder="Describe why this investment is compelling, the key value drivers, and your conviction level..."
-          required
+          required={files.length === 0}
         />
+      </div>
+
+      <div className="ic-field">
+        <label className="ic-field-label">Documents</label>
+        <p className="ic-field-hint">Upload term sheets, pitch decks, or other documents (PDF, images)</p>
+        <AttachmentWidget files={files} onChange={setFiles} disabled={submitting} />
       </div>
 
       <div className="ic-field">
@@ -133,7 +168,7 @@ export default function EvaluationForm() {
       <button
         type="submit"
         className="btn-primary"
-        disabled={submitting || !title.trim() || !thesis.trim()}
+        disabled={submitting || !title.trim() || (!thesis.trim() && files.length === 0)}
         style={{ width: "100%", justifyContent: "center" }}
       >
         {submitting ? "Creating Evaluation..." : "Submit for Evaluation"}

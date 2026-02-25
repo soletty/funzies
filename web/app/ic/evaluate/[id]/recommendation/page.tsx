@@ -6,11 +6,11 @@ import type { ParsedEvaluation, CommitteeMember } from "@/lib/ic/types";
 import RecommendationBadge from "@/components/ic/RecommendationBadge";
 
 const VOTE_LABELS: Record<string, string> = {
-  strong_buy: "Strong Buy",
-  buy: "Buy",
-  hold: "Hold",
-  pass: "Pass",
-  strong_pass: "Strong Pass",
+  strongly_favorable: "Strongly Favorable",
+  favorable: "Favorable",
+  mixed: "Mixed",
+  unfavorable: "Unfavorable",
+  strongly_unfavorable: "Strongly Unfavorable",
 };
 
 export default async function RecommendationPage({
@@ -62,7 +62,7 @@ export default async function RecommendationPage({
       {rec.votes?.length > 0 && (
         <div>
           <h3 style={{ fontFamily: "var(--font-display)", fontSize: "1.1rem", marginBottom: "1rem" }}>
-            Vote Tally
+            Member Perspectives
           </h3>
           <div className="ic-vote-grid">
             {rec.votes.map((vote, i) => {
@@ -81,7 +81,7 @@ export default async function RecommendationPage({
                       <div style={{ fontWeight: 600, fontSize: "0.9rem" }}>{vote.memberName}</div>
                       <div style={{ fontSize: "0.8rem", color: "var(--color-text-muted)" }}>
                         {VOTE_LABELS[vote.vote] || vote.vote}
-                        {vote.conviction && ` (${vote.conviction})`}
+                        {vote.engagement && ` · ${vote.engagement} engagement`}
                       </div>
                     </div>
                   </div>
@@ -111,7 +111,7 @@ export default async function RecommendationPage({
       {rec.conditions?.length > 0 && (
         <div style={{ marginTop: "1.5rem" }}>
           <h3 style={{ fontFamily: "var(--font-display)", fontSize: "1.1rem", marginBottom: "0.75rem" }}>
-            Conditions for Investment
+            Conditions &amp; Considerations
           </h3>
           <ul style={{ paddingLeft: "1.25rem" }}>
             {rec.conditions.map((c, i) => (

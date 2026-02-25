@@ -18,12 +18,21 @@ import {
   verificationPrompt,
 } from "./prompts.js";
 
+export interface Attachment {
+  name: string;
+  type: string;
+  size: number;
+  base64: string;
+  textContent?: string;
+}
+
 export interface PipelineConfig {
   assemblyId: string;
   topic: string;
   slug: string;
   apiKey: string;
   codeContext?: string;
+  attachments?: Attachment[];
   initialRawFiles?: Record<string, string>;
   updatePhase: (phase: string) => Promise<void>;
   updateRawFiles: (files: Record<string, string>) => Promise<void>;
@@ -69,18 +78,70 @@ function parseDomainAnalysisMetadata(domainAnalysis: string): DomainAnalysisMeta
   };
 }
 
+function buildAttachmentContent(
+  attachments: Attachment[],
+  userMessage: string
+): Anthropic.MessageCreateParams["messages"][0]["content"] {
+  const textFiles = attachments.filter((a) => a.textContent);
+  const pdfFiles = attachments.filter((a) => a.type === "application/pdf" && a.base64);
+  const imageFiles = attachments.filter(
+    (a) => a.type.startsWith("image/") && a.base64
+  );
+
+  const blocks: Anthropic.MessageCreateParams["messages"][0]["content"] = [];
+
+  for (const doc of pdfFiles) {
+    blocks.push({
+      type: "document" as const,
+      source: {
+        type: "base64" as const,
+        media_type: "application/pdf" as const,
+        data: doc.base64,
+      },
+    });
+  }
+
+  for (const img of imageFiles) {
+    blocks.push({
+      type: "image" as const,
+      source: {
+        type: "base64" as const,
+        media_type: img.type as "image/jpeg" | "image/png" | "image/gif" | "image/webp",
+        data: img.base64,
+      },
+    });
+  }
+
+  let textMessage = userMessage;
+  if (textFiles.length > 0) {
+    const textContext = textFiles
+      .map((f) => `## Attached: ${f.name}\n\`\`\`\n${f.textContent}\n\`\`\``)
+      .join("\n\n");
+    textMessage = `${userMessage}\n\n${textContext}`;
+  }
+
+  blocks.push({ type: "text" as const, text: textMessage });
+  return blocks;
+}
+
 async function callClaude(
   client: Anthropic,
   systemPrompt: string,
   userMessage: string,
   maxTokens: number,
-  model: string = "claude-sonnet-4-20250514"
+  model: string = "claude-sonnet-4-20250514",
+  attachments?: Attachment[]
 ): Promise<string> {
   try {
+    const content: Anthropic.MessageCreateParams["messages"][0]["content"] =
+      attachments && attachments.length > 0
+        ? buildAttachmentContent(attachments, userMessage)
+        : userMessage;
+
     const response = await client.messages.create({
       model,
       max_tokens: maxTokens,
-      messages: [{ role: "user", content: userMessage }],
+      messages: [{ role: "user", content }],
       system: systemPrompt,
     });
 
@@ -208,7 +269,7 @@ function buildParsedTopic(rawFiles: Record<string, string>, slug: string, topic:
 }
 
 export async function runPipeline(config: PipelineConfig): Promise<void> {
-  const { topic, slug, apiKey, codeContext, initialRawFiles, updatePhase, updateRawFiles, updateParsedData } =
+  const { topic, slug, apiKey, codeContext, attachments, initialRawFiles, updatePhase, updateRawFiles, updateParsedData } =
     config;
 
   const client = new Anthropic({ apiKey });
@@ -223,7 +284,9 @@ export async function runPipeline(config: PipelineConfig): Promise<void> {
       client,
       domainAnalysisPrompt(topic, codeContext),
       `Analyze this topic: ${topic}`,
-      8192
+      8192,
+      undefined,
+      attachments
     );
     rawFiles["domain-analysis.md"] = result;
     await updateRawFiles(rawFiles);
@@ -305,7 +368,9 @@ export async function runPipeline(config: PipelineConfig): Promise<void> {
         metadata.debateStructure
       ),
       `Run the ${metadata.debateStructure} debate on: ${topic}`,
-      16384
+      16384,
+      undefined,
+      attachments
     );
     rawFiles["debate-transcript.md"] = result;
     await updateRawFiles(rawFiles);

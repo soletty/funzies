@@ -18,6 +18,7 @@ import {
   dynamicSpecialistPrompt,
   individualAssessmentsPrompt,
   analysisDebatePrompt,
+  premortemPrompt,
   creditMemoPrompt,
   riskAssessmentPrompt,
   recommendationPrompt,
@@ -37,13 +38,41 @@ async function callClaude(
   systemPrompt: string,
   userMessage: string,
   maxTokens: number,
-  model: string = "claude-sonnet-4-20250514"
+  model: string = "claude-sonnet-4-20250514",
+  documents?: Array<{ name: string; type: string; base64: string }>
 ): Promise<string> {
   try {
+    const content: Anthropic.MessageCreateParams["messages"][0]["content"] =
+      documents && documents.length > 0
+        ? [
+            ...documents.map((doc) => {
+              if (doc.type === "application/pdf") {
+                return {
+                  type: "document" as const,
+                  source: {
+                    type: "base64" as const,
+                    media_type: "application/pdf" as const,
+                    data: doc.base64,
+                  },
+                };
+              }
+              return {
+                type: "image" as const,
+                source: {
+                  type: "base64" as const,
+                  media_type: doc.type as "image/jpeg" | "image/png" | "image/gif" | "image/webp",
+                  data: doc.base64,
+                },
+              };
+            }),
+            { type: "text" as const, text: userMessage },
+          ]
+        : userMessage;
+
     const response = await client.messages.create({
       model,
       max_tokens: maxTokens,
-      messages: [{ role: "user", content: userMessage }],
+      messages: [{ role: "user", content }],
       system: systemPrompt,
     });
 
@@ -240,6 +269,9 @@ export async function runAnalysisPipeline(
   }
   const profile = rowToProfile(profileRows.rows[0]);
 
+  const documents: Array<{ name: string; type: string; base64: string }> =
+    analysisRow.documents || [];
+
   const analysis = {
     title: analysisRow.title,
     analysisType: analysisRow.analysis_type,
@@ -288,6 +320,9 @@ export async function runAnalysisPipeline(
   if (rawFiles["risk-assessment.md"] && !parsedData.riskAssessment) {
     parsedData.riskAssessment = parseCreditRiskAssessment(rawFiles["risk-assessment.md"]);
   }
+  if (rawFiles["premortem.md"] && !parsedData.premortem) {
+    parsedData.premortem = rawFiles["premortem.md"];
+  }
   if (rawFiles["recommendation.md"] && !parsedData.recommendation) {
     parsedData.recommendation = parseCreditRecommendation(rawFiles["recommendation.md"]);
   }
@@ -296,7 +331,7 @@ export async function runAnalysisPipeline(
   if (!rawFiles["credit-analysis.md"]) {
     await callbacks.updatePhase("credit-analysis");
     const prompt = creditAnalysisPrompt(analysis, profile);
-    const result = await callClaude(client, prompt.system, prompt.user, 8192);
+    const result = await callClaude(client, prompt.system, prompt.user, 8192, undefined, documents);
     rawFiles["credit-analysis.md"] = result;
     await callbacks.updateRawFiles(rawFiles);
   }
@@ -374,7 +409,23 @@ export async function runAnalysisPipeline(
     await callbacks.updateParsedData(parsedData);
   }
 
-  // Phase 5: Credit Memo
+  // Phase 5: Pre-Mortem
+  if (!rawFiles["premortem.md"]) {
+    await callbacks.updatePhase("premortem");
+    const prompt = premortemPrompt(
+      allMembers,
+      rawFiles["debate.md"],
+      rawFiles["credit-analysis.md"],
+      profile
+    );
+    const result = await callClaude(client, prompt.system, prompt.user, 8192);
+    rawFiles["premortem.md"] = result;
+    await callbacks.updateRawFiles(rawFiles);
+    parsedData.premortem = result;
+    await callbacks.updateParsedData(parsedData);
+  }
+
+  // Phase 6: Credit Memo
   if (!rawFiles["memo.md"]) {
     await callbacks.updatePhase("memo");
     const prompt = creditMemoPrompt(
@@ -382,7 +433,8 @@ export async function runAnalysisPipeline(
       rawFiles["individual-assessments.md"],
       rawFiles["credit-analysis.md"],
       profile,
-      analysis.title
+      analysis.title,
+      rawFiles["premortem.md"]
     );
     const result = await callClaude(client, prompt.system, prompt.user, 8192);
     rawFiles["memo.md"] = result;
@@ -391,13 +443,14 @@ export async function runAnalysisPipeline(
     await callbacks.updateParsedData(parsedData);
   }
 
-  // Phase 6: Risk Assessment
+  // Phase 7: Risk Assessment
   if (!rawFiles["risk-assessment.md"]) {
     await callbacks.updatePhase("risk-assessment");
     const prompt = riskAssessmentPrompt(
       rawFiles["debate.md"],
       rawFiles["credit-analysis.md"],
-      profile
+      profile,
+      rawFiles["premortem.md"]
     );
     const result = await callClaude(client, prompt.system, prompt.user, 8192);
     rawFiles["risk-assessment.md"] = result;
@@ -406,7 +459,7 @@ export async function runAnalysisPipeline(
     await callbacks.updateParsedData(parsedData);
   }
 
-  // Phase 7: Recommendation
+  // Phase 8: Recommendation
   if (!rawFiles["recommendation.md"]) {
     await callbacks.updatePhase("recommendation");
     const prompt = recommendationPrompt(
@@ -414,7 +467,8 @@ export async function runAnalysisPipeline(
       rawFiles["risk-assessment.md"],
       rawFiles["debate.md"],
       allMembers,
-      profile
+      profile,
+      rawFiles["premortem.md"]
     );
     const result = await callClaude(client, prompt.system, prompt.user, 8192);
     rawFiles["recommendation.md"] = result;

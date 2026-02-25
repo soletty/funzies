@@ -1,17 +1,39 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth-helpers";
-import { writeFile, mkdir } from "fs/promises";
-import { join } from "path";
-import { tmpdir } from "os";
+import { query } from "@/lib/db";
 
 const ALLOWED_EXTENSIONS = new Set([
   "txt", "md", "csv", "json", "xml", "html", "css", "js", "ts", "tsx", "jsx",
   "py", "rb", "go", "rs", "java", "c", "cpp", "h", "hpp", "sh", "yaml", "yml",
-  "toml", "sql", "pdf", "doc", "docx", "xls", "xlsx", "png", "jpg", "jpeg",
-  "gif", "webp", "svg",
+  "toml", "sql", "svg", "pdf", "png", "jpg", "jpeg", "gif", "webp",
 ]);
 
+const TEXT_EXTENSIONS = new Set([
+  "txt", "md", "csv", "json", "xml", "html", "css", "svg",
+  "js", "ts", "tsx", "jsx", "py", "rb", "go", "rs",
+  "java", "c", "cpp", "h", "hpp", "sh", "yaml", "yml",
+  "toml", "sql",
+]);
+
+const MIME_BY_EXT: Record<string, string> = {
+  pdf: "application/pdf",
+  png: "image/png",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  gif: "image/gif",
+  webp: "image/webp",
+};
+
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
+const MAX_TOTAL_SIZE = 50 * 1024 * 1024; // 50MB total per assembly
+
+async function verifyOwnership(assemblyId: string, userId: string) {
+  const rows = await query(
+    `SELECT id FROM assemblies WHERE id = $1 AND user_id = $2`,
+    [assemblyId, userId]
+  );
+  return rows.length > 0;
+}
 
 export async function POST(
   request: NextRequest,
@@ -23,6 +45,10 @@ export async function POST(
   }
 
   const { id: assemblyId } = await params;
+
+  if (!(await verifyOwnership(assemblyId, user.id))) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
 
   const formData = await request.formData();
   const file = formData.get("file") as File | null;
@@ -40,19 +66,91 @@ export async function POST(
     return NextResponse.json({ error: "Unsupported file type" }, { status: 400 });
   }
 
-  const uploadDir = join(tmpdir(), "assembly-uploads", assemblyId);
-  await mkdir(uploadDir, { recursive: true });
+  const [{ total_size }] = await query<{ total_size: number }>(
+    `SELECT COALESCE(SUM((a->>'size')::int), 0) AS total_size
+     FROM assemblies, jsonb_array_elements(attachments) AS a
+     WHERE id = $1`,
+    [assemblyId]
+  );
+  if (total_size + file.size > MAX_TOTAL_SIZE) {
+    return NextResponse.json({ error: "Total attachments exceed 50MB limit" }, { status: 400 });
+  }
 
-  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-  const filePath = join(uploadDir, `${Date.now()}-${safeName}`);
+  const isText = TEXT_EXTENSIONS.has(ext);
+  const resolvedType = MIME_BY_EXT[ext] ?? file.type;
 
-  const buffer = Buffer.from(await file.arrayBuffer());
-  await writeFile(filePath, buffer);
+  const attachment: Record<string, unknown> = {
+    name: file.name,
+    type: resolvedType,
+    size: file.size,
+  };
+
+  if (isText) {
+    attachment.textContent = await file.text();
+  } else {
+    const buffer = Buffer.from(await file.arrayBuffer());
+    attachment.base64 = buffer.toString("base64");
+  }
+
+  await query(
+    `UPDATE assemblies
+     SET attachments = COALESCE(attachments, '[]'::jsonb) || $1::jsonb
+     WHERE id = $2 AND user_id = $3`,
+    [JSON.stringify(attachment), assemblyId, user.id]
+  );
 
   return NextResponse.json({
     name: file.name,
-    path: filePath,
-    type: file.type,
+    type: resolvedType,
     size: file.size,
   });
+}
+
+// Flip status from 'uploading' to 'queued' after all uploads succeed
+export async function PATCH(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const user = await getCurrentUser();
+  if (!user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { id: assemblyId } = await params;
+
+  if (!(await verifyOwnership(assemblyId, user.id))) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  await query(
+    `UPDATE assemblies SET status = 'queued' WHERE id = $1 AND status = 'uploading'`,
+    [assemblyId]
+  );
+
+  return NextResponse.json({ ok: true });
+}
+
+// Abort: mark as error so worker won't pick it up with partial attachments
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const user = await getCurrentUser();
+  if (!user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { id: assemblyId } = await params;
+
+  if (!(await verifyOwnership(assemblyId, user.id))) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  await query(
+    `UPDATE assemblies SET status = 'error', error_message = 'File upload failed'
+     WHERE id = $1 AND status = 'uploading'`,
+    [assemblyId]
+  );
+
+  return NextResponse.json({ ok: true });
 }

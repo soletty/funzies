@@ -68,6 +68,7 @@ export interface ParsedEvaluation {
   recommendation?: Recommendation;
   debate?: ICDebateRound[];
   individualAssessments?: IndividualAssessment[];
+  premortem?: string;
 }
 
 export interface InvestmentMemo {
@@ -83,12 +84,12 @@ export interface RiskAssessment {
   raw: string;
 }
 
-export type Verdict = "strong_buy" | "buy" | "hold" | "pass" | "strong_pass";
+export type Verdict = "strongly_favorable" | "favorable" | "mixed" | "unfavorable" | "strongly_unfavorable";
 
 export interface VoteRecord {
   memberName: string;
   vote: Verdict;
-  conviction: string;
+  engagement: string;
   rationale: string;
 }
 

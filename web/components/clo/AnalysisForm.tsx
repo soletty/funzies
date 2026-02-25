@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import AttachmentWidget, { type AttachedFile } from "@/components/AttachmentWidget";
 
 type AnalysisType = "buy" | "switch";
 
@@ -38,6 +39,8 @@ export default function AnalysisForm() {
   const [switchRevenue, setSwitchRevenue] = useState("");
   const [switchCompanyDescription, setSwitchCompanyDescription] = useState("");
   const [switchNotes, setSwitchNotes] = useState("");
+
+  const [files, setFiles] = useState<AttachedFile[]>([]);
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -88,7 +91,7 @@ export default function AnalysisForm() {
     const res = await fetch("/api/clo/analyses", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ ...payload, hasFiles: files.length > 0 }),
     });
 
     if (!res.ok) {
@@ -99,6 +102,30 @@ export default function AnalysisForm() {
     }
 
     const { id } = await res.json();
+
+    // Upload attached files, then flip status to 'queued'
+    for (const attached of files) {
+      const formData = new FormData();
+      formData.append("file", attached.file);
+      const uploadRes = await fetch(`/api/clo/analyses/${id}/upload`, {
+        method: "POST",
+        body: formData,
+      });
+      if (!uploadRes.ok) {
+        const data = await uploadRes.json();
+        // Mark as error so the worker doesn't pick it up with partial documents
+        await fetch(`/api/clo/analyses/${id}/upload?action=abort`, { method: "DELETE" });
+        setError(data.error || `Failed to upload ${attached.file.name}`);
+        setSubmitting(false);
+        return;
+      }
+    }
+
+    // All uploads succeeded — signal the worker to start
+    if (files.length > 0) {
+      await fetch(`/api/clo/analyses/${id}/upload?action=ready`, { method: "PATCH" });
+    }
+
     router.push(`/clo/analyze/${id}/generating`);
   }
 
@@ -140,14 +167,14 @@ export default function AnalysisForm() {
     return (
       <>
         <div className="ic-field">
-          <label className="ic-field-label">Borrower Name {prefix === "primary" ? "*" : ""}</label>
+          <label className="ic-field-label">Borrower Name {prefix === "primary" && files.length === 0 ? "*" : ""}</label>
           <input
             type="text"
             className="ic-input"
             value={values.borrowerName}
             onChange={(e) => setters.setBorrowerName(e.target.value)}
             placeholder="e.g., Acme Holdings LLC"
-            required={prefix === "primary"}
+            required={prefix === "primary" && files.length === 0}
           />
         </div>
 
@@ -337,6 +364,14 @@ export default function AnalysisForm() {
           placeholder="e.g., Buy Analysis: Acme Industries TLB"
           required
         />
+      </div>
+
+      <div className="ic-field">
+        <label className="ic-field-label">Documents</label>
+        <p style={{ fontSize: "0.85rem", color: "var(--color-text-secondary)", margin: "0 0 0.5rem" }}>
+          Upload PPM (Listing Particulars), monthly compliance reports, or other CLO documents (PDF, images)
+        </p>
+        <AttachmentWidget files={files} onChange={setFiles} disabled={submitting} />
       </div>
 
       {analysisType === "switch" && (

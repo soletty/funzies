@@ -3,7 +3,27 @@ import { auth } from "@/lib/auth";
 import { query } from "@/lib/db";
 import { verifyAnalysisAccess } from "@/lib/clo/access";
 import type { ParsedAnalysis, PanelMember, CreditVerdict } from "@/lib/clo/types";
-import RecommendationBadge from "@/components/ic/RecommendationBadge";
+
+const VERDICT_COLORS: Record<string, { color: string; bg: string }> = {
+  strong_buy: { color: "#1a5c36", bg: "#d4edda" },
+  buy: { color: "var(--color-high)", bg: "var(--color-high-bg)" },
+  hold: { color: "var(--color-medium)", bg: "var(--color-medium-bg)" },
+  pass: { color: "#c53030", bg: "#fee2e2" },
+  strong_pass: { color: "#7f1d1d", bg: "#fecaca" },
+};
+
+function CreditVerdictBadge({ verdict }: { verdict: CreditVerdict }) {
+  const config = VERDICT_COLORS[verdict] || VERDICT_COLORS.hold;
+  const label = VOTE_LABELS[verdict] || verdict;
+  return (
+    <div
+      className="ic-verdict-badge"
+      style={{ color: config.color, background: config.bg, border: `1px solid ${config.color}` }}
+    >
+      {label}
+    </div>
+  );
+}
 
 const VOTE_LABELS: Record<string, string> = {
   strong_buy: "Strong Buy",
@@ -56,7 +76,7 @@ export default async function RecommendationPage({
   return (
     <div className="ic-recommendation">
       <div style={{ textAlign: "center", marginBottom: "2rem" }}>
-        <RecommendationBadge verdict={rec.verdict} />
+        <CreditVerdictBadge verdict={rec.verdict} />
       </div>
 
       {rec.votes?.length > 0 && (

@@ -5,7 +5,7 @@ export function domainAnalysisPrompt(topic: string, codeContext?: string): strin
 
   return `You are an expert domain analyst preparing the groundwork for a multi-perspective intellectual assembly on a given topic.
 
-Analyze the following topic and produce a structured domain analysis in markdown.${codeSection}
+Analyze the following topic and produce a structured domain analysis in markdown. If source documents or files are attached, analyze them thoroughly and incorporate their content into your domain analysis.${codeSection}
 
 ## Your task
 

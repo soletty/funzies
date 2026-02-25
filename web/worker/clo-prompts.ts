@@ -6,7 +6,8 @@ const QUALITY_RULES = `
 - Stay on the question: >80% of your response must be direct answer. No filler.
 - Practical and actionable: this is for real credit decisions, not an academic exercise.
 - Speak plainly: if stripping jargon makes the idea disappear, there was no idea.
-- Each member stays in character with their established philosophy and risk personality.`;
+- Each member stays in character with their established philosophy and risk personality.
+- SLOP BAN — the following phrases are BANNED. If you catch yourself writing any, delete and rewrite: "in today's rapidly evolving landscape", "it's important to note", "furthermore/moreover/additionally" as transitions, "nuanced" as a substitute for a position, "multifaceted/holistic/synergy/stakeholders", "it bears mentioning", "at the end of the day", "navigate" (as metaphor), "leverage" (as verb meaning "use"), "robust/comprehensive/cutting-edge", any sentence that could appear in any document about any topic.`;
 
 function formatProfile(profile: CloProfile): string {
   return `Fund Strategy: ${profile.fundStrategy || "Not specified"}
@@ -20,7 +21,10 @@ Rating Thresholds: ${profile.ratingThresholds || "Not specified"}
 Spread Targets: ${profile.spreadTargets || "Not specified"}
 Regulatory Constraints: ${profile.regulatoryConstraints || "Not specified"}
 Portfolio Description: ${profile.portfolioDescription || "Not specified"}
-Beliefs & Biases: ${profile.beliefsAndBiases || "Not specified"}`;
+Beliefs & Biases: ${profile.beliefsAndBiases || "Not specified"}
+Max CCC Bucket: ${(profile.rawQuestionnaire?.maxCccBucket as string) || "Not specified"}
+Weighted Average Life Target: ${(profile.rawQuestionnaire?.walTarget as string) || "Not specified"}
+WARF Limit: ${(profile.rawQuestionnaire?.warfLimit as string) || "Not specified"}`;
 }
 
 function formatMembers(members: PanelMember[]): string {
@@ -145,6 +149,9 @@ Their relationship with risk — how they assess it, what makes them comfortable
 ### Full Profile
 A detailed markdown profile (3-5 paragraphs) covering their career arc, credit track record highlights, how they interact with other panel members, and what they bring to the table.
 
+## No Strawmen
+Every member must be the strongest possible version of their perspective. If you can easily reconcile two members' positions, they are not different enough. The distressed debt specialist must have genuinely compelling reasons to be cautious, not just be "the negative one."
+
 ${QUALITY_RULES}`,
     user: `Generate the credit analysis panel based on this analysis:
 
@@ -214,10 +221,16 @@ Extract and organize:
 1. **Key Credit Facts** — What we know for certain from the provided information
 2. **Borrower Overview** — The borrower's business, market position, and competitive dynamics
 3. **Capital Structure** — Leverage, coverage ratios, facility terms, and structural considerations
-4. **Sector Dynamics** — Industry trends, cyclicality, and sector-specific risks
-5. **Information Gaps** — What critical information is missing
-6. **Profile Alignment** — How this loan aligns (or conflicts) with the CLO manager's fund strategy, risk appetite, and concentration limits
-7. **Preliminary Credit Flags** — Obvious credit risks based on available information
+4. **Relative Value Assessment** — Is the spread compensation adequate for the risk? What are comparable credits trading at? What assumptions drive the spread?
+5. **Management / Sponsor Assessment** — Who is the sponsor/management team? Track record in this sector? Alignment of incentives with lenders?
+6. **Sector Dynamics** — Industry trends, cyclicality, and sector-specific risks
+7. **Information Gaps** — What critical information is missing
+8. **Profile Alignment** — How this loan aligns (or conflicts) with the CLO manager's fund strategy, risk appetite, concentration limits, rating thresholds, and spread targets
+9. **Preliminary Credit Flags** — Obvious credit risks based on available information
+10. **Falsifiable Thesis** — State the credit thesis as 2-3 specific, testable claims. For each claim: what specific evidence would disprove it?
+11. **Kill Criteria** — 3-5 specific conditions that, if true, should kill this credit regardless of other merits. These must be concrete and verifiable (e.g., "leverage exceeds 7x with no credible deleveraging path" not "too much leverage")
+
+If source documents are attached (PPM/Listing Particulars, compliance reports, monthly reports, etc.), analyze them thoroughly — extract all relevant credit terms, portfolio data, concentration limits, OC/IC test results, and loan-level details. These documents are the primary source of truth and should take precedence over manually entered fields.
 
 Be thorough but concise. Flag uncertainty explicitly — do not fill gaps with assumptions.
 
@@ -311,6 +324,14 @@ Bulleted list of 3-5 points that support or inform their position.
 ### Concerns
 Bulleted list of 2-4 specific concerns from their perspective.
 
+### Assumptions
+Label each key assumption underlying the member's position as one of:
+- [VERIFIED] — backed by audited financials, public filings, or independently verifiable data
+- [MANAGEMENT CLAIM] — stated by company/sponsor but not independently verified (e.g., projected EBITDA, synergy targets)
+- [ASSUMPTION] — the member is filling an information gap with judgment
+
+This labeling must carry forward into all subsequent phases.
+
 Members must stay in character. A distressed debt specialist should see different things than a portfolio strategist. The quant risk analyst should focus on metrics while the legal expert examines covenants.
 
 ${QUALITY_RULES}`,
@@ -334,35 +355,40 @@ export function analysisDebatePrompt(
   profile: CloProfile
 ): { system: string; user: string } {
   return {
-    system: `You are orchestrating a structured credit panel debate with 2-3 rounds. Panel members challenge each other's initial assessments, surface disagreements, and pressure-test the creditworthiness of the borrower.
+    system: `You are orchestrating a structured credit panel debate with 3 rounds. Panel members challenge each other's assessments with genuine adversarial pressure on the borrower's creditworthiness.
 
 ## Structure
 
-### Round 1: Cross-Examination
-Members directly challenge the weakest points of other members' assessments. Focus on substantive disagreements about credit quality, not restating positions.
+### Round 1: Steel-Man Then Attack
+Each member must first state the strongest version of a specific opposing member's argument (name them), THEN explain why it's still wrong from a credit perspective. No one may simply restate their own position — they must demonstrate they understand the other side before attacking it.
 
-### Round 2: Deep Dive
-Focus on the 2-3 most contentious credit issues identified in Round 1. Members with relevant expertise take the lead. Others ask pointed questions.
+### Round 2: Kill Criteria Test
+For each kill criterion from the credit analysis, members debate whether the evidence meets or fails the threshold. The distressed debt specialist leads, but all members must weigh in. For each criterion, reach an explicit verdict: CLEARED, UNRESOLVED, or FAILED.
 
-### Round 3: Convergence Attempt (if needed)
-Where can the panel align? What remains irreconcilable? What additional information would change minds?
+### Round 3: What Changes Your Mind?
+Each member states the single piece of credit information that would flip their position (e.g., "if interest coverage drops below 1.5x" or "if the covenant package gets tightened to include a leverage ratchet"). Others challenge whether that information is obtainable and whether the stated threshold is honest. If any member's position hasn't changed at all from their initial assessment, they must explain why — not just restate.
 
 ## Format
 
 Use clear round headers and **Speaker:** attribution:
 
-## Round 1: Cross-Examination
+## Round 1: Steel-Man Then Attack
 
 **MemberName:** Their statement here.
 
 **AnotherMember:** Their response.
 
 ## Rules
-- Members ENGAGE with each other, not just restate positions
+- Members ENGAGE with each other by name, not just restate positions
 - At least one member should visibly update their view during the debate
 - The debate should surface credit risks or strengths that no single assessment captured
 - For switch analyses, frame the debate as a comparative assessment of the two credits
 - Keep exchanges sharp — 2-4 sentences per turn, not paragraphs
+- Assumption labels ([VERIFIED], [MANAGEMENT CLAIM], [ASSUMPTION]) from assessments must be preserved when referencing claims
+- Convergence check: When members appear to agree, one member must challenge: "Are we actually agreeing, or using different words for different positions?" Surface at least one case where apparent agreement masks a real disagreement.
+- Members speak only when their expertise genuinely informs the point. Not every member needs to respond to every topic. Silence is better than filler.
+- Brevity signals understanding. The best debate contributions are 2-4 sentences that change how others think, not paragraphs that restate a framework.
+- At least once during the debate, a member must be challenged on their stated blind spot (from their profile). The challenger should name the blind spot and explain how it applies to this specific credit.
 
 ${QUALITY_RULES}`,
     user: `Run the credit panel debate:
@@ -381,12 +407,70 @@ ${formatProfile(profile)}`,
   };
 }
 
+export function premortemPrompt(
+  members: PanelMember[],
+  debate: string,
+  analysis: string,
+  profile: CloProfile
+): { system: string; user: string } {
+  return {
+    system: `You are facilitating a structured pre-mortem exercise for a CLO credit analysis panel. Research shows pre-mortems improve decision accuracy by ~30%.
+
+## Premise
+It is 18 months later and this loan has defaulted or been significantly downgraded. The panel must explain what went wrong.
+
+## Phase 1: Individual Failure Narratives
+Each panel member writes a 3-5 sentence narrative explaining what went wrong — from their specific area of expertise. The distressed debt specialist focuses on what recovery looks like now, the credit analyst on what fundamental deterioration occurred, the quant on what portfolio metrics blew through limits, the legal expert on what covenant failures enabled the deterioration, etc.
+
+## Phase 2: Plausibility Ranking
+Given these failure scenarios, rank them from most to least plausible. For the top 3 most plausible scenarios:
+- What specific evidence available TODAY supports or contradicts this failure mode?
+- What would you need to see TODAY to rule it out?
+- Does this failure mode interact with any of the kill criteria from the credit analysis?
+
+## Phase 3: CLO-Specific Vulnerabilities
+Given the manager's stated constraints (concentration limits, rating thresholds, WARF limits, reinvestment period), which failure scenarios would cause the most damage to THIS specific CLO portfolio? A single-name default that's manageable for a diversified portfolio may be catastrophic if it pushes the CLO past its WARF or CCC bucket limits.
+
+## Format
+
+### Failure Narratives
+
+**MemberName (Role):** Their failure narrative here.
+
+### Plausibility Ranking
+
+1. **Most Plausible Failure:** Description
+   - Evidence today: ...
+   - What would rule it out: ...
+   - Kill criteria interaction: ...
+
+### CLO-Specific Vulnerabilities
+Analysis of which failures are most damaging given this manager's portfolio constraints.
+
+${QUALITY_RULES}`,
+    user: `Run the pre-mortem exercise:
+
+Debate Transcript:
+${debate}
+
+Credit Analysis:
+${analysis}
+
+Panel Members:
+${formatMembers(members)}
+
+CLO Manager Profile:
+${formatProfile(profile)}`,
+  };
+}
+
 export function creditMemoPrompt(
   debate: string,
   assessments: string,
   analysis: string,
   profile: CloProfile,
-  title?: string
+  title?: string,
+  premortem?: string
 ): { system: string; user: string } {
   return {
     system: `You are a senior credit analyst synthesizing a panel debate into a formal credit memo.
@@ -399,16 +483,16 @@ export function creditMemoPrompt(
 3-5 bullet points capturing the key conclusion and credit recommendation.
 
 ## Company/Borrower Overview
-Business description, market position, competitive landscape, and management assessment.
+Business description, market position, competitive landscape, and management/sponsor assessment. Include sponsor track record and incentive alignment.
 
 ## Financial Analysis
-Key financial metrics discussed — leverage, coverage, EBITDA margins, revenue trends, free cash flow. Note: base this on what was discussed, do not fabricate numbers.
+Key financial metrics discussed — leverage, coverage, EBITDA margins, revenue trends, free cash flow. Include the falsifiable claims from the credit analysis and note whether they were challenged or validated during the debate. Note: base this on what was discussed, do not fabricate numbers.
 
 ## Credit Strengths
 Bulleted list of factors supporting the credit, ranked by significance.
 
 ## Credit Weaknesses
-Bulleted list of credit concerns, ranked by severity.
+Bulleted list of credit concerns, ranked by severity. Incorporate the most plausible failure scenarios from the pre-mortem exercise.
 
 ## Structural Review
 Covenant package assessment, documentation quality, security/collateral, and structural protections.
@@ -416,8 +500,25 @@ Covenant package assessment, documentation quality, security/collateral, and str
 ## Relative Value
 Spread compensation relative to risk, comparison to comparable credits, and fair value assessment.
 
+## Pre-Mortem Findings
+Summarize the top 3 most plausible default/downgrade scenarios and what evidence today supports or contradicts each. Note which scenarios are most damaging given this CLO's specific portfolio constraints.
+
+## Kill Criteria Status
+For each kill criterion from the credit analysis, state whether it was CLEARED, UNRESOLVED, or FAILED during the debate.
+
 ## Recommendation
 The panel's synthesized view — not a simple vote count but a reasoned conclusion reflecting the weight of argument. For switch analyses, include a comparative section explaining whether the switch improves portfolio quality.
+
+## Self-Verification
+Before finalizing, audit your own output:
+- Are all financial figures sourced from the debate/analysis, not invented?
+- Does every "Information Gap" from the credit analysis appear verbatim?
+- Are assumption labels ([VERIFIED], [MANAGEMENT CLAIM], [ASSUMPTION]) preserved where referenced?
+- Would a reader who hasn't seen the debate understand this memo standalone?
+
+## Quality Gates (apply before finalizing)
+- Plaintext test: For every key claim, rewrite it in one sentence using no jargon. If the plain version sounds obvious or empty, the original was disguising a lack of substance — delete it.
+- Falsifiability test: For every major claim, what evidence would disprove it? If nothing could, the claim is empty — delete it.
 
 ${QUALITY_RULES}`,
     user: `Synthesize this credit panel debate into a credit memo:
@@ -430,6 +531,7 @@ ${assessments}
 
 Credit Analysis:
 ${analysis}
+${premortem ? `\nPre-Mortem Analysis:\n${premortem}` : ""}
 
 CLO Manager Profile:
 ${formatProfile(profile)}`,
@@ -439,7 +541,8 @@ ${formatProfile(profile)}`,
 export function riskAssessmentPrompt(
   debate: string,
   analysis: string,
-  profile: CloProfile
+  profile: CloProfile,
+  premortem?: string
 ): { system: string; user: string } {
   return {
     system: `You are a risk assessment specialist producing a structured risk report for a loan opportunity based on the credit panel debate.
@@ -464,10 +567,27 @@ Categories:
 5. **Sector Risk** — industry cyclicality, regulatory headwinds, competitive dynamics
 6. **Concentration Risk** — single-name exposure, sector overlap, portfolio WARF impact
 
+## CLO Constraint Violations
+Check the loan against the manager's stated portfolio constraints and flag any violations:
+- **Concentration Limits**: Does adding this name breach single-name, sector, or industry concentration limits?
+- **Rating Thresholds**: Does this credit's rating fit within the CLO's rating bucket limits? Would it push the CCC bucket over the limit?
+- **WARF Impact**: How does adding this credit affect the portfolio's weighted average rating factor?
+- **Spread Targets**: Does the spread meet the portfolio's minimum spread target?
+- **Reinvestment Period**: Is the loan's maturity compatible with the CLO's reinvestment period?
+
+For each constraint, state explicitly: WITHIN LIMITS, AT RISK, or VIOLATED.
+
+## Portfolio Impact
+How does adding this loan interact with the existing CLO portfolio? Does it improve or worsen diversification? What is the marginal impact on WARF, WAL, and spread? Does it help or hurt the CLO's compliance tests?
+
 ## Mitigants
 Bulleted list of specific actions or conditions that reduce the identified risks.
 
-Ground your analysis primarily in what was discussed during the debate, but you may identify additional risks that are standard for this type of credit even if not explicitly raised.
+Ground your analysis primarily in what was discussed during the debate and pre-mortem, but you may identify additional risks that are standard for this type of credit even if not explicitly raised. Pay special attention to the most plausible default/downgrade scenarios from the pre-mortem.
+
+## Quality Gates (apply before finalizing)
+- Plaintext test: For every key claim, rewrite it in one sentence using no jargon. If the plain version sounds obvious or empty, the original was disguising a lack of substance — delete it.
+- Falsifiability test: For every major claim, what evidence would disprove it? If nothing could, the claim is empty — delete it.
 
 ${QUALITY_RULES}`,
     user: `Produce the risk assessment:
@@ -477,6 +597,7 @@ ${debate}
 
 Credit Analysis:
 ${analysis}
+${premortem ? `\nPre-Mortem Analysis:\n${premortem}` : ""}
 
 CLO Manager Profile:
 ${formatProfile(profile)}`,
@@ -488,10 +609,11 @@ export function recommendationPrompt(
   risk: string,
   debate: string,
   members: PanelMember[],
-  profile: CloProfile
+  profile: CloProfile,
+  premortem?: string
 ): { system: string; user: string } {
   return {
-    system: `You are facilitating the final credit panel vote. Each panel member casts their vote based on the full debate, credit memo, and risk assessment.
+    system: `You are facilitating the final credit panel vote. Each panel member casts their vote based on the full debate, credit memo, risk assessment, and pre-mortem.
 
 ## Format
 
@@ -508,8 +630,17 @@ After all individual votes, provide:
 - **Verdict**: The panel's overall recommendation based on the vote pattern and weight of argument (not just majority). For switch analyses, the verdict should specifically address whether to proceed with the switch.
 - **Dissents**: Any notable dissents and their reasoning
 - **Conditions**: Specific conditions or milestones that would change the recommendation
+- **Kill Criteria Status**: For each kill criterion, confirm whether it has been CLEARED or flag it as UNRESOLVED. Any FAILED criterion must be prominently noted.
+- **Pre-Mortem Response**: Address the top 2-3 most plausible default/downgrade scenarios — what makes the panel confident (or not) that they won't occur?
 
-Each member must vote consistently with their established philosophy and the positions they took during the debate. A distressed debt specialist who raised serious recovery concerns should not suddenly vote strong_buy without explanation.
+## Consistency Rules
+- Each member's final vote must be CONSISTENT with their debate positions. If a member raised serious unresolved concerns during the debate, they cannot vote strong_buy without explaining what resolved those concerns.
+- If a member's position has shifted from the debate, they must explicitly state what changed their mind.
+- A distressed debt specialist who raised serious recovery concerns should not suddenly vote strong_buy without explanation.
+
+## Quality Gates (apply before finalizing)
+- Plaintext test: For every key claim, rewrite it in one sentence using no jargon. If the plain version sounds obvious or empty, the original was disguising a lack of substance — delete it.
+- Falsifiability test: For every major claim, what evidence would disprove it? If nothing could, the claim is empty — delete it.
 
 ${QUALITY_RULES}`,
     user: `Each member casts their final vote:
@@ -522,6 +653,7 @@ ${risk}
 
 Debate Transcript:
 ${debate}
+${premortem ? `\nPre-Mortem Analysis:\n${premortem}` : ""}
 
 Panel Members:
 ${formatMembers(members)}
@@ -630,6 +762,15 @@ Why this loan profile addresses the identified portfolio gaps and aligns with th
 
 ### Key Risks
 Bulleted list of 2-4 risks.
+
+### Feasibility Score
+Rate 1-5 — how actionable is this loan idea given the CLO's constraints? (1 = breaches multiple limits, 5 = fully compliant and actionable)
+
+### Key Assumption
+The single assumption that, if wrong, makes this loan idea worthless.
+
+### Constraint Check
+Does this idea violate any stated CLO constraints (concentration limits, rating thresholds, WARF, reinvestment period, spread targets)? State explicitly: CLEAR or VIOLATION with explanation.
 
 ### Implementation Steps
 Numbered list of 3-5 concrete next steps.
