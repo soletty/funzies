@@ -73,6 +73,9 @@ export default async function Dashboard() {
 
       <div className="dashboard-github-bar">
         <GitHubConnect />
+        <Link href="/tokens" style={{ fontSize: "0.85rem", color: "var(--color-text-muted)", textDecoration: "underline", textUnderlineOffset: "2px" }}>
+          API Tokens
+        </Link>
       </div>
 
       {assemblies.length === 0 ? (

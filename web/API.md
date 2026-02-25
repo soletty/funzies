@@ -6,29 +6,10 @@ All endpoints require authentication via either a browser session or an API toke
 
 ### Generate a Token
 
-Log into the web app, then create a token:
-
-```bash
-# From your browser's dev console or an authenticated session
-curl -X POST http://localhost:3000/api/auth/tokens \
-  -H "Content-Type: application/json" \
-  -b "your-session-cookie" \
-  -d '{"name": "my-script"}'
-```
-
-Response:
-
-```json
-{
-  "id": "uuid",
-  "name": "my-script",
-  "token": "fz_a1b2c3d4e5f6...",
-  "prefix": "fz_a1b2c3d",
-  "created_at": "2026-02-25T..."
-}
-```
-
-Save the `token` value — it is shown only once.
+1. Log into the web app
+2. Go to **[/tokens](/tokens)** (or click "API Tokens" on your dashboard)
+3. Enter a name and click **Create Token**
+4. Copy the token — it is shown only once
 
 ### Use the Token
 
