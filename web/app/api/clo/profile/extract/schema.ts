@@ -6,18 +6,18 @@ const ratingPair = z.object({
 }).passthrough();
 
 const capitalStructureEntry = z.object({
-  class: z.string(),
+  class: z.string().optional(),
   designation: z.string().optional(),
-  principalAmount: z.string(),
+  principalAmount: z.string().optional(),
   rateType: z.string().optional(),
   referenceRate: z.string().optional(),
   spreadBps: z.number().optional(),
-  spread: z.string(),
-  rating: ratingPair,
+  spread: z.string().optional(),
+  rating: ratingPair.optional(),
   ratingAddressesTimelyInterest: z.boolean().optional(),
   deferrable: z.boolean().optional(),
-  issuePrice: z.string(),
-  maturityDate: z.string(),
+  issuePrice: z.string().optional(),
+  maturityDate: z.string().optional(),
   minDenominationRegS: z.string().optional(),
   minDenomination144a: z.string().optional(),
   isSubordinated: z.boolean().optional(),
@@ -62,7 +62,7 @@ export const extractedConstraintsSchema = z.object({
   }).passthrough().optional(),
 
   coverageTestEntries: z.array(z.object({
-    class: z.string(),
+    class: z.string().optional(),
     parValueRatio: z.string().optional(),
     interestCoverageRatio: z.string().optional(),
   }).passthrough()).optional(),
@@ -75,7 +75,7 @@ export const extractedConstraintsSchema = z.object({
   }).passthrough().optional(),
 
   collateralQualityTests: z.array(z.object({
-    name: z.string(),
+    name: z.string().optional(),
     agency: z.string().optional(),
     value: z.union([z.string(), z.number(), z.null()]).optional(),
     appliesDuring: z.string().optional(),
@@ -103,20 +103,20 @@ export const extractedConstraintsSchema = z.object({
   }).passthrough().optional(),
 
   fees: z.array(z.object({
-    name: z.string(),
+    name: z.string().optional(),
     rate: z.string().optional(),
     basis: z.string().optional(),
     description: z.string().optional(),
   }).passthrough()).optional(),
 
   accounts: z.array(z.object({
-    name: z.string(),
-    purpose: z.string(),
+    name: z.string().optional(),
+    purpose: z.string().optional(),
   }).passthrough()).optional(),
 
   keyParties: z.array(z.object({
-    role: z.string(),
-    entity: z.string(),
+    role: z.string().optional(),
+    entity: z.string().optional(),
   }).passthrough()).optional(),
 
   hedging: z.object({
@@ -129,13 +129,13 @@ export const extractedConstraintsSchema = z.object({
   }).passthrough().optional(),
 
   redemptionProvisions: z.array(z.object({
-    type: z.string(),
-    description: z.string(),
+    type: z.string().optional(),
+    description: z.string().optional(),
   }).passthrough()).optional(),
 
   eventsOfDefault: z.array(z.object({
-    event: z.string(),
-    description: z.string(),
+    event: z.string().optional(),
+    description: z.string().optional(),
   }).passthrough()).optional(),
 
   votingAndControl: z.object({
@@ -178,12 +178,12 @@ export const extractedConstraintsSchema = z.object({
   }).passthrough().optional(),
 
   transferRestrictions: z.array(z.object({
-    investorType: z.string(),
-    requirements: z.string(),
+    investorType: z.string().optional(),
+    requirements: z.string().optional(),
   }).passthrough()).optional(),
 
   reports: z.array(z.object({
-    type: z.string(),
+    type: z.string().optional(),
     frequency: z.string().optional(),
     preparedBy: z.string().optional(),
   }).passthrough()).optional(),
@@ -203,8 +203,8 @@ export const extractedConstraintsSchema = z.object({
   }).passthrough().optional(),
 
   refinancingHistory: z.array(z.object({
-    date: z.string(),
-    details: z.string(),
+    date: z.string().optional(),
+    details: z.string().optional(),
   }).passthrough()).optional(),
 
   additionalIssuance: z.object({
@@ -228,8 +228,8 @@ export const extractedConstraintsSchema = z.object({
   }).passthrough().optional(),
 
   legalProtections: z.array(z.object({
-    feature: z.string(),
-    description: z.string(),
+    feature: z.string().optional(),
+    description: z.string().optional(),
   }).passthrough()).optional(),
 
   additionalProvisions: z.string().optional(),
