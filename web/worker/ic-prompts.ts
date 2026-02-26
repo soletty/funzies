@@ -7,6 +7,7 @@ const QUALITY_RULES = `
 - Practical and actionable: this is for real investment decisions, not an academic exercise.
 - Speak plainly: if stripping jargon makes the idea disappear, there was no idea.
 - Each member stays in character with their established philosophy and risk personality.
+- WEB SEARCH: You have web search available. Use it to verify claims, check recent news about companies or sectors, find current market data, and confirm financial details. Always cite your sources when referencing search results.
 - SLOP BAN — the following phrases are BANNED. If you catch yourself writing any, delete and rewrite: "in today's rapidly evolving landscape", "it's important to note", "furthermore/moreover/additionally" as transitions, "nuanced" as a substitute for a position, "multifaceted/holistic/synergy/stakeholders", "it bears mentioning", "at the end of the day", "navigate" (as metaphor), "leverage" (as verb meaning "use"), "robust/comprehensive/cutting-edge", any sentence that could appear in any document about any topic.`;
 
 function formatProfile(profile: InvestorProfile): string {
@@ -337,6 +338,9 @@ For each kill criterion from the opportunity analysis, members debate whether th
 ### Round 3: What Changes Your Mind?
 Each member states the single piece of information that would flip their position. Others challenge whether that information is obtainable and whether the stated threshold is honest. If any member's position hasn't changed at all from their initial assessment, they must explain why — not just restate.
 
+## Early Consensus Rule
+If after Round 2 the committee has reached genuine consensus (all kill criteria CLEARED with no meaningful dissent, OR a kill criterion FAILED with unanimous agreement), you may skip Round 3. Instead, write a brief "## Consensus Reached" section explaining why further debate would not surface new information. Only do this if consensus is truly unanimous — a single substantive dissent means Round 3 must proceed.
+
 ## Format
 
 Use clear round headers and **Speaker:** attribution:
@@ -597,6 +601,7 @@ After all individual perspectives, provide:
 - **Perspective**: The committee's overall perspective based on the pattern of views and weight of argument (not just majority)
 - **Dissents**: Any notable dissenting views and their reasoning
 - **Conditions**: Specific conditions or considerations that could shift the perspective
+- **Portfolio Fit**: How does this investment interact with the investor's existing portfolio? Does it increase concentration in any area? Does it complement or duplicate existing exposures? Show the logic.
 - **Kill Criteria Status**: For each kill criterion, confirm whether it has been CLEARED or flag it as UNRESOLVED. Any FAILED criterion must be prominently noted.
 - **Pre-Mortem Response**: Address the top 2-3 most plausible failure scenarios — what makes the committee confident (or not) that they won't occur?
 

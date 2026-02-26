@@ -79,5 +79,8 @@ export async function POST(request: NextRequest) {
     ]
   );
 
+  // Note: documents and extracted_constraints are managed separately via
+  // /api/clo/profile/upload and /api/clo/profile/extract endpoints
+
   return NextResponse.json(rows[0], { status: 201 });
 }

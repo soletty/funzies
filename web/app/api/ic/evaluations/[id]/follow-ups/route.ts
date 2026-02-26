@@ -4,6 +4,8 @@ import { query } from "@/lib/db";
 import { decryptApiKey } from "@/lib/crypto";
 import { verifyEvaluationAccess } from "@/lib/ic/access";
 import type { CommitteeMember } from "@/lib/ic/types";
+import { WEB_SEARCH_TOOL, processAnthropicStream } from "@/lib/claude-stream";
+import { getLatestBriefing } from "@/lib/briefing";
 
 function buildFollowUpPrompt(
   question: string,
@@ -70,7 +72,8 @@ QUALITY RULES:
 - STAY ON THE QUESTION: >80% of your response must directly address what was asked. No preamble, no framework restatement unless it changes the answer.
 - PRACTICAL OUTPUT: This is for real investment decisions. Be specific, actionable, and concrete.
 - PLAINTEXT TEST: If you strip all jargon from a sentence and it says nothing, delete it.
-- Each committee member must stay in character with their established philosophy and risk personality.`;
+- Each committee member must stay in character with their established philosophy and risk personality.
+- WEB SEARCH: You have web search available. Use it to verify claims, check recent news about companies or sectors, and find current market data. Cite sources.`;
 }
 
 function buildMessages(
@@ -81,11 +84,8 @@ function buildMessages(
     return [{ role: "user", content: question }];
   }
 
-  // Use only prior exchanges as context (exclude the current question if it's the last entry)
-  const prior = history.filter((_, i) => !(i === history.length - 1 && history[i].role === "user" && history[i].content === question));
-
-  // Cap at last 10 messages to avoid token explosion (system prompt already includes full raw files)
-  const capped = prior.slice(-10);
+  // Client sends prior history without the current question
+  const capped = history.slice(-10);
   const startIdx = capped.findIndex((m) => m.role === "user");
   const trimmed = startIdx >= 0 ? capped.slice(startIdx) : capped;
 
@@ -190,14 +190,13 @@ export async function POST(
   const members = [...standingMembers, ...dynamicSpecialists];
   const profile = profiles[0] || { investment_philosophy: "", risk_tolerance: "" };
 
-  const systemPrompt = buildFollowUpPrompt(
-    question,
-    mode,
-    targetMember,
-    evaluation,
-    members,
-    profile
-  );
+  const briefing = await getLatestBriefing();
+  const briefingSection = briefing
+    ? `\n\nMARKET INTELLIGENCE (today's briefing — reference when relevant, do not repeat verbatim):\n${briefing}`
+    : "";
+  const systemPrompt =
+    buildFollowUpPrompt(question, mode, targetMember, evaluation, members, profile) +
+    briefingSection;
 
   const userRows = await query<{ encrypted_api_key: Buffer; api_key_iv: Buffer }>(
     "SELECT encrypted_api_key, api_key_iv FROM users WHERE id = $1",
@@ -223,6 +222,7 @@ export async function POST(
       system: systemPrompt,
       messages: buildMessages(history, question),
       stream: true,
+      tools: [WEB_SEARCH_TOOL],
     }),
   });
 
@@ -251,52 +251,21 @@ export async function POST(
     return NextResponse.json({ error: "No response stream" }, { status: 500 });
   }
 
-  let fullText = "";
-  const decoder = new TextDecoder();
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream({
     async start(controller) {
-      let buffer = "";
+      const fullText = await processAnthropicStream(reader, controller, encoder);
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
-
-        for (const line of lines) {
-          if (!line.startsWith("data: ")) continue;
-          const data = line.slice(6);
-          if (data === "[DONE]") continue;
-
-          let event;
-          try {
-            event = JSON.parse(data);
-          } catch {
-            continue;
-          }
-
-          if (
-            event.type === "content_block_delta" &&
-            event.delta?.type === "text_delta"
-          ) {
-            const text = event.delta.text;
-            fullText += text;
-            controller.enqueue(
-              encoder.encode(`data: ${JSON.stringify({ type: "text", content: text })}\n\n`)
-            );
-          }
-        }
+      try {
+        await query(
+          `INSERT INTO ic_follow_ups (evaluation_id, question, mode, target_member, response_md)
+           VALUES ($1, $2, $3, $4, $5)`,
+          [id, question, mode, targetMember || null, fullText]
+        );
+      } catch (err) {
+        console.error("[ic/follow-ups] Failed to persist follow-up:", err);
       }
-
-      await query(
-        `INSERT INTO ic_follow_ups (evaluation_id, question, mode, target_member, response_md)
-         VALUES ($1, $2, $3, $4, $5)`,
-        [id, question, mode, targetMember || null, fullText]
-      );
 
       controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "done" })}\n\n`));
       controller.close();

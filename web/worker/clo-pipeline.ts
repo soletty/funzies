@@ -9,7 +9,8 @@ import {
   parseIndividualAssessments,
 } from "../lib/clo/parsers/analysis.js";
 import { getRecentAnalysisSummaries } from "../lib/clo/history.js";
-import type { CloProfile, PanelMember } from "../lib/clo/types.js";
+import { rowToProfile } from "../lib/clo/access.js";
+import type { PanelMember } from "../lib/clo/types.js";
 import {
   profileAnalysisPrompt,
   panelGenerationPrompt,
@@ -26,6 +27,9 @@ import {
   screeningDebatePrompt,
   screeningSynthesisPrompt,
 } from "./clo-prompts.js";
+import { getLatestBriefing } from "../lib/briefing.js";
+
+const WEB_SEARCH_TOOL = { type: "web_search_20250305", name: "web_search", max_uses: 5 };
 
 export interface PipelineCallbacks {
   updatePhase: (phase: string) => Promise<void>;
@@ -39,7 +43,8 @@ async function callClaude(
   userMessage: string,
   maxTokens: number,
   model: string = "claude-sonnet-4-20250514",
-  documents?: Array<{ name: string; type: string; base64: string }>
+  documents?: Array<{ name: string; type: string; base64: string }>,
+  tools?: Array<Record<string, unknown>>
 ): Promise<string> {
   try {
     const content: Anthropic.MessageCreateParams["messages"][0]["content"] =
@@ -74,7 +79,8 @@ async function callClaude(
       max_tokens: maxTokens,
       messages: [{ role: "user", content }],
       system: systemPrompt,
-    });
+      ...(tools && tools.length > 0 ? { tools } : {}),
+    } as Anthropic.MessageCreateParams) as Anthropic.Message;
 
     return response.content
       .filter((block): block is Anthropic.TextBlock => block.type === "text")
@@ -142,28 +148,6 @@ function attachAvatars(members: PanelMember[], rawAvatarJson: string) {
   } catch {
     console.warn("[clo-pipeline] Failed to parse avatar-mapping.json, skipping avatars");
   }
-}
-
-function rowToProfile(row: Record<string, unknown>): CloProfile {
-  return {
-    id: row.id as string,
-    userId: row.user_id as string,
-    fundStrategy: (row.fund_strategy as string) || "",
-    targetSectors: (row.target_sectors as string) || "",
-    riskAppetite: (row.risk_appetite as CloProfile["riskAppetite"]) || "moderate",
-    portfolioSize: (row.portfolio_size as string) || "",
-    reinvestmentPeriod: (row.reinvestment_period as string) || "",
-    concentrationLimits: (row.concentration_limits as string) || "",
-    covenantPreferences: (row.covenant_preferences as string) || "",
-    ratingThresholds: (row.rating_thresholds as string) || "",
-    spreadTargets: (row.spread_targets as string) || "",
-    regulatoryConstraints: (row.regulatory_constraints as string) || "",
-    portfolioDescription: (row.portfolio_description as string) || "",
-    beliefsAndBiases: (row.beliefs_and_biases as string) || "",
-    rawQuestionnaire: (row.raw_questionnaire as Record<string, unknown>) || {},
-    createdAt: row.created_at as string,
-    updatedAt: row.updated_at as string,
-  };
 }
 
 // ─── Panel Pipeline ──────────────────────────────────────────────────
@@ -269,8 +253,11 @@ export async function runAnalysisPipeline(
   }
   const profile = rowToProfile(profileRows.rows[0]);
 
-  const documents: Array<{ name: string; type: string; base64: string }> =
+  const analysisDocuments: Array<{ name: string; type: string; base64: string }> =
     analysisRow.documents || [];
+  const profileDocuments: Array<{ name: string; type: string; base64: string }> =
+    profile.documents || [];
+  const allDocuments = [...profileDocuments, ...analysisDocuments];
 
   const analysis = {
     title: analysisRow.title,
@@ -327,11 +314,17 @@ export async function runAnalysisPipeline(
     parsedData.recommendation = parseCreditRecommendation(rawFiles["recommendation.md"]);
   }
 
+  // Inject daily briefing into the first phase so the AI has current market context
+  const briefing = await getLatestBriefing();
+  const briefingSection = briefing
+    ? `\n\nMARKET INTELLIGENCE (today's briefing — reference when relevant, do not repeat verbatim):\n${briefing}`
+    : "";
+
   // Phase 1: Credit Analysis
   if (!rawFiles["credit-analysis.md"]) {
     await callbacks.updatePhase("credit-analysis");
     const prompt = creditAnalysisPrompt(analysis, profile);
-    const result = await callClaude(client, prompt.system, prompt.user, 8192, undefined, documents);
+    const result = await callClaude(client, prompt.system + briefingSection, prompt.user, 8192, undefined, allDocuments, [WEB_SEARCH_TOOL]);
     rawFiles["credit-analysis.md"] = result;
     await callbacks.updateRawFiles(rawFiles);
   }
@@ -386,7 +379,7 @@ export async function runAnalysisPipeline(
       profile,
       history
     );
-    const result = await callClaude(client, prompt.system, prompt.user, 8192);
+    const result = await callClaude(client, prompt.system, prompt.user, 8192, undefined, allDocuments, [WEB_SEARCH_TOOL]);
     rawFiles["individual-assessments.md"] = result;
     await callbacks.updateRawFiles(rawFiles);
     parsedData.individualAssessments = parseIndividualAssessments(result);
@@ -402,7 +395,7 @@ export async function runAnalysisPipeline(
       rawFiles["credit-analysis.md"],
       profile
     );
-    const result = await callClaude(client, prompt.system, prompt.user, 16384);
+    const result = await callClaude(client, prompt.system, prompt.user, 16384, undefined, allDocuments, [WEB_SEARCH_TOOL]);
     rawFiles["debate.md"] = result;
     await callbacks.updateRawFiles(rawFiles);
     parsedData.debate = parseDebate(result);
@@ -418,7 +411,7 @@ export async function runAnalysisPipeline(
       rawFiles["credit-analysis.md"],
       profile
     );
-    const result = await callClaude(client, prompt.system, prompt.user, 8192);
+    const result = await callClaude(client, prompt.system, prompt.user, 8192, undefined, allDocuments, [WEB_SEARCH_TOOL]);
     rawFiles["premortem.md"] = result;
     await callbacks.updateRawFiles(rawFiles);
     parsedData.premortem = result;
@@ -436,7 +429,7 @@ export async function runAnalysisPipeline(
       analysis.title,
       rawFiles["premortem.md"]
     );
-    const result = await callClaude(client, prompt.system, prompt.user, 8192);
+    const result = await callClaude(client, prompt.system, prompt.user, 8192, undefined, allDocuments);
     rawFiles["memo.md"] = result;
     await callbacks.updateRawFiles(rawFiles);
     parsedData.memo = parseCreditMemo(result);
@@ -452,7 +445,7 @@ export async function runAnalysisPipeline(
       profile,
       rawFiles["premortem.md"]
     );
-    const result = await callClaude(client, prompt.system, prompt.user, 8192);
+    const result = await callClaude(client, prompt.system, prompt.user, 8192, undefined, allDocuments);
     rawFiles["risk-assessment.md"] = result;
     await callbacks.updateRawFiles(rawFiles);
     parsedData.riskAssessment = parseCreditRiskAssessment(result);
@@ -470,7 +463,7 @@ export async function runAnalysisPipeline(
       profile,
       rawFiles["premortem.md"]
     );
-    const result = await callClaude(client, prompt.system, prompt.user, 8192);
+    const result = await callClaude(client, prompt.system, prompt.user, 8192, undefined, allDocuments);
     rawFiles["recommendation.md"] = result;
     await callbacks.updateRawFiles(rawFiles);
     parsedData.recommendation = parseCreditRecommendation(result);
@@ -513,6 +506,9 @@ export async function runScreeningPipeline(
   }
   const profile = rowToProfile(profileRows.rows[0]);
 
+  const profileDocuments: Array<{ name: string; type: string; base64: string }> =
+    profile.documents || [];
+
   const focusArea = screeningRow.focus_area || "";
   const parsedData: Record<string, unknown> = screeningRow.parsed_data || {};
 
@@ -530,7 +526,7 @@ export async function runScreeningPipeline(
     await callbacks.updatePhase("gap-analysis");
     const recentAnalyses = await getRecentAnalysisSummaries(pool, screeningRow.panel_id);
     const prompt = portfolioGapAnalysisPrompt(profile, recentAnalyses);
-    const result = await callClaude(client, prompt.system, prompt.user, 8192);
+    const result = await callClaude(client, prompt.system, prompt.user, 8192, undefined, profileDocuments, [WEB_SEARCH_TOOL]);
     rawFiles["gap-analysis.md"] = result;
     await callbacks.updateRawFiles(rawFiles);
     parsedData.gapAnalysis = result;
@@ -546,7 +542,7 @@ export async function runScreeningPipeline(
       focusArea,
       profile
     );
-    const result = await callClaude(client, prompt.system, prompt.user, 16384);
+    const result = await callClaude(client, prompt.system, prompt.user, 16384, undefined, profileDocuments, [WEB_SEARCH_TOOL]);
     rawFiles["screening-debate.md"] = result;
     await callbacks.updateRawFiles(rawFiles);
   }
@@ -559,7 +555,7 @@ export async function runScreeningPipeline(
       rawFiles["gap-analysis.md"],
       profile
     );
-    const result = await callClaude(client, prompt.system, prompt.user, 8192);
+    const result = await callClaude(client, prompt.system, prompt.user, 8192, undefined, profileDocuments, [WEB_SEARCH_TOOL]);
     rawFiles["screening-synthesis.md"] = result;
     await callbacks.updateRawFiles(rawFiles);
     parsedData.ideas = parseIdeas(result);

@@ -4,6 +4,22 @@ import { query } from "@/lib/db";
 import { decryptApiKey } from "@/lib/crypto";
 import { verifyAnalysisAccess } from "@/lib/clo/access";
 import type { PanelMember } from "@/lib/clo/types";
+import { WEB_SEARCH_TOOL, processAnthropicStream } from "@/lib/claude-stream";
+import { getLatestBriefing } from "@/lib/briefing";
+
+interface FullProfile {
+  fund_strategy: string;
+  risk_appetite: string;
+  target_sectors: string;
+  concentration_limits: string;
+  rating_thresholds: string;
+  spread_targets: string;
+  reinvestment_period: string;
+  portfolio_description: string;
+  beliefs_and_biases: string;
+  extracted_constraints: Record<string, unknown>;
+  documents: Array<{ name: string; type: string; base64: string }>;
+}
 
 function buildFollowUpPrompt(
   question: string,
@@ -16,7 +32,7 @@ function buildFollowUpPrompt(
     parsed_data: Record<string, unknown>;
   },
   members: PanelMember[],
-  profile: { fund_strategy: string; risk_appetite: string }
+  profile: FullProfile
 ): string {
   const memoContent = analysis.raw_files?.["memo.md"] || "";
   const riskContent = analysis.raw_files?.["risk-assessment.md"] || "";
@@ -30,8 +46,15 @@ function buildFollowUpPrompt(
     )
     .join("\n\n");
 
+  const constraints = profile.extracted_constraints || {};
+  const constraintsSection = Object.keys(constraints).length > 0
+    ? `\nEXTRACTED VEHICLE CONSTRAINTS:\n${JSON.stringify(constraints, null, 2)}\n`
+    : "";
+
   let modeInstruction = "";
-  if (mode === "ask-member" && targetMember) {
+  if (mode === "analyst") {
+    modeInstruction = `Respond as a single senior CLO credit analyst. Speak in one authoritative voice — no panel member personas. Be direct, compliance-aware, and always ground your response in this CLO's specific constraints and portfolio context. If a trade would breach a limit, flag it immediately.`;
+  } else if (mode === "ask-member" && targetMember) {
     const member = members.find((m) => m.name === targetMember);
     modeInstruction = `Respond ONLY as ${targetMember}. ${member ? `Role: ${member.role}. Specializations: ${member.specializations.join(", ")}. Investment philosophy: ${member.investmentPhilosophy}.` : ""}`;
   } else if (mode === "debate") {
@@ -45,7 +68,14 @@ function buildFollowUpPrompt(
 CLO PORTFOLIO PROFILE:
 Fund strategy: ${profile.fund_strategy}
 Risk appetite: ${profile.risk_appetite}
-
+Target sectors: ${profile.target_sectors || "Not specified"}
+Concentration limits: ${profile.concentration_limits || "Not specified"}
+Rating thresholds: ${profile.rating_thresholds || "Not specified"}
+Spread targets: ${profile.spread_targets || "Not specified"}
+Reinvestment period: ${profile.reinvestment_period || "Not specified"}
+Portfolio description: ${profile.portfolio_description || "Not specified"}
+Beliefs & biases: ${profile.beliefs_and_biases || "Not specified"}
+${constraintsSection}
 PANEL MEMBERS:
 ${memberProfiles}
 
@@ -61,7 +91,7 @@ ${recommendationContent ? `RECOMMENDATION:\n${recommendationContent}\n` : ""}
 MODE: ${modeInstruction}
 
 FORMAT:
-Start each member's response with their full name in bold: **Name:** followed by their response.
+${mode === "analyst" ? "Respond in a single authoritative voice. Lead with the conclusion, then supporting analysis. Show compliance impact math when relevant." : "Start each member's response with their full name in bold: **Name:** followed by their response."}
 Be substantive and specific. Reference the prior analysis where relevant.
 Answer the question directly -- no throat-clearing or framework restatement.
 
@@ -70,7 +100,8 @@ QUALITY RULES:
 - STAY ON THE QUESTION: >80% of your response must directly address what was asked. No preamble, no framework restatement unless it changes the answer.
 - PRACTICAL OUTPUT: This is for real credit decisions. Be specific, actionable, and concrete.
 - PLAINTEXT TEST: If you strip all jargon from a sentence and it says nothing, delete it.
-- Each panel member must stay in character with their established philosophy and risk personality.`;
+- WEB SEARCH: You have web search available. Use it to verify claims, check recent news about borrowers or sectors, and find current market data. Cite sources.
+${mode !== "analyst" ? "- Each panel member must stay in character with their established philosophy and risk personality." : ""}`;
 }
 
 function buildMessages(
@@ -81,9 +112,8 @@ function buildMessages(
     return [{ role: "user", content: question }];
   }
 
-  const prior = history.filter((_, i) => !(i === history.length - 1 && history[i].role === "user" && history[i].content === question));
-
-  const capped = prior.slice(-10);
+  // Client sends prior history without the current question
+  const capped = history.slice(-10);
   const startIdx = capped.findIndex((m) => m.role === "user");
   const trimmed = startIdx >= 0 ? capped.slice(startIdx) : capped;
 
@@ -173,27 +203,32 @@ export async function POST(
     return NextResponse.json({ error: "Panel not found" }, { status: 404 });
   }
 
-  const profiles = await query<{
-    fund_strategy: string;
-    risk_appetite: string;
-  }>(
-    "SELECT fund_strategy, risk_appetite FROM clo_profiles WHERE id = $1",
+  const profiles = await query<FullProfile>(
+    `SELECT fund_strategy, risk_appetite, target_sectors, concentration_limits,
+            rating_thresholds, spread_targets, reinvestment_period,
+            portfolio_description, beliefs_and_biases,
+            extracted_constraints, documents
+     FROM clo_profiles WHERE id = $1`,
     [panels[0].profile_id]
   );
 
   const standingMembers = (panels[0].members || []) as PanelMember[];
   const dynamicSpecialists = (analysis.dynamic_specialists || []) as PanelMember[];
   const members = [...standingMembers, ...dynamicSpecialists];
-  const profile = profiles[0] || { fund_strategy: "", risk_appetite: "" };
+  const profile: FullProfile = profiles[0] || {
+    fund_strategy: "", risk_appetite: "", target_sectors: "",
+    concentration_limits: "", rating_thresholds: "", spread_targets: "",
+    reinvestment_period: "", portfolio_description: "", beliefs_and_biases: "",
+    extracted_constraints: {}, documents: [],
+  };
 
-  const systemPrompt = buildFollowUpPrompt(
-    question,
-    mode,
-    targetMember,
-    analysis,
-    members,
-    profile
-  );
+  const briefing = await getLatestBriefing();
+  const briefingSection = briefing
+    ? `\n\nMARKET INTELLIGENCE (today's briefing — reference when relevant, do not repeat verbatim):\n${briefing}`
+    : "";
+  const systemPrompt =
+    buildFollowUpPrompt(question, mode, targetMember, analysis, members, profile) +
+    briefingSection;
 
   const userRows = await query<{ encrypted_api_key: Buffer; api_key_iv: Buffer }>(
     "SELECT encrypted_api_key, api_key_iv FROM users WHERE id = $1",
@@ -206,6 +241,33 @@ export async function POST(
 
   const apiKey = decryptApiKey(userRows[0].encrypted_api_key, userRows[0].api_key_iv);
 
+  // Attach documents on every turn — follow-up conversations are short (2-5 turns)
+  // and the PM may need to reference specific PPM language that wasn't captured in
+  // the extracted constraints. The cost is acceptable for this use case.
+  const builtMessages = buildMessages(history, question);
+  const cloDocuments = profile.documents || [];
+  if (cloDocuments.length > 0 && builtMessages.length > 0) {
+    const firstUserIdx = builtMessages.findIndex((m) => m.role === "user");
+    if (firstUserIdx >= 0) {
+      const docBlocks = cloDocuments.map((doc: { type: string; base64: string }) => {
+        if (doc.type === "application/pdf") {
+          return {
+            type: "document" as const,
+            source: { type: "base64" as const, media_type: "application/pdf" as const, data: doc.base64 },
+          };
+        }
+        return {
+          type: "image" as const,
+          source: { type: "base64" as const, media_type: doc.type as "image/jpeg", data: doc.base64 },
+        };
+      });
+      (builtMessages[0] as { role: string; content: unknown }).content = [
+        ...docBlocks,
+        { type: "text" as const, text: builtMessages[firstUserIdx].content as string },
+      ];
+    }
+  }
+
   const anthropicResponse = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -217,8 +279,9 @@ export async function POST(
       model: "claude-sonnet-4-20250514",
       max_tokens: 4096,
       system: systemPrompt,
-      messages: buildMessages(history, question),
+      messages: builtMessages,
       stream: true,
+      tools: [WEB_SEARCH_TOOL],
     }),
   });
 
@@ -247,46 +310,11 @@ export async function POST(
     return NextResponse.json({ error: "No response stream" }, { status: 500 });
   }
 
-  let fullText = "";
-  const decoder = new TextDecoder();
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream({
     async start(controller) {
-      let buffer = "";
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
-
-        for (const line of lines) {
-          if (!line.startsWith("data: ")) continue;
-          const data = line.slice(6);
-          if (data === "[DONE]") continue;
-
-          let event;
-          try {
-            event = JSON.parse(data);
-          } catch {
-            continue;
-          }
-
-          if (
-            event.type === "content_block_delta" &&
-            event.delta?.type === "text_delta"
-          ) {
-            const text = event.delta.text;
-            fullText += text;
-            controller.enqueue(
-              encoder.encode(`data: ${JSON.stringify({ type: "text", content: text })}\n\n`)
-            );
-          }
-        }
-      }
+      const fullText = await processAnthropicStream(reader, controller, encoder);
 
       try {
         await query(

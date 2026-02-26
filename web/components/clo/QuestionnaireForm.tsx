@@ -1,102 +1,114 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
+import type { ExtractedConstraints } from "@/lib/clo/types";
 
-const TARGET_SECTOR_OPTIONS = [
-  "Technology",
-  "Healthcare",
-  "Industrials",
-  "Consumer",
-  "Energy",
-  "Financial Services",
-  "Telecom",
-  "Chemicals",
-  "Retail",
-  "Media/Entertainment",
-  "Transportation",
-  "Real Estate",
-  "Utilities",
-];
-
-const PORTFOLIO_SIZE_OPTIONS = [
-  { value: "<100M", label: "< $100M" },
-  { value: "100M-500M", label: "$100M - $500M" },
-  { value: "500M-1B", label: "$500M - $1B" },
-  { value: "1B-5B", label: "$1B - $5B" },
-  { value: "5B+", label: "$5B+" },
+const STEPS = [
+  { id: "documents", title: "Upload Documents" },
+  { id: "review", title: "Review Extracted Constraints" },
+  { id: "beliefs", title: "Beliefs & Preferences" },
 ];
 
 interface FormData {
-  fundStrategy: string;
-  targetSectors: string[];
   riskAppetite: string;
-  cccBucketTolerance: string;
-  defaultTolerance: string;
-  concentrationLimits: string;
-  spreadTargets: string;
-  covenantPreferences: string;
-  regulatoryConstraints: string;
-  portfolioDescription: string;
   beliefsAndBiases: string;
-  portfolioSize: string;
-  reinvestmentPeriod: string;
+  extractedConstraints: ExtractedConstraints;
 }
 
 const INITIAL: FormData = {
-  fundStrategy: "",
-  targetSectors: [],
   riskAppetite: "",
-  cccBucketTolerance: "",
-  defaultTolerance: "",
-  concentrationLimits: "",
-  spreadTargets: "",
-  covenantPreferences: "",
-  regulatoryConstraints: "",
-  portfolioDescription: "",
   beliefsAndBiases: "",
-  portfolioSize: "",
-  reinvestmentPeriod: "",
+  extractedConstraints: {},
 };
-
-const STEPS = [
-  { id: "strategy", title: "Fund Strategy" },
-  { id: "sectors", title: "Target Sectors" },
-  { id: "risk", title: "Risk Appetite" },
-  { id: "constraints", title: "Portfolio Constraints" },
-  { id: "covenants", title: "Covenant Preferences" },
-  { id: "regulatory", title: "Regulatory & Compliance" },
-  { id: "portfolio", title: "Current Portfolio" },
-  { id: "beliefs", title: "Beliefs & Biases" },
-];
 
 export default function QuestionnaireForm() {
   const [step, setStep] = useState(0);
   const [form, setForm] = useState<FormData>(INITIAL);
   const [submitting, setSubmitting] = useState(false);
+  const [extracting, setExtracting] = useState(false);
   const [error, setError] = useState("");
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+  const [uploadedNames, setUploadedNames] = useState<string[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
-  function update<K extends keyof FormData>(key: K, value: FormData[K]) {
-    setForm((prev) => ({ ...prev, [key]: value }));
-  }
-
-  function toggleSector(sector: string) {
-    setForm((prev) => ({
-      ...prev,
-      targetSectors: prev.targetSectors.includes(sector)
-        ? prev.targetSectors.filter((s) => s !== sector)
-        : [...prev.targetSectors, sector],
-    }));
-  }
-
   function canAdvance(): boolean {
-    if (step === 0) return form.fundStrategy.trim().length > 0;
-    if (step === 2) return form.riskAppetite !== "";
+    if (step === 0) return uploadedFiles.length > 0;
     return true;
   }
 
+  async function handleUpload() {
+    if (uploadedFiles.length === 0) return;
+    setError("");
+    setExtracting(true);
+
+    const formData = new FormData();
+    uploadedFiles.forEach((f) => formData.append("files", f));
+
+    const uploadRes = await fetch("/api/clo/profile/upload", {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!uploadRes.ok) {
+      const data = await uploadRes.json();
+      setError(data.error || "Failed to upload documents.");
+      setExtracting(false);
+      return;
+    }
+
+    const uploadData = await uploadRes.json();
+    setUploadedNames(uploadData.documents.map((d: { name: string }) => d.name));
+
+    const extractRes = await fetch("/api/clo/profile/extract", {
+      method: "POST",
+    });
+
+    if (!extractRes.ok) {
+      const data = await extractRes.json();
+      setError(data.error || "Failed to extract constraints. You can still proceed manually.");
+      setExtracting(false);
+      setStep(1);
+      return;
+    }
+
+    const extractData = await extractRes.json();
+    setForm((prev) => ({
+      ...prev,
+      extractedConstraints: extractData.extractedConstraints || {},
+    }));
+
+    // Fire portfolio extraction in background — don't block onboarding
+    fetch("/api/clo/profile/extract-portfolio", { method: "POST" }).then((res) => {
+      if (!res.ok) console.warn("[onboarding] Background portfolio extraction failed:", res.status);
+    }).catch(() => {});
+
+    setExtracting(false);
+    setStep(1);
+  }
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files || []);
+    setUploadedFiles(files);
+    setUploadedNames([]);
+  }
+
+  function updateConstraint(key: string, value: string) {
+    setForm((prev) => ({
+      ...prev,
+      extractedConstraints: {
+        ...prev.extractedConstraints,
+        [key]: value,
+      },
+    }));
+  }
+
   function handleNext() {
+    if (step === 0) {
+      handleUpload();
+      return;
+    }
     if (step < STEPS.length - 1) setStep(step + 1);
   }
 
@@ -108,24 +120,40 @@ export default function QuestionnaireForm() {
     setError("");
     setSubmitting(true);
 
+    const constraints = form.extractedConstraints;
     const payload = {
-      fundStrategy: form.fundStrategy,
-      targetSectors: form.targetSectors.join(", "),
+      fundStrategy: constraints.eligibleCollateral || "",
+      targetSectors: "",
       riskAppetite: form.riskAppetite,
-      portfolioSize: form.portfolioSize,
-      reinvestmentPeriod: form.reinvestmentPeriod,
-      concentrationLimits: form.concentrationLimits,
-      covenantPreferences: form.covenantPreferences,
-      cccBucketTolerance: form.cccBucketTolerance,
-      defaultTolerance: form.defaultTolerance,
-      ratingThresholds: [form.cccBucketTolerance, form.defaultTolerance]
-        .filter(Boolean)
-        .join("; "),
-      spreadTargets: form.spreadTargets,
-      regulatoryConstraints: form.regulatoryConstraints,
-      portfolioDescription: form.portfolioDescription,
+      portfolioSize: "",
+      reinvestmentPeriod: constraints.reinvestmentPeriod
+        ? `${constraints.reinvestmentPeriod.start || ""} - ${constraints.reinvestmentPeriod.end || ""}`
+        : "",
+      concentrationLimits: constraints.concentrationLimits
+        ? Object.entries(constraints.concentrationLimits).map(([k, v]) => `${k}: ${v}`).join(", ")
+        : "",
+      covenantPreferences: "",
+      ratingThresholds: constraints.ratingThresholds || "",
+      spreadTargets: constraints.wasMinimum ? `WAS minimum: ${constraints.wasMinimum}bps` : "",
+      regulatoryConstraints: "",
+      portfolioDescription: constraints.waterfallSummary || "",
       beliefsAndBiases: form.beliefsAndBiases,
     };
+
+    // Persist user-edited constraints back to the database
+    if (Object.keys(constraints).length > 0) {
+      const constraintRes = await fetch("/api/clo/profile/constraints", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ extractedConstraints: constraints }),
+      });
+      if (!constraintRes.ok) {
+        const data = await constraintRes.json();
+        setError(data.error || "Failed to save constraints.");
+        setSubmitting(false);
+        return;
+      }
+    }
 
     const profileRes = await fetch("/api/clo/profile", {
       method: "POST",
@@ -159,6 +187,8 @@ export default function QuestionnaireForm() {
   const isLast = step === STEPS.length - 1;
   const progress = ((step + 1) / STEPS.length) * 100;
 
+  const constraints = form.extractedConstraints;
+
   return (
     <div className="ic-questionnaire">
       <div className="ic-progress-bar">
@@ -172,34 +202,197 @@ export default function QuestionnaireForm() {
         {step === 0 && (
           <div className="ic-field">
             <label className="ic-field-label">
-              Describe your fund strategy
+              Upload your PPM / Listing Particulars
             </label>
-            <textarea
-              className="ic-textarea"
-              rows={5}
-              value={form.fundStrategy}
-              onChange={(e) => update("fundStrategy", e.target.value)}
-              placeholder="BSL, middle market, broadly syndicated, multi-strategy... Describe your CLO fund's core strategy and mandate."
+            <p style={{ fontSize: "0.85rem", color: "var(--color-text-secondary)", marginBottom: "1rem" }}>
+              Upload your CLO&apos;s PPM (required) and optionally the latest Compliance/Trustee Report.
+              We&apos;ll extract all portfolio constraints, test thresholds, and structural parameters automatically.
+            </p>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".pdf,application/pdf"
+              multiple
+              onChange={handleFileChange}
+              style={{ marginBottom: "1rem" }}
             />
+            {uploadedFiles.length > 0 && (
+              <div style={{ fontSize: "0.85rem", color: "var(--color-text-secondary)" }}>
+                {uploadedFiles.map((f) => (
+                  <div key={f.name}>
+                    {f.name} ({(f.size / 1024 / 1024).toFixed(1)} MB)
+                  </div>
+                ))}
+              </div>
+            )}
+            {uploadedNames.length > 0 && (
+              <div style={{ marginTop: "0.5rem", fontSize: "0.85rem", color: "var(--color-accent)" }}>
+                Uploaded: {uploadedNames.join(", ")}
+              </div>
+            )}
+            {extracting && (
+              <div style={{ marginTop: "1rem", color: "var(--color-text-muted)", fontStyle: "italic" }}>
+                Uploading documents and extracting constraints... This may take a minute.
+              </div>
+            )}
           </div>
         )}
 
         {step === 1 && (
           <div className="ic-field">
             <label className="ic-field-label">
-              Select your target sectors
+              Review Extracted Constraints
             </label>
-            <div className="ic-checkbox-group">
-              {TARGET_SECTOR_OPTIONS.map((sector) => (
-                <label key={sector} className="ic-checkbox">
+            <p style={{ fontSize: "0.85rem", color: "var(--color-text-secondary)", marginBottom: "1rem" }}>
+              These constraints were extracted from your documents. Edit any values the AI got wrong.
+            </p>
+
+            <div style={{ display: "grid", gap: "0.75rem" }}>
+              <div className="ic-field">
+                <label className="ic-field-label" style={{ fontSize: "0.85rem" }}>Eligible Collateral</label>
+                <textarea
+                  className="ic-textarea"
+                  rows={2}
+                  value={(constraints.eligibleCollateral as string) || ""}
+                  onChange={(e) => updateConstraint("eligibleCollateral", e.target.value)}
+                />
+              </div>
+
+              <div className="ic-field">
+                <label className="ic-field-label" style={{ fontSize: "0.85rem" }}>Concentration Limits</label>
+                <textarea
+                  className="ic-textarea"
+                  rows={3}
+                  value={
+                    constraints.concentrationLimits
+                      ? Object.entries(constraints.concentrationLimits).map(([k, v]) => `${k}: ${v}`).join("\n")
+                      : ""
+                  }
+                  onChange={(e) => {
+                    const limits: Record<string, string> = {};
+                    e.target.value.split("\n").forEach((line) => {
+                      const [key, ...vals] = line.split(":");
+                      if (key && vals.length) limits[key.trim()] = vals.join(":").trim();
+                    });
+                    setForm((prev) => ({
+                      ...prev,
+                      extractedConstraints: { ...prev.extractedConstraints, concentrationLimits: limits },
+                    }));
+                  }}
+                  placeholder="singleName: 2%&#10;industry: 12%&#10;ccc: 7.5%"
+                />
+              </div>
+
+              <div className="ic-field">
+                <label className="ic-field-label" style={{ fontSize: "0.85rem" }}>Coverage Tests</label>
+                <textarea
+                  className="ic-textarea"
+                  rows={3}
+                  value={
+                    constraints.coverageTests
+                      ? Object.entries(constraints.coverageTests).map(([k, v]) => `${k}: ${v}`).join("\n")
+                      : ""
+                  }
+                  onChange={(e) => {
+                    const tests: Record<string, string> = {};
+                    e.target.value.split("\n").forEach((line) => {
+                      const [key, ...vals] = line.split(":");
+                      if (key && vals.length) tests[key.trim()] = vals.join(":").trim();
+                    });
+                    setForm((prev) => ({
+                      ...prev,
+                      extractedConstraints: { ...prev.extractedConstraints, coverageTests: tests },
+                    }));
+                  }}
+                  placeholder="ocSenior: 120%&#10;icSenior: 110%"
+                />
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+                <div className="ic-field">
+                  <label className="ic-field-label" style={{ fontSize: "0.85rem" }}>WARF Limit</label>
                   <input
-                    type="checkbox"
-                    checked={form.targetSectors.includes(sector)}
-                    onChange={() => toggleSector(sector)}
+                    className="ic-textarea"
+                    style={{ padding: "0.5rem" }}
+                    value={constraints.warfLimit ?? ""}
+                    onChange={(e) => updateConstraint("warfLimit", e.target.value)}
+                    placeholder="e.g., 2800"
                   />
-                  <span className="ic-checkbox-label">{sector}</span>
-                </label>
-              ))}
+                </div>
+                <div className="ic-field">
+                  <label className="ic-field-label" style={{ fontSize: "0.85rem" }}>WAS Minimum (bps)</label>
+                  <input
+                    className="ic-textarea"
+                    style={{ padding: "0.5rem" }}
+                    value={constraints.wasMinimum ?? ""}
+                    onChange={(e) => updateConstraint("wasMinimum", e.target.value)}
+                    placeholder="e.g., 350"
+                  />
+                </div>
+                <div className="ic-field">
+                  <label className="ic-field-label" style={{ fontSize: "0.85rem" }}>WAL Maximum (years)</label>
+                  <input
+                    className="ic-textarea"
+                    style={{ padding: "0.5rem" }}
+                    value={constraints.walMaximum ?? ""}
+                    onChange={(e) => updateConstraint("walMaximum", e.target.value)}
+                    placeholder="e.g., 5.0"
+                  />
+                </div>
+                <div className="ic-field">
+                  <label className="ic-field-label" style={{ fontSize: "0.85rem" }}>Diversity Score Min</label>
+                  <input
+                    className="ic-textarea"
+                    style={{ padding: "0.5rem" }}
+                    value={constraints.diversityScoreMinimum ?? ""}
+                    onChange={(e) => updateConstraint("diversityScoreMinimum", e.target.value)}
+                    placeholder="e.g., 60"
+                  />
+                </div>
+              </div>
+
+              <div className="ic-field">
+                <label className="ic-field-label" style={{ fontSize: "0.85rem" }}>Rating Thresholds</label>
+                <textarea
+                  className="ic-textarea"
+                  rows={2}
+                  value={(constraints.ratingThresholds as string) || ""}
+                  onChange={(e) => updateConstraint("ratingThresholds", e.target.value)}
+                />
+              </div>
+
+              <div className="ic-field">
+                <label className="ic-field-label" style={{ fontSize: "0.85rem" }}>Waterfall Summary</label>
+                <textarea
+                  className="ic-textarea"
+                  rows={2}
+                  value={(constraints.waterfallSummary as string) || ""}
+                  onChange={(e) => updateConstraint("waterfallSummary", e.target.value)}
+                />
+              </div>
+
+              <div className="ic-field">
+                <label className="ic-field-label" style={{ fontSize: "0.85rem" }}>Reinvestment Period</label>
+                <input
+                  className="ic-textarea"
+                  style={{ padding: "0.5rem" }}
+                  value={
+                    constraints.reinvestmentPeriod
+                      ? `${constraints.reinvestmentPeriod.start || ""} - ${constraints.reinvestmentPeriod.end || ""}`
+                      : ""
+                  }
+                  onChange={(e) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      extractedConstraints: {
+                        ...prev.extractedConstraints,
+                        reinvestmentPeriod: { start: e.target.value.split(" - ")[0], end: e.target.value.split(" - ")[1] },
+                      },
+                    }))
+                  }
+                  placeholder="Start date - End date"
+                />
+              </div>
             </div>
           </div>
         )}
@@ -217,7 +410,9 @@ export default function QuestionnaireForm() {
                         name="riskAppetite"
                         value={opt}
                         checked={form.riskAppetite === opt}
-                        onChange={() => update("riskAppetite", opt)}
+                        onChange={() =>
+                          setForm((prev) => ({ ...prev, riskAppetite: opt }))
+                        }
                       />
                       <span className="ic-radio-label">
                         {opt.charAt(0).toUpperCase() + opt.slice(1)}
@@ -229,145 +424,23 @@ export default function QuestionnaireForm() {
             </div>
             <div className="ic-field">
               <label className="ic-field-label">
-                Maximum CCC bucket tolerance
+                What should your analyst know about your views?
               </label>
+              <p style={{ fontSize: "0.85rem", color: "var(--color-text-secondary)", marginBottom: "0.5rem" }}>
+                Personal beliefs, biases, sector preferences or aversions beyond what the PPM mandates.
+                Contrarian views, areas where you want to be challenged.
+              </p>
               <textarea
                 className="ic-textarea"
-                rows={2}
-                value={form.cccBucketTolerance}
-                onChange={(e) => update("cccBucketTolerance", e.target.value)}
-                placeholder="e.g., Max 7.5% CCC-rated assets, prefer to stay below 5%..."
-              />
-            </div>
-            <div className="ic-field">
-              <label className="ic-field-label">Default tolerance</label>
-              <textarea
-                className="ic-textarea"
-                rows={2}
-                value={form.defaultTolerance}
-                onChange={(e) => update("defaultTolerance", e.target.value)}
-                placeholder="e.g., Target annual default rate below 2%, stress scenario tolerance..."
+                rows={5}
+                value={form.beliefsAndBiases}
+                onChange={(e) =>
+                  setForm((prev) => ({ ...prev, beliefsAndBiases: e.target.value }))
+                }
+                placeholder="Strong convictions on sectors or structures, known biases, contrarian views..."
               />
             </div>
           </>
-        )}
-
-        {step === 3 && (
-          <>
-            <div className="ic-field">
-              <label className="ic-field-label">
-                Concentration limits (single-name, industry, CCC bucket caps)
-                and WARF/WAL targets
-              </label>
-              <textarea
-                className="ic-textarea"
-                rows={4}
-                value={form.concentrationLimits}
-                onChange={(e) => update("concentrationLimits", e.target.value)}
-                placeholder="Single-name max 2%, industry max 12%, CCC cap 7.5%, target WARF 2800, WAL 4.5 years..."
-              />
-            </div>
-            <div className="ic-field">
-              <label className="ic-field-label">Spread targets</label>
-              <textarea
-                className="ic-textarea"
-                rows={3}
-                value={form.spreadTargets}
-                onChange={(e) => update("spreadTargets", e.target.value)}
-                placeholder="Target weighted average spread, minimum spread floor, spread compression views..."
-              />
-            </div>
-            <div className="ic-field">
-              <label className="ic-field-label">Portfolio size (AUM)</label>
-              <select
-                className="ic-select"
-                value={form.portfolioSize}
-                onChange={(e) => update("portfolioSize", e.target.value)}
-              >
-                <option value="">Select...</option>
-                {PORTFOLIO_SIZE_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="ic-field">
-              <label className="ic-field-label">
-                Remaining reinvestment period
-              </label>
-              <textarea
-                className="ic-textarea"
-                rows={2}
-                value={form.reinvestmentPeriod}
-                onChange={(e) => update("reinvestmentPeriod", e.target.value)}
-                placeholder="e.g., 2.5 years remaining, non-call period ends Q3 2025..."
-              />
-            </div>
-          </>
-        )}
-
-        {step === 4 && (
-          <div className="ic-field">
-            <label className="ic-field-label">
-              Covenant preferences: cov-lite tolerance, maintenance vs
-              incurrence, preferred protections
-            </label>
-            <textarea
-              className="ic-textarea"
-              rows={5}
-              value={form.covenantPreferences}
-              onChange={(e) => update("covenantPreferences", e.target.value)}
-              placeholder="Tolerance for cov-lite loans, preference for maintenance vs incurrence covenants, required protections (change of control, restricted payments, etc.)..."
-            />
-          </div>
-        )}
-
-        {step === 5 && (
-          <div className="ic-field">
-            <label className="ic-field-label">
-              Regulatory and compliance considerations: risk retention, US/EU CLO
-              distinctions, ESG screening
-            </label>
-            <textarea
-              className="ic-textarea"
-              rows={5}
-              value={form.regulatoryConstraints}
-              onChange={(e) => update("regulatoryConstraints", e.target.value)}
-              placeholder="Risk retention rules, US vs EU CLO regulatory differences, ESG screening criteria, Volcker Rule considerations..."
-            />
-          </div>
-        )}
-
-        {step === 6 && (
-          <div className="ic-field">
-            <label className="ic-field-label">
-              Describe your current portfolio composition, vintage, and
-              performance
-            </label>
-            <textarea
-              className="ic-textarea"
-              rows={5}
-              value={form.portfolioDescription}
-              onChange={(e) => update("portfolioDescription", e.target.value)}
-              placeholder="Current portfolio breakdown by sector, rating, vintage distribution, OC/IC test cushions, recent trading activity..."
-            />
-          </div>
-        )}
-
-        {step === 7 && (
-          <div className="ic-field">
-            <label className="ic-field-label">
-              What should your panel know about your views?
-            </label>
-            <textarea
-              className="ic-textarea"
-              rows={5}
-              value={form.beliefsAndBiases}
-              onChange={(e) => update("beliefsAndBiases", e.target.value)}
-              placeholder="Strong convictions on sectors or structures, known biases, contrarian views, areas where you want to be challenged..."
-            />
-          </div>
         )}
       </div>
 
@@ -379,7 +452,7 @@ export default function QuestionnaireForm() {
             type="button"
             className="btn-secondary"
             onClick={handleBack}
-            disabled={submitting}
+            disabled={submitting || extracting}
           >
             Back
           </button>
@@ -390,7 +463,7 @@ export default function QuestionnaireForm() {
             type="button"
             className="btn-primary"
             onClick={handleSubmit}
-            disabled={submitting || !canAdvance()}
+            disabled={submitting}
           >
             {submitting ? "Submitting..." : "Build My Panel"}
           </button>
@@ -399,9 +472,9 @@ export default function QuestionnaireForm() {
             type="button"
             className="btn-primary"
             onClick={handleNext}
-            disabled={!canAdvance() || submitting}
+            disabled={!canAdvance() || submitting || extracting}
           >
-            Next
+            {step === 0 && extracting ? "Extracting..." : "Next"}
           </button>
         )}
       </div>

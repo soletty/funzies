@@ -380,3 +380,53 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_pulse_signals_dedup ON pulse_signals (sour
 CREATE INDEX IF NOT EXISTS idx_pulse_signals_source ON pulse_signals (source);
 CREATE INDEX IF NOT EXISTS idx_pulse_signals_movement ON pulse_signals (movement_id);
 CREATE INDEX IF NOT EXISTS idx_pulse_signals_scan ON pulse_signals (scan_id);
+
+-- ============================================================
+-- CLO Document-First Transformation
+-- ============================================================
+
+-- Add CLO-level documents (PPM, compliance reports) to profile
+ALTER TABLE clo_profiles ADD COLUMN IF NOT EXISTS documents JSONB DEFAULT '[]';
+
+-- Add extracted constraints from PPM
+ALTER TABLE clo_profiles ADD COLUMN IF NOT EXISTS extracted_constraints JSONB DEFAULT '{}';
+
+-- CLO-level conversations (analyst chat)
+CREATE TABLE IF NOT EXISTS clo_conversations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  profile_id UUID NOT NULL REFERENCES clo_profiles(id) ON DELETE CASCADE,
+  messages JSONB DEFAULT '[]',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_clo_conversations_profile ON clo_conversations(profile_id);
+
+-- Add extracted portfolio data from compliance reports
+ALTER TABLE clo_profiles ADD COLUMN IF NOT EXISTS extracted_portfolio JSONB DEFAULT NULL;
+
+-- Add analyst mode to follow-ups
+ALTER TABLE clo_follow_ups DROP CONSTRAINT IF EXISTS clo_follow_ups_mode_check;
+ALTER TABLE clo_follow_ups ADD CONSTRAINT clo_follow_ups_mode_check
+  CHECK (mode IN ('ask-panel', 'ask-member', 'debate', 'analyst'));
+
+-- ============================================================
+-- Daily Briefings
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS daily_briefings (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  brief_type TEXT NOT NULL DEFAULT 'general',
+  content TEXT NOT NULL,
+  fetched_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS user_briefing_digests (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  briefing_id UUID NOT NULL REFERENCES daily_briefings(id) ON DELETE CASCADE,
+  product TEXT NOT NULL CHECK (product IN ('ic', 'clo')),
+  relevant BOOLEAN NOT NULL DEFAULT false,
+  digest_md TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (user_id, briefing_id, product)
+);

@@ -1,4 +1,4 @@
-import type { CloProfile, PanelMember, LoanAnalysis } from "../lib/clo/types.js";
+import type { CloProfile, PanelMember, LoanAnalysis, ExtractedPortfolio } from "../lib/clo/types.js";
 
 const QUALITY_RULES = `
 ## Quality Rules
@@ -7,10 +7,120 @@ const QUALITY_RULES = `
 - Practical and actionable: this is for real credit decisions, not an academic exercise.
 - Speak plainly: if stripping jargon makes the idea disappear, there was no idea.
 - Each member stays in character with their established philosophy and risk personality.
+- WEB SEARCH: You have web search available. Use it to verify claims, check recent news about borrowers or sectors, find current market data, and confirm financial details. Always cite your sources when referencing search results.
 - SLOP BAN — the following phrases are BANNED. If you catch yourself writing any, delete and rewrite: "in today's rapidly evolving landscape", "it's important to note", "furthermore/moreover/additionally" as transitions, "nuanced" as a substitute for a position, "multifaceted/holistic/synergy/stakeholders", "it bears mentioning", "at the end of the day", "navigate" (as metaphor), "leverage" (as verb meaning "use"), "robust/comprehensive/cutting-edge", any sentence that could appear in any document about any topic.`;
 
+function formatConstraints(constraints: CloProfile["extractedConstraints"]): string {
+  if (!constraints || Object.keys(constraints).length === 0) return "";
+
+  const lines: string[] = [];
+
+  if (constraints.eligibleCollateral) {
+    lines.push(`Eligible Collateral: ${constraints.eligibleCollateral}`);
+  }
+  if (constraints.concentrationLimits && Object.keys(constraints.concentrationLimits).length > 0) {
+    const limitsStr = Object.entries(constraints.concentrationLimits)
+      .map(([k, v]) => `${k}: ${v}`)
+      .join(", ");
+    lines.push(`PPM Concentration Limits: ${limitsStr}`);
+  }
+  if (constraints.coverageTests && Object.keys(constraints.coverageTests).length > 0) {
+    const testsStr = Object.entries(constraints.coverageTests)
+      .map(([k, v]) => `${k}: ${v}`)
+      .join(", ");
+    lines.push(`Coverage Tests: ${testsStr}`);
+  }
+  if (constraints.warfLimit != null) {
+    lines.push(`WARF Limit (PPM): ${constraints.warfLimit}`);
+  }
+  if (constraints.wasMinimum != null) {
+    lines.push(`WAS Minimum (PPM): ${constraints.wasMinimum} bps`);
+  }
+  if (constraints.walMaximum != null) {
+    lines.push(`WAL Maximum (PPM): ${constraints.walMaximum} years`);
+  }
+  if (constraints.diversityScoreMinimum != null) {
+    lines.push(`Diversity Score Minimum (PPM): ${constraints.diversityScoreMinimum}`);
+  }
+  if (constraints.reinvestmentPeriod) {
+    const rp = constraints.reinvestmentPeriod;
+    lines.push(`Reinvestment Period (PPM): ${rp.start || "?"} to ${rp.end || "?"}`);
+  }
+  if (constraints.nonCallPeriod?.end) {
+    lines.push(`Non-Call Period End (PPM): ${constraints.nonCallPeriod.end}`);
+  }
+  if (constraints.waterfallSummary) {
+    lines.push(`Waterfall: ${constraints.waterfallSummary}`);
+  }
+  if (constraints.ratingThresholds) {
+    lines.push(`Rating Thresholds (PPM): ${constraints.ratingThresholds}`);
+  }
+  if (constraints.otherConstraints && constraints.otherConstraints.length > 0) {
+    lines.push(`Other PPM Constraints: ${constraints.otherConstraints.join("; ")}`);
+  }
+  if (constraints.additionalProvisions) {
+    lines.push(`\nADDITIONAL PPM PROVISIONS:\n${constraints.additionalProvisions}`);
+  }
+
+  return lines.join("\n");
+}
+
+function formatPortfolioState(portfolio: ExtractedPortfolio | null): string {
+  if (!portfolio) return "";
+
+  const sections: string[] = [];
+
+  if (portfolio.reportDate) {
+    sections.push(`Report Date: ${portfolio.reportDate}`);
+  }
+
+  if (portfolio.testResults?.length > 0) {
+    const tests = portfolio.testResults
+      .map((t) => `  ${t.name}: ${t.actual}% (trigger: ${t.trigger}%, cushion: ${t.cushion >= 0 ? "+" : ""}${t.cushion}%, ${t.passing ? "PASSING" : "FAILING"})`)
+      .join("\n");
+    sections.push(`Test Results:\n${tests}`);
+  }
+
+  if (portfolio.metrics?.length > 0) {
+    const metrics = portfolio.metrics
+      .map((m) => `  ${m.name}: ${m.current} (limit: ${m.limit}, ${m.passing ? "PASSING" : "FAILING"})`)
+      .join("\n");
+    sections.push(`Portfolio Metrics:\n${metrics}`);
+  }
+
+  if (portfolio.cccBucket) {
+    const ccc = portfolio.cccBucket;
+    sections.push(`CCC Bucket: ${ccc.current}% / ${ccc.limit}% limit${ccc.holdings?.length ? ` (${ccc.holdings.length} names: ${ccc.holdings.join(", ")})` : ""}`);
+  }
+
+  if (portfolio.concentrations) {
+    const parts: string[] = [];
+    if (portfolio.concentrations.topExposures?.length > 0) {
+      const top = portfolio.concentrations.topExposures
+        .slice(0, 10)
+        .map((c) => `  ${c.category}: ${c.percentage}%${c.limit != null ? ` / ${c.limit}% limit` : ""}`)
+        .join("\n");
+      parts.push(`Top Exposures:\n${top}`);
+    }
+    if (portfolio.concentrations.bySector?.length > 0) {
+      const sec = portfolio.concentrations.bySector
+        .slice(0, 10)
+        .map((c) => `  ${c.category}: ${c.percentage}%${c.limit != null ? ` / ${c.limit}% limit` : ""}`)
+        .join("\n");
+      parts.push(`Sector Concentration:\n${sec}`);
+    }
+    if (parts.length > 0) sections.push(parts.join("\n"));
+  }
+
+  if (portfolio.holdings?.length > 0) {
+    sections.push(`Total Holdings: ${portfolio.holdings.length} positions`);
+  }
+
+  return sections.join("\n\n");
+}
+
 function formatProfile(profile: CloProfile): string {
-  return `Fund Strategy: ${profile.fundStrategy || "Not specified"}
+  const base = `Fund Strategy: ${profile.fundStrategy || "Not specified"}
 Target Sectors: ${profile.targetSectors || "Not specified"}
 Risk Appetite: ${profile.riskAppetite || "Not specified"}
 Portfolio Size: ${profile.portfolioSize || "Not specified"}
@@ -21,10 +131,13 @@ Rating Thresholds: ${profile.ratingThresholds || "Not specified"}
 Spread Targets: ${profile.spreadTargets || "Not specified"}
 Regulatory Constraints: ${profile.regulatoryConstraints || "Not specified"}
 Portfolio Description: ${profile.portfolioDescription || "Not specified"}
-Beliefs & Biases: ${profile.beliefsAndBiases || "Not specified"}
-Max CCC Bucket: ${(profile.rawQuestionnaire?.maxCccBucket as string) || "Not specified"}
-Weighted Average Life Target: ${(profile.rawQuestionnaire?.walTarget as string) || "Not specified"}
-WARF Limit: ${(profile.rawQuestionnaire?.warfLimit as string) || "Not specified"}`;
+Beliefs & Biases: ${profile.beliefsAndBiases || "Not specified"}`;
+
+  const extracted = formatConstraints(profile.extractedConstraints);
+  if (extracted) {
+    return `${base}\n\n--- PPM-EXTRACTED CONSTRAINTS ---\n${extracted}`;
+  }
+  return base;
 }
 
 function formatMembers(members: PanelMember[]): string {
@@ -75,6 +188,187 @@ Switch Notes: ${analysis.switchNotes || "None"}`;
   }
 
   return result;
+}
+
+// ─── PPM Extraction ─────────────────────────────────────────────────
+
+export function ppmExtractionPrompt(): { system: string; user: string } {
+  return {
+    system: `You are a CLO structuring expert. Analyze the provided PPM/Listing Particulars and any compliance reports to extract all portfolio constraints, test thresholds, and structural parameters.
+
+Return a single JSON object (no markdown fences, no explanation) with these fields:
+
+{
+  "eligibleCollateral": "description of what loans are allowed",
+  "concentrationLimits": {
+    "singleName": "X%",
+    "industry": "X%",
+    "ccc": "X%",
+    "secondLien": "X%",
+    "covLite": "X%"
+  },
+  "coverageTests": {
+    "ocSenior": "X%",
+    "ocMezzanine": "X%",
+    "icSenior": "X%",
+    "icMezzanine": "X%"
+  },
+  "warfLimit": null or number,
+  "wasMinimum": null or number (in bps),
+  "walMaximum": null or number (in years),
+  "diversityScoreMinimum": null or number,
+  "reinvestmentPeriod": {
+    "start": "YYYY-MM-DD or description",
+    "end": "YYYY-MM-DD or description"
+  },
+  "nonCallPeriod": {
+    "end": "YYYY-MM-DD or description"
+  },
+  "waterfallSummary": "brief description of payment waterfall mechanics",
+  "ratingThresholds": "description of rating agency requirements and bucket limits",
+  "otherConstraints": ["any other notable constraints or restrictions that fit in a short bullet"],
+  "additionalProvisions": "FREE-FORM TEXT — see instructions below"
+}
+
+The "additionalProvisions" field is critical. This is where you capture EVERYTHING from the PPM that does not cleanly map to the structured fields above. Include (but do not limit yourself to):
+- Defaulted/deferred interest obligation treatment and haircuts
+- Equity contribution and par flush mechanics
+- Discretionary sale baskets and trading restrictions
+- Bespoke collateral eligibility definitions and carve-outs
+- Workout/restructured loan treatment
+- Currency hedging requirements
+- Maturity amendment provisions
+- Excess spread and interest diversion triggers
+- Any conditional triggers, exceptions, or edge cases in the tests
+- Defined terms that modify the plain-English meaning of constraints above
+- Transfer restrictions or consent requirements
+- Manager removal or replacement provisions
+- Any other clause a CLO portfolio manager might need to reference when making trade decisions
+
+Write this field as structured prose with clear section headers. Be thorough — it is better to include too much than to miss something a PM would need later. This is the only chance to capture this information.
+
+Rules:
+- Extract ONLY what is explicitly stated in the documents. Do not infer or fabricate values.
+- Use null for any field where the document does not provide a clear value.
+- For percentage limits, include the % sign in the string value.
+- If the document uses different terminology, map it to the closest field above.
+- For additionalProvisions, quote specific language from the PPM when the exact wording matters (e.g. defined terms, trigger conditions).`,
+    user: `Extract all portfolio constraints, test thresholds, structural parameters, and additional provisions from the attached CLO documents. Be exhaustive — capture every clause a portfolio manager might need to reference. Return only the JSON object.`,
+  };
+}
+
+// ─── Portfolio Extraction ────────────────────────────────────────────
+
+export function portfolioExtractionPrompt(): { system: string; user: string } {
+  return {
+    system: `You are a CLO compliance report analyst. Parse the attached compliance/trustee report and extract the current portfolio state into structured JSON.
+
+Return a single JSON object (no markdown fences, no explanation) with this structure:
+
+{
+  "holdings": [
+    {
+      "issuer": "Company Name",
+      "notional": 5000,
+      "rating": "B2/B",
+      "spread": 375,
+      "sector": "Healthcare",
+      "maturity": "2028-06-15",
+      "loanType": "First Lien TL"
+    }
+  ],
+  "testResults": [
+    {
+      "name": "Senior OC",
+      "actual": 128.5,
+      "trigger": 120.0,
+      "passing": true,
+      "cushion": 8.5
+    }
+  ],
+  "metrics": [
+    {
+      "name": "WARF",
+      "current": 2850,
+      "limit": 3000,
+      "direction": "max",
+      "passing": true
+    }
+  ],
+  "cccBucket": {
+    "current": 5.2,
+    "limit": 7.5,
+    "holdings": ["Issuer A", "Issuer B"]
+  },
+  "concentrations": {
+    "bySector": [{ "category": "Healthcare", "percentage": 12.5, "limit": 15.0 }],
+    "byRating": [{ "category": "B2", "percentage": 35.0 }],
+    "topExposures": [{ "category": "Company X", "percentage": 2.1, "limit": 2.5 }]
+  },
+  "reportDate": "2024-12-31"
+}
+
+Rules:
+- Extract ONLY data explicitly stated in the report. Use null for missing fields.
+- Spreads must be in basis points as numbers (e.g. 375, not "L+375").
+- Notional amounts in thousands (par amount).
+- Calculate cushion as actual minus trigger for compliance tests.
+- For metrics, direction is "max" if the limit is a ceiling, "min" if it is a floor.
+- passing = true if the test/metric is within limits.
+- Extract ALL holdings from the portfolio schedule — do not truncate.
+- Extract ALL compliance tests (OC, IC at every tranche level).
+- Extract ALL concentration data (sector, rating, single-name).
+- If a CCC bucket section exists, list all CCC-rated issuers.
+- reportDate should be the as-of date of the report.`,
+    user: `Extract the complete portfolio state from the attached compliance/trustee report. Return only the JSON object.`,
+  };
+}
+
+// ─── Senior Analyst Chat ────────────────────────────────────────────
+
+export function seniorAnalystSystemPrompt(
+  profile: CloProfile,
+  portfolioSnapshot: string
+): string {
+  const constraints = profile.extractedConstraints || {};
+  const constraintsSection = Object.keys(constraints).length > 0
+    ? `\nEXTRACTED VEHICLE CONSTRAINTS:\n${JSON.stringify(constraints, null, 2)}`
+    : "";
+
+  const portfolioState = formatPortfolioState(profile.extractedPortfolio);
+  const portfolioStateSection = portfolioState
+    ? `\nCURRENT PORTFOLIO STATE (from compliance report):\n${portfolioState}`
+    : "";
+
+  return `You are a senior CLO credit analyst with deep expertise in leveraged loan portfolios and CLO vehicle management. You work alongside the portfolio manager to make better, faster decisions.
+
+The CLO's PPM/Listing Particulars and compliance reports are attached as document content in the conversation. Every constraint in the PPM is a hard rule. Reference specific sections when citing constraints.
+${constraintsSection}
+${portfolioStateSection}
+
+PORTFOLIO PROFILE:
+${formatProfile(profile)}
+${portfolioSnapshot ? `\nPORTFOLIO HISTORY:\n${portfolioSnapshot}` : ""}
+
+YOUR JOB:
+A. Compliance-Aware Trade Ideas — before recommending any buy/sell, check against PPM constraints and current compliance cushion. Show impact on CCC bucket, WARF, WAS, industry concentration, OC cushion.
+B. Portfolio Optimization — identify swaps that improve multiple dimensions. Show before/after impact.
+C. Early Warning — track borrowers trending toward CCC/default. Model compliance test impact of downgrades.
+D. Waterfall Awareness — understand which payment date is next, whether test failure diverts equity cash.
+E. Actionable Output — lead with conclusion and trade, then data. Format: Recommendation → Why → Portfolio Impact → Risk → Compliance Check.
+F. Real-Time Research — you have web search available. Use it to check recent credit events, rating actions, loan trading levels, sector news, and market commentary when relevant to the discussion. Always cite your sources.
+
+Your edge: connecting the credit view to the structural constraints of THIS vehicle in real time.
+
+RULES:
+- Never fabricate data. If you don't have a number, say so.
+- Show your math on compliance impacts.
+- When discussing a loan: always assess it relative to THIS CLO, not in the abstract.
+- If a trade would breach a limit, flag it immediately with the specific limit and current cushion.
+- Cite specific PPM sections when referencing constraints.
+- Be direct, concise, and actionable. No throat-clearing.
+
+${QUALITY_RULES}`;
 }
 
 // ─── Panel Generation ────────────────────────────────────────────────
@@ -215,7 +509,7 @@ export function creditAnalysisPrompt(
   profile: CloProfile
 ): { system: string; user: string } {
   return {
-    system: `You are a credit analyst preparing a structured analysis of a loan opportunity for a CLO panel review.
+    system: `You are a senior CLO credit analyst. This analysis serves a specific CLO vehicle with specific constraints — every assessment must be grounded in THIS vehicle's PPM, compliance state, and portfolio composition.
 
 Extract and organize:
 1. **Key Credit Facts** — What we know for certain from the provided information
@@ -225,7 +519,14 @@ Extract and organize:
 5. **Management / Sponsor Assessment** — Who is the sponsor/management team? Track record in this sector? Alignment of incentives with lenders?
 6. **Sector Dynamics** — Industry trends, cyclicality, and sector-specific risks
 7. **Information Gaps** — What critical information is missing
-8. **Profile Alignment** — How this loan aligns (or conflicts) with the CLO manager's fund strategy, risk appetite, concentration limits, rating thresholds, and spread targets
+8. **CLO Fit Assessment** — CRITICAL SECTION. For THIS CLO vehicle:
+   - WARF contribution: what is this credit's rating factor and how does it move the portfolio WARF?
+   - Concentration impact: single-name and industry concentration after adding this credit
+   - WAL contribution: does the maturity fit within the CLO's WAL test?
+   - Spread vs WAS: does this credit's spread help or hurt the weighted average spread?
+   - CCC bucket impact: if rated CCC or at risk of downgrade, what is the CCC bucket impact?
+   - OC/IC test impact: how does adding this credit affect overcollateralization and interest coverage tests?
+   Reference the PPM constraints and compliance report when assessing fit.
 9. **Preliminary Credit Flags** — Obvious credit risks based on available information
 10. **Falsifiable Thesis** — State the credit thesis as 2-3 specific, testable claims. For each claim: what specific evidence would disprove it?
 11. **Kill Criteria** — 3-5 specific conditions that, if true, should kill this credit regardless of other merits. These must be concrete and verifiable (e.g., "leverage exceeds 7x with no credible deleveraging path" not "too much leverage")
@@ -240,7 +541,9 @@ ${QUALITY_RULES}`,
 ${formatAnalysis(analysis)}
 
 CLO Manager Profile:
-${formatProfile(profile)}`,
+${formatProfile(profile)}
+${formatConstraints(profile.extractedConstraints) ? `\nPPM CONSTRAINTS (use for CLO Fit Assessment math):\n${formatConstraints(profile.extractedConstraints)}` : ""}
+${formatPortfolioState(profile.extractedPortfolio) ? `\nCURRENT PORTFOLIO STATE (use as baseline for impact calculations):\n${formatPortfolioState(profile.extractedPortfolio)}` : ""}`,
   };
 }
 
@@ -368,6 +671,9 @@ For each kill criterion from the credit analysis, members debate whether the evi
 ### Round 3: What Changes Your Mind?
 Each member states the single piece of credit information that would flip their position (e.g., "if interest coverage drops below 1.5x" or "if the covenant package gets tightened to include a leverage ratchet"). Others challenge whether that information is obtainable and whether the stated threshold is honest. If any member's position hasn't changed at all from their initial assessment, they must explain why — not just restate.
 
+## Early Consensus Rule
+If after Round 2 the panel has reached genuine consensus (all kill criteria CLEARED with no meaningful dissent, OR a kill criterion FAILED with unanimous agreement), you may skip Round 3. Instead, write a brief "## Consensus Reached" section explaining why further debate would not surface new information. Only do this if consensus is truly unanimous — a single substantive dissent means Round 3 must proceed.
+
 ## Format
 
 Use clear round headers and **Speaker:** attribution:
@@ -460,7 +766,9 @@ Panel Members:
 ${formatMembers(members)}
 
 CLO Manager Profile:
-${formatProfile(profile)}`,
+${formatProfile(profile)}
+${formatConstraints(profile.extractedConstraints) ? `\nPPM CONSTRAINTS (use for CLO-Specific Vulnerabilities section):\n${formatConstraints(profile.extractedConstraints)}` : ""}
+${formatPortfolioState(profile.extractedPortfolio) ? `\nCURRENT PORTFOLIO STATE:\n${formatPortfolioState(profile.extractedPortfolio)}` : ""}`,
   };
 }
 
@@ -506,6 +814,9 @@ Summarize the top 3 most plausible default/downgrade scenarios and what evidence
 ## Kill Criteria Status
 For each kill criterion from the credit analysis, state whether it was CLEARED, UNRESOLVED, or FAILED during the debate.
 
+## Portfolio Context
+How does this credit fit or conflict with the current CLO portfolio holdings? Reference compliance cushions from the compliance report if available. Assess impact on diversification, WARF, WAS, WAL, and concentration limits.
+
 ## Recommendation
 The panel's synthesized view — not a simple vote count but a reasoned conclusion reflecting the weight of argument. For switch analyses, include a comparative section explaining whether the switch improves portfolio quality.
 
@@ -534,7 +845,9 @@ ${analysis}
 ${premortem ? `\nPre-Mortem Analysis:\n${premortem}` : ""}
 
 CLO Manager Profile:
-${formatProfile(profile)}`,
+${formatProfile(profile)}
+${formatConstraints(profile.extractedConstraints) ? `\nPPM CONSTRAINTS:\n${formatConstraints(profile.extractedConstraints)}` : ""}
+${formatPortfolioState(profile.extractedPortfolio) ? `\nCURRENT PORTFOLIO STATE (reference for Portfolio Context section):\n${formatPortfolioState(profile.extractedPortfolio)}` : ""}`,
   };
 }
 
@@ -545,7 +858,7 @@ export function riskAssessmentPrompt(
   premortem?: string
 ): { system: string; user: string } {
   return {
-    system: `You are a risk assessment specialist producing a structured risk report for a loan opportunity based on the credit panel debate.
+    system: `You are a risk assessment specialist producing a structured risk report for a loan opportunity based on the credit panel debate. Show your math — provide numeric estimates for all constraint checks where possible.
 
 ## Required Output
 
@@ -600,7 +913,9 @@ ${analysis}
 ${premortem ? `\nPre-Mortem Analysis:\n${premortem}` : ""}
 
 CLO Manager Profile:
-${formatProfile(profile)}`,
+${formatProfile(profile)}
+${formatConstraints(profile.extractedConstraints) ? `\nPPM CONSTRAINTS (use for constraint violation checks):\n${formatConstraints(profile.extractedConstraints)}` : ""}
+${formatPortfolioState(profile.extractedPortfolio) ? `\nCURRENT PORTFOLIO STATE (use as baseline for portfolio impact math):\n${formatPortfolioState(profile.extractedPortfolio)}` : ""}`,
   };
 }
 
@@ -612,6 +927,9 @@ export function recommendationPrompt(
   profile: CloProfile,
   premortem?: string
 ): { system: string; user: string } {
+  const constraints = formatConstraints(profile.extractedConstraints);
+  const portfolioState = formatPortfolioState(profile.extractedPortfolio);
+
   return {
     system: `You are facilitating the final credit panel vote. Each panel member casts their vote based on the full debate, credit memo, risk assessment, and pre-mortem.
 
@@ -630,8 +948,19 @@ After all individual votes, provide:
 - **Verdict**: The panel's overall recommendation based on the vote pattern and weight of argument (not just majority). For switch analyses, the verdict should specifically address whether to proceed with the switch.
 - **Dissents**: Any notable dissents and their reasoning
 - **Conditions**: Specific conditions or milestones that would change the recommendation
+- **Trade Implementation**: If PASS — what conditions make it a BUY? If BUY — optimal position size given CLO constraints, WARF/WAS impact, concentration utilization
 - **Kill Criteria Status**: For each kill criterion, confirm whether it has been CLEARED or flag it as UNRESOLVED. Any FAILED criterion must be prominently noted.
 - **Pre-Mortem Response**: Address the top 2-3 most plausible default/downgrade scenarios — what makes the panel confident (or not) that they won't occur?
+
+## PPM Compliance Impact (REQUIRED)
+Before finalizing the verdict, stress-test this loan against the CLO's PPM constraints. For each applicable limit below, show the math:
+- Would adding this loan breach any **concentration limit** (single-name, sector, industry)?
+- What is the impact on **WARF**? Show current WARF, estimated new WARF with this loan, and the PPM limit.
+- What is the impact on **WAS**? Show current WAS, estimated new WAS, and the PPM minimum.
+- Does this loan affect the **CCC bucket**? Show current %, projected %, and the limit.
+- Any impact on **WAL**, **diversity score**, or **OC/IC test cushions**?
+- If ANY limit would be breached, the verdict MUST be PASS regardless of credit quality — flag the specific breach prominently.
+- If data is insufficient to calculate a specific impact, state what data is missing rather than skipping the check.
 
 ## Consistency Rules
 - Each member's final vote must be CONSISTENT with their debate positions. If a member raised serious unresolved concerns during the debate, they cannot vote strong_buy without explaining what resolved those concerns.
@@ -659,7 +988,9 @@ Panel Members:
 ${formatMembers(members)}
 
 CLO Manager Profile:
-${formatProfile(profile)}`,
+${formatProfile(profile)}
+${constraints ? `\nPPM CONSTRAINTS (use these for compliance impact math):\n${constraints}` : ""}
+${portfolioState ? `\nCURRENT PORTFOLIO STATE (use these as baseline for impact calculations):\n${portfolioState}` : ""}`,
   };
 }
 
@@ -669,28 +1000,33 @@ export function portfolioGapAnalysisPrompt(
   profile: CloProfile,
   recentAnalyses: string
 ): { system: string; user: string } {
+  const portfolioState = formatPortfolioState(profile.extractedPortfolio);
+
   return {
     system: `You are a CLO portfolio strategist analyzing gaps in a CLO portfolio relative to the manager's stated targets and constraints.
+
+The CLO's PPM/Listing Particulars and compliance reports are attached as document content. Use these as the primary source of truth for all constraints, test thresholds, and portfolio composition.
 
 Produce a structured analysis:
 
 ## Portfolio Summary
-Current portfolio characteristics, stated objectives, and key metrics (WARF, WAL, spread targets, sector exposure).
+Current portfolio characteristics, stated objectives, and key metrics (WARF, WAL, spread targets, sector exposure). Use actual numbers from the compliance report where available.
 
 ## Gap Analysis
-Where the portfolio diverges from stated goals — WARF drift, WAL mismatches, spread compression, sector over/under-exposure, rating bucket imbalances, concentration limit proximity.
+Where the portfolio diverges from stated goals — WARF drift, WAL mismatches, spread compression, sector over/under-exposure, rating bucket imbalances, concentration limit proximity. Reference specific test cushions and how close each metric is to its limit.
 
 ## Opportunity Areas
-3-5 areas where new loan additions could close identified gaps, ranked by impact.
+3-5 areas where new loan additions could close identified gaps, ranked by impact. Show the math — e.g. "adding a B1-rated credit with 400bps spread would improve WAS by ~2bps while staying within WARF limit (current: 2850, limit: 3000)."
 
 ## Constraints
-Factors that limit available options (concentration limits, rating thresholds, reinvestment period, regulatory constraints).
+Factors that limit available options (concentration limits, rating thresholds, reinvestment period, regulatory constraints). Reference specific PPM thresholds and current utilization.
 
 ${QUALITY_RULES}`,
     user: `Analyze CLO portfolio gaps:
 
 CLO Manager Profile:
 ${formatProfile(profile)}
+${portfolioState ? `\nCURRENT PORTFOLIO STATE:\n${portfolioState}` : ""}
 
 Recent Analyses:
 ${recentAnalyses || "No recent analyses."}`,
@@ -703,14 +1039,19 @@ export function screeningDebatePrompt(
   focusArea: string,
   profile: CloProfile
 ): { system: string; user: string } {
+  const portfolioState = formatPortfolioState(profile.extractedPortfolio);
+
   return {
     system: `You are orchestrating a credit panel loan screening session where panel members discuss loan opportunities to address CLO portfolio gaps.
+
+The CLO's PPM/Listing Particulars and compliance reports are attached as document content. Members should reference specific constraints and current compliance state when evaluating proposals.
 
 The panel should:
 1. React to the gap analysis — do they agree with the identified portfolio gaps?
 2. Propose specific loan characteristics, sectors, or credit themes within the focus area
-3. Challenge each other's proposals on credit quality and portfolio fit
+3. Challenge each other's proposals on credit quality AND portfolio fit — does adding this type of credit breach any concentration limit? Does it help or hurt WARF/WAS/WAL?
 4. Build on promising screening criteria collaboratively
+5. Quantify compliance impact where possible — "adding a CCC credit would push the bucket from 5.2% to ~5.8%, still within the 7.5% limit"
 
 Format as a natural discussion with **Speaker:** attribution. 2-3 rounds of exchange. Each member should contribute at least once based on their specialization.
 
@@ -721,6 +1062,7 @@ Focus Area: ${focusArea || "General portfolio optimization"}
 
 Gap Analysis:
 ${gapAnalysis}
+${portfolioState ? `\nCURRENT PORTFOLIO STATE:\n${portfolioState}` : ""}
 
 Panel Members:
 ${formatMembers(members)}
@@ -735,8 +1077,12 @@ export function screeningSynthesisPrompt(
   gapAnalysis: string,
   profile: CloProfile
 ): { system: string; user: string } {
+  const portfolioState = formatPortfolioState(profile.extractedPortfolio);
+
   return {
     system: `You are synthesizing a credit panel loan screening session into 3-5 structured loan opportunity ideas.
+
+The CLO's PPM/Listing Particulars and compliance reports are attached as document content. Every constraint check must reference the actual current portfolio state and PPM limits.
 
 For each idea, output:
 
@@ -783,6 +1129,7 @@ ${debate}
 
 Gap Analysis:
 ${gapAnalysis}
+${portfolioState ? `\nCURRENT PORTFOLIO STATE:\n${portfolioState}` : ""}
 
 CLO Manager Profile:
 ${formatProfile(profile)}`,

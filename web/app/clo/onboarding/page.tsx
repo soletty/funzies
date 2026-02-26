@@ -26,10 +26,10 @@ export default async function CLOOnboardingPage() {
     <div className="ic-onboarding">
       <div className="ic-onboarding-inner">
         <div className="ic-onboarding-header">
-          <h1>Build Your Credit Panel</h1>
+          <h1>Set Up Your CLO</h1>
           <p>
-            Answer a few questions about your CLO strategy. We will use
-            your responses to assemble a bespoke panel of credit specialists.
+            Upload your PPM and compliance report. We&apos;ll extract your
+            vehicle&apos;s constraints and build a bespoke panel of credit specialists.
           </p>
         </div>
         <QuestionnaireForm />

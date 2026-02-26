@@ -29,6 +29,7 @@ export default function HighlightChat({
   const [highlightedText, setHighlightedText] = useState("");
   const [question, setQuestion] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
   const [isChallenge, setIsChallenge] = useState(false);
   const [responseText, setResponseText] = useState("");
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
@@ -129,7 +130,11 @@ export default function HighlightChat({
         if (!line.startsWith("data: ")) continue;
         try {
           const data = JSON.parse(line.slice(6));
+          if (data.type === "searching") {
+            setIsSearching(true);
+          }
           if (data.type === "text") {
+            setIsSearching(false);
             accumulated += data.content;
             setResponseText(accumulated);
           }
@@ -231,6 +236,12 @@ export default function HighlightChat({
             </div>
           </div>
         </div>
+
+        {isSearching && !responseText && (
+          <div style={{ padding: "0.75rem", color: "var(--color-text-muted)", fontStyle: "italic", fontSize: "0.85rem" }}>
+            Searching the web...
+          </div>
+        )}
 
         {responseText && (
           <div className={`panel-response-area${isStreaming ? " follow-up-streaming" : ""}`}>

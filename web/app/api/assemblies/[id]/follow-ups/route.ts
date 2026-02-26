@@ -5,26 +5,29 @@ import { decryptApiKey } from "@/lib/crypto";
 import { buildPrompt, FollowUpRequest, TopicFiles } from "@/lib/follow-up-prompts";
 import { extractInsight } from "@/lib/insight-extraction";
 import { getAssemblyAccess } from "@/lib/assembly-access";
+import { WEB_SEARCH_TOOL, processAnthropicStream } from "@/lib/claude-stream";
 
 function buildMessages(
   history: { role: string; content: string }[] | undefined,
   question: string
 ): { role: "user" | "assistant"; content: string }[] {
-  if (!history || history.length <= 1) {
+  if (!history || history.length === 0) {
     return [{ role: "user", content: question }];
   }
 
-  // Cap to last 20 messages (~10 exchanges) to avoid context overflow
+  // Client sends prior history without the current question
   const capped = history.slice(-20);
 
-  // Ensure the conversation starts with a user message
   const startIdx = capped.findIndex((m) => m.role === "user");
   const trimmed = startIdx >= 0 ? capped.slice(startIdx) : capped;
 
-  return trimmed.map((m) => ({
-    role: m.role === "assistant" ? "assistant" : "user",
+  const messages: { role: "user" | "assistant"; content: string }[] = trimmed.map((m) => ({
+    role: m.role === "assistant" ? "assistant" as const : "user" as const,
     content: m.content,
   }));
+
+  messages.push({ role: "user", content: question });
+  return messages;
 }
 
 export async function POST(
@@ -109,6 +112,7 @@ export async function POST(
       system: prompt,
       messages: buildMessages(history, question),
       stream: true,
+      tools: [WEB_SEARCH_TOOL],
     }),
   });
 
@@ -137,46 +141,11 @@ export async function POST(
     return NextResponse.json({ error: "No response stream" }, { status: 500 });
   }
 
-  let fullText = "";
-  const decoder = new TextDecoder();
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream({
     async start(controller) {
-      let buffer = "";
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
-
-        for (const line of lines) {
-          if (!line.startsWith("data: ")) continue;
-          const data = line.slice(6);
-          if (data === "[DONE]") continue;
-
-          let event;
-          try {
-            event = JSON.parse(data);
-          } catch {
-            continue;
-          }
-
-          if (
-            event.type === "content_block_delta" &&
-            event.delta?.type === "text_delta"
-          ) {
-            const text = event.delta.text;
-            fullText += text;
-            controller.enqueue(
-              encoder.encode(`data: ${JSON.stringify({ type: "text", content: text })}\n\n`)
-            );
-          }
-        }
-      }
+      const fullText = await processAnthropicStream(reader, controller, encoder);
 
       const insertedRows = await query<{ id: string }>(
         `INSERT INTO follow_ups (id, assembly_id, user_id, question, mode, is_challenge, context_page, context_section, highlighted_text, response_md)

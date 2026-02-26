@@ -1,3 +1,71 @@
+export interface CloDocument {
+  name: string;
+  type: string;
+  size: number;
+  base64: string;
+}
+
+export interface ExtractedConstraints {
+  eligibleCollateral?: string;
+  concentrationLimits?: Record<string, string>;
+  coverageTests?: Record<string, string>;
+  warfLimit?: number;
+  wasMinimum?: number;
+  walMaximum?: number;
+  diversityScoreMinimum?: number;
+  reinvestmentPeriod?: { start?: string; end?: string };
+  nonCallPeriod?: { end?: string };
+  waterfallSummary?: string;
+  ratingThresholds?: string;
+  otherConstraints?: string[];
+  additionalProvisions?: string;
+}
+
+export interface PortfolioHolding {
+  issuer: string;
+  notional: number;
+  rating: string;
+  spread: number;
+  sector: string;
+  maturity: string;
+  loanType: string;
+}
+
+export interface ComplianceTest {
+  name: string;
+  actual: number;
+  trigger: number;
+  passing: boolean;
+  cushion: number;
+}
+
+export interface PortfolioMetric {
+  name: string;
+  current: number;
+  limit: number;
+  direction: "max" | "min";
+  passing: boolean;
+}
+
+export interface ConcentrationBreakdown {
+  category: string;
+  percentage: number;
+  limit?: number;
+}
+
+export interface ExtractedPortfolio {
+  holdings: PortfolioHolding[];
+  testResults: ComplianceTest[];
+  metrics: PortfolioMetric[];
+  cccBucket: { current: number; limit: number; holdings: string[] };
+  concentrations: {
+    bySector: ConcentrationBreakdown[];
+    byRating: ConcentrationBreakdown[];
+    topExposures: ConcentrationBreakdown[];
+  };
+  reportDate?: string;
+}
+
 export interface CloProfile {
   id: string;
   userId: string;
@@ -14,6 +82,9 @@ export interface CloProfile {
   portfolioDescription: string;
   beliefsAndBiases: string;
   rawQuestionnaire: Record<string, unknown>;
+  documents: CloDocument[];
+  extractedConstraints: ExtractedConstraints;
+  extractedPortfolio: ExtractedPortfolio | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -144,10 +215,18 @@ export interface CloFollowUp {
   id: string;
   analysisId: string;
   question: string;
-  mode: "ask-panel" | "ask-member" | "debate";
+  mode: "ask-panel" | "ask-member" | "debate" | "analyst";
   targetMember?: string;
   responseMd: string;
   createdAt: string;
+}
+
+export interface CloConversation {
+  id: string;
+  profileId: string;
+  messages: { role: "user" | "assistant"; content: string; timestamp: string }[];
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface ScreeningSession {

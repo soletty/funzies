@@ -26,6 +26,9 @@ import {
   ideaDebatePrompt,
   ideaSynthesisPrompt,
 } from "./ic-prompts.js";
+import { getLatestBriefing } from "../lib/briefing.js";
+
+const WEB_SEARCH_TOOL = { type: "web_search_20250305", name: "web_search", max_uses: 5 };
 
 export interface PipelineCallbacks {
   updatePhase: (phase: string) => Promise<void>;
@@ -39,7 +42,8 @@ async function callClaude(
   userMessage: string,
   maxTokens: number,
   model: string = "claude-sonnet-4-20250514",
-  documents?: Array<{ name: string; type: string; base64: string }>
+  documents?: Array<{ name: string; type: string; base64: string }>,
+  tools?: Array<Record<string, unknown>>
 ): Promise<string> {
   try {
     const content: Anthropic.MessageCreateParams["messages"][0]["content"] =
@@ -74,7 +78,8 @@ async function callClaude(
       max_tokens: maxTokens,
       messages: [{ role: "user", content }],
       system: systemPrompt,
-    });
+      ...(tools && tools.length > 0 ? { tools } : {}),
+    } as Anthropic.MessageCreateParams) as Anthropic.Message;
 
     return response.content
       .filter((block): block is Anthropic.TextBlock => block.type === "text")
@@ -302,11 +307,17 @@ export async function runEvaluationPipeline(
     parsedData.recommendation = parseRecommendation(rawFiles["recommendation.md"]);
   }
 
+  // Inject daily briefing into the first phase so the AI has current market context
+  const briefing = await getLatestBriefing();
+  const briefingSection = briefing
+    ? `\n\nMARKET INTELLIGENCE (today's briefing — reference when relevant, do not repeat verbatim):\n${briefing}`
+    : "";
+
   // Phase 1: Opportunity Analysis
   if (!rawFiles["opportunity-analysis.md"]) {
     await callbacks.updatePhase("opportunity-analysis");
     const prompt = opportunityAnalysisPrompt(evaluation, profile);
-    const result = await callClaude(client, prompt.system, prompt.user, 8192, undefined, documents);
+    const result = await callClaude(client, prompt.system + briefingSection, prompt.user, 8192, undefined, documents, [WEB_SEARCH_TOOL]);
     rawFiles["opportunity-analysis.md"] = result;
     await callbacks.updateRawFiles(rawFiles);
   }
@@ -352,7 +363,7 @@ export async function runEvaluationPipeline(
       profile,
       history
     );
-    const result = await callClaude(client, prompt.system, prompt.user, 8192, undefined, documents);
+    const result = await callClaude(client, prompt.system, prompt.user, 8192, undefined, documents, [WEB_SEARCH_TOOL]);
     rawFiles["individual-assessments.md"] = result;
     await callbacks.updateRawFiles(rawFiles);
     parsedData.individualAssessments = parseIndividualAssessments(result);
@@ -368,7 +379,7 @@ export async function runEvaluationPipeline(
       rawFiles["opportunity-analysis.md"],
       profile
     );
-    const result = await callClaude(client, prompt.system, prompt.user, 16384, undefined, documents);
+    const result = await callClaude(client, prompt.system, prompt.user, 16384, undefined, documents, [WEB_SEARCH_TOOL]);
     rawFiles["debate.md"] = result;
     await callbacks.updateRawFiles(rawFiles);
     parsedData.debate = parseDebate(result);
@@ -384,7 +395,7 @@ export async function runEvaluationPipeline(
       rawFiles["opportunity-analysis.md"],
       profile
     );
-    const result = await callClaude(client, prompt.system, prompt.user, 8192);
+    const result = await callClaude(client, prompt.system, prompt.user, 8192, undefined, undefined, [WEB_SEARCH_TOOL]);
     rawFiles["premortem.md"] = result;
     await callbacks.updateRawFiles(rawFiles);
     parsedData.premortem = result;
@@ -496,7 +507,7 @@ export async function runIdeaPipeline(
     await callbacks.updatePhase("gap-analysis");
     const recentEvals = await getRecentEvaluationSummaries(pool, ideaRow.committee_id);
     const prompt = portfolioGapAnalysisPrompt(profile, recentEvals);
-    const result = await callClaude(client, prompt.system, prompt.user, 8192);
+    const result = await callClaude(client, prompt.system, prompt.user, 8192, undefined, undefined, [WEB_SEARCH_TOOL]);
     rawFiles["gap-analysis.md"] = result;
     await callbacks.updateRawFiles(rawFiles);
     parsedData.gapAnalysis = result;
@@ -512,7 +523,7 @@ export async function runIdeaPipeline(
       focusArea,
       profile
     );
-    const result = await callClaude(client, prompt.system, prompt.user, 16384);
+    const result = await callClaude(client, prompt.system, prompt.user, 16384, undefined, undefined, [WEB_SEARCH_TOOL]);
     rawFiles["idea-debate.md"] = result;
     await callbacks.updateRawFiles(rawFiles);
   }
@@ -525,7 +536,7 @@ export async function runIdeaPipeline(
       rawFiles["gap-analysis.md"],
       profile
     );
-    const result = await callClaude(client, prompt.system, prompt.user, 8192);
+    const result = await callClaude(client, prompt.system, prompt.user, 8192, undefined, undefined, [WEB_SEARCH_TOOL]);
     rawFiles["idea-synthesis.md"] = result;
     await callbacks.updateRawFiles(rawFiles);
     parsedData.ideas = parseIdeas(result);

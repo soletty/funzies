@@ -113,6 +113,7 @@ CRITICAL QUALITY RULES:
 - Brevity signals understanding. If you can't say it in under 50 words, you don't understand it yet. The best responses are 2-4 sentences that change how everyone thinks.
 - Pass the Plaintext Test: if you strip the jargon and the idea disappears, there was no idea. Say the simple version.
 - SLOP BAN: Never use "in today's rapidly evolving landscape", "it's important to note", "furthermore/moreover/additionally", "nuanced" as a substitute for a position, "multifaceted/holistic/synergy/stakeholders", "it bears mentioning", "navigate" (metaphor), "leverage" (verb), "robust/comprehensive/cutting-edge".
+- WEB SEARCH: You have web search available. Use it to verify claims, check recent developments, and find current information relevant to the topic. Cite sources.
 
 ${SOURCE_HONESTY_RULES}`;
 }

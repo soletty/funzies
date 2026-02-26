@@ -4,7 +4,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { marked } from "marked";
 import type { PanelMember } from "@/lib/clo/types";
 
-type Mode = "ask-panel" | "ask-member" | "debate";
+type Mode = "analyst" | "ask-panel" | "ask-member" | "debate";
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -64,10 +64,11 @@ function parseSpeakerBlocks(
 }
 
 export default function FollowUpChat({ analysisId, members }: FollowUpChatProps) {
-  const [mode, setMode] = useState<Mode>("ask-panel");
+  const [mode, setMode] = useState<Mode>("analyst");
   const [selectedMember, setSelectedMember] = useState(members[0]?.name || "");
   const [question, setQuestion] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loaded, setLoaded] = useState(false);
   const threadRef = useRef<HTMLDivElement>(null);
@@ -124,7 +125,8 @@ export default function FollowUpChat({ analysisId, members }: FollowUpChatProps)
     const updatedMessages: ChatMessage[] = [...messages, { role: "user", content: userMessage }];
     setMessages(updatedMessages);
 
-    const history = updatedMessages.map((m) => ({ role: m.role, content: m.content }));
+    // Send prior history WITHOUT the current question — the server appends it
+    const history = messages.map((m) => ({ role: m.role, content: m.content }));
 
     const body = {
       question: userMessage,
@@ -162,7 +164,11 @@ export default function FollowUpChat({ analysisId, members }: FollowUpChatProps)
         if (!line.startsWith("data: ")) continue;
         try {
           const data = JSON.parse(line.slice(6));
+          if (data.type === "searching") {
+            setIsSearching(true);
+          }
           if (data.type === "text") {
+            setIsSearching(false);
             accumulated += data.content;
             setMessages((prev) => {
               const last = prev[prev.length - 1];
@@ -264,7 +270,7 @@ export default function FollowUpChat({ analysisId, members }: FollowUpChatProps)
           {isStreaming && messages[messages.length - 1]?.role === "user" && (
             <div className="chat-message-assistant">
               <span style={{ color: "var(--color-text-muted)", fontStyle: "italic", fontSize: "0.85rem" }}>
-                Panel is deliberating...
+                {isSearching ? "Searching the web..." : "Panel is deliberating..."}
               </span>
             </div>
           )}
@@ -272,7 +278,7 @@ export default function FollowUpChat({ analysisId, members }: FollowUpChatProps)
       )}
 
       <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem", flexWrap: "wrap" }}>
-        {(["ask-panel", "ask-member", "debate"] as Mode[]).map((m) => (
+        {(["analyst", "ask-panel", "ask-member", "debate"] as Mode[]).map((m) => (
           <label
             key={m}
             style={{
@@ -296,7 +302,7 @@ export default function FollowUpChat({ analysisId, members }: FollowUpChatProps)
               onChange={() => setMode(m)}
               style={{ display: "none" }}
             />
-            {m === "ask-panel" ? "Ask Panel" : m === "ask-member" ? "Ask Member" : "Request Debate"}
+            {m === "analyst" ? "Analyst" : m === "ask-panel" ? "Ask Panel" : m === "ask-member" ? "Ask Member" : "Request Debate"}
           </label>
         ))}
       </div>
@@ -324,11 +330,13 @@ export default function FollowUpChat({ analysisId, members }: FollowUpChatProps)
           onKeyDown={handleKeyDown}
           className="chat-input-textarea"
           placeholder={
-            mode === "ask-member"
-              ? `Ask ${selectedMember} a question...`
-              : mode === "debate"
-                ? "What should the panel debate?"
-                : "Ask the panel a question..."
+            mode === "analyst"
+              ? "Ask your senior analyst about this credit..."
+              : mode === "ask-member"
+                ? `Ask ${selectedMember} a question...`
+                : mode === "debate"
+                  ? "What should the panel debate?"
+                  : "Ask the panel a question..."
           }
           rows={2}
           disabled={isStreaming}

@@ -68,6 +68,7 @@ export default function FollowUpChat({ evaluationId, members }: FollowUpChatProp
   const [selectedMember, setSelectedMember] = useState(members[0]?.name || "");
   const [question, setQuestion] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loaded, setLoaded] = useState(false);
   const threadRef = useRef<HTMLDivElement>(null);
@@ -124,7 +125,8 @@ export default function FollowUpChat({ evaluationId, members }: FollowUpChatProp
     const updatedMessages: ChatMessage[] = [...messages, { role: "user", content: userMessage }];
     setMessages(updatedMessages);
 
-    const history = updatedMessages.map((m) => ({ role: m.role, content: m.content }));
+    // Send prior history WITHOUT the current question — the server appends it
+    const history = messages.map((m) => ({ role: m.role, content: m.content }));
 
     const body = {
       question: userMessage,
@@ -162,7 +164,11 @@ export default function FollowUpChat({ evaluationId, members }: FollowUpChatProp
         if (!line.startsWith("data: ")) continue;
         try {
           const data = JSON.parse(line.slice(6));
+          if (data.type === "searching") {
+            setIsSearching(true);
+          }
           if (data.type === "text") {
+            setIsSearching(false);
             accumulated += data.content;
             setMessages((prev) => {
               const last = prev[prev.length - 1];
@@ -264,7 +270,7 @@ export default function FollowUpChat({ evaluationId, members }: FollowUpChatProp
           {isStreaming && messages[messages.length - 1]?.role === "user" && (
             <div className="chat-message-assistant">
               <span style={{ color: "var(--color-text-muted)", fontStyle: "italic", fontSize: "0.85rem" }}>
-                Committee is deliberating...
+                {isSearching ? "Searching the web..." : "Committee is deliberating..."}
               </span>
             </div>
           )}

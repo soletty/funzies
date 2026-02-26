@@ -4,6 +4,7 @@ import { query } from "@/lib/db";
 import { getProfileForUser, getCommitteeForUser } from "@/lib/ic/access";
 import Link from "next/link";
 import type { CommitteeMember } from "@/lib/ic/types";
+import BriefingCard from "@/components/BriefingCard";
 
 interface EvaluationRow {
   id: string;
@@ -108,6 +109,8 @@ export default async function ICDashboard() {
           </Link>
         </div>
       </header>
+
+      <BriefingCard product="ic" />
 
       <section className="ic-section">
         <h2>Your Committee</h2>

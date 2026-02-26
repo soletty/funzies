@@ -23,6 +23,37 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
 const POLL_INTERVAL_MS = 5000;
 
+// ─── Daily Briefing ──────────────────────────────────────────────────
+const BRIEFING_INTERVAL_MS = 20 * 60 * 60 * 1000; // 20 hours
+let lastBriefingFetch = 0;
+
+async function maybeFetchBriefing() {
+  if (!process.env.BRIEF_API_KEY) return;
+  const now = Date.now();
+  if (now - lastBriefingFetch < BRIEFING_INTERVAL_MS) return;
+  lastBriefingFetch = now;
+
+  const existing = await pool.query(
+    "SELECT id FROM daily_briefings WHERE brief_type = 'general' AND fetched_at > now() - interval '20 hours' LIMIT 1"
+  );
+  if (existing.rows.length > 0) return;
+
+  const res = await fetch("http://89.167.78.232:3000/briefing/general?id=-1", {
+    headers: { Authorization: `Bearer ${process.env.BRIEF_API_KEY}` },
+  });
+  if (!res.ok) {
+    console.error("[worker] Briefing fetch failed:", res.status);
+    return;
+  }
+  const content = await res.text();
+
+  await pool.query(
+    "INSERT INTO daily_briefings (brief_type, content) VALUES ('general', $1)",
+    [content]
+  );
+  console.log("[worker] Daily briefing fetched and stored");
+}
+
 function slugify(text: string): string {
   return text
     .toLowerCase()
@@ -559,6 +590,9 @@ async function pollLoop() {
 
       // Pulse jobs
       await pollPulseJobs();
+
+      // Daily briefing
+      await maybeFetchBriefing();
     } catch (err) {
       console.error("[worker] Poll error:", err);
     }

@@ -75,13 +75,12 @@ export default function FollowUpModal({
   const accessLevel = useAssemblyAccess();
   const config = getPageConfig(pageType, defaultCharacter);
 
-  if (accessLevel === "read") return null;
-
   const [mode, setMode] = useState<Mode>(config.fixedMode ?? (defaultCharacter ? "ask-character" : "ask-assembly"));
   const [question, setQuestion] = useState("");
   const [selectedCharacter, setSelectedCharacter] = useState(defaultCharacter || characters[0] || "");
   const [isChallenge, setIsChallenge] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
     const initial: ChatMessage[] = [];
     for (const fu of followUps) {
@@ -98,6 +97,7 @@ export default function FollowUpModal({
   const [attachHandle, setAttachHandle] = useState<AttachmentWidgetHandle | null>(null);
   const threadRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const isNearBottomRef = useRef(true);
 
   const autoResize = useCallback(() => {
     const el = textareaRef.current;
@@ -105,8 +105,6 @@ export default function FollowUpModal({
     el.style.height = "auto";
     el.style.height = Math.min(el.scrollHeight, 200) + "px";
   }, []);
-
-  const isNearBottomRef = useRef(true);
 
   useEffect(() => {
     const el = threadRef.current;
@@ -126,7 +124,9 @@ export default function FollowUpModal({
 
   const activeMode = config.fixedMode ?? mode;
 
-  async function handleSubmit() {
+  if (accessLevel === "read") return null;
+
+  async function handleSubmit(challengeOverride = false) {
     if (!question.trim() || isStreaming) return;
 
     const userMessage = question.trim();
@@ -148,14 +148,15 @@ export default function FollowUpModal({
       );
     }
 
-    const history = updatedMessages.map((m) => ({ role: m.role, content: m.content }));
+    // Send prior history WITHOUT the current question — the server appends it
+    const history = messages.map((m) => ({ role: m.role, content: m.content }));
 
     const body = {
       question: userMessage,
       mode: activeMode,
       characters: activeMode === "ask-character" ? [selectedCharacter] : [],
       context: { page: currentPage },
-      challenge: isChallenge,
+      challenge: challengeOverride,
       files: fileRefs.length > 0 ? fileRefs : undefined,
       history,
     };
@@ -189,7 +190,11 @@ export default function FollowUpModal({
         if (!line.startsWith("data: ")) continue;
         try {
           const data = JSON.parse(line.slice(6));
+          if (data.type === "searching") {
+            setIsSearching(true);
+          }
           if (data.type === "text") {
+            setIsSearching(false);
             accumulated += data.content;
             setMessages((prev) => {
               const last = prev[prev.length - 1];
@@ -293,7 +298,7 @@ export default function FollowUpModal({
           {isStreaming && messages[messages.length - 1]?.role === "user" && (
             <div className="chat-message-assistant">
               <span style={{ color: "var(--color-text-muted)", fontStyle: "italic", fontSize: "0.85rem" }}>
-                {loadingMsg}
+                {isSearching ? "Searching the web..." : loadingMsg}
               </span>
             </div>
           )}
@@ -403,7 +408,7 @@ export default function FollowUpModal({
           <div className="chat-input-toolbar-right">
             {config.showChallenge && (
               <button
-                onClick={() => { setIsChallenge(true); handleSubmit(); }}
+                onClick={() => handleSubmit(true)}
                 disabled={isStreaming || !question.trim()}
                 className="chat-input-btn chat-input-btn-challenge"
               >
@@ -411,7 +416,7 @@ export default function FollowUpModal({
               </button>
             )}
             <button
-              onClick={handleSubmit}
+              onClick={() => handleSubmit()}
               disabled={isStreaming || !question.trim()}
               className="chat-input-btn chat-input-btn-submit"
             >
