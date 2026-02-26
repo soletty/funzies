@@ -6,6 +6,7 @@ import Link from "next/link";
 import type { PanelMember } from "@/lib/clo/types";
 import type { ExtractedConstraints, ExtractedPortfolio, ComplianceTest, PortfolioMetric, ConcentrationBreakdown } from "@/lib/clo/types";
 import ExtractPortfolioButton from "./ExtractPortfolioButton";
+import DocumentUploadBanner from "./DocumentUploadBanner";
 import BriefingCard from "@/components/BriefingCard";
 
 function CLOHealthSummary({ constraints }: { constraints: Record<string, unknown> | null }) {
@@ -380,6 +381,8 @@ export default async function CLODashboard() {
       </header>
 
       <BriefingCard product="clo" />
+
+      {!hasDocuments && <DocumentUploadBanner />}
 
       {documentMeta.length > 0 && (
         <section className="ic-section">

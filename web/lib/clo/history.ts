@@ -1,5 +1,5 @@
 import { Pool } from "pg";
-import { query as dbQuery } from "@/lib/db";
+import { query as dbQuery } from "../db";
 
 interface AnalysisHistoryRow {
   title: string;

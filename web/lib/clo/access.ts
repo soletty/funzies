@@ -1,4 +1,4 @@
-import { query } from "@/lib/db";
+import { query } from "../db";
 import type { CloProfile } from "./types";
 
 export function rowToProfile(row: Record<string, unknown>): CloProfile {
