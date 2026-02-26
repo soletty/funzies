@@ -832,3 +832,13 @@ CREATE TABLE IF NOT EXISTS clo_industry_classifications (
 -- PPM extraction metadata
 ALTER TABLE clo_profiles ADD COLUMN IF NOT EXISTS ppm_extracted_at TIMESTAMPTZ;
 ALTER TABLE clo_profiles ADD COLUMN IF NOT EXISTS ppm_raw_extraction JSONB;
+
+-- PPM extraction queue status
+ALTER TABLE clo_profiles ADD COLUMN IF NOT EXISTS ppm_extraction_status TEXT DEFAULT NULL
+  CHECK (ppm_extraction_status IS NULL OR ppm_extraction_status IN ('queued', 'extracting', 'complete', 'error'));
+ALTER TABLE clo_profiles ADD COLUMN IF NOT EXISTS ppm_extraction_error TEXT DEFAULT NULL;
+
+-- Portfolio extraction queue status
+ALTER TABLE clo_profiles ADD COLUMN IF NOT EXISTS portfolio_extraction_status TEXT DEFAULT NULL
+  CHECK (portfolio_extraction_status IS NULL OR portfolio_extraction_status IN ('queued', 'extracting', 'complete', 'error'));
+ALTER TABLE clo_profiles ADD COLUMN IF NOT EXISTS portfolio_extraction_error TEXT DEFAULT NULL;

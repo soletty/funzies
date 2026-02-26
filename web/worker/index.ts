@@ -14,6 +14,8 @@ import {
   runScreeningPipeline,
 } from "./clo-pipeline.js";
 import { runScanPipeline } from "./pulse-pipeline.js";
+import { runPpmExtraction } from "../lib/clo/extraction/ppm-extraction.js";
+import { runPortfolioExtraction } from "../lib/clo/extraction/portfolio-extraction.js";
 
 if (!process.env.DATABASE_URL) {
   config({ path: ".env.local" });
@@ -553,6 +555,108 @@ async function pollPulseJobs() {
   }
 }
 
+// ─── CLO Extraction Jobs ─────────────────────────────────────────────
+
+async function pollCloExtractionJobs() {
+  // PPM extraction
+  const ppmJob = await pool.query<{
+    id: string;
+    user_id: string;
+    documents: Array<{ name: string; type: string; size: number; base64: string }>;
+  }>(
+    `UPDATE clo_profiles SET ppm_extraction_status = 'extracting', updated_at = NOW()
+     WHERE id = (
+       SELECT id FROM clo_profiles
+       WHERE ppm_extraction_status = 'queued'
+       ORDER BY updated_at LIMIT 1
+       FOR UPDATE SKIP LOCKED
+     )
+     RETURNING id, user_id, documents`
+  );
+
+  if (ppmJob.rows.length > 0) {
+    const job = ppmJob.rows[0];
+    console.log(`[worker] Claimed PPM extraction job for profile ${job.id}`);
+    try {
+      const { encrypted, iv } = await getUserApiKey(job.user_id);
+      const apiKey = decryptApiKey(encrypted, iv);
+      const { extractedConstraints, rawOutputs } = await runPpmExtraction(apiKey, job.documents || []);
+
+      await pool.query(
+        `UPDATE clo_profiles
+         SET extracted_constraints = $1::jsonb,
+             ppm_raw_extraction = $2::jsonb,
+             ppm_extracted_at = now(),
+             ppm_extraction_status = 'complete',
+             ppm_extraction_error = NULL,
+             updated_at = now()
+         WHERE id = $3`,
+        [JSON.stringify(extractedConstraints), JSON.stringify(rawOutputs), job.id]
+      );
+      console.log(`[worker] PPM extraction complete for profile ${job.id}`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      console.error(`[worker] PPM extraction failed for profile ${job.id}: ${message}`);
+      await pool.query(
+        `UPDATE clo_profiles
+         SET ppm_extraction_status = 'error',
+             ppm_extraction_error = $1,
+             updated_at = now()
+         WHERE id = $2`,
+        [message, job.id]
+      );
+    }
+  }
+
+  // Portfolio extraction
+  const portfolioJob = await pool.query<{
+    id: string;
+    user_id: string;
+    documents: Array<{ name: string; type: string; size: number; base64: string }>;
+  }>(
+    `UPDATE clo_profiles SET portfolio_extraction_status = 'extracting', updated_at = NOW()
+     WHERE id = (
+       SELECT id FROM clo_profiles
+       WHERE portfolio_extraction_status = 'queued'
+       ORDER BY updated_at LIMIT 1
+       FOR UPDATE SKIP LOCKED
+     )
+     RETURNING id, user_id, documents`
+  );
+
+  if (portfolioJob.rows.length > 0) {
+    const job = portfolioJob.rows[0];
+    console.log(`[worker] Claimed portfolio extraction job for profile ${job.id}`);
+    try {
+      const { encrypted, iv } = await getUserApiKey(job.user_id);
+      const apiKey = decryptApiKey(encrypted, iv);
+      const extractedPortfolio = await runPortfolioExtraction(apiKey, job.documents || []);
+
+      await pool.query(
+        `UPDATE clo_profiles
+         SET extracted_portfolio = $1::jsonb,
+             portfolio_extraction_status = 'complete',
+             portfolio_extraction_error = NULL,
+             updated_at = now()
+         WHERE id = $2`,
+        [JSON.stringify(extractedPortfolio), job.id]
+      );
+      console.log(`[worker] Portfolio extraction complete for profile ${job.id}`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      console.error(`[worker] Portfolio extraction failed for profile ${job.id}: ${message}`);
+      await pool.query(
+        `UPDATE clo_profiles
+         SET portfolio_extraction_status = 'error',
+             portfolio_extraction_error = $1,
+             updated_at = now()
+         WHERE id = $2`,
+        [message, job.id]
+      );
+    }
+  }
+}
+
 // ─── Poll Loop ──────────────────────────────────────────────────────
 
 async function pollLoop() {
@@ -590,6 +694,9 @@ async function pollLoop() {
 
       // CLO jobs
       await pollCloJobs();
+
+      // CLO extraction jobs (PPM + portfolio)
+      await pollCloExtractionJobs();
 
       // Pulse jobs
       await pollPulseJobs();
