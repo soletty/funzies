@@ -167,6 +167,7 @@ export default function QuestionnaireForm() {
     const uploadData = await uploadRes.json();
     setUploadedNames(uploadData.documents.map((d: { name: string }) => d.name));
 
+    // Queue extraction
     const extractRes = await fetch("/api/clo/profile/extract", {
       method: "POST",
     });
@@ -179,17 +180,40 @@ export default function QuestionnaireForm() {
       return;
     }
 
-    const extractData = await extractRes.json();
-    setForm((prev) => ({
-      ...prev,
-      extractedConstraints: extractData.extractedConstraints || {},
-    }));
-
     // Fire portfolio extraction in background — don't block onboarding
     fetch("/api/clo/profile/extract-portfolio", { method: "POST" }).then((res) => {
       if (!res.ok) console.warn("[onboarding] Background portfolio extraction failed:", res.status);
     }).catch(() => {});
 
+    // Poll until extraction completes (up to 10 minutes)
+    for (let i = 0; i < 120; i++) {
+      await new Promise((r) => setTimeout(r, 5000));
+
+      const pollRes = await fetch("/api/clo/profile/extract");
+      if (!pollRes.ok) continue;
+
+      const pollData = await pollRes.json();
+
+      if (pollData.status === "complete") {
+        setForm((prev) => ({
+          ...prev,
+          extractedConstraints: pollData.extractedConstraints || {},
+        }));
+        setExtracting(false);
+        setStep(1);
+        return;
+      }
+
+      if (pollData.status === "error") {
+        setError(pollData.error || "Extraction failed. You can still proceed manually.");
+        setExtracting(false);
+        setStep(1);
+        return;
+      }
+    }
+
+    // Timed out
+    setError("Extraction is taking longer than expected. You can proceed and it will complete in the background.");
     setExtracting(false);
     setStep(1);
   }
@@ -948,7 +972,7 @@ export default function QuestionnaireForm() {
             )}
             {extracting && (
               <div style={{ marginTop: "1rem", color: "var(--color-text-muted)", fontStyle: "italic" }}>
-                Uploading documents and extracting constraints... This may take a minute.
+                Extracting constraints from your documents... This may take several minutes for large PPMs.
               </div>
             )}
           </div>
