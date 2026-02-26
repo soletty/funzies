@@ -562,7 +562,7 @@ async function pollCloExtractionJobs() {
   const ppmJob = await pool.query<{
     id: string;
     user_id: string;
-    documents: Array<{ name: string; type: string; size: number; base64: string }>;
+    documents: Array<{ name: string; type: string; size: number; base64: string; docType?: "ppm" | "compliance" }>;
   }>(
     `UPDATE clo_profiles SET ppm_extraction_status = 'extracting', updated_at = NOW()
      WHERE id = (
@@ -580,7 +580,9 @@ async function pollCloExtractionJobs() {
     try {
       const { encrypted, iv } = await getUserApiKey(job.user_id);
       const apiKey = decryptApiKey(encrypted, iv);
-      const { extractedConstraints, rawOutputs } = await runPpmExtraction(apiKey, job.documents || []);
+      // Filter to only PPM documents (backwards compat: no docType = ppm)
+      const ppmDocs = (job.documents || []).filter((d) => (d.docType || "ppm") === "ppm");
+      const { extractedConstraints, rawOutputs } = await runPpmExtraction(apiKey, ppmDocs);
 
       await pool.query(
         `UPDATE clo_profiles
@@ -612,7 +614,7 @@ async function pollCloExtractionJobs() {
   const portfolioJob = await pool.query<{
     id: string;
     user_id: string;
-    documents: Array<{ name: string; type: string; size: number; base64: string }>;
+    documents: Array<{ name: string; type: string; size: number; base64: string; docType?: "ppm" | "compliance" }>;
   }>(
     `UPDATE clo_profiles SET portfolio_extraction_status = 'extracting', updated_at = NOW()
      WHERE id = (
@@ -630,7 +632,17 @@ async function pollCloExtractionJobs() {
     try {
       const { encrypted, iv } = await getUserApiKey(job.user_id);
       const apiKey = decryptApiKey(encrypted, iv);
-      const extractedPortfolio = await runPortfolioExtraction(apiKey, job.documents || []);
+      // Filter to only compliance documents; skip if none exist
+      const complianceDocs = (job.documents || []).filter((d) => d.docType === "compliance");
+      if (complianceDocs.length === 0) {
+        console.log(`[worker] No compliance docs for profile ${job.id}, skipping portfolio extraction`);
+        await pool.query(
+          `UPDATE clo_profiles SET portfolio_extraction_status = 'complete', portfolio_extraction_error = NULL, updated_at = now() WHERE id = $1`,
+          [job.id]
+        );
+        return;
+      }
+      const extractedPortfolio = await runPortfolioExtraction(apiKey, complianceDocs);
 
       await pool.query(
         `UPDATE clo_profiles

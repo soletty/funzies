@@ -4,12 +4,14 @@ import { useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 
 export default function DocumentUploadBanner() {
-  const [files, setFiles] = useState<File[]>([]);
+  const [ppmFiles, setPpmFiles] = useState<File[]>([]);
+  const [complianceFiles, setComplianceFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
   const [extracting, setExtracting] = useState(false);
   const [statusText, setStatusText] = useState("");
   const [error, setError] = useState("");
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const ppmInputRef = useRef<HTMLInputElement>(null);
+  const complianceInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
   const pollExtraction = useCallback(async () => {
@@ -56,40 +58,71 @@ export default function DocumentUploadBanner() {
   }, [router]);
 
   async function handleUpload() {
-    if (files.length === 0) return;
+    if (ppmFiles.length === 0 && complianceFiles.length === 0) return;
     setError("");
     setUploading(true);
 
-    const formData = new FormData();
-    files.forEach((f) => formData.append("files", f));
+    // Upload PPM files
+    if (ppmFiles.length > 0) {
+      const ppmFormData = new FormData();
+      ppmFiles.forEach((f) => ppmFormData.append("files", f));
+      ppmFormData.append("docType", "ppm");
 
-    const uploadRes = await fetch("/api/clo/profile/upload", {
-      method: "POST",
-      body: formData,
-    });
+      const ppmRes = await fetch("/api/clo/profile/upload", {
+        method: "POST",
+        body: ppmFormData,
+      });
 
-    if (!uploadRes.ok) {
-      const data = await uploadRes.json();
-      setError(data.error || "Upload failed.");
-      setUploading(false);
-      return;
+      if (!ppmRes.ok) {
+        const data = await ppmRes.json();
+        setError(data.error || "PPM upload failed.");
+        setUploading(false);
+        return;
+      }
     }
 
-    // Queue PPM extraction
-    await fetch("/api/clo/profile/extract", { method: "POST" });
+    // Upload compliance files
+    if (complianceFiles.length > 0) {
+      const compFormData = new FormData();
+      complianceFiles.forEach((f) => compFormData.append("files", f));
+      compFormData.append("docType", "compliance");
 
-    // Queue portfolio extraction in background
-    fetch("/api/clo/profile/extract-portfolio", { method: "POST" }).catch(() => {});
+      const compRes = await fetch("/api/clo/profile/upload", {
+        method: "POST",
+        body: compFormData,
+      });
+
+      if (!compRes.ok) {
+        const data = await compRes.json();
+        setError(data.error || "Compliance report upload failed.");
+        setUploading(false);
+        return;
+      }
+    }
+
+    // Queue PPM extraction if PPM files uploaded
+    if (ppmFiles.length > 0) {
+      await fetch("/api/clo/profile/extract", { method: "POST" });
+    }
+
+    // Queue portfolio extraction only if compliance files uploaded
+    if (complianceFiles.length > 0) {
+      fetch("/api/clo/profile/extract-portfolio", { method: "POST" }).catch(() => {});
+    }
 
     setUploading(false);
-    setFiles([]);
+    setPpmFiles([]);
+    setComplianceFiles([]);
 
-    // Start polling for extraction completion
-    pollExtraction();
+    // Start polling for extraction completion if PPM was uploaded
+    if (ppmFiles.length > 0) {
+      pollExtraction();
+    }
     router.refresh();
   }
 
   const busy = uploading || extracting;
+  const hasFiles = ppmFiles.length > 0 || complianceFiles.length > 0;
 
   return (
     <section className="ic-section" style={{
@@ -99,34 +132,75 @@ export default function DocumentUploadBanner() {
       padding: "1.25rem 1.5rem",
     }}>
       <h3 style={{ margin: "0 0 0.4rem", fontSize: "1rem", fontFamily: "var(--font-display)" }}>
-        Upload Your PPM
+        Upload Documents
       </h3>
       <p style={{ margin: "0 0 0.75rem", fontSize: "0.85rem", color: "var(--color-text-secondary)", lineHeight: 1.5 }}>
-        Upload your PPM and compliance reports to unlock constraint extraction, portfolio monitoring,
-        and compliance-aware analysis. Your analyst and panel will reference your actual vehicle limits
-        in every conversation.
+        Upload your PPM and compliance reports separately to unlock constraint extraction, portfolio monitoring,
+        and compliance-aware analysis.
       </p>
 
-      <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".pdf"
-          multiple
-          onChange={(e) => setFiles(Array.from(e.target.files || []))}
-          style={{ display: "none" }}
-        />
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          disabled={busy}
-          className="btn-secondary"
-          style={{ fontSize: "0.85rem", padding: "0.45rem 0.9rem" }}
-        >
-          {files.length > 0
-            ? `${files.length} file${files.length !== 1 ? "s" : ""} selected`
-            : "Choose PDFs"}
-        </button>
-        {files.length > 0 && (
+      <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
+        <div>
+          <div style={{ fontSize: "0.8rem", fontWeight: 600, marginBottom: "0.3rem" }}>PPM / Listing Particulars</div>
+          <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+            <input
+              ref={ppmInputRef}
+              type="file"
+              accept=".pdf"
+              multiple
+              onChange={(e) => setPpmFiles(Array.from(e.target.files || []))}
+              style={{ display: "none" }}
+            />
+            <button
+              onClick={() => ppmInputRef.current?.click()}
+              disabled={busy}
+              className="btn-secondary"
+              style={{ fontSize: "0.85rem", padding: "0.45rem 0.9rem" }}
+            >
+              {ppmFiles.length > 0
+                ? `${ppmFiles.length} PPM file${ppmFiles.length !== 1 ? "s" : ""}`
+                : "Choose PPM"}
+            </button>
+          </div>
+          {ppmFiles.length > 0 && !busy && (
+            <div style={{ marginTop: "0.3rem", fontSize: "0.75rem", color: "var(--color-text-muted)" }}>
+              {ppmFiles.map((f) => f.name).join(", ")}
+            </div>
+          )}
+        </div>
+
+        <div>
+          <div style={{ fontSize: "0.8rem", fontWeight: 600, marginBottom: "0.3rem" }}>Compliance / Trustee Report (optional)</div>
+          <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+            <input
+              ref={complianceInputRef}
+              type="file"
+              accept=".pdf"
+              multiple
+              onChange={(e) => setComplianceFiles(Array.from(e.target.files || []))}
+              style={{ display: "none" }}
+            />
+            <button
+              onClick={() => complianceInputRef.current?.click()}
+              disabled={busy}
+              className="btn-secondary"
+              style={{ fontSize: "0.85rem", padding: "0.45rem 0.9rem" }}
+            >
+              {complianceFiles.length > 0
+                ? `${complianceFiles.length} report${complianceFiles.length !== 1 ? "s" : ""}`
+                : "Choose Reports"}
+            </button>
+          </div>
+          {complianceFiles.length > 0 && !busy && (
+            <div style={{ marginTop: "0.3rem", fontSize: "0.75rem", color: "var(--color-text-muted)" }}>
+              {complianceFiles.map((f) => f.name).join(", ")}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {hasFiles && (
+        <div style={{ marginTop: "0.75rem" }}>
           <button
             onClick={handleUpload}
             disabled={busy}
@@ -135,12 +209,6 @@ export default function DocumentUploadBanner() {
           >
             {uploading ? "Uploading..." : "Upload & Extract"}
           </button>
-        )}
-      </div>
-
-      {files.length > 0 && !busy && (
-        <div style={{ marginTop: "0.5rem", fontSize: "0.8rem", color: "var(--color-text-muted)" }}>
-          {files.map((f) => f.name).join(", ")}
         </div>
       )}
 

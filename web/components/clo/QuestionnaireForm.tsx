@@ -134,40 +134,67 @@ export default function QuestionnaireForm() {
   const [submitting, setSubmitting] = useState(false);
   const [extracting, setExtracting] = useState(false);
   const [error, setError] = useState("");
-  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
-  const [uploadedNames, setUploadedNames] = useState<string[]>([]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [ppmFiles, setPpmFiles] = useState<File[]>([]);
+  const [complianceFiles, setComplianceFiles] = useState<File[]>([]);
+  const [uploadedPpmNames, setUploadedPpmNames] = useState<string[]>([]);
+  const [uploadedComplianceNames, setUploadedComplianceNames] = useState<string[]>([]);
+  const ppmInputRef = useRef<HTMLInputElement>(null);
+  const complianceInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
   function canAdvance(): boolean {
-    if (step === 0) return uploadedFiles.length > 0;
+    if (step === 0) return ppmFiles.length > 0;
     return true;
   }
 
   async function handleUpload() {
-    if (uploadedFiles.length === 0) return;
+    if (ppmFiles.length === 0) return;
     setError("");
     setExtracting(true);
 
-    const formData = new FormData();
-    uploadedFiles.forEach((f) => formData.append("files", f));
+    // Upload PPM files
+    const ppmFormData = new FormData();
+    ppmFiles.forEach((f) => ppmFormData.append("files", f));
+    ppmFormData.append("docType", "ppm");
 
-    const uploadRes = await fetch("/api/clo/profile/upload", {
+    const ppmUploadRes = await fetch("/api/clo/profile/upload", {
       method: "POST",
-      body: formData,
+      body: ppmFormData,
     });
 
-    if (!uploadRes.ok) {
-      const data = await uploadRes.json();
-      setError(data.error || "Failed to upload documents.");
+    if (!ppmUploadRes.ok) {
+      const data = await ppmUploadRes.json();
+      setError(data.error || "Failed to upload PPM documents.");
       setExtracting(false);
       return;
     }
 
-    const uploadData = await uploadRes.json();
-    setUploadedNames(uploadData.documents.map((d: { name: string }) => d.name));
+    const ppmUploadData = await ppmUploadRes.json();
+    setUploadedPpmNames(ppmUploadData.documents.map((d: { name: string }) => d.name));
 
-    // Queue extraction
+    // Upload compliance files if provided
+    if (complianceFiles.length > 0) {
+      const compFormData = new FormData();
+      complianceFiles.forEach((f) => compFormData.append("files", f));
+      compFormData.append("docType", "compliance");
+
+      const compUploadRes = await fetch("/api/clo/profile/upload", {
+        method: "POST",
+        body: compFormData,
+      });
+
+      if (!compUploadRes.ok) {
+        const data = await compUploadRes.json();
+        setError(data.error || "Failed to upload compliance documents.");
+        setExtracting(false);
+        return;
+      }
+
+      const compUploadData = await compUploadRes.json();
+      setUploadedComplianceNames(compUploadData.documents.map((d: { name: string }) => d.name));
+    }
+
+    // Queue PPM extraction
     const extractRes = await fetch("/api/clo/profile/extract", {
       method: "POST",
     });
@@ -180,10 +207,12 @@ export default function QuestionnaireForm() {
       return;
     }
 
-    // Fire portfolio extraction in background — don't block onboarding
-    fetch("/api/clo/profile/extract-portfolio", { method: "POST" }).then((res) => {
-      if (!res.ok) console.warn("[onboarding] Background portfolio extraction failed:", res.status);
-    }).catch(() => {});
+    // Fire portfolio extraction only if compliance files were uploaded
+    if (complianceFiles.length > 0) {
+      fetch("/api/clo/profile/extract-portfolio", { method: "POST" }).then((res) => {
+        if (!res.ok) console.warn("[onboarding] Background portfolio extraction failed:", res.status);
+      }).catch(() => {});
+    }
 
     // Poll until extraction completes (up to 10 minutes)
     for (let i = 0; i < 120; i++) {
@@ -218,10 +247,14 @@ export default function QuestionnaireForm() {
     setStep(1);
   }
 
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(e.target.files || []);
-    setUploadedFiles(files);
-    setUploadedNames([]);
+  function handlePpmFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    setPpmFiles(Array.from(e.target.files || []));
+    setUploadedPpmNames([]);
+  }
+
+  function handleComplianceFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    setComplianceFiles(Array.from(e.target.files || []));
+    setUploadedComplianceNames([]);
   }
 
   function updateConstraint(key: string, value: unknown) {
@@ -942,34 +975,63 @@ export default function QuestionnaireForm() {
         {step === 0 && (
           <div className="ic-field">
             <label className="ic-field-label">
-              Upload your PPM / Listing Particulars
+              Upload your PPM / Listing Particulars (required)
             </label>
             <p style={{ fontSize: "0.85rem", color: "var(--color-text-secondary)", marginBottom: "1rem" }}>
-              Upload your CLO&apos;s PPM (required) and optionally the latest Compliance/Trustee Report.
-              We&apos;ll extract all portfolio constraints, test thresholds, and structural parameters automatically.
+              Upload your CLO&apos;s PPM to extract all portfolio constraints, test thresholds, and structural parameters.
             </p>
             <input
-              ref={fileInputRef}
+              ref={ppmInputRef}
               type="file"
               accept=".pdf,application/pdf"
               multiple
-              onChange={handleFileChange}
+              onChange={handlePpmFileChange}
               style={{ marginBottom: "1rem" }}
             />
-            {uploadedFiles.length > 0 && (
+            {ppmFiles.length > 0 && (
               <div style={{ fontSize: "0.85rem", color: "var(--color-text-secondary)" }}>
-                {uploadedFiles.map((f) => (
+                {ppmFiles.map((f) => (
                   <div key={f.name}>
                     {f.name} ({(f.size / 1024 / 1024).toFixed(1)} MB)
                   </div>
                 ))}
               </div>
             )}
-            {uploadedNames.length > 0 && (
+            {uploadedPpmNames.length > 0 && (
               <div style={{ marginTop: "0.5rem", fontSize: "0.85rem", color: "var(--color-accent)" }}>
-                Uploaded: {uploadedNames.join(", ")}
+                Uploaded: {uploadedPpmNames.join(", ")}
               </div>
             )}
+
+            <label className="ic-field-label" style={{ marginTop: "1.5rem", display: "block" }}>
+              Upload Compliance / Trustee Report (optional)
+            </label>
+            <p style={{ fontSize: "0.85rem", color: "var(--color-text-secondary)", marginBottom: "1rem" }}>
+              Optionally upload the latest compliance or trustee report for portfolio monitoring and compliance extraction.
+            </p>
+            <input
+              ref={complianceInputRef}
+              type="file"
+              accept=".pdf,application/pdf"
+              multiple
+              onChange={handleComplianceFileChange}
+              style={{ marginBottom: "1rem" }}
+            />
+            {complianceFiles.length > 0 && (
+              <div style={{ fontSize: "0.85rem", color: "var(--color-text-secondary)" }}>
+                {complianceFiles.map((f) => (
+                  <div key={f.name}>
+                    {f.name} ({(f.size / 1024 / 1024).toFixed(1)} MB)
+                  </div>
+                ))}
+              </div>
+            )}
+            {uploadedComplianceNames.length > 0 && (
+              <div style={{ marginTop: "0.5rem", fontSize: "0.85rem", color: "var(--color-accent)" }}>
+                Uploaded: {uploadedComplianceNames.join(", ")}
+              </div>
+            )}
+
             {extracting && (
               <div style={{ marginTop: "1rem", color: "var(--color-text-muted)", fontStyle: "italic" }}>
                 Extracting constraints from your documents... This may take several minutes for large PPMs.

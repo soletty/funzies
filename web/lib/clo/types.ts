@@ -3,6 +3,7 @@ export interface CloDocument {
   type: string;
   size: number;
   base64: string;
+  docType?: "ppm" | "compliance";
 }
 
 // --- Section sub-interfaces ---

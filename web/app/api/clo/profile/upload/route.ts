@@ -36,6 +36,8 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const docType = (formData.get("docType") as string) || "ppm";
+
   const documents = await Promise.all(
     files.map(async (file) => {
       const buffer = await file.arrayBuffer();
@@ -45,18 +47,29 @@ export async function POST(request: NextRequest) {
         type: file.type,
         size: file.size,
         base64,
+        docType,
       };
     })
   );
+
+  // Merge with existing documents: keep docs of the other type, replace docs of this type
+  const existing = await query<{ documents: Array<{ name: string; type: string; size: number; base64: string; docType?: string }> }>(
+    `SELECT documents FROM clo_profiles WHERE user_id = $1`,
+    [user.id]
+  );
+
+  const existingDocs = existing[0]?.documents || [];
+  const otherDocs = existingDocs.filter((d) => (d.docType || "ppm") !== docType);
+  const mergedDocuments = [...otherDocs, ...documents];
 
   const rows = await query<{ id: string }>(
     `INSERT INTO clo_profiles (user_id, documents)
      VALUES ($1, $2::jsonb)
      ON CONFLICT (user_id) DO UPDATE SET
-       documents = EXCLUDED.documents,
+       documents = $2::jsonb,
        updated_at = now()
      RETURNING id`,
-    [user.id, JSON.stringify(documents)]
+    [user.id, JSON.stringify(mergedDocuments)]
   );
 
   return NextResponse.json({
