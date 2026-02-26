@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth-helpers";
 import { query } from "@/lib/db";
 import { decryptApiKey } from "@/lib/crypto";
-import { getProfileForUser, getProfileWithDocuments, getPanelForUser, rowToProfile } from "@/lib/clo/access";
-import { seniorAnalystSystemPrompt } from "@/worker/clo-prompts";
+import { getProfileForUser, getProfileWithDocuments, getPanelForUser, rowToProfile, getDealForProfile, getLatestReportPeriod, getReportPeriodData, getEvents, getOverflow } from "@/lib/clo/access";
+import { seniorAnalystSystemPrompt, formatReportPeriodState } from "@/worker/clo-prompts";
 import { getPortfolioSnapshot, getRecentAnalysisBriefs } from "@/lib/clo/history";
 import { WEB_SEARCH_TOOL, processAnthropicStream } from "@/lib/claude-stream";
 import { getLatestBriefing } from "@/lib/briefing";
@@ -88,6 +88,19 @@ export async function POST(request: NextRequest) {
   // Convert raw DB row to CloProfile type
   const cloProfile = rowToProfile(profile as unknown as Record<string, unknown>);
 
+  // Fetch new extraction data for richer context
+  const deal = await getDealForProfile(cloProfile.id);
+  let reportPeriodContext = "";
+  if (deal) {
+    const latestPeriod = await getLatestReportPeriod(deal.id);
+    if (latestPeriod) {
+      const { poolSummary, complianceTests, concentrations } = await getReportPeriodData(latestPeriod.id);
+      const periodEvents = await getEvents(deal.id);
+      const overflow = await getOverflow(latestPeriod.id);
+      reportPeriodContext = formatReportPeriodState(poolSummary, complianceTests, concentrations, periodEvents, overflow);
+    }
+  }
+
   // Build system prompt with market intelligence and analysis context
   const briefing = await getLatestBriefing();
   const briefingSection = briefing
@@ -97,7 +110,7 @@ export async function POST(request: NextRequest) {
     ? `\n\nRECENT ANALYSIS CONCLUSIONS (reference when the user asks about specific credits):\n${analysisBriefs}`
     : "";
   const systemPrompt =
-    seniorAnalystSystemPrompt(cloProfile, portfolioSnapshot) + analysisSection + briefingSection;
+    seniorAnalystSystemPrompt(cloProfile, portfolioSnapshot, reportPeriodContext || undefined) + analysisSection + briefingSection;
 
   // Only fetch heavy document data on the first turn of a conversation
   // to avoid pulling 20MB+ from the DB on every subsequent message.

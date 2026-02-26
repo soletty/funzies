@@ -26,14 +26,56 @@ import {
   portfolioGapAnalysisPrompt,
   screeningDebatePrompt,
   screeningSynthesisPrompt,
+  formatReportPeriodState,
 } from "./clo-prompts.js";
+import type { CloPoolSummary, CloComplianceTest, CloConcentration, CloEvent, CloExtractionOverflow } from "../lib/clo/types.js";
 const WEB_SEARCH_TOOL = { type: "web_search_20250305", name: "web_search", max_uses: 5 };
 
-async function getLatestBriefing(pool: Pool): Promise<string | null> {
+async function getLatestBriefing(pool: Pool, briefType = "general"): Promise<string | null> {
   const result = await pool.query<{ content: string }>(
-    "SELECT content FROM daily_briefings WHERE brief_type = 'general' ORDER BY fetched_at DESC LIMIT 1"
+    "SELECT content FROM daily_briefings WHERE brief_type = $1 ORDER BY fetched_at DESC LIMIT 1",
+    [briefType]
   );
   return result.rows[0]?.content ?? null;
+}
+
+async function getReportPeriodContext(pool: Pool, profileId: string): Promise<string> {
+  const dealRows = await pool.query<{ id: string }>(
+    "SELECT id FROM clo_deals WHERE profile_id = $1 LIMIT 1",
+    [profileId]
+  );
+  if (dealRows.rows.length === 0) return "";
+  const dealId = dealRows.rows[0].id;
+
+  const periodRows = await pool.query<{ id: string }>(
+    "SELECT id FROM clo_report_periods WHERE deal_id = $1 ORDER BY report_date DESC LIMIT 1",
+    [dealId]
+  );
+  if (periodRows.rows.length === 0) return "";
+  const periodId = periodRows.rows[0].id;
+
+  const [poolRows, testRows, concRows, eventRows, overflowRows] = await Promise.all([
+    pool.query("SELECT * FROM clo_pool_summary WHERE report_period_id = $1 LIMIT 1", [periodId]),
+    pool.query("SELECT * FROM clo_compliance_tests WHERE report_period_id = $1", [periodId]),
+    pool.query("SELECT * FROM clo_concentrations WHERE report_period_id = $1", [periodId]),
+    pool.query("SELECT * FROM clo_events WHERE deal_id = $1 ORDER BY event_date DESC NULLS LAST LIMIT 20", [dealId]),
+    pool.query("SELECT * FROM clo_extraction_overflow WHERE report_period_id = $1 LIMIT 10", [periodId]),
+  ]);
+
+  const snakeToCamel = (s: string) => s.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
+  const convertRow = (row: Record<string, unknown>) => {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(row)) out[snakeToCamel(k)] = v;
+    return out;
+  };
+
+  const poolSummary = poolRows.rows.length > 0 ? convertRow(poolRows.rows[0]) as unknown as CloPoolSummary : null;
+  const complianceTests = testRows.rows.map((r: Record<string, unknown>) => convertRow(r)) as unknown as CloComplianceTest[];
+  const concentrations = concRows.rows.map((r: Record<string, unknown>) => convertRow(r)) as unknown as CloConcentration[];
+  const events = eventRows.rows.map((r: Record<string, unknown>) => convertRow(r)) as unknown as CloEvent[];
+  const overflow = overflowRows.rows.map((r: Record<string, unknown>) => convertRow(r)) as unknown as CloExtractionOverflow[];
+
+  return formatReportPeriodState(poolSummary, complianceTests, concentrations, events, overflow);
 }
 
 export interface PipelineCallbacks {
@@ -319,16 +361,25 @@ export async function runAnalysisPipeline(
     parsedData.recommendation = parseCreditRecommendation(rawFiles["recommendation.md"]);
   }
 
-  // Inject daily briefing into the first phase so the AI has current market context
-  const briefing = await getLatestBriefing(pool);
-  const briefingSection = briefing
-    ? `\n\nMARKET INTELLIGENCE (today's briefing — reference when relevant, do not repeat verbatim):\n${briefing}`
+  // Fetch compliance report data for richer context in all pipeline phases
+  const reportPeriodContext = await getReportPeriodContext(pool, analysisRow.profile_id);
+
+  // Inject daily briefings into the first phase so the AI has current market context
+  const [generalBriefing, cloBriefing] = await Promise.all([
+    getLatestBriefing(pool),
+    getLatestBriefing(pool, "clo"),
+  ]);
+  const briefingParts: string[] = [];
+  if (generalBriefing) briefingParts.push(generalBriefing);
+  if (cloBriefing) briefingParts.push(cloBriefing);
+  const briefingSection = briefingParts.length > 0
+    ? `\n\nMARKET INTELLIGENCE (today's briefing — reference when relevant, do not repeat verbatim):\n${briefingParts.join("\n\n")}`
     : "";
 
   // Phase 1: Credit Analysis
   if (!rawFiles["credit-analysis.md"]) {
     await callbacks.updatePhase("credit-analysis");
-    const prompt = creditAnalysisPrompt(analysis, profile);
+    const prompt = creditAnalysisPrompt(analysis, profile, reportPeriodContext || undefined);
     const result = await callClaude(client, prompt.system + briefingSection, prompt.user, 8192, undefined, allDocuments, [WEB_SEARCH_TOOL]);
     rawFiles["credit-analysis.md"] = result;
     await callbacks.updateRawFiles(rawFiles);
@@ -382,7 +433,8 @@ export async function runAnalysisPipeline(
       allMembers,
       rawFiles["credit-analysis.md"],
       profile,
-      history
+      history,
+      reportPeriodContext || undefined
     );
     const result = await callClaude(client, prompt.system, prompt.user, 8192, undefined, allDocuments, [WEB_SEARCH_TOOL]);
     rawFiles["individual-assessments.md"] = result;
@@ -398,7 +450,8 @@ export async function runAnalysisPipeline(
       allMembers,
       rawFiles["individual-assessments.md"],
       rawFiles["credit-analysis.md"],
-      profile
+      profile,
+      reportPeriodContext || undefined
     );
     const result = await callClaude(client, prompt.system, prompt.user, 16384, undefined, allDocuments, [WEB_SEARCH_TOOL]);
     rawFiles["debate.md"] = result;
@@ -414,7 +467,8 @@ export async function runAnalysisPipeline(
       allMembers,
       rawFiles["debate.md"],
       rawFiles["credit-analysis.md"],
-      profile
+      profile,
+      reportPeriodContext || undefined
     );
     const result = await callClaude(client, prompt.system, prompt.user, 8192, undefined, allDocuments, [WEB_SEARCH_TOOL]);
     rawFiles["premortem.md"] = result;
@@ -432,7 +486,8 @@ export async function runAnalysisPipeline(
       rawFiles["credit-analysis.md"],
       profile,
       analysis.title,
-      rawFiles["premortem.md"]
+      rawFiles["premortem.md"],
+      reportPeriodContext || undefined
     );
     const result = await callClaude(client, prompt.system, prompt.user, 8192, undefined, allDocuments);
     rawFiles["memo.md"] = result;
@@ -448,7 +503,8 @@ export async function runAnalysisPipeline(
       rawFiles["debate.md"],
       rawFiles["credit-analysis.md"],
       profile,
-      rawFiles["premortem.md"]
+      rawFiles["premortem.md"],
+      reportPeriodContext || undefined
     );
     const result = await callClaude(client, prompt.system, prompt.user, 8192, undefined, allDocuments);
     rawFiles["risk-assessment.md"] = result;
@@ -466,7 +522,8 @@ export async function runAnalysisPipeline(
       rawFiles["debate.md"],
       allMembers,
       profile,
-      rawFiles["premortem.md"]
+      rawFiles["premortem.md"],
+      reportPeriodContext || undefined
     );
     const result = await callClaude(client, prompt.system, prompt.user, 8192, undefined, allDocuments);
     rawFiles["recommendation.md"] = result;
@@ -517,6 +574,9 @@ export async function runScreeningPipeline(
   const focusArea = screeningRow.focus_area || "";
   const parsedData: Record<string, unknown> = screeningRow.parsed_data || {};
 
+  // Fetch compliance report data for richer context
+  const reportPeriodContext = await getReportPeriodContext(pool, screeningRow.profile_id);
+
   // Re-derive parsed data from existing raw files if missing (handles partial failure resume)
   if (rawFiles["gap-analysis.md"] && !parsedData.gapAnalysis) {
     parsedData.gapAnalysis = rawFiles["gap-analysis.md"];
@@ -530,7 +590,7 @@ export async function runScreeningPipeline(
   if (!rawFiles["gap-analysis.md"]) {
     await callbacks.updatePhase("gap-analysis");
     const recentAnalyses = await getRecentAnalysisSummaries(pool, screeningRow.panel_id);
-    const prompt = portfolioGapAnalysisPrompt(profile, recentAnalyses);
+    const prompt = portfolioGapAnalysisPrompt(profile, recentAnalyses, reportPeriodContext || undefined);
     const result = await callClaude(client, prompt.system, prompt.user, 8192, undefined, profileDocuments, [WEB_SEARCH_TOOL]);
     rawFiles["gap-analysis.md"] = result;
     await callbacks.updateRawFiles(rawFiles);
@@ -545,7 +605,8 @@ export async function runScreeningPipeline(
       members,
       rawFiles["gap-analysis.md"],
       focusArea,
-      profile
+      profile,
+      reportPeriodContext || undefined
     );
     const result = await callClaude(client, prompt.system, prompt.user, 16384, undefined, profileDocuments, [WEB_SEARCH_TOOL]);
     rawFiles["screening-debate.md"] = result;
@@ -558,7 +619,8 @@ export async function runScreeningPipeline(
     const prompt = screeningSynthesisPrompt(
       rawFiles["screening-debate.md"],
       rawFiles["gap-analysis.md"],
-      profile
+      profile,
+      reportPeriodContext || undefined
     );
     const result = await callClaude(client, prompt.system, prompt.user, 8192, undefined, profileDocuments, [WEB_SEARCH_TOOL]);
     rawFiles["screening-synthesis.md"] = result;

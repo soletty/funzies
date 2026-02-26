@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { getProfileForUser, rowToProfile } from "@/lib/clo/access";
+import { getProfileForUser, rowToProfile, getDealForProfile, getLatestReportPeriod, getHoldings } from "@/lib/clo/access";
 import Link from "next/link";
 import HoldingsTable from "./HoldingsTable";
 
@@ -16,9 +16,26 @@ export default async function HoldingsPage() {
   }
 
   const cloProfile = rowToProfile(profile as unknown as Record<string, unknown>);
-  const portfolio = cloProfile.extractedPortfolio;
 
-  if (!portfolio || !portfolio.holdings || portfolio.holdings.length === 0) {
+  // Try new extraction tables first
+  const deal = await getDealForProfile(cloProfile.id);
+  let expandedHoldings: Awaited<ReturnType<typeof getHoldings>> = [];
+  let reportDate: string | null = null;
+
+  if (deal) {
+    const period = await getLatestReportPeriod(deal.id);
+    if (period) {
+      expandedHoldings = await getHoldings(period.id);
+      reportDate = period.reportDate;
+    }
+  }
+
+  // Fall back to legacy data
+  const legacyPortfolio = cloProfile.extractedPortfolio;
+  const hasExpanded = expandedHoldings.length > 0;
+  const hasLegacy = !hasExpanded && legacyPortfolio?.holdings && legacyPortfolio.holdings.length > 0;
+
+  if (!hasExpanded && !hasLegacy) {
     return (
       <div className="ic-dashboard">
         <div className="ic-empty-state">
@@ -30,14 +47,17 @@ export default async function HoldingsPage() {
     );
   }
 
+  const totalCount = hasExpanded ? expandedHoldings.length : legacyPortfolio!.holdings.length;
+  const displayDate = reportDate ?? legacyPortfolio?.reportDate;
+
   return (
     <div className="ic-dashboard">
       <header className="ic-dashboard-header">
         <div>
           <h1>Portfolio Holdings</h1>
           <p>
-            {portfolio.holdings.length} positions
-            {portfolio.reportDate && <> &middot; Report date: {portfolio.reportDate}</>}
+            {totalCount} positions
+            {displayDate && <> &middot; Report date: {displayDate}</>}
           </p>
         </div>
         <div className="ic-dashboard-actions">
@@ -46,7 +66,11 @@ export default async function HoldingsPage() {
       </header>
 
       <section className="ic-section">
-        <HoldingsTable holdings={portfolio.holdings} />
+        {hasExpanded ? (
+          <HoldingsTable expandedHoldings={expandedHoldings} mode="expanded" />
+        ) : (
+          <HoldingsTable holdings={legacyPortfolio!.holdings} mode="legacy" />
+        )}
       </section>
     </div>
   );

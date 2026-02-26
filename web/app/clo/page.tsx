@@ -1,10 +1,10 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { query } from "@/lib/db";
-import { getProfileForUser, getProfileDocumentMeta, getPanelForUser, rowToProfile } from "@/lib/clo/access";
+import { getProfileForUser, getProfileDocumentMeta, getPanelForUser, rowToProfile, getDealForProfile, getLatestReportPeriod, getReportPeriodData, getAccountBalances, getEvents } from "@/lib/clo/access";
 import Link from "next/link";
 import type { PanelMember } from "@/lib/clo/types";
-import type { ExtractedConstraints, ExtractedPortfolio, ComplianceTest, PortfolioMetric, ConcentrationBreakdown } from "@/lib/clo/types";
+import type { ExtractedConstraints, ExtractedPortfolio, ComplianceTest, PortfolioMetric, ConcentrationBreakdown, CloComplianceTest, CloConcentration, CloPoolSummary, CloAccountBalance, CloEvent } from "@/lib/clo/types";
 import ExtractPortfolioButton from "./ExtractPortfolioButton";
 import DocumentUploadBanner from "./DocumentUploadBanner";
 import BriefingCard from "@/components/BriefingCard";
@@ -15,28 +15,49 @@ function CLOHealthSummary({ constraints }: { constraints: Record<string, unknown
   const c = constraints as unknown as ExtractedConstraints;
   const items: { label: string; value: string }[] = [];
 
+  // Deal identity
+  const dealName = c.dealIdentity?.dealName;
+  if (dealName) items.push({ label: "Deal", value: dealName });
+
+  const cmName = c.cmDetails?.name ?? c.collateralManager;
+  if (cmName) items.push({ label: "CM", value: cmName });
+
+  // Key metrics
   if (c.warfLimit != null) items.push({ label: "WARF Limit", value: String(c.warfLimit) });
   if (c.wasMinimum != null) items.push({ label: "WAS Min", value: `${c.wasMinimum} bps` });
   if (c.walMaximum != null) items.push({ label: "WAL Max", value: `${c.walMaximum}y` });
   if (c.diversityScoreMinimum != null) items.push({ label: "Diversity Min", value: String(c.diversityScoreMinimum) });
 
+  // Concentration limits (legacy)
   if (c.concentrationLimits) {
     if (c.concentrationLimits.singleName) items.push({ label: "Single Name", value: c.concentrationLimits.singleName });
     if (c.concentrationLimits.industry) items.push({ label: "Industry", value: c.concentrationLimits.industry });
     if (c.concentrationLimits.ccc) items.push({ label: "CCC Bucket", value: c.concentrationLimits.ccc });
   }
 
-  if (c.coverageTests) {
-    if (c.coverageTests.ocSenior) items.push({ label: "OC Senior", value: c.coverageTests.ocSenior });
-    if (c.coverageTests.icSenior) items.push({ label: "IC Senior", value: c.coverageTests.icSenior });
+  // Coverage tests — new array first, then legacy
+  if (c.coverageTestEntries?.length) {
+    const firstOc = c.coverageTestEntries.find((t) => t.parValueRatio);
+    const firstIc = c.coverageTestEntries.find((t) => t.interestCoverageRatio);
+    if (firstOc) items.push({ label: `OC ${firstOc.class}`, value: firstOc.parValueRatio! });
+    if (firstIc) items.push({ label: `IC ${firstIc.class}`, value: firstIc.interestCoverageRatio! });
+  } else if (c.coverageTests) {
+    if (c.coverageTests.ocSenior || c.coverageTests.parValueClassAB) items.push({ label: "OC Senior", value: c.coverageTests.ocSenior ?? c.coverageTests.parValueClassAB ?? "" });
+    if (c.coverageTests.icSenior || c.coverageTests.interestCoverageClassAB) items.push({ label: "IC Senior", value: c.coverageTests.icSenior ?? c.coverageTests.interestCoverageClassAB ?? "" });
   }
 
-  if (c.reinvestmentPeriod?.end) {
-    items.push({ label: "RP End", value: c.reinvestmentPeriod.end });
-  }
-  if (c.nonCallPeriod?.end) {
-    items.push({ label: "Non-Call End", value: c.nonCallPeriod.end });
-  }
+  // Dates — new fields first, then legacy
+  const rpEnd = c.keyDates?.reinvestmentPeriodEnd ?? c.reinvestmentPeriod?.end;
+  if (rpEnd) items.push({ label: "RP End", value: rpEnd });
+
+  const ncEnd = c.keyDates?.nonCallPeriodEnd ?? c.nonCallPeriod?.end;
+  if (ncEnd) items.push({ label: "Non-Call End", value: ncEnd });
+
+  const maturity = c.keyDates?.maturityDate ?? c.maturityDate;
+  if (maturity) items.push({ label: "Maturity", value: maturity });
+
+  // Controlling class
+  if (c.votingAndControl?.controllingClass) items.push({ label: "Controlling", value: c.votingAndControl.controllingClass });
 
   if (items.length === 0) return null;
 
@@ -77,7 +98,47 @@ function cushionColor(cushion: number): string {
   return "var(--color-error, #ef4444)";
 }
 
-function TestComplianceSection({ tests }: { tests: ComplianceTest[] }) {
+function TestComplianceSection({ tests, newTests }: { tests?: ComplianceTest[]; newTests?: CloComplianceTest[] }) {
+  // Prefer new data
+  if (newTests && newTests.length > 0) {
+    return (
+      <section className="ic-section">
+        <h2>Test Compliance</h2>
+        <div style={{ display: "grid", gap: "0.75rem" }}>
+          {newTests.map((t) => {
+            const actual = t.actualValue ?? 0;
+            const trigger = t.triggerLevel ?? 0;
+            const cushion = t.cushionPct ?? (actual - trigger);
+            const maxVal = Math.max(actual, trigger) * 1.1 || 1;
+            const actualPct = (actual / maxVal) * 100;
+            const triggerPct = (trigger / maxVal) * 100;
+            const color = cushionColor(cushion);
+            return (
+              <div key={t.id}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem", marginBottom: "0.25rem" }}>
+                  <span style={{ fontWeight: 600 }}>{t.testName}{t.testClass ? ` (${t.testClass})` : ""}</span>
+                  <span style={{ color: "var(--color-text-muted)" }}>
+                    {actual.toFixed(1)}% (trigger: {trigger.toFixed(1)}%, cushion: {cushion >= 0 ? "+" : ""}{cushion.toFixed(1)}%)
+                    {t.isPassing != null && (
+                      <span style={{ marginLeft: "0.5rem", color: t.isPassing ? "var(--color-success, #22c55e)" : "var(--color-error, #ef4444)", fontWeight: 600 }}>
+                        {t.isPassing ? "PASS" : "FAIL"}
+                      </span>
+                    )}
+                  </span>
+                </div>
+                <div style={{ position: "relative", height: "1.25rem", background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: "var(--radius-sm)", overflow: "hidden" }}>
+                  <div style={{ position: "absolute", top: 0, left: 0, height: "100%", width: `${actualPct}%`, background: color, opacity: 0.3, borderRadius: "var(--radius-sm)" }} />
+                  <div style={{ position: "absolute", top: 0, left: `${triggerPct}%`, width: "2px", height: "100%", background: "var(--color-text-muted)" }} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+    );
+  }
+
+  // Legacy fallback
   if (!tests || tests.length === 0) return null;
   return (
     <section className="ic-section">
@@ -103,6 +164,52 @@ function TestComplianceSection({ tests }: { tests: ComplianceTest[] }) {
             </div>
           );
         })}
+      </div>
+    </section>
+  );
+}
+
+function PoolMetricsSection({ poolSummary }: { poolSummary: CloPoolSummary }) {
+  const metrics: { label: string; value: string; sub?: string }[] = [];
+
+  if (poolSummary.totalPar != null) metrics.push({ label: "Total Par", value: poolSummary.totalPar.toLocaleString() });
+  if (poolSummary.targetPar != null) metrics.push({ label: "Target Par", value: poolSummary.targetPar.toLocaleString() });
+  if (poolSummary.numberOfObligors != null) metrics.push({ label: "Obligors", value: String(poolSummary.numberOfObligors) });
+  if (poolSummary.numberOfAssets != null) metrics.push({ label: "Assets", value: String(poolSummary.numberOfAssets) });
+  if (poolSummary.warf != null) metrics.push({ label: "WARF", value: String(poolSummary.warf) });
+  if (poolSummary.walYears != null) metrics.push({ label: "WAL", value: `${poolSummary.walYears.toFixed(2)}y` });
+  if (poolSummary.wacSpread != null) metrics.push({ label: "WAS", value: `${poolSummary.wacSpread} bps` });
+  if (poolSummary.diversityScore != null) metrics.push({ label: "Diversity", value: String(poolSummary.diversityScore) });
+  if (poolSummary.waRecoveryRate != null) metrics.push({ label: "WA Recovery", value: `${poolSummary.waRecoveryRate.toFixed(1)}%` });
+  if (poolSummary.pctCccAndBelow != null) metrics.push({ label: "CCC & Below", value: `${poolSummary.pctCccAndBelow.toFixed(1)}%` });
+  if (poolSummary.pctDefaulted != null) metrics.push({ label: "Defaulted", value: `${poolSummary.pctDefaulted.toFixed(1)}%` });
+  if (poolSummary.pctFixedRate != null) metrics.push({ label: "Fixed Rate", value: `${poolSummary.pctFixedRate.toFixed(1)}%` });
+  if (poolSummary.pctCovLite != null) metrics.push({ label: "Cov-Lite", value: `${poolSummary.pctCovLite.toFixed(1)}%` });
+
+  if (metrics.length === 0) return null;
+
+  return (
+    <section className="ic-section">
+      <h2>Pool Metrics</h2>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: "0.75rem" }}>
+        {metrics.map((m) => (
+          <div
+            key={m.label}
+            style={{
+              padding: "0.6rem 0.8rem",
+              background: "var(--color-surface)",
+              border: "1px solid var(--color-border)",
+              borderRadius: "var(--radius-sm)",
+            }}
+          >
+            <div style={{ fontSize: "0.7rem", color: "var(--color-text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+              {m.label}
+            </div>
+            <div style={{ fontSize: "1.05rem", fontWeight: 700, marginTop: "0.2rem" }}>
+              {m.value}
+            </div>
+          </div>
+        ))}
       </div>
     </section>
   );
@@ -140,7 +247,20 @@ function PortfolioMetricsSection({ metrics }: { metrics: PortfolioMetric[] }) {
   );
 }
 
-function CccBucketSection({ ccc }: { ccc: ExtractedPortfolio["cccBucket"] }) {
+function CccBucketSection({ ccc, pctCccAndBelow }: { ccc?: ExtractedPortfolio["cccBucket"]; pctCccAndBelow?: number | null }) {
+  // If we have pool summary CCC data but no legacy ccc bucket
+  if (pctCccAndBelow != null && !ccc) {
+    return (
+      <section className="ic-section">
+        <h2>CCC Bucket</h2>
+        <div style={{ display: "flex", alignItems: "baseline", gap: "0.5rem" }}>
+          <span style={{ fontSize: "1.2rem", fontWeight: 700 }}>{pctCccAndBelow.toFixed(1)}%</span>
+          <span style={{ fontSize: "0.85rem", color: "var(--color-text-muted)" }}>of portfolio</span>
+        </div>
+      </section>
+    );
+  }
+
   if (!ccc) return null;
   const pct = ccc.limit > 0 ? (ccc.current / ccc.limit) * 100 : 0;
   const color = pct < 70
@@ -168,7 +288,67 @@ function CccBucketSection({ ccc }: { ccc: ExtractedPortfolio["cccBucket"] }) {
   );
 }
 
-function ConcentrationsSection({ concentrations }: { concentrations: ExtractedPortfolio["concentrations"] }) {
+function NewConcentrationsSection({ concentrations }: { concentrations: CloConcentration[] }) {
+  if (!concentrations || concentrations.length === 0) return null;
+
+  const byType = new Map<string, CloConcentration[]>();
+  for (const c of concentrations) {
+    const group = byType.get(c.concentrationType) ?? [];
+    group.push(c);
+    byType.set(c.concentrationType, group);
+  }
+
+  const typeLabels: Record<string, string> = {
+    INDUSTRY: "By Industry",
+    COUNTRY: "By Country",
+    SINGLE_OBLIGOR: "Top Obligor Exposures",
+    RATING: "By Rating",
+    MATURITY: "By Maturity",
+    SPREAD: "By Spread",
+    ASSET_TYPE: "By Asset Type",
+    CURRENCY: "By Currency",
+  };
+
+  const entries = Array.from(byType.entries());
+  const columns = Math.min(entries.length, 3);
+  const gridCols = columns >= 3 ? "1fr 1fr 1fr" : columns === 2 ? "1fr 1fr" : "1fr";
+
+  return (
+    <section className="ic-section">
+      <h2>Concentrations</h2>
+      <div style={{ display: "grid", gridTemplateColumns: gridCols, gap: "1.5rem" }}>
+        {entries.map(([type, items]) => (
+          <div key={type}>
+            <h3 style={{ fontSize: "0.85rem", fontWeight: 600, marginBottom: "0.5rem" }}>{typeLabels[type] ?? type}</h3>
+            {items.slice(0, 10).map((item) => (
+              <div key={item.id} style={{ marginBottom: "0.4rem" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.75rem", marginBottom: "0.15rem" }}>
+                  <span>{item.bucketName}</span>
+                  <span>{item.actualPct != null ? `${item.actualPct.toFixed(1)}%` : ""}{item.limitPct != null ? ` / ${item.limitPct}%` : ""}</span>
+                </div>
+                <div style={{ position: "relative", height: "0.5rem", background: "var(--color-border)", borderRadius: "3px", overflow: "hidden" }}>
+                  <div style={{
+                    height: "100%",
+                    width: `${Math.min(item.actualPct ?? 0, 100)}%`,
+                    background: item.isPassing === false
+                      ? "var(--color-error, #ef4444)"
+                      : "var(--color-accent)",
+                    borderRadius: "3px",
+                  }} />
+                  {item.limitPct != null && (
+                    <div style={{ position: "absolute", top: 0, left: `${Math.min(item.limitPct, 100)}%`, width: "2px", height: "100%", background: "var(--color-text-muted)" }} />
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function LegacyConcentrationsSection({ concentrations }: { concentrations: ExtractedPortfolio["concentrations"] }) {
   if (!concentrations) return null;
   const hasSector = concentrations.bySector?.length > 0;
   const hasRating = concentrations.byRating?.length > 0;
@@ -224,6 +404,93 @@ function ConcentrationsSection({ concentrations }: { concentrations: ExtractedPo
             {renderBars(concentrations.topExposures)}
           </div>
         )}
+      </div>
+    </section>
+  );
+}
+
+function AccountBalancesSection({ balances }: { balances: CloAccountBalance[] }) {
+  if (!balances || balances.length === 0) return null;
+
+  return (
+    <section className="ic-section">
+      <h2>Account Balances</h2>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "0.75rem" }}>
+        {balances.map((b) => (
+          <div
+            key={b.id}
+            style={{
+              padding: "0.6rem 0.8rem",
+              background: "var(--color-surface)",
+              border: "1px solid var(--color-border)",
+              borderRadius: "var(--radius-sm)",
+            }}
+          >
+            <div style={{ fontSize: "0.7rem", color: "var(--color-text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.2rem" }}>
+              {b.accountName}
+              {b.accountType && <span style={{ marginLeft: "0.3rem", fontWeight: 400 }}>({b.accountType})</span>}
+            </div>
+            <div style={{ fontSize: "1.05rem", fontWeight: 700 }}>
+              {b.balanceAmount != null ? b.balanceAmount.toLocaleString() : "N/A"}
+              {b.currency && <span style={{ fontSize: "0.75rem", fontWeight: 400, marginLeft: "0.3rem" }}>{b.currency}</span>}
+            </div>
+            {b.requiredBalance != null && (
+              <div style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", marginTop: "0.2rem" }}>
+                Required: {b.requiredBalance.toLocaleString()}
+                {b.excessDeficit != null && (
+                  <span style={{ marginLeft: "0.4rem", color: b.excessDeficit >= 0 ? "var(--color-success, #22c55e)" : "var(--color-error, #ef4444)" }}>
+                    ({b.excessDeficit >= 0 ? "+" : ""}{b.excessDeficit.toLocaleString()})
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function EventsSection({ events }: { events: CloEvent[] }) {
+  if (!events || events.length === 0) return null;
+
+  return (
+    <section className="ic-section">
+      <h2>Recent Events</h2>
+      <div style={{ display: "grid", gap: "0.5rem" }}>
+        {events.slice(0, 10).map((e) => (
+          <div
+            key={e.id}
+            style={{
+              padding: "0.5rem 0.8rem",
+              background: "var(--color-surface)",
+              border: "1px solid var(--color-border)",
+              borderRadius: "var(--radius-sm)",
+              display: "flex",
+              gap: "0.75rem",
+              alignItems: "baseline",
+            }}
+          >
+            <span style={{
+              fontSize: "0.7rem",
+              fontWeight: 600,
+              padding: "0.15rem 0.4rem",
+              borderRadius: "var(--radius-sm)",
+              background: e.isEventOfDefault ? "var(--color-error, #ef4444)" : "var(--color-accent-subtle)",
+              color: e.isEventOfDefault ? "#fff" : "var(--color-accent)",
+              whiteSpace: "nowrap",
+            }}>
+              {e.eventType ?? "EVENT"}
+            </span>
+            {e.eventDate && (
+              <span style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", whiteSpace: "nowrap" }}>{e.eventDate}</span>
+            )}
+            <span style={{ fontSize: "0.8rem", flex: 1 }}>{e.description}</span>
+            {e.isCured && (
+              <span style={{ fontSize: "0.7rem", color: "var(--color-success, #22c55e)", fontWeight: 600 }}>CURED</span>
+            )}
+          </div>
+        ))}
       </div>
     </section>
   );
@@ -307,6 +574,26 @@ export default async function CLODashboard() {
   const portfolio = cloProfile.extractedPortfolio;
   const documentMeta = await getProfileDocumentMeta(session.user.id);
   const hasDocuments = documentMeta.length > 0;
+
+  // Fetch new extraction data
+  const deal = await getDealForProfile(cloProfile.id);
+  let reportPeriod: Awaited<ReturnType<typeof getLatestReportPeriod>> = null;
+  let periodData: Awaited<ReturnType<typeof getReportPeriodData>> | null = null;
+  let accountBalances: CloAccountBalance[] = [];
+  let events: CloEvent[] = [];
+
+  if (deal) {
+    reportPeriod = await getLatestReportPeriod(deal.id);
+    if (reportPeriod) {
+      periodData = await getReportPeriodData(reportPeriod.id);
+      accountBalances = await getAccountBalances(reportPeriod.id);
+      events = await getEvents(deal.id);
+    }
+  }
+
+  const hasNewData = periodData != null;
+  const hasPortfolioData = hasNewData || portfolio != null;
+  const reportDate = reportPeriod?.reportDate ?? portfolio?.reportDate;
 
   const panel = await getPanelForUser(session.user.id);
 
@@ -414,15 +701,15 @@ export default async function CLODashboard() {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <h2 style={{ margin: 0 }}>
               Portfolio State
-              {portfolio?.reportDate && (
+              {reportDate && (
                 <span style={{ fontSize: "0.75rem", fontWeight: 400, color: "var(--color-text-muted)", marginLeft: "0.5rem" }}>
-                  as of {portfolio.reportDate}
+                  as of {reportDate}
                 </span>
               )}
             </h2>
-            <ExtractPortfolioButton hasPortfolio={!!portfolio} />
+            <ExtractPortfolioButton hasPortfolio={hasPortfolioData} />
           </div>
-          {!portfolio && (
+          {!hasPortfolioData && (
             <p style={{ fontSize: "0.8rem", color: "var(--color-text-muted)", marginTop: "0.5rem" }}>
               No portfolio data extracted yet. Click the button above to extract holdings, compliance tests, and concentrations from your compliance report.
             </p>
@@ -430,12 +717,26 @@ export default async function CLODashboard() {
         </section>
       )}
 
-      {portfolio && (
+      {hasNewData && (
+        <>
+          <TestComplianceSection newTests={periodData!.complianceTests} />
+          {periodData!.poolSummary && <PoolMetricsSection poolSummary={periodData!.poolSummary} />}
+          <CccBucketSection pctCccAndBelow={periodData!.poolSummary?.pctCccAndBelow} />
+          <NewConcentrationsSection concentrations={periodData!.concentrations} />
+          <AccountBalancesSection balances={accountBalances} />
+          <EventsSection events={events} />
+          {portfolio?.holdings && portfolio.holdings.length > 0 && (
+            <HoldingsPreview holdings={portfolio.holdings} />
+          )}
+        </>
+      )}
+
+      {!hasNewData && portfolio && (
         <>
           <TestComplianceSection tests={portfolio.testResults} />
           <PortfolioMetricsSection metrics={portfolio.metrics} />
           <CccBucketSection ccc={portfolio.cccBucket} />
-          <ConcentrationsSection concentrations={portfolio.concentrations} />
+          <LegacyConcentrationsSection concentrations={portfolio.concentrations} />
           <HoldingsPreview holdings={portfolio.holdings} />
         </>
       )}

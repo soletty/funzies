@@ -30,6 +30,17 @@ export async function getUserBriefingDigest(
   );
   if (cached.length > 0) return cached[0];
 
+  // Merge product-specific briefing if available
+  let combinedContent = briefing.content;
+  if (product === "clo") {
+    const cloBriefings = await query<{ content: string }>(
+      "SELECT content FROM daily_briefings WHERE brief_type = 'clo' ORDER BY fetched_at DESC LIMIT 1"
+    );
+    if (cloBriefings.length > 0) {
+      combinedContent += "\n\nCLO-SPECIFIC BRIEFING:\n" + cloBriefings[0].content;
+    }
+  }
+
   // Generate digest via Claude Haiku
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -47,7 +58,7 @@ export async function getUserBriefingDigest(
           content: `You are a market intelligence filter. Given a daily briefing and a user's profile, determine which items are relevant to this specific portfolio/profile.
 
 BRIEFING:
-${briefing.content}
+${combinedContent}
 
 USER PROFILE:
 ${profileContext}
