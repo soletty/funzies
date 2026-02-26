@@ -26,9 +26,14 @@ import {
   ideaDebatePrompt,
   ideaSynthesisPrompt,
 } from "./ic-prompts.js";
-import { getLatestBriefing } from "../lib/briefing.js";
-
 const WEB_SEARCH_TOOL = { type: "web_search_20250305", name: "web_search", max_uses: 5 };
+
+async function getLatestBriefing(pool: Pool): Promise<string | null> {
+  const result = await pool.query<{ content: string }>(
+    "SELECT content FROM daily_briefings WHERE brief_type = 'general' ORDER BY fetched_at DESC LIMIT 1"
+  );
+  return result.rows[0]?.content ?? null;
+}
 
 export interface PipelineCallbacks {
   updatePhase: (phase: string) => Promise<void>;
@@ -308,7 +313,7 @@ export async function runEvaluationPipeline(
   }
 
   // Inject daily briefing into the first phase so the AI has current market context
-  const briefing = await getLatestBriefing();
+  const briefing = await getLatestBriefing(pool);
   const briefingSection = briefing
     ? `\n\nMARKET INTELLIGENCE (today's briefing — reference when relevant, do not repeat verbatim):\n${briefing}`
     : "";
