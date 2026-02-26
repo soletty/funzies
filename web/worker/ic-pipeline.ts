@@ -10,6 +10,7 @@ import {
 } from "../lib/ic/parsers/evaluation.js";
 import { getRecentEvaluationSummaries } from "../lib/ic/history.js";
 import type { InvestorProfile, CommitteeMember } from "../lib/ic/types.js";
+import { chunkPipelineDocuments, type PipelineDocument } from "../lib/clo/pdf-chunking.js";
 import {
   profileAnalysisPrompt,
   committeeGenerationPrompt,
@@ -41,43 +42,44 @@ export interface PipelineCallbacks {
   updateParsedData: (data: unknown) => Promise<void>;
 }
 
-async function callClaude(
+function buildContentBlocks(
+  documents: PipelineDocument[],
+  userMessage: string,
+): Anthropic.MessageCreateParams["messages"][0]["content"] {
+  return [
+    ...documents.map((doc) => {
+      if (doc.type === "application/pdf") {
+        return {
+          type: "document" as const,
+          source: {
+            type: "base64" as const,
+            media_type: "application/pdf" as const,
+            data: doc.base64,
+          },
+        };
+      }
+      return {
+        type: "image" as const,
+        source: {
+          type: "base64" as const,
+          media_type: doc.type as "image/jpeg" | "image/png" | "image/gif" | "image/webp",
+          data: doc.base64,
+        },
+      };
+    }),
+    { type: "text" as const, text: userMessage },
+  ];
+}
+
+async function callClaudeSingle(
   client: Anthropic,
   systemPrompt: string,
-  userMessage: string,
+  content: Anthropic.MessageCreateParams["messages"][0]["content"],
   maxTokens: number,
-  model: string = "claude-sonnet-4-20250514",
-  documents?: Array<{ name: string; type: string; base64: string }>,
-  tools?: Array<Record<string, unknown>>
+  model: string,
+  tools?: Array<Record<string, unknown>>,
 ): Promise<string> {
   try {
-    const content: Anthropic.MessageCreateParams["messages"][0]["content"] =
-      documents && documents.length > 0
-        ? [
-            ...documents.map((doc) => {
-              if (doc.type === "application/pdf") {
-                return {
-                  type: "document" as const,
-                  source: {
-                    type: "base64" as const,
-                    media_type: "application/pdf" as const,
-                    data: doc.base64,
-                  },
-                };
-              }
-              return {
-                type: "image" as const,
-                source: {
-                  type: "base64" as const,
-                  media_type: doc.type as "image/jpeg" | "image/png" | "image/gif" | "image/webp",
-                  data: doc.base64,
-                },
-              };
-            }),
-            { type: "text" as const, text: userMessage },
-          ]
-        : userMessage;
-
     const response = await client.messages.create({
       model,
       max_tokens: maxTokens,
@@ -105,6 +107,37 @@ async function callClaude(
     }
     throw err;
   }
+}
+
+async function callClaude(
+  client: Anthropic,
+  systemPrompt: string,
+  userMessage: string,
+  maxTokens: number,
+  model: string = "claude-sonnet-4-20250514",
+  documents?: PipelineDocument[],
+  tools?: Array<Record<string, unknown>>
+): Promise<string> {
+  if (!documents || documents.length === 0) {
+    return callClaudeSingle(client, systemPrompt, userMessage, maxTokens, model, tools);
+  }
+
+  const chunkSets = await chunkPipelineDocuments(documents);
+
+  if (chunkSets.length === 1) {
+    const content = buildContentBlocks(chunkSets[0].documents, userMessage);
+    return callClaudeSingle(client, systemPrompt, content, maxTokens, model, tools);
+  }
+
+  const results = await Promise.all(
+    chunkSets.map(async (chunkSet) => {
+      const chunkMessage = `[NOTE: The attached documents have been split due to size limits. You are viewing ${chunkSet.chunkLabel}. Analyze these pages and provide your assessment.]\n\n${userMessage}`;
+      const content = buildContentBlocks(chunkSet.documents, chunkMessage);
+      return callClaudeSingle(client, systemPrompt, content, maxTokens, model, tools);
+    }),
+  );
+
+  return results.join("\n\n");
 }
 
 function attachAvatars(members: CommitteeMember[], rawAvatarJson: string) {

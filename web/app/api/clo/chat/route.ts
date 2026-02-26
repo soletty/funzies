@@ -7,6 +7,7 @@ import { seniorAnalystSystemPrompt, formatReportPeriodState } from "@/worker/clo
 import { getPortfolioSnapshot, getRecentAnalysisBriefs } from "@/lib/clo/history";
 import { WEB_SEARCH_TOOL, processAnthropicStream } from "@/lib/claude-stream";
 import { getLatestBriefing } from "@/lib/briefing";
+import { fitDocumentsToPageLimit } from "@/lib/clo/pdf-chunking";
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -117,7 +118,8 @@ export async function POST(request: NextRequest) {
   let documents: Array<{ name: string; type: string; base64: string }> = [];
   if (existingMessages.length === 0) {
     const fullProfile = await getProfileWithDocuments(user.id);
-    documents = (fullProfile?.documents as typeof documents) || [];
+    const rawDocs = (fullProfile?.documents as typeof documents) || [];
+    documents = await fitDocumentsToPageLimit(rawDocs);
   }
   const claudeMessages: Array<{ role: "user" | "assistant"; content: string | Array<Record<string, unknown>> }> = [];
 

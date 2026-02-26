@@ -6,6 +6,7 @@ import { verifyAnalysisAccess } from "@/lib/clo/access";
 import type { PanelMember } from "@/lib/clo/types";
 import { WEB_SEARCH_TOOL, processAnthropicStream } from "@/lib/claude-stream";
 import { getLatestBriefing } from "@/lib/briefing";
+import { fitDocumentsToPageLimit } from "@/lib/clo/pdf-chunking";
 
 interface FullProfile {
   fund_strategy: string;
@@ -245,7 +246,7 @@ export async function POST(
   // and the PM may need to reference specific PPM language that wasn't captured in
   // the extracted constraints. The cost is acceptable for this use case.
   const builtMessages = buildMessages(history, question);
-  const cloDocuments = profile.documents || [];
+  const cloDocuments = await fitDocumentsToPageLimit(profile.documents || []);
   if (cloDocuments.length > 0 && builtMessages.length > 0) {
     const firstUserIdx = builtMessages.findIndex((m) => m.role === "user");
     if (firstUserIdx >= 0) {

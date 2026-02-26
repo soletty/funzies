@@ -1,7 +1,9 @@
 import { PDFDocument } from "pdf-lib";
 import type { CloDocument } from "./types";
 
-const MAX_PDF_PAGES = 100;
+export const MAX_PDF_PAGES = 100;
+
+export type PipelineDocument = { name: string; type: string; base64: string };
 
 interface PdfChunk {
   base64: string;
@@ -120,4 +122,73 @@ function buildChunkSet(
   }
 
   return { documents: docs, chunkLabel: labels.join(", ") };
+}
+
+async function getPdfPageCount(base64Data: string): Promise<number> {
+  const pdfBytes = Buffer.from(base64Data, "base64");
+  const pdfDoc = await PDFDocument.load(pdfBytes);
+  return pdfDoc.getPageCount();
+}
+
+/**
+ * Truncates documents to fit within the 100-page PDF limit.
+ * Prioritizes documents by their order (put important docs first).
+ * Large PDFs that would exceed the limit are truncated to their first N pages.
+ */
+export async function fitDocumentsToPageLimit(
+  documents: PipelineDocument[],
+): Promise<PipelineDocument[]> {
+  let totalPages = 0;
+  const result: PipelineDocument[] = [];
+
+  for (const doc of documents) {
+    if (doc.type !== "application/pdf") {
+      result.push(doc);
+      continue;
+    }
+
+    const pageCount = await getPdfPageCount(doc.base64);
+
+    if (totalPages + pageCount <= MAX_PDF_PAGES) {
+      result.push(doc);
+      totalPages += pageCount;
+      continue;
+    }
+
+    const remaining = MAX_PDF_PAGES - totalPages;
+    if (remaining <= 0) break;
+
+    // Truncate this PDF to fit remaining space
+    const pdfBytes = Buffer.from(doc.base64, "base64");
+    const srcDoc = await PDFDocument.load(pdfBytes);
+    const truncatedDoc = await PDFDocument.create();
+    const pages = await truncatedDoc.copyPages(srcDoc, Array.from({ length: remaining }, (_, i) => i));
+    for (const page of pages) truncatedDoc.addPage(page);
+    const truncatedBytes = await truncatedDoc.save();
+
+    result.push({
+      name: `${doc.name} (first ${remaining} of ${pageCount} pages)`,
+      type: doc.type,
+      base64: Buffer.from(truncatedBytes).toString("base64"),
+    });
+    totalPages += remaining;
+    break;
+  }
+
+  return result;
+}
+
+/**
+ * Chunks documents for pipeline calls that produce free-form text.
+ * Returns chunk sets compatible with the Anthropic SDK document format.
+ */
+export async function chunkPipelineDocuments(
+  documents: PipelineDocument[],
+): Promise<{ documents: PipelineDocument[]; chunkLabel: string }[]> {
+  const asCloDoc = documents.map((d) => ({ ...d, size: d.base64.length }));
+  const chunkSets = await chunkDocuments(asCloDoc);
+  return chunkSets.map((cs) => ({
+    documents: cs.documents.map(({ name, type, base64 }) => ({ name, type, base64 })),
+    chunkLabel: cs.chunkLabel,
+  }));
 }
