@@ -3,7 +3,7 @@ import { getCurrentUser } from "@/lib/auth-helpers";
 import { query } from "@/lib/db";
 import { decryptApiKey } from "@/lib/crypto";
 import { ppmExtractionPrompt, ppmDeepDiveEligibilityPrompt, ppmDeepDiveStructuralPrompt } from "@/worker/clo-prompts";
-import { buildDocumentContent, callAnthropic, parseJsonResponse } from "@/lib/clo/api";
+import { buildDocumentContent, callAnthropic, callAnthropicChunked, parseJsonResponse } from "@/lib/clo/api";
 import { extractedConstraintsSchema } from "./schema";
 
 function deduplicateArray(arr: unknown[]): unknown[] {
@@ -93,44 +93,61 @@ export async function POST() {
   const apiKey = decryptApiKey(userRows[0].encrypted_api_key, userRows[0].api_key_iv);
   const rawOutputs: Record<string, string> = {};
 
-  // ── Pass 1: Full extraction ──
+  // ── Pass 1: Full extraction (chunked for large PDFs) ──
   const extractPrompt = ppmExtractionPrompt();
-  const pass1Content = buildDocumentContent(documents, extractPrompt.user);
-  const pass1 = await callAnthropic(apiKey, extractPrompt.system, pass1Content, 64000);
+  const pass1Chunked = await callAnthropicChunked(apiKey, extractPrompt.system, documents, extractPrompt.user, 64000);
 
-  if (pass1.error) {
-    if (pass1.status === 401) {
+  if (pass1Chunked.error) {
+    if (pass1Chunked.status === 401) {
       return NextResponse.json(
         { error: "Your API key is invalid or expired. Please update it in Settings." },
         { status: 401 }
       );
     }
-    if (pass1.status === 429) {
+    if (pass1Chunked.status === 429) {
       return NextResponse.json(
         { error: "Rate limited. Please wait a moment and try again." },
         { status: 429 }
       );
     }
     return NextResponse.json(
-      { error: "API error", details: pass1.error },
-      { status: pass1.status || 500 }
+      { error: "API error", details: pass1Chunked.error },
+      { status: pass1Chunked.status || 500 }
     );
   }
 
-  rawOutputs.pass1 = pass1.text;
-  let extractedConstraints: Record<string, unknown>;
+  // Merge results from all chunks
+  let extractedConstraints: Record<string, unknown> = {};
   let pass1Parsed = true;
+  let anyTruncated = false;
 
-  try {
-    const raw = parseJsonResponse(pass1.text);
-    extractedConstraints = extractedConstraintsSchema.parse(raw);
-  } catch {
-    extractedConstraints = { rawExtraction: pass1.text };
-    pass1Parsed = false;
+  for (const chunkResult of pass1Chunked.results) {
+    rawOutputs[`pass1_${chunkResult.chunkLabel}`] = chunkResult.text;
+    if (chunkResult.truncated) anyTruncated = true;
+
+    try {
+      const raw = parseJsonResponse(chunkResult.text);
+      const validated = extractedConstraintsSchema.parse(raw);
+      extractedConstraints = Object.keys(extractedConstraints).length === 0
+        ? validated
+        : mergeExtraction(extractedConstraints, validated);
+    } catch {
+      if (pass1Chunked.results.length === 1) {
+        extractedConstraints = { rawExtraction: chunkResult.text };
+        pass1Parsed = false;
+      }
+    }
   }
 
-  if (pass1.truncated) {
+  rawOutputs.pass1 = pass1Chunked.results.map((r) => r.text).join("\n\n---CHUNK_BOUNDARY---\n\n");
+
+  if (anyTruncated) {
     extractedConstraints._extractionTruncated = true;
+  }
+
+  if (pass1Chunked.results.length > 1) {
+    extractedConstraints._chunkedExtraction = true;
+    extractedConstraints._chunkCount = pass1Chunked.results.length;
   }
 
   // ── Pass 2 & 3: Focused deep-dives (skip if Pass 1 failed to parse) ──
@@ -140,16 +157,17 @@ export async function POST() {
     const eligibilityPrompt = ppmDeepDiveEligibilityPrompt(firstPassJson);
     const structuralPrompt = ppmDeepDiveStructuralPrompt(firstPassJson);
 
-    const [eligibilityPass, structuralPass] = await Promise.all([
-      callAnthropic(apiKey, eligibilityPrompt.system, buildDocumentContent(documents, eligibilityPrompt.user), 32768),
-      callAnthropic(apiKey, structuralPrompt.system, buildDocumentContent(documents, structuralPrompt.user), 32768),
+    const [eligibilityChunked, structuralChunked] = await Promise.all([
+      callAnthropicChunked(apiKey, eligibilityPrompt.system, documents, eligibilityPrompt.user, 32768),
+      callAnthropicChunked(apiKey, structuralPrompt.system, documents, structuralPrompt.user, 32768),
     ]);
 
-    for (const [i, pass] of [eligibilityPass, structuralPass].entries()) {
-      rawOutputs[`pass${i + 2}`] = pass.text;
-      if (!pass.error && pass.text) {
+    for (const [i, chunked] of [eligibilityChunked, structuralChunked].entries()) {
+      const passTexts: string[] = [];
+      for (const chunkResult of chunked.results) {
+        passTexts.push(chunkResult.text);
         try {
-          const delta = parseJsonResponse(pass.text);
+          const delta = parseJsonResponse(chunkResult.text);
           if (Object.keys(delta).length > 0) {
             extractedConstraints = mergeExtraction(extractedConstraints, delta);
           }
@@ -157,6 +175,7 @@ export async function POST() {
           // Deep-dive parse failed — keep what we have, not fatal
         }
       }
+      rawOutputs[`pass${i + 2}`] = passTexts.join("\n\n---CHUNK_BOUNDARY---\n\n");
     }
   }
 

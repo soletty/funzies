@@ -1,0 +1,123 @@
+import { PDFDocument } from "pdf-lib";
+import type { CloDocument } from "./types";
+
+const MAX_PDF_PAGES = 100;
+
+interface PdfChunk {
+  base64: string;
+  pageStart: number;
+  pageEnd: number;
+  totalPages: number;
+}
+
+async function splitPdf(base64Data: string): Promise<PdfChunk[]> {
+  const pdfBytes = Buffer.from(base64Data, "base64");
+  const pdfDoc = await PDFDocument.load(pdfBytes);
+  const totalPages = pdfDoc.getPageCount();
+
+  if (totalPages <= MAX_PDF_PAGES) {
+    return [{ base64: base64Data, pageStart: 1, pageEnd: totalPages, totalPages }];
+  }
+
+  const chunks: PdfChunk[] = [];
+
+  for (let start = 0; start < totalPages; start += MAX_PDF_PAGES) {
+    const end = Math.min(start + MAX_PDF_PAGES, totalPages);
+    const chunkDoc = await PDFDocument.create();
+    const pages = await chunkDoc.copyPages(pdfDoc, Array.from({ length: end - start }, (_, i) => start + i));
+
+    for (const page of pages) {
+      chunkDoc.addPage(page);
+    }
+
+    const chunkBytes = await chunkDoc.save();
+    chunks.push({
+      base64: Buffer.from(chunkBytes).toString("base64"),
+      pageStart: start + 1,
+      pageEnd: end,
+      totalPages,
+    });
+  }
+
+  return chunks;
+}
+
+export interface DocumentChunkSet {
+  documents: CloDocument[];
+  chunkLabel: string;
+}
+
+export async function chunkDocuments(documents: CloDocument[]): Promise<DocumentChunkSet[]> {
+  // Count total PDF pages across all documents
+  let totalPdfPages = 0;
+  const pdfChunkMap: Map<number, PdfChunk[]> = new Map();
+
+  for (let i = 0; i < documents.length; i++) {
+    const doc = documents[i];
+    if (doc.type !== "application/pdf") continue;
+
+    const chunks = await splitPdf(doc.base64);
+    pdfChunkMap.set(i, chunks);
+    totalPdfPages += chunks[0].totalPages;
+  }
+
+  // If everything fits in one request, return as-is
+  if (totalPdfPages <= MAX_PDF_PAGES) {
+    return [{ documents, chunkLabel: "all pages" }];
+  }
+
+  // Build chunk sets where each set has ≤100 total PDF pages
+  const chunkSets: DocumentChunkSet[] = [];
+  const nonPdfDocs = documents.filter((d) => d.type !== "application/pdf");
+
+  // Collect all individual PDF chunks with their source doc info
+  const allChunks: { docIndex: number; docName: string; chunk: PdfChunk }[] = [];
+  for (const [docIndex, chunks] of pdfChunkMap) {
+    for (const chunk of chunks) {
+      allChunks.push({ docIndex, docName: documents[docIndex].name, chunk });
+    }
+  }
+
+  // Group chunks into sets of ≤100 pages
+  let currentPages = 0;
+  let currentChunks: typeof allChunks = [];
+
+  for (const entry of allChunks) {
+    const chunkPageCount = entry.chunk.pageEnd - entry.chunk.pageStart + 1;
+
+    if (currentPages + chunkPageCount > MAX_PDF_PAGES && currentChunks.length > 0) {
+      chunkSets.push(buildChunkSet(currentChunks, nonPdfDocs));
+      currentChunks = [];
+      currentPages = 0;
+    }
+
+    currentChunks.push(entry);
+    currentPages += chunkPageCount;
+  }
+
+  if (currentChunks.length > 0) {
+    chunkSets.push(buildChunkSet(currentChunks, nonPdfDocs));
+  }
+
+  return chunkSets;
+}
+
+function buildChunkSet(
+  chunks: { docIndex: number; docName: string; chunk: PdfChunk }[],
+  nonPdfDocs: CloDocument[],
+): DocumentChunkSet {
+  const labels: string[] = [];
+  const docs: CloDocument[] = [...nonPdfDocs];
+
+  for (const { docName, chunk } of chunks) {
+    docs.push({
+      name: `${docName} (pages ${chunk.pageStart}-${chunk.pageEnd})`,
+      type: "application/pdf",
+      size: chunk.base64.length,
+      base64: chunk.base64,
+    });
+    labels.push(`${docName} pp.${chunk.pageStart}-${chunk.pageEnd} of ${chunk.totalPages}`);
+  }
+
+  return { documents: docs, chunkLabel: labels.join(", ") };
+}

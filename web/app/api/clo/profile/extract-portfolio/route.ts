@@ -3,6 +3,29 @@ import { getCurrentUser } from "@/lib/auth-helpers";
 import { query } from "@/lib/db";
 import { decryptApiKey } from "@/lib/crypto";
 import { portfolioExtractionPrompt } from "@/worker/clo-prompts";
+import { callAnthropicChunked, parseJsonResponse } from "@/lib/clo/api";
+
+function mergePortfolio(
+  base: Record<string, unknown>,
+  delta: Record<string, unknown>,
+): Record<string, unknown> {
+  const merged = { ...base };
+
+  for (const [key, val] of Object.entries(delta)) {
+    if (val == null) continue;
+    const baseVal = merged[key];
+
+    if (Array.isArray(val) && Array.isArray(baseVal)) {
+      merged[key] = [...baseVal, ...val];
+    } else if (typeof val === "object" && !Array.isArray(val) && typeof baseVal === "object" && baseVal && !Array.isArray(baseVal)) {
+      merged[key] = mergePortfolio(baseVal as Record<string, unknown>, val as Record<string, unknown>);
+    } else if (merged[key] == null) {
+      merged[key] = val;
+    }
+  }
+
+  return merged;
+}
 
 export async function POST() {
   const user = await getCurrentUser();
@@ -41,80 +64,43 @@ export async function POST() {
   const apiKey = decryptApiKey(userRows[0].encrypted_api_key, userRows[0].api_key_iv);
   const prompt = portfolioExtractionPrompt();
 
-  const content: Array<Record<string, unknown>> = [
-    ...documents.map((doc) => {
-      if (doc.type === "application/pdf") {
-        return {
-          type: "document",
-          source: {
-            type: "base64",
-            media_type: "application/pdf",
-            data: doc.base64,
-          },
-        };
-      }
-      return {
-        type: "image",
-        source: {
-          type: "base64",
-          media_type: doc.type,
-          data: doc.base64,
-        },
-      };
-    }),
-    { type: "text", text: prompt.user },
-  ];
+  const chunked = await callAnthropicChunked(apiKey, prompt.system, documents, prompt.user, 16384);
 
-  const anthropicResponse = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-      "content-type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 16384,
-      system: prompt.system,
-      messages: [{ role: "user", content }],
-    }),
-  });
-
-  if (!anthropicResponse.ok) {
-    if (anthropicResponse.status === 401) {
+  if (chunked.error) {
+    if (chunked.status === 401) {
       return NextResponse.json(
         { error: "Your API key is invalid or expired. Please update it in Settings." },
         { status: 401 }
       );
     }
-    if (anthropicResponse.status === 429) {
+    if (chunked.status === 429) {
       return NextResponse.json(
         { error: "Rate limited. Please wait a moment and try again." },
         { status: 429 }
       );
     }
-    const errorText = await anthropicResponse.text();
     return NextResponse.json(
-      { error: "API error", details: errorText },
-      { status: anthropicResponse.status }
+      { error: "API error", details: chunked.error },
+      { status: chunked.status || 500 }
     );
   }
 
-  const result = await anthropicResponse.json();
-  const responseText = result.content
-    ?.filter((block: { type: string }) => block.type === "text")
-    ?.map((block: { text: string }) => block.text)
-    ?.join("\n") || "";
+  let extractedPortfolio: Record<string, unknown> = {};
 
-  let extractedPortfolio;
-  try {
-    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-    extractedPortfolio = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
-  } catch {
-    return NextResponse.json(
-      { error: "Failed to parse extraction result", raw: responseText },
-      { status: 500 }
-    );
+  for (const chunkResult of chunked.results) {
+    try {
+      const parsed = parseJsonResponse(chunkResult.text);
+      extractedPortfolio = Object.keys(extractedPortfolio).length === 0
+        ? parsed
+        : mergePortfolio(extractedPortfolio, parsed);
+    } catch {
+      if (chunked.results.length === 1) {
+        return NextResponse.json(
+          { error: "Failed to parse extraction result", raw: chunkResult.text },
+          { status: 500 }
+        );
+      }
+    }
   }
 
   await query(

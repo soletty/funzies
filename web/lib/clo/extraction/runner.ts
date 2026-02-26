@@ -1,6 +1,6 @@
 import { query } from "../../db";
 import type { CloDocument } from "../types";
-import { buildDocumentContent, callAnthropic, parseJsonResponse, normalizeClassName } from "../api";
+import { buildDocumentContent, callAnthropic, callAnthropicChunked, parseJsonResponse, normalizeClassName } from "../api";
 import { pass1Schema, pass2Schema, pass3Schema, pass4Schema, pass5Schema } from "./schemas";
 import { pass1Prompt, pass2Prompt, pass3Prompt, pass4Prompt, pass5Prompt } from "./prompts";
 import { normalizePass1, normalizePass2, normalizePass3, normalizePass4, normalizePass5 } from "./normalizer";
@@ -12,8 +12,41 @@ async function callClaude(
   userText: string,
   maxTokens: number,
 ): Promise<{ text: string; truncated: boolean; error?: string; status?: number }> {
-  const content = buildDocumentContent(documents, userText);
-  return callAnthropic(apiKey, system, content, maxTokens);
+  const chunked = await callAnthropicChunked(apiKey, system, documents, userText, maxTokens);
+
+  if (chunked.error) {
+    return { text: "", truncated: false, error: chunked.error, status: chunked.status };
+  }
+
+  if (chunked.results.length === 1) {
+    return { text: chunked.results[0].text, truncated: chunked.results[0].truncated };
+  }
+
+  // For multi-chunk results, merge JSON outputs
+  let merged: Record<string, unknown> = {};
+  for (const result of chunked.results) {
+    try {
+      const parsed = parseJsonResponse(result.text);
+      if (Object.keys(merged).length === 0) {
+        merged = parsed;
+      } else {
+        for (const [key, val] of Object.entries(parsed)) {
+          if (val == null) continue;
+          const baseVal = merged[key];
+          if (Array.isArray(val) && Array.isArray(baseVal)) {
+            merged[key] = [...baseVal, ...val];
+          } else if (merged[key] == null) {
+            merged[key] = val;
+          }
+        }
+      }
+    } catch {
+      // Individual chunk parse failure — continue with others
+    }
+  }
+
+  const anyTruncated = chunked.results.some((r) => r.truncated);
+  return { text: JSON.stringify(merged), truncated: anyTruncated };
 }
 
 async function batchInsert(table: string, rows: Record<string, unknown>[]): Promise<void> {
