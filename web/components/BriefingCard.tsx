@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { marked } from "marked";
 
 interface BriefingCardProps {
   product: "ic" | "clo";
@@ -66,16 +67,17 @@ export default function BriefingCard({ product }: BriefingCardProps) {
       </button>
       {!collapsed && (
         <div
+          className="markdown-content"
           style={{
             marginTop: "0.75rem",
             fontSize: "0.85rem",
             lineHeight: 1.6,
             color: "var(--color-text-secondary, var(--color-text))",
-            whiteSpace: "pre-wrap",
           }}
-        >
-          {digest}
-        </div>
+          dangerouslySetInnerHTML={{
+            __html: marked.parse(digest, { async: false }) as string,
+          }}
+        />
       )}
     </section>
   );
