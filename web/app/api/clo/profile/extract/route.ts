@@ -96,7 +96,7 @@ export async function POST() {
   // ── Pass 1: Full extraction ──
   const extractPrompt = ppmExtractionPrompt();
   const pass1Content = buildDocumentContent(documents, extractPrompt.user);
-  const pass1 = await callAnthropic(apiKey, extractPrompt.system, pass1Content, 65536);
+  const pass1 = await callAnthropic(apiKey, extractPrompt.system, pass1Content, 64000);
 
   if (pass1.error) {
     if (pass1.status === 401) {
