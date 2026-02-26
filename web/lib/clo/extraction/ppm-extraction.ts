@@ -3,6 +3,19 @@ import { ppmExtractionPrompt, ppmDeepDiveEligibilityPrompt, ppmDeepDiveStructura
 import { extractedConstraintsSchema } from "../../../app/api/clo/profile/extract/schema";
 import type { CloDocument } from "../types";
 
+function stripNulls(obj: unknown): unknown {
+  if (obj === null) return undefined;
+  if (Array.isArray(obj)) return obj.map(stripNulls);
+  if (typeof obj === "object") {
+    const result: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
+      if (v !== null) result[k] = stripNulls(v);
+    }
+    return result;
+  }
+  return obj;
+}
+
 function deduplicateArray(arr: unknown[]): unknown[] {
   const seen = new Set<string>();
   return arr.filter((item) => {
@@ -68,7 +81,7 @@ export async function runPpmExtraction(
     if (chunkResult.truncated) anyTruncated = true;
 
     try {
-      const raw = parseJsonResponse(chunkResult.text);
+      const raw = stripNulls(parseJsonResponse(chunkResult.text)) as Record<string, unknown>;
       const validated = extractedConstraintsSchema.parse(raw);
       extractedConstraints = Object.keys(extractedConstraints).length === 0
         ? validated
@@ -109,7 +122,7 @@ export async function runPpmExtraction(
       for (const chunkResult of chunked.results) {
         passTexts.push(chunkResult.text);
         try {
-          const delta = parseJsonResponse(chunkResult.text);
+          const delta = stripNulls(parseJsonResponse(chunkResult.text)) as Record<string, unknown>;
           if (Object.keys(delta).length > 0) {
             extractedConstraints = mergeExtraction(extractedConstraints, delta);
           }
