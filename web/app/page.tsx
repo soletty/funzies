@@ -117,9 +117,8 @@ function LandingPage() {
       <div className="landing-hero">
         <div className="landing-hero-inner">
           <div className="landing-badge">Adversarial Deliberation Engine</div>
-          <h1 className="landing-title">
-            Million<br />Minds
-          </h1>
+          <img src="/logo/black-text.png" alt="Million Minds" className="landing-logo" />
+          <h1 className="landing-title sr-only">Million Minds</h1>
           <p className="landing-subtitle">
             Fresh minds every time. Incompatible frameworks.
             One structured collision that reveals what no single perspective can.

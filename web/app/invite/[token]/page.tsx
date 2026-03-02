@@ -57,7 +57,7 @@ export default function InvitePage() {
         <div className="invite-split invite-split-solo">
           <div className="invite-left">
             <div className="invite-brand">
-              <div className="invite-brand-icon">M</div>
+              <img src="/logo/black-icon.png" alt="" className="invite-brand-icon" />
               <span>Million Minds</span>
             </div>
             <div className="invite-left-center">
@@ -76,7 +76,7 @@ export default function InvitePage() {
         <div className="invite-split invite-split-solo">
           <div className="invite-left">
             <div className="invite-brand">
-              <div className="invite-brand-icon">M</div>
+              <img src="/logo/black-icon.png" alt="" className="invite-brand-icon" />
               <span>Million Minds</span>
             </div>
             <div className="invite-left-center">
@@ -94,7 +94,7 @@ export default function InvitePage() {
         <div className="invite-split invite-split-solo">
           <div className="invite-left">
             <div className="invite-brand">
-              <div className="invite-brand-icon">M</div>
+              <img src="/logo/black-icon.png" alt="" className="invite-brand-icon" />
               <span>Million Minds</span>
             </div>
             <div className="invite-left-center">

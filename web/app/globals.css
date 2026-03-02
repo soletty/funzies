@@ -39,6 +39,14 @@
   animation: fadeInUp 0.5s ease 0.1s forwards;
 }
 
+.landing-logo {
+  max-width: 320px;
+  height: auto;
+  margin-bottom: 1.25rem;
+  opacity: 0;
+  animation: fadeInUp 0.5s ease 0.15s forwards;
+}
+
 .landing-title {
   font-family: var(--font-display);
   font-size: 3.6rem;
@@ -49,6 +57,22 @@
   margin-bottom: 1.25rem;
   opacity: 0;
   animation: fadeInUp 0.5s ease 0.15s forwards;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+.sidebar-logo-img {
+  height: 18px;
+  width: auto;
 }
 
 .landing-subtitle {
@@ -142,6 +166,9 @@
   }
   .landing-hero {
     padding: 2.5rem 1.5rem 2rem;
+  }
+  .landing-logo {
+    max-width: 240px;
   }
   .landing-title {
     font-size: 2.6rem;

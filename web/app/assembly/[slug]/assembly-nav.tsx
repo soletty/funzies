@@ -72,7 +72,7 @@ export function AssemblyNav({ slug }: { topic?: Topic; slug: string }) {
       <div className="nav-overlay" onClick={closeNav} />
       <nav>
         <div className="nav-brand">
-          <div className="nav-brand-icon">M</div>
+          <img src="/logo/black-icon.png" alt="" className="nav-brand-icon" />
           Million Minds
         </div>
 

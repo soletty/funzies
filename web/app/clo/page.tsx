@@ -5,7 +5,7 @@ import { getProfileForUser, getProfileDocumentMeta, getPanelForUser, rowToProfil
 import Link from "next/link";
 import type { PanelMember } from "@/lib/clo/types";
 import type { ExtractedConstraints, ExtractedPortfolio, ComplianceTest, PortfolioMetric, ConcentrationBreakdown, CloComplianceTest, CloConcentration, CloPoolSummary, CloAccountBalance, CloEvent, CapitalStructureEntry, CloHolding } from "@/lib/clo/types";
-import ExtractPortfolioButton from "./ExtractPortfolioButton";
+import UpdateComplianceReport from "./UpdateComplianceReport";
 import DocumentUploadBanner from "./DocumentUploadBanner";
 import BriefingCard from "@/components/BriefingCard";
 
@@ -795,7 +795,7 @@ export default async function CLODashboard() {
                 </span>
               )}
             </h2>
-            <ExtractPortfolioButton hasPortfolio={hasPortfolioData} />
+            <UpdateComplianceReport hasPortfolio={hasPortfolioData} />
           </div>
           {!hasPortfolioData && (
             <p style={{ fontSize: "0.8rem", color: "var(--color-text-muted)", marginTop: "0.5rem" }}>

@@ -20,7 +20,7 @@ export default async function ICLayout({
       <aside className="ic-sidebar">
         <div className="ic-sidebar-header">
           <Link href="/" className="ic-sidebar-logo">
-            Million Minds
+            <img src="/logo/black-text.png" alt="Million Minds" className="sidebar-logo-img" />
           </Link>
           <span className="ic-sidebar-badge">IC</span>
         </div>

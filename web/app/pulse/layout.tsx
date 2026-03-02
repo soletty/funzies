@@ -18,7 +18,7 @@ export default async function PulseLayout({
       <aside className="pulse-sidebar">
         <div className="pulse-sidebar-header">
           <Link href="/" className="pulse-sidebar-logo">
-            Million Minds
+            <img src="/logo/black-text.png" alt="Million Minds" className="sidebar-logo-img" />
           </Link>
           <span className="pulse-sidebar-badge">PULSE</span>
         </div>
