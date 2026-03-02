@@ -95,8 +95,12 @@ function deduplicateTests(tests: CloComplianceTest[]): CloComplianceTest[] {
 }
 
 function testBarColor(t: CloComplianceTest, cushion: number): string {
-  // Use explicit isPassing when available — handles both min and max tests correctly
-  if (t.isPassing === true) return cushionColor(Math.abs(cushion));
+  if (t.isPassing === true) {
+    const trigger = t.triggerLevel ?? 0;
+    const relativeCushion = trigger !== 0 ? (Math.abs(cushion) / Math.abs(trigger)) * 100 : Math.abs(cushion);
+    if (relativeCushion >= 5) return "var(--color-success, #22c55e)";
+    return "var(--color-warning, #eab308)";
+  }
   if (t.isPassing === false) return "var(--color-error, #ef4444)";
   return cushionColor(cushion);
 }
@@ -112,7 +116,8 @@ function TestComplianceSection({ tests, newTests }: { tests?: ComplianceTest[]; 
         <div style={{ display: "grid", gap: "0.75rem" }}>
           {dedupedTests.map((t) => {
             const actual = t.actualValue ?? 0;
-            const trigger = t.triggerLevel ?? 0;
+            // Compute missing trigger from actual - cushion if we have cushion data
+            const trigger = t.triggerLevel ?? (t.cushionPct != null ? actual - t.cushionPct : 0);
             const cushion = t.cushionPct ?? (actual - trigger);
             const maxVal = Math.max(actual, trigger) * 1.1 || 1;
             const actualPct = (actual / maxVal) * 100;

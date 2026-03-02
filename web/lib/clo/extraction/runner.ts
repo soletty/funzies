@@ -215,35 +215,19 @@ export async function runExtraction(
   );
   const reportPeriodId = rpRows[0].id;
 
-  // Clear any existing extraction data for this report period (re-extraction)
-  await Promise.all([
-    query("DELETE FROM clo_pool_summary WHERE report_period_id = $1", [reportPeriodId]),
-    query("DELETE FROM clo_compliance_tests WHERE report_period_id = $1", [reportPeriodId]),
-    query("DELETE FROM clo_account_balances WHERE report_period_id = $1", [reportPeriodId]),
-    query("DELETE FROM clo_par_value_adjustments WHERE report_period_id = $1", [reportPeriodId]),
-    query("DELETE FROM clo_holdings WHERE report_period_id = $1", [reportPeriodId]),
-    query("DELETE FROM clo_concentrations WHERE report_period_id = $1", [reportPeriodId]),
-    query("DELETE FROM clo_waterfall_steps WHERE report_period_id = $1", [reportPeriodId]),
-    query("DELETE FROM clo_proceeds WHERE report_period_id = $1", [reportPeriodId]),
-    query("DELETE FROM clo_trades WHERE report_period_id = $1", [reportPeriodId]),
-    query("DELETE FROM clo_trading_summary WHERE report_period_id = $1", [reportPeriodId]),
-    query("DELETE FROM clo_tranche_snapshots WHERE report_period_id = $1", [reportPeriodId]),
-    query("DELETE FROM clo_events WHERE report_period_id = $1", [reportPeriodId]),
-    query("DELETE FROM clo_extraction_overflow WHERE report_period_id = $1", [reportPeriodId]),
-  ]);
+  // Helper: delete old data only when we have new data to replace it
+  async function replaceIfPresent(table: string, rows: Record<string, unknown>[]) {
+    if (rows.length === 0) return;
+    await query(`DELETE FROM ${table} WHERE report_period_id = $1`, [reportPeriodId]);
+    await batchInsert(table, rows);
+  }
 
-  // Insert Pass 1 data
+  // Insert Pass 1 data (only replace tables where we have new data)
   const p1Normalized = normalizePass1(pass1Data, reportPeriodId);
-  await batchInsert("clo_pool_summary", [p1Normalized.poolSummary]);
-  if (p1Normalized.complianceTests.length > 0) {
-    await batchInsert("clo_compliance_tests", p1Normalized.complianceTests);
-  }
-  if (p1Normalized.accountBalances.length > 0) {
-    await batchInsert("clo_account_balances", p1Normalized.accountBalances);
-  }
-  if (p1Normalized.parValueAdjustments.length > 0) {
-    await batchInsert("clo_par_value_adjustments", p1Normalized.parValueAdjustments);
-  }
+  await replaceIfPresent("clo_pool_summary", [p1Normalized.poolSummary]);
+  await replaceIfPresent("clo_compliance_tests", p1Normalized.complianceTests);
+  await replaceIfPresent("clo_account_balances", p1Normalized.accountBalances);
+  await replaceIfPresent("clo_par_value_adjustments", p1Normalized.parValueAdjustments);
 
   // Passes 2-5 in parallel
   const passResults: PassResult[] = [];
@@ -308,18 +292,14 @@ export async function runExtraction(
   const p2 = passResults.find((p) => p.pass === 2);
   if (p2?.data) {
     const normalized = normalizePass2(p2.data as unknown as import("./schemas").Pass2Output, reportPeriodId);
-    if (normalized.holdings.length > 0) {
-      await batchInsert("clo_holdings", normalized.holdings);
-    }
+    await replaceIfPresent("clo_holdings", normalized.holdings);
   }
 
   // Insert Pass 3 data (concentrations)
   const p3 = passResults.find((p) => p.pass === 3);
   if (p3?.data) {
     const normalized = normalizePass3(p3.data as unknown as import("./schemas").Pass3Output, reportPeriodId);
-    if (normalized.concentrations.length > 0) {
-      await batchInsert("clo_concentrations", normalized.concentrations);
-    }
+    await replaceIfPresent("clo_concentrations", normalized.concentrations);
   }
 
   // Insert Pass 4 data (waterfall, proceeds, trades, trading_summary, tranche_snapshots)
@@ -327,36 +307,34 @@ export async function runExtraction(
   if (p4?.data) {
     const normalized = normalizePass4(p4.data as unknown as import("./schemas").Pass4Output, reportPeriodId);
 
-    if (normalized.waterfallSteps.length > 0) {
-      await batchInsert("clo_waterfall_steps", normalized.waterfallSteps);
-    }
-    if (normalized.proceeds.length > 0) {
-      await batchInsert("clo_proceeds", normalized.proceeds);
-    }
-    if (normalized.trades.length > 0) {
-      await batchInsert("clo_trades", normalized.trades);
-    }
+    await replaceIfPresent("clo_waterfall_steps", normalized.waterfallSteps);
+    await replaceIfPresent("clo_proceeds", normalized.proceeds);
+    await replaceIfPresent("clo_trades", normalized.trades);
     if (normalized.tradingSummary) {
+      await query("DELETE FROM clo_trading_summary WHERE report_period_id = $1", [reportPeriodId]);
       await batchInsert("clo_trading_summary", [normalized.tradingSummary]);
     }
 
     // Tranche snapshots need tranche_id lookup (normalized match)
-    for (const snapshot of normalized.trancheSnapshots) {
-      const normalizedName = normalizeClassName(snapshot.className);
-      const allTranches = await query<{ id: string; class_name: string }>(
-        "SELECT id, class_name FROM clo_tranches WHERE deal_id = $1",
-        [dealId],
-      );
-      let existing = allTranches.filter((t) => normalizeClassName(t.class_name) === normalizedName);
-
-      if (existing.length === 0) {
-        existing = await query<{ id: string; class_name: string }>(
-          `INSERT INTO clo_tranches (deal_id, class_name) VALUES ($1, $2) RETURNING id, class_name`,
-          [dealId, snapshot.className],
+    if (normalized.trancheSnapshots.length > 0) {
+      await query("DELETE FROM clo_tranche_snapshots WHERE report_period_id = $1", [reportPeriodId]);
+      for (const snapshot of normalized.trancheSnapshots) {
+        const normalizedName = normalizeClassName(snapshot.className);
+        const allTranches = await query<{ id: string; class_name: string }>(
+          "SELECT id, class_name FROM clo_tranches WHERE deal_id = $1",
+          [dealId],
         );
-      }
+        let existing = allTranches.filter((t) => normalizeClassName(t.class_name) === normalizedName);
 
-      await batchInsert("clo_tranche_snapshots", [{ tranche_id: existing[0].id, ...snapshot.data }]);
+        if (existing.length === 0) {
+          existing = await query<{ id: string; class_name: string }>(
+            `INSERT INTO clo_tranches (deal_id, class_name) VALUES ($1, $2) RETURNING id, class_name`,
+            [dealId, snapshot.className],
+          );
+        }
+
+        await batchInsert("clo_tranche_snapshots", [{ tranche_id: existing[0].id, ...snapshot.data }]);
+      }
     }
   }
 
@@ -368,12 +346,14 @@ export async function runExtraction(
     supplementaryData = normalized.supplementaryData;
 
     if (normalized.events.length > 0) {
+      await query("DELETE FROM clo_events WHERE report_period_id = $1", [reportPeriodId]);
       await batchInsert("clo_events", normalized.events);
     }
   }
 
-  // Insert overflow
+  // Insert overflow (always replace — overflow is cumulative from all passes)
   if (overflowRows.length > 0) {
+    await query("DELETE FROM clo_extraction_overflow WHERE report_period_id = $1", [reportPeriodId]);
     await batchInsert("clo_extraction_overflow", overflowRows);
   }
 
