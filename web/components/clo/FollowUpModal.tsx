@@ -93,7 +93,10 @@ export default function CloFollowUpModal({
   const activeMode = isMemberPage ? "ask-member" : mode;
 
   useEffect(() => {
-    fetch(`/api/clo/panels/${panelId}/follow-ups`)
+    const url = defaultMember
+      ? `/api/clo/panels/${panelId}/follow-ups?member=${encodeURIComponent(defaultMember)}`
+      : `/api/clo/panels/${panelId}/follow-ups`;
+    fetch(url)
       .then((r) => r.json())
       .then((data) => {
         if (Array.isArray(data)) {
@@ -161,6 +164,7 @@ export default function CloFollowUpModal({
     if (!res.ok || !res.body) {
       setMessages((prev) => [...prev, { role: "assistant", content: "Error: Failed to get response" }]);
       setIsStreaming(false);
+      setIsSearching(false);
       return;
     }
 

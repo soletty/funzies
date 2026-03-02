@@ -127,7 +127,7 @@ function buildMessages(
 }
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const user = await getCurrentUser();
@@ -142,9 +142,18 @@ export async function GET(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
+  const targetMember = request.nextUrl.searchParams.get("member");
+  const conditions = ["panel_id = $1"];
+  const values: (string | null)[] = [id];
+
+  if (targetMember) {
+    conditions.push("target_member = $2");
+    values.push(targetMember);
+  }
+
   const followUps = await query(
-    "SELECT * FROM clo_follow_ups WHERE panel_id = $1 ORDER BY created_at ASC",
-    [id]
+    `SELECT * FROM clo_follow_ups WHERE ${conditions.join(" AND ")} ORDER BY created_at ASC`,
+    values
   );
 
   return NextResponse.json(followUps);
