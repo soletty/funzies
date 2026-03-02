@@ -6,6 +6,7 @@ import Link from "next/link";
 import type { PanelMember } from "@/lib/clo/types";
 import type { ExtractedConstraints, ExtractedPortfolio, ComplianceTest, PortfolioMetric, ConcentrationBreakdown, CloComplianceTest, CloConcentration, CloPoolSummary, CloAccountBalance, CloEvent, CapitalStructureEntry, CloHolding } from "@/lib/clo/types";
 import UpdateComplianceReport from "./UpdateComplianceReport";
+import DataQualityBadge from "./DataQualityBadge";
 import DocumentUploadBanner from "./DocumentUploadBanner";
 import BriefingCard from "@/components/BriefingCard";
 
@@ -795,7 +796,10 @@ export default async function CLODashboard() {
                 </span>
               )}
             </h2>
-            <UpdateComplianceReport hasPortfolio={hasPortfolioData} />
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <DataQualityBadge dataQuality={reportPeriod?.dataQuality ?? null} />
+              <UpdateComplianceReport hasPortfolio={hasPortfolioData} />
+            </div>
           </div>
           {!hasPortfolioData && (
             <p style={{ fontSize: "0.8rem", color: "var(--color-text-muted)", marginTop: "0.5rem" }}>
