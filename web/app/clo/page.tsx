@@ -1,10 +1,10 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { query } from "@/lib/db";
-import { getProfileForUser, getProfileDocumentMeta, getPanelForUser, rowToProfile, getDealForProfile, getLatestReportPeriod, getReportPeriodData, getAccountBalances, getEvents } from "@/lib/clo/access";
+import { getProfileForUser, getProfileDocumentMeta, getPanelForUser, rowToProfile, getDealForProfile, getLatestReportPeriod, getReportPeriodData, getAccountBalances, getEvents, getHoldings } from "@/lib/clo/access";
 import Link from "next/link";
 import type { PanelMember } from "@/lib/clo/types";
-import type { ExtractedConstraints, ExtractedPortfolio, ComplianceTest, PortfolioMetric, ConcentrationBreakdown, CloComplianceTest, CloConcentration, CloPoolSummary, CloAccountBalance, CloEvent } from "@/lib/clo/types";
+import type { ExtractedConstraints, ExtractedPortfolio, ComplianceTest, PortfolioMetric, ConcentrationBreakdown, CloComplianceTest, CloConcentration, CloPoolSummary, CloAccountBalance, CloEvent, CapitalStructureEntry, CloHolding } from "@/lib/clo/types";
 import ExtractPortfolioButton from "./ExtractPortfolioButton";
 import DocumentUploadBanner from "./DocumentUploadBanner";
 import BriefingCard from "@/components/BriefingCard";
@@ -28,24 +28,6 @@ function CLOHealthSummary({ constraints }: { constraints: Record<string, unknown
   if (c.walMaximum != null) items.push({ label: "WAL Max", value: `${c.walMaximum}y` });
   if (c.diversityScoreMinimum != null) items.push({ label: "Diversity Min", value: String(c.diversityScoreMinimum) });
 
-  // Concentration limits (legacy)
-  if (c.concentrationLimits) {
-    if (c.concentrationLimits.singleName) items.push({ label: "Single Name", value: c.concentrationLimits.singleName });
-    if (c.concentrationLimits.industry) items.push({ label: "Industry", value: c.concentrationLimits.industry });
-    if (c.concentrationLimits.ccc) items.push({ label: "CCC Bucket", value: c.concentrationLimits.ccc });
-  }
-
-  // Coverage tests — new array first, then legacy
-  if (c.coverageTestEntries?.length) {
-    const firstOc = c.coverageTestEntries.find((t) => t.parValueRatio);
-    const firstIc = c.coverageTestEntries.find((t) => t.interestCoverageRatio);
-    if (firstOc) items.push({ label: `OC ${firstOc.class}`, value: firstOc.parValueRatio! });
-    if (firstIc) items.push({ label: `IC ${firstIc.class}`, value: firstIc.interestCoverageRatio! });
-  } else if (c.coverageTests) {
-    if (c.coverageTests.ocSenior || c.coverageTests.parValueClassAB) items.push({ label: "OC Senior", value: c.coverageTests.ocSenior ?? c.coverageTests.parValueClassAB ?? "" });
-    if (c.coverageTests.icSenior || c.coverageTests.interestCoverageClassAB) items.push({ label: "IC Senior", value: c.coverageTests.icSenior ?? c.coverageTests.interestCoverageClassAB ?? "" });
-  }
-
   // Dates — new fields first, then legacy
   const rpEnd = c.keyDates?.reinvestmentPeriodEnd ?? c.reinvestmentPeriod?.end;
   if (rpEnd) items.push({ label: "RP End", value: rpEnd });
@@ -56,14 +38,11 @@ function CLOHealthSummary({ constraints }: { constraints: Record<string, unknown
   const maturity = c.keyDates?.maturityDate ?? c.maturityDate;
   if (maturity) items.push({ label: "Maturity", value: maturity });
 
-  // Controlling class
-  if (c.votingAndControl?.controllingClass) items.push({ label: "Controlling", value: c.votingAndControl.controllingClass });
-
   if (items.length === 0) return null;
 
   return (
     <section className="ic-section">
-      <h2>Vehicle Constraints</h2>
+      <h2>Deal Overview</h2>
       <div style={{
         display: "grid",
         gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
@@ -313,6 +292,8 @@ function NewConcentrationsSection({ concentrations }: { concentrations: CloConce
   const columns = Math.min(entries.length, 3);
   const gridCols = columns >= 3 ? "1fr 1fr 1fr" : columns === 2 ? "1fr 1fr" : "1fr";
 
+  const hasSingleObligor = byType.has("SINGLE_OBLIGOR");
+
   return (
     <section className="ic-section">
       <h2>Concentrations</h2>
@@ -344,6 +325,11 @@ function NewConcentrationsSection({ concentrations }: { concentrations: CloConce
           </div>
         ))}
       </div>
+      {hasSingleObligor && (
+        <p style={{ fontSize: "0.7rem", color: "var(--color-text-muted)", marginTop: "0.75rem", fontStyle: "italic" }}>
+          Obligor names from compliance test section. Names may differ from holdings schedule.
+        </p>
+      )}
     </section>
   );
 }
@@ -535,6 +521,82 @@ function HoldingsPreview({ holdings }: { holdings: ExtractedPortfolio["holdings"
   );
 }
 
+function CapitalStructureSection({ capitalStructure }: { capitalStructure: CapitalStructureEntry[] }) {
+  if (!capitalStructure || capitalStructure.length === 0) return null;
+  return (
+    <section className="ic-section">
+      <h2>Capital Structure</h2>
+      <div style={{ overflowX: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.8rem" }}>
+          <thead>
+            <tr style={{ borderBottom: "1px solid var(--color-border)", textAlign: "left" }}>
+              <th style={{ padding: "0.4rem 0.6rem", fontWeight: 600, color: "var(--color-text-muted)" }}>Class</th>
+              <th style={{ padding: "0.4rem 0.6rem", fontWeight: 600, color: "var(--color-text-muted)", textAlign: "right" }}>Principal Amount</th>
+              <th style={{ padding: "0.4rem 0.6rem", fontWeight: 600, color: "var(--color-text-muted)" }}>Spread</th>
+              <th style={{ padding: "0.4rem 0.6rem", fontWeight: 600, color: "var(--color-text-muted)" }}>Rating (Fitch / S&P)</th>
+              <th style={{ padding: "0.4rem 0.6rem", fontWeight: 600, color: "var(--color-text-muted)" }}>Deferrable</th>
+            </tr>
+          </thead>
+          <tbody>
+            {capitalStructure.map((entry) => (
+              <tr key={entry.class} style={{ borderBottom: "1px solid var(--color-border)" }}>
+                <td style={{ padding: "0.4rem 0.6rem", fontWeight: 600 }}>{entry.class}</td>
+                <td style={{ padding: "0.4rem 0.6rem", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{entry.principalAmount}</td>
+                <td style={{ padding: "0.4rem 0.6rem" }}>{entry.spread || "—"}</td>
+                <td style={{ padding: "0.4rem 0.6rem" }}>{[entry.rating?.fitch, entry.rating?.sp].filter(Boolean).join(" / ") || "—"}</td>
+                <td style={{ padding: "0.4rem 0.6rem" }}>{entry.deferrable == null ? "—" : entry.deferrable ? "Yes" : "No"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+function NewHoldingsPreview({ holdings }: { holdings: CloHolding[] }) {
+  if (!holdings || holdings.length === 0) return null;
+  const top20 = [...holdings].sort((a, b) => (b.parBalance ?? 0) - (a.parBalance ?? 0)).slice(0, 20);
+  return (
+    <section className="ic-section">
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
+        <h2 style={{ margin: 0 }}>Top Holdings ({holdings.length} total)</h2>
+        <Link href="/clo/holdings" className="ic-section-link" style={{ marginTop: 0 }}>
+          View all &rarr;
+        </Link>
+      </div>
+      <div style={{ overflowX: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.8rem" }}>
+          <thead>
+            <tr style={{ borderBottom: "1px solid var(--color-border)", textAlign: "left" }}>
+              <th style={{ padding: "0.4rem 0.6rem", fontWeight: 600, color: "var(--color-text-muted)" }}>Obligor</th>
+              <th style={{ padding: "0.4rem 0.6rem", fontWeight: 600, color: "var(--color-text-muted)", textAlign: "right" }}>Par Balance</th>
+              <th style={{ padding: "0.4rem 0.6rem", fontWeight: 600, color: "var(--color-text-muted)" }}>Rating</th>
+              <th style={{ padding: "0.4rem 0.6rem", fontWeight: 600, color: "var(--color-text-muted)", textAlign: "right" }}>Spread</th>
+              <th style={{ padding: "0.4rem 0.6rem", fontWeight: 600, color: "var(--color-text-muted)" }}>Industry</th>
+              <th style={{ padding: "0.4rem 0.6rem", fontWeight: 600, color: "var(--color-text-muted)" }}>Maturity</th>
+              <th style={{ padding: "0.4rem 0.6rem", fontWeight: 600, color: "var(--color-text-muted)" }}>Type</th>
+            </tr>
+          </thead>
+          <tbody>
+            {top20.map((h) => (
+              <tr key={h.id} style={{ borderBottom: "1px solid var(--color-border)" }}>
+                <td style={{ padding: "0.4rem 0.6rem" }}>{h.obligorName ?? "—"}</td>
+                <td style={{ padding: "0.4rem 0.6rem", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{h.parBalance != null ? h.parBalance.toLocaleString() : "—"}</td>
+                <td style={{ padding: "0.4rem 0.6rem" }}>{[h.moodysRating, h.spRating].filter(Boolean).join("/") || "—"}</td>
+                <td style={{ padding: "0.4rem 0.6rem", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{h.spreadBps != null ? `${h.spreadBps} bps` : "—"}</td>
+                <td style={{ padding: "0.4rem 0.6rem" }}>{h.industryDescription ?? "—"}</td>
+                <td style={{ padding: "0.4rem 0.6rem" }}>{h.maturityDate ?? "—"}</td>
+                <td style={{ padding: "0.4rem 0.6rem" }}>{h.assetType ?? "—"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
 interface AnalysisRow {
   id: string;
   title: string;
@@ -581,6 +643,7 @@ export default async function CLODashboard() {
   let periodData: Awaited<ReturnType<typeof getReportPeriodData>> | null = null;
   let accountBalances: CloAccountBalance[] = [];
   let events: CloEvent[] = [];
+  let newHoldings: CloHolding[] = [];
 
   if (deal) {
     reportPeriod = await getLatestReportPeriod(deal.id);
@@ -588,6 +651,7 @@ export default async function CLODashboard() {
       periodData = await getReportPeriodData(reportPeriod.id);
       accountBalances = await getAccountBalances(reportPeriod.id);
       events = await getEvents(deal.id);
+      newHoldings = await getHoldings(reportPeriod.id);
     }
   }
 
@@ -696,6 +760,10 @@ export default async function CLODashboard() {
 
       <CLOHealthSummary constraints={profile.extracted_constraints as Record<string, unknown> | null} />
 
+      {cloProfile.extractedConstraints?.capitalStructure && cloProfile.extractedConstraints.capitalStructure.length > 0 && (
+        <CapitalStructureSection capitalStructure={cloProfile.extractedConstraints.capitalStructure} />
+      )}
+
       {hasDocuments && (
         <section className="ic-section">
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -725,9 +793,11 @@ export default async function CLODashboard() {
           <NewConcentrationsSection concentrations={periodData!.concentrations} />
           <AccountBalancesSection balances={accountBalances} />
           <EventsSection events={events} />
-          {portfolio?.holdings && portfolio.holdings.length > 0 && (
+          {newHoldings.length > 0 ? (
+            <NewHoldingsPreview holdings={newHoldings} />
+          ) : portfolio?.holdings && portfolio.holdings.length > 0 ? (
             <HoldingsPreview holdings={portfolio.holdings} />
-          )}
+          ) : null}
         </>
       )}
 

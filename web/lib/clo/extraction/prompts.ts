@@ -192,6 +192,7 @@ Rules:
 - Dates in YYYY-MM-DD format.
 - Boolean flags should be true/false/null, not strings.
 - Look for this data in sections titled: "Portfolio Schedule", "Holdings Schedule", "Collateral Schedule", "Asset Schedule", "Portfolio Holdings", "Schedule of Investments", "Loan Schedule".
+- INDUSTRY ENRICHMENT — CRITICAL: Many compliance reports list industry/sector classification in a SEPARATE table (e.g., "Portfolio by Industry", "Industry Distribution", "Obligor List with Industry Code"). If the main holdings schedule does NOT include industry per holding, look for a separate industry classification table and CROSS-REFERENCE it with the holdings by obligor name. Similarly for spread: if the main schedule doesn't include spread per holding, look for a "Spread Distribution" or "Loan Characteristics" table that lists spreads by obligor. Prioritize filling industryDescription and spreadBps for EVERY holding where data exists anywhere in the report.
 - If you encounter ANY data not captured in the schema above, put it in _overflow with a descriptive label. Never silently drop data.`,
     user: `Extract the complete holdings schedule from the attached compliance/trustee report. Report date context: ${reportDate}. Return only the JSON object, no markdown fences.`,
   };
