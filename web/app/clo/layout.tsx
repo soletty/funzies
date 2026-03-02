@@ -40,6 +40,10 @@ export default async function CLOLayout({
                 <span className="ic-nav-icon">&#9670;</span>
                 Context
               </Link>
+              <Link href="/clo/waterfall" className="ic-nav-link">
+                <span className="ic-nav-icon">&#9670;</span>
+                Waterfall
+              </Link>
               <Link href="/clo/analyze/new" className="ic-nav-link">
                 <span className="ic-nav-icon">&#9670;</span>
                 New Analysis

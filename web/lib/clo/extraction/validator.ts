@@ -18,9 +18,14 @@ export interface ValidationResult {
 }
 
 const CCC_RATINGS = new Set([
-  "caa1", "caa2", "caa3", "caa", "ca", "c", "d",
-  "ccc+", "ccc", "ccc-", "cc", "c", "d", "sd",
-  "ccc", "cc", "c", "d", "rd",
+  // Moody's: Caa and below
+  "caa1", "caa2", "caa3", "caa", "ca",
+  // S&P: CCC and below
+  "ccc+", "ccc", "ccc-", "cc", "sd",
+  // Fitch: CCC and below
+  "rd",
+  // Shared across agencies
+  "c", "d",
 ]);
 
 function isCccOrBelow(rating: string | null | undefined): boolean {

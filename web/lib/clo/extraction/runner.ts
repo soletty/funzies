@@ -18,7 +18,7 @@ async function callClaudeStructured(
   toolName: string,
 ): Promise<{ data: Record<string, unknown> | null; truncated: boolean; error?: string; status?: number }> {
   // zodToJsonSchema types expect zod v3; zod v4 works at runtime
-  const inputSchema = zodToJsonSchema(schema as Parameters<typeof zodToJsonSchema>[0], { target: "openApi3" }) as Record<string, unknown>;
+  const inputSchema = zodToJsonSchema(schema as Parameters<typeof zodToJsonSchema>[0], { target: "jsonSchema7" }) as Record<string, unknown>;
 
   const tool = {
     name: toolName,

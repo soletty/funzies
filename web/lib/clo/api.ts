@@ -106,7 +106,7 @@ export async function callAnthropicWithTool(
 
   return {
     data: toolUseBlock.input as Record<string, unknown>,
-    truncated: result.stop_reason !== "end_turn",
+    truncated: result.stop_reason !== "end_turn" && result.stop_reason !== "tool_use",
   };
 }
 
