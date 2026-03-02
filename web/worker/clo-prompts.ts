@@ -304,6 +304,24 @@ function formatConstraints(constraints: CloProfile["extractedConstraints"], mode
     if (parts.length) lines.push(`\nCM TRADING CONSTRAINTS:\n${parts.join("\n")}`);
   }
 
+  // Section 24b: Management of Portfolio
+  if (c.managementOfPortfolio) {
+    lines.push(`\nMANAGEMENT OF PORTFOLIO:\n${c.managementOfPortfolio}`);
+  }
+
+  // Section 24c: Terms and Conditions of Sales
+  if (c.termsAndConditionsOfSales) {
+    lines.push(`\nTERMS AND CONDITIONS OF SALES:\n${c.termsAndConditionsOfSales}`);
+  }
+
+  // Section 24d: Trading Restrictions by Test Breach
+  if (c.tradingRestrictionsByTestBreach?.length) {
+    const tr = c.tradingRestrictionsByTestBreach
+      .map((r: { testName: string; consequence: string }) => `  ${r.testName}: ${r.consequence}`)
+      .join("\n");
+    lines.push(`\nTRADING RESTRICTIONS BY TEST BREACH:\n${tr}`);
+  }
+
   // Section 25: Refinancing History
   if (c.refinancingHistory?.length) {
     const rh = c.refinancingHistory.map((r) => `  ${r.date}: ${r.details}`).join("\n");
