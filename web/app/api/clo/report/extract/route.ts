@@ -46,7 +46,7 @@ export async function POST() {
     return NextResponse.json(result);
   } catch (e) {
     const message = (e as Error).message;
-    if (message.includes("401") || message.includes("invalid")) {
+    if (message.includes("401") || message.includes("invalid x-api-key") || message.includes("invalid api key")) {
       return NextResponse.json(
         { error: "Your API key is invalid or expired. Please update it in Settings." },
         { status: 401 },
