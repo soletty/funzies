@@ -215,6 +215,23 @@ export async function runExtraction(
   );
   const reportPeriodId = rpRows[0].id;
 
+  // Clear any existing extraction data for this report period (re-extraction)
+  await Promise.all([
+    query("DELETE FROM clo_pool_summary WHERE report_period_id = $1", [reportPeriodId]),
+    query("DELETE FROM clo_compliance_tests WHERE report_period_id = $1", [reportPeriodId]),
+    query("DELETE FROM clo_account_balances WHERE report_period_id = $1", [reportPeriodId]),
+    query("DELETE FROM clo_par_value_adjustments WHERE report_period_id = $1", [reportPeriodId]),
+    query("DELETE FROM clo_holdings WHERE report_period_id = $1", [reportPeriodId]),
+    query("DELETE FROM clo_concentrations WHERE report_period_id = $1", [reportPeriodId]),
+    query("DELETE FROM clo_waterfall_steps WHERE report_period_id = $1", [reportPeriodId]),
+    query("DELETE FROM clo_proceeds WHERE report_period_id = $1", [reportPeriodId]),
+    query("DELETE FROM clo_trades WHERE report_period_id = $1", [reportPeriodId]),
+    query("DELETE FROM clo_trading_summary WHERE report_period_id = $1", [reportPeriodId]),
+    query("DELETE FROM clo_tranche_snapshots WHERE report_period_id = $1", [reportPeriodId]),
+    query("DELETE FROM clo_events WHERE report_period_id = $1", [reportPeriodId]),
+    query("DELETE FROM clo_extraction_overflow WHERE report_period_id = $1", [reportPeriodId]),
+  ]);
+
   // Insert Pass 1 data
   const p1Normalized = normalizePass1(pass1Data, reportPeriodId);
   await batchInsert("clo_pool_summary", [p1Normalized.poolSummary]);

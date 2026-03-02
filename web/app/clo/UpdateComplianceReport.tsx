@@ -118,7 +118,7 @@ export default function UpdateComplianceReport({ hasPortfolio }: { hasPortfolio:
       </button>
       {status === "extracting" && (
         <span style={{ fontSize: "0.8rem", color: "var(--color-text-muted)" }}>
-          Extracting compliance data (this takes 30-60s)...
+          Extracting compliance data (this takes up to 10 minutes)...
         </span>
       )}
       {status === "done" && (
