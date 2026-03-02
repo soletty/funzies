@@ -479,6 +479,7 @@ CREATE TABLE IF NOT EXISTS clo_report_periods (
   extracted_at TIMESTAMPTZ,
   raw_extraction JSONB,
   supplementary_data JSONB,
+  data_quality JSONB,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE(deal_id, report_date)
