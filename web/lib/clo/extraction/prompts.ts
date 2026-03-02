@@ -110,7 +110,9 @@ Return a single JSON object (no markdown fences, no explanation) with this struc
 Rules:
 - Extract ONLY explicitly stated values. Use null for missing fields. Never fabricate data.
 - Extract ALL coverage tests: OC par, OC market value, and IC at EVERY tranche level (A, A/B, C, D, E, F, etc.).
-- Extract ALL quality tests: WARF, WAS, WAL, diversity score, recovery rate tests.
+- Extract ALL quality tests: WARF, WAS, WAL, diversity score, recovery rate tests, CDO Monitor tests, spread tests, recovery rate tests.
+- CRITICAL: For EVERY compliance test, you MUST extract both actualValue AND triggerLevel. Every test in a CLO report has a trigger/threshold/limit — look for columns like "Trigger", "Limit", "Threshold", "Required", "Min", "Max", "Test Level". If a test shows "Actual: 71.1, Required: 62.5", then actualValue=71.1 and triggerLevel=62.5.
+- For tests like WARF, the trigger may be labeled "Maximum" (e.g. "Maximum WARF: 2850"). For WAS/spread tests, the trigger may be "Minimum" (e.g. "Minimum WAS: 3.90%"). For WAL, it may be "Maximum WAL: 5.0 years". Always capture these as triggerLevel.
 - Extract concentration test result summaries if they appear alongside compliance tests.
 - Percentages should be numbers (e.g. 5.2 not "5.2%").
 - Monetary amounts should be raw numbers without currency symbols.

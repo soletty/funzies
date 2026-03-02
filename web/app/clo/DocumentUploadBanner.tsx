@@ -3,13 +3,14 @@
 import { useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 
-export default function DocumentUploadBanner() {
+export default function DocumentUploadBanner({ hasDocuments }: { hasDocuments?: boolean }) {
   const [ppmFiles, setPpmFiles] = useState<File[]>([]);
   const [complianceFiles, setComplianceFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
   const [extracting, setExtracting] = useState(false);
   const [statusText, setStatusText] = useState("");
   const [error, setError] = useState("");
+  const [done, setDone] = useState(false);
   const ppmInputRef = useRef<HTMLInputElement>(null);
   const complianceInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
@@ -36,6 +37,7 @@ export default function DocumentUploadBanner() {
         }
         setStatusText("");
         setExtracting(false);
+        setDone(true);
         router.refresh();
         return;
       }
@@ -100,30 +102,79 @@ export default function DocumentUploadBanner() {
       }
     }
 
-    // Queue PPM extraction if PPM files uploaded
-    if (ppmFiles.length > 0) {
-      await fetch("/api/clo/profile/extract", { method: "POST" });
-    }
-
-    // Queue compliance report extraction + portfolio extraction if compliance files uploaded
-    if (complianceFiles.length > 0) {
-      fetch("/api/clo/report/extract", { method: "POST" }).catch(() => {});
-      fetch("/api/clo/profile/extract-portfolio", { method: "POST" }).catch(() => {});
-    }
-
     setUploading(false);
+    const hadPpm = ppmFiles.length > 0;
+    const hadCompliance = complianceFiles.length > 0;
     setPpmFiles([]);
     setComplianceFiles([]);
 
-    // Start polling for extraction completion if PPM was uploaded
-    if (ppmFiles.length > 0) {
-      pollExtraction();
+    // Queue PPM extraction
+    if (hadPpm) {
+      await fetch("/api/clo/profile/extract", { method: "POST" });
     }
+
+    // Queue compliance report extraction + portfolio extraction
+    if (hadCompliance) {
+      setExtracting(true);
+      setStatusText("Extracting compliance data (this may take several minutes)...");
+      fetch("/api/clo/report/extract", { method: "POST" })
+        .then(async (res) => {
+          if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            setError(data.error || "Report extraction failed");
+          }
+        })
+        .catch(() => {});
+      fetch("/api/clo/profile/extract-portfolio", { method: "POST" }).catch(() => {});
+    }
+
+    // Start polling for PPM extraction completion
+    if (hadPpm) {
+      pollExtraction();
+    } else if (hadCompliance) {
+      // Poll for compliance extraction by checking report periods
+      pollComplianceExtraction();
+    }
+  }
+
+  async function pollComplianceExtraction() {
+    setExtracting(true);
+    for (let i = 0; i < 120; i++) {
+      await new Promise((r) => setTimeout(r, 5000));
+      // Just wait and refresh — compliance extraction updates clo_report_periods
+      const elapsed = (i + 1) * 5;
+      setStatusText(`Extracting compliance data (${elapsed}s)...`);
+    }
+    setExtracting(false);
+    setDone(true);
+    setStatusText("");
     router.refresh();
   }
 
   const busy = uploading || extracting;
   const hasFiles = ppmFiles.length > 0 || complianceFiles.length > 0;
+
+  // Hide when docs exist and no active extraction/upload
+  if (hasDocuments && !busy && !error && !done) return null;
+
+  // Show completion message briefly
+  if (done && !busy) {
+    return (
+      <section className="ic-section" style={{
+        background: "var(--color-accent-subtle)",
+        border: "1px solid var(--color-success, #22c55e)",
+        borderRadius: "var(--radius-md)",
+        padding: "1rem 1.5rem",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.85rem", color: "var(--color-success, #22c55e)" }}>
+          Extraction complete. Refresh the page to see updated data.
+          <button className="btn-secondary" onClick={() => { setDone(false); router.refresh(); }} style={{ fontSize: "0.8rem", marginLeft: "auto" }}>
+            Refresh
+          </button>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="ic-section" style={{

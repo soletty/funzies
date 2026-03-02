@@ -590,21 +590,23 @@ export default function ContextEditor({
   // RENDER
   // =========================================================================
 
-  const coverageRows = (constraints.coverageTestEntries || []) as CoverageTestEntry[];
-  const cqtRows = (constraints.collateralQualityTests || []) as CollateralQualityTest[];
-  const tradingRestrictions = (constraints.tradingRestrictionsByTestBreach || []) as { testName: string; consequence: string }[];
-  const eligibility = (constraints.eligibilityCriteria || []) as string[];
+  const asArray = <T,>(v: unknown): T[] => Array.isArray(v) ? v as T[] : [];
+
+  const coverageRows = asArray<CoverageTestEntry>(constraints.coverageTestEntries);
+  const cqtRows = asArray<CollateralQualityTest>(constraints.collateralQualityTests);
+  const tradingRestrictions = asArray<{ testName: string; consequence: string }>(constraints.tradingRestrictionsByTestBreach);
+  const eligibility = asArray<string>(constraints.eligibilityCriteria);
   const dealIdentity = (constraints.dealIdentity || {}) as Record<string, string | undefined>;
   const keyDates = (constraints.keyDates || {}) as Record<string, string | undefined>;
-  const capStruct = (constraints.capitalStructure || []) as CapitalStructureEntry[];
+  const capStruct = asArray<CapitalStructureEntry>(constraints.capitalStructure);
   const dealSizing = (constraints.dealSizing || {}) as Record<string, string | undefined>;
   const waterfall = (constraints.waterfall || {}) as Record<string, string | undefined>;
   const reinvCriteria = (constraints.reinvestmentCriteria || {}) as Record<string, string | undefined>;
   const cmDetails = (constraints.cmDetails || {}) as CMDetails;
   const cmTrading = (constraints.cmTradingConstraints || {}) as Record<string, unknown>;
-  const feeRows = (constraints.fees || []) as FeeEntry[];
-  const accountRows = (constraints.accounts || []) as { name: string; purpose: string }[];
-  const keyPartyRows = (constraints.keyParties || []) as KeyParty[];
+  const feeRows = asArray<FeeEntry>(constraints.fees);
+  const accountRows = asArray<{ name: string; purpose: string }>(constraints.accounts);
+  const keyPartyRows = asArray<KeyParty>(constraints.keyParties);
 
   return (
     <div style={{ maxWidth: "64rem" }}>

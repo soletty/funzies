@@ -96,8 +96,9 @@ function deduplicateTests(tests: CloComplianceTest[]): CloComplianceTest[] {
 
 function testBarColor(t: CloComplianceTest, cushion: number): string {
   if (t.isPassing === true) {
-    const trigger = t.triggerLevel ?? 0;
-    const relativeCushion = trigger !== 0 ? (Math.abs(cushion) / Math.abs(trigger)) * 100 : Math.abs(cushion);
+    const trigger = t.triggerLevel;
+    if (trigger == null || trigger === 0) return "var(--color-success, #22c55e)";
+    const relativeCushion = (Math.abs(cushion) / Math.abs(trigger)) * 100;
     if (relativeCushion >= 5) return "var(--color-success, #22c55e)";
     return "var(--color-warning, #eab308)";
   }
@@ -117,18 +118,21 @@ function TestComplianceSection({ tests, newTests }: { tests?: ComplianceTest[]; 
           {dedupedTests.map((t) => {
             const actual = t.actualValue ?? 0;
             // Compute missing trigger from actual - cushion if we have cushion data
-            const trigger = t.triggerLevel ?? (t.cushionPct != null ? actual - t.cushionPct : 0);
-            const cushion = t.cushionPct ?? (actual - trigger);
-            const maxVal = Math.max(actual, trigger) * 1.1 || 1;
+            const trigger = t.triggerLevel ?? (t.cushionPct != null ? actual - t.cushionPct : null);
+            const hasTrigger = trigger != null && trigger !== 0;
+            const triggerVal = trigger ?? 0;
+            const cushion = t.cushionPct ?? (hasTrigger ? actual - triggerVal : null);
+            const maxVal = Math.max(actual, triggerVal) * 1.1 || 1;
             const actualPct = (actual / maxVal) * 100;
-            const triggerPct = (trigger / maxVal) * 100;
-            const color = testBarColor(t, cushion);
+            const triggerPct = hasTrigger ? (triggerVal / maxVal) * 100 : 0;
+            const color = testBarColor(t, cushion ?? 0);
             return (
               <div key={t.id}>
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem", marginBottom: "0.25rem" }}>
                   <span style={{ fontWeight: 600 }}>{t.testName}{t.testClass ? ` (${t.testClass})` : ""}</span>
                   <span style={{ color: "var(--color-text-muted)" }}>
-                    {actual.toFixed(1)}% (trigger: {trigger.toFixed(1)}%, cushion: {cushion >= 0 ? "+" : ""}{cushion.toFixed(1)}%)
+                    {actual.toFixed(1)}%
+                    {hasTrigger && ` (trigger: ${triggerVal.toFixed(1)}%, cushion: ${cushion != null && cushion >= 0 ? "+" : ""}${cushion != null ? cushion.toFixed(1) : "?"}%)`}
                     {t.isPassing != null && (
                       <span style={{ marginLeft: "0.5rem", color: t.isPassing ? "var(--color-success, #22c55e)" : "var(--color-error, #ef4444)", fontWeight: 600 }}>
                         {t.isPassing ? "PASS" : "FAIL"}
@@ -138,7 +142,9 @@ function TestComplianceSection({ tests, newTests }: { tests?: ComplianceTest[]; 
                 </div>
                 <div style={{ position: "relative", height: "1.25rem", background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: "var(--radius-sm)", overflow: "hidden" }}>
                   <div style={{ position: "absolute", top: 0, left: 0, height: "100%", width: `${actualPct}%`, background: color, opacity: 0.3, borderRadius: "var(--radius-sm)" }} />
-                  <div style={{ position: "absolute", top: 0, left: `${triggerPct}%`, width: "2px", height: "100%", background: "var(--color-text-muted)" }} />
+                  {hasTrigger && (
+                    <div style={{ position: "absolute", top: 0, left: `${triggerPct}%`, width: "2px", height: "100%", background: "var(--color-text-muted)" }} />
+                  )}
                 </div>
               </div>
             );
@@ -790,7 +796,7 @@ export default async function CLODashboard() {
 
       <BriefingCard product="clo" />
 
-      {!hasDocuments && <DocumentUploadBanner />}
+      <DocumentUploadBanner hasDocuments={hasDocuments} />
 
       {documentMeta.length > 0 && (
         <section className="ic-section">
