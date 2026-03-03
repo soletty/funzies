@@ -50,7 +50,7 @@ Output a JSON array of warnings. Each warning must have:
 Only output the JSON array, nothing else. If no issues found, output an empty array [].
 Keep it concise — at most 5-6 warnings for the most important issues.`;
 
-  const contextSummary = JSON.stringify(dealContext, null, 2).slice(0, 8000);
+  const contextSummary = summarizeDealContext(dealContext);
 
   const anthropicResponse = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -98,4 +98,88 @@ Keep it concise — at most 5-6 warnings for the most important issues.`;
       Connection: "keep-alive",
     },
   });
+}
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+function summarizeDealContext(ctx: Record<string, any>): string {
+  const parts: string[] = [];
+
+  parts.push(`Deal: ${ctx.dealName ?? "UNKNOWN"}`);
+  parts.push(`Report Date: ${ctx.reportDate ?? "MISSING"}`);
+  parts.push(`Maturity Date: ${ctx.maturityDate ?? "MISSING"}`);
+  parts.push(`Reinvestment Period End: ${ctx.reinvestmentPeriodEnd ?? "MISSING"}`);
+
+  // Pool summary — list non-null fields
+  const pool = ctx.poolSummary;
+  if (pool) {
+    const populated = Object.entries(pool).filter(([, v]) => v != null);
+    if (populated.length === 0) {
+      parts.push("\nPool Summary: ALL FIELDS NULL");
+    } else {
+      parts.push(`\nPool Summary (${populated.length} fields populated):`);
+      for (const [k, v] of populated) {
+        parts.push(`  ${k}: ${v}`);
+      }
+    }
+  } else {
+    parts.push("\nPool Summary: MISSING (no report period data)");
+  }
+
+  // Tranches — compact summary
+  const tranches = ctx.tranches as any[] | undefined;
+  if (tranches && tranches.length > 0) {
+    parts.push(`\nTranches (${tranches.length}):`);
+    for (const t of tranches) {
+      parts.push(`  ${t.className ?? "?"}: balance=${t.currentBalance ?? "NULL"}, spread=${t.spreadBps ?? "NULL"}bps, rate=${t.interestRate ?? "NULL"}%, rank=${t.seniorityRank ?? "?"}`);
+    }
+  } else {
+    parts.push("\nTranches: NONE");
+  }
+
+  // Tranche snapshots
+  const snaps = ctx.trancheSnapshots as any[] | undefined;
+  if (snaps && snaps.length > 0) {
+    parts.push(`\nTranche Snapshots (${snaps.length}):`);
+    for (const s of snaps) {
+      parts.push(`  ${s.className ?? "?"}: beginBal=${s.beginningBalance ?? "NULL"}, endBal=${s.endingBalance ?? "NULL"}, intPaid=${s.interestPaid ?? "NULL"}, princPaid=${s.principalPaid ?? "NULL"}`);
+    }
+  } else {
+    parts.push("\nTranche Snapshots: NONE");
+  }
+
+  // Compliance tests — compact
+  const tests = ctx.complianceTests as any[] | undefined;
+  if (tests && tests.length > 0) {
+    parts.push(`\nCompliance Tests (${tests.length}):`);
+    for (const t of tests) {
+      parts.push(`  ${t.testName}${t.testClass ? ` (${t.testClass})` : ""}: actual=${t.actualValue ?? "NULL"}, trigger=${t.triggerLevel ?? "NULL"}, passing=${t.isPassing ?? "NULL"}`);
+    }
+  } else {
+    parts.push("\nCompliance Tests: NONE");
+  }
+
+  // Account balances
+  const accts = ctx.accountBalances as any[] | undefined;
+  if (accts && accts.length > 0) {
+    parts.push(`\nAccount Balances (${accts.length}):`);
+    for (const a of accts) {
+      parts.push(`  ${a.accountName}: ${a.balanceAmount ?? "NULL"} ${a.currency ?? ""}`);
+    }
+  } else {
+    parts.push("\nAccount Balances: NONE");
+  }
+
+  // Key constraints from PPM (compact)
+  const c = ctx.constraints;
+  if (c) {
+    if (c.keyDates) parts.push(`\nPPM Key Dates: ${JSON.stringify(c.keyDates)}`);
+    if (c.capitalStructure) {
+      parts.push(`PPM Capital Structure (${Array.isArray(c.capitalStructure) ? c.capitalStructure.length : 0} tranches)`);
+    }
+    if (c.coverageTestEntries) {
+      parts.push(`PPM Coverage Tests: ${JSON.stringify(c.coverageTestEntries).slice(0, 500)}`);
+    }
+  }
+
+  return parts.join("\n");
 }
