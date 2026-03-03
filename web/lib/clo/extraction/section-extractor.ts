@@ -79,9 +79,11 @@ export async function extractSection(
   ];
   const maxTokens = sectionText.sectionType === "asset_schedule" ? 64000 : 16000;
 
-  const result = await callAnthropicWithTool(apiKey, prompt.system, content, maxTokens, tool);
+  const label = `extract:${sectionText.sectionType}`;
+  const result = await callAnthropicWithTool(apiKey, prompt.system, content, maxTokens, tool, label);
 
   if (result.error) {
+    console.error(`[section-extractor] ${sectionText.sectionType}: ${result.error.slice(0, 200)}`);
     return { sectionType: sectionText.sectionType, data: null, truncated: false, error: result.error };
   }
 
@@ -103,8 +105,16 @@ export async function extractAllSections(
 
   for (let i = 0; i < items.length; i += concurrency) {
     const batch = items.slice(i, i + concurrency);
+    const batchNum = Math.floor(i / concurrency) + 1;
+    const totalBatches = Math.ceil(items.length / concurrency);
+    console.log(`[section-extractor] batch ${batchNum}/${totalBatches}: ${batch.map((s) => `${s.sectionType}(${s.markdown.length} chars)`).join(", ")}`);
     const batchResults = await Promise.all(
-      batch.map((st) => extractSection(apiKey, st, documentType)),
+      batch.map(async (st) => {
+        const result = await extractSection(apiKey, st, documentType);
+        const status = result.data ? "OK" : `FAILED${result.error ? `: ${result.error.slice(0, 100)}` : ""}`;
+        console.log(`[section-extractor] ${st.sectionType}: ${status}`);
+        return result;
+      }),
     );
     results.push(...batchResults);
   }

@@ -96,18 +96,19 @@ async function mapDocumentChunk(
   const content = buildDocumentContent([...nonPdfDocs, chunkDoc], user);
   const inputSchema = zodToToolSchema(documentMapSchema);
 
+  const chunkLabel = `pp${pageOffset + 1}-${Math.min(pageOffset + MAX_MAPPING_PAGES, totalPages)}`;
   const result = await callAnthropicWithTool(apiKey, system, content, 4096, {
     name: "map_document_sections",
     description: "Return the document type and a list of identified sections with their page ranges.",
     inputSchema,
-  });
+  }, `mapper:${chunkLabel}`);
 
   if (result.error) {
-    throw new Error(`Document mapping failed: ${result.error}`);
+    throw new Error(`Document mapping failed (${chunkLabel}): ${result.error}`);
   }
 
   if (!result.data) {
-    throw new Error("Document mapping returned no data");
+    throw new Error(`Document mapping returned no data (${chunkLabel})`);
   }
 
   return result.data as unknown as DocumentMap;
@@ -128,7 +129,9 @@ function mergeSectionMaps(maps: DocumentMap[]): DocumentMap {
     }
   }
 
-  return { documentType, sections: Array.from(bestByType.values()) };
+  const merged = Array.from(bestByType.values());
+  console.log(`[document-mapper] merged ${maps.length} chunk maps → ${merged.length} sections: ${merged.map((s) => `${s.sectionType}(pp${s.pageStart}-${s.pageEnd},${s.confidence})`).join(", ")}`);
+  return { documentType, sections: merged };
 }
 
 export async function mapDocument(

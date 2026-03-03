@@ -6,27 +6,38 @@ interface AnthropicBlock { type: string; text?: string }
 const RETRY_DELAYS = [5000, 15000, 30000]; // 3 retries with backoff
 const FETCH_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes — large PDFs need time
 
-async function fetchWithRetry(url: string, init: RequestInit): Promise<Response> {
+async function fetchWithRetry(url: string, init: RequestInit, label?: string): Promise<Response> {
   const bodySize = typeof init.body === "string" ? init.body.length : 0;
+  const tag = label ? `[anthropic:${label}]` : "[anthropic]";
+  const sizeMB = (bodySize / 1_000_000).toFixed(1);
+
   for (let attempt = 0; attempt <= RETRY_DELAYS.length; attempt++) {
+    const t0 = Date.now();
     try {
-      if (attempt === 0 && bodySize > 1_000_000) {
-        console.log(`[anthropic] sending ${(bodySize / 1_000_000).toFixed(1)}MB request`);
+      if (attempt === 0) {
+        console.log(`${tag} request starting (${sizeMB}MB body)`);
+      } else {
+        console.log(`${tag} retry attempt ${attempt + 1}/${RETRY_DELAYS.length + 1}`);
       }
       const response = await fetch(url, { ...init, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
+      const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
       // Retry on transient server errors
       if ((response.status >= 500 || response.status === 529) && attempt < RETRY_DELAYS.length) {
-        console.log(`[anthropic] ${response.status} on attempt ${attempt + 1}, retrying in ${RETRY_DELAYS[attempt]}ms`);
+        console.log(`${tag} HTTP ${response.status} after ${elapsed}s, retrying in ${RETRY_DELAYS[attempt]}ms`);
         await new Promise((r) => setTimeout(r, RETRY_DELAYS[attempt]));
         continue;
       }
+      console.log(`${tag} HTTP ${response.status} after ${elapsed}s`);
       return response;
     } catch (err) {
+      const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
+      const msg = (err as Error).message;
       if (attempt < RETRY_DELAYS.length) {
-        console.log(`[anthropic] fetch error on attempt ${attempt + 1} (body ${(bodySize / 1_000_000).toFixed(1)}MB): ${(err as Error).message}, retrying in ${RETRY_DELAYS[attempt]}ms`);
+        console.log(`${tag} FAILED after ${elapsed}s (${sizeMB}MB): ${msg}, retrying in ${RETRY_DELAYS[attempt]}ms`);
         await new Promise((r) => setTimeout(r, RETRY_DELAYS[attempt]));
         continue;
       }
+      console.error(`${tag} FAILED after ${elapsed}s (${sizeMB}MB), all retries exhausted: ${msg}`);
       throw err;
     }
   }
@@ -59,6 +70,7 @@ export async function callAnthropic(
   system: string,
   content: Array<Record<string, unknown>>,
   maxTokens: number,
+  label?: string,
 ): Promise<{ text: string; truncated: boolean; error?: string; status?: number }> {
   const response = await fetchWithRetry("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -73,10 +85,12 @@ export async function callAnthropic(
       system,
       messages: [{ role: "user", content }],
     }),
-  });
+  }, label);
 
   if (!response.ok) {
-    return { text: "", truncated: false, error: await response.text(), status: response.status };
+    const errText = await response.text();
+    console.error(`[anthropic:${label ?? "text"}] API error ${response.status}: ${errText.slice(0, 200)}`);
+    return { text: "", truncated: false, error: errText, status: response.status };
   }
 
   const result = await response.json();
@@ -85,6 +99,9 @@ export async function callAnthropic(
     ?.map((block: AnthropicBlock) => block.text)
     ?.join("\n") || "";
   const truncated = result.stop_reason !== "end_turn";
+  const inputTokens = result.usage?.input_tokens ?? "?";
+  const outputTokens = result.usage?.output_tokens ?? "?";
+  console.log(`[anthropic:${label ?? "text"}] OK — ${inputTokens} in / ${outputTokens} out, stop=${result.stop_reason}`);
 
   return { text, truncated };
 }
@@ -95,9 +112,10 @@ export async function callAnthropicForText(
   documents: CloDocument[],
   userText: string,
   maxTokens: number,
+  label?: string,
 ): Promise<{ text: string; truncated: boolean; error?: string; status?: number }> {
   const content = buildDocumentContent(documents, userText);
-  return callAnthropic(apiKey, system, content, maxTokens);
+  return callAnthropic(apiKey, system, content, maxTokens, label);
 }
 
 export async function callAnthropicWithTool(
@@ -106,7 +124,9 @@ export async function callAnthropicWithTool(
   content: Array<Record<string, unknown>>,
   maxTokens: number,
   tool: { name: string; description: string; inputSchema: Record<string, unknown> },
+  label?: string,
 ): Promise<{ data: Record<string, unknown> | null; truncated: boolean; error?: string; status?: number }> {
+  const callLabel = label ?? tool.name;
   const response = await fetchWithRetry("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -126,18 +146,23 @@ export async function callAnthropicWithTool(
       }],
       tool_choice: { type: "tool", name: tool.name },
     }),
-  });
+  }, callLabel);
 
   if (!response.ok) {
-    return { data: null, truncated: false, error: await response.text(), status: response.status };
+    const errText = await response.text();
+    console.error(`[anthropic:${callLabel}] API error ${response.status}: ${errText.slice(0, 200)}`);
+    return { data: null, truncated: false, error: errText, status: response.status };
   }
 
   const result = await response.json();
+  const inputTokens = result.usage?.input_tokens ?? "?";
+  const outputTokens = result.usage?.output_tokens ?? "?";
   const toolUseBlock = result.content?.find(
     (block: { type: string }) => block.type === "tool_use"
   );
 
   if (!toolUseBlock) {
+    console.log(`[anthropic:${callLabel}] OK (no tool_use) — ${inputTokens} in / ${outputTokens} out, stop=${result.stop_reason}`);
     const text = result.content
       ?.filter((block: AnthropicBlock) => block.type === "text")
       ?.map((block: AnthropicBlock) => block.text)
@@ -145,6 +170,7 @@ export async function callAnthropicWithTool(
     return { data: text ? parseJsonResponse(text) : null, truncated: result.stop_reason !== "end_turn" };
   }
 
+  console.log(`[anthropic:${callLabel}] OK — ${inputTokens} in / ${outputTokens} out, stop=${result.stop_reason}`);
   return {
     data: toolUseBlock.input as Record<string, unknown>,
     truncated: result.stop_reason !== "end_turn" && result.stop_reason !== "tool_use",

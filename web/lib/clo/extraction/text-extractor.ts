@@ -61,7 +61,8 @@ async function extractSectionChunk(
 
   const { system, user } = transcriptionPrompt(section);
 
-  const result = await callAnthropicForText(apiKey, system, [chunkDoc], user, maxTokens);
+  const label = `transcribe:${section.sectionType}:pp${chunkStart}-${chunkEnd}`;
+  const result = await callAnthropicForText(apiKey, system, [chunkDoc], user, maxTokens, label);
 
   if (result.error) {
     return { markdown: "", truncated: false, error: result.error };
@@ -128,12 +129,18 @@ export async function extractAllSectionTexts(
 
   for (let i = 0; i < sections.length; i += concurrency) {
     const batch = sections.slice(i, i + concurrency);
+    const batchNum = Math.floor(i / concurrency) + 1;
+    const totalBatches = Math.ceil(sections.length / concurrency);
+    console.log(`[text-extractor] batch ${batchNum}/${totalBatches}: ${batch.map((s) => `${s.sectionType}(pp${s.pageStart}-${s.pageEnd})`).join(", ")}`);
     const batchResults = await Promise.all(
       batch.map(async (section) => {
         try {
-          return await extractSectionText(apiKey, pdfDocument, section);
+          const result = await extractSectionText(apiKey, pdfDocument, section);
+          const status = result.markdown ? `OK (${result.markdown.length} chars)` : "EMPTY";
+          console.log(`[text-extractor] ${section.sectionType}: ${status}`);
+          return result;
         } catch (err) {
-          console.error(`[text-extractor] Unexpected error for "${section.sectionType}": ${(err as Error).message}`);
+          console.error(`[text-extractor] ${section.sectionType}: FAILED — ${(err as Error).message}`);
           return { sectionType: section.sectionType, pageStart: section.pageStart, pageEnd: section.pageEnd, markdown: "", truncated: false };
         }
       }),
