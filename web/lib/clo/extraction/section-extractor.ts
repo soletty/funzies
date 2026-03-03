@@ -1,6 +1,6 @@
 import type { SectionText } from "./text-extractor";
 import { callAnthropicWithTool } from "../api";
-import { zodToToolSchema } from "./runner";
+import { zodToToolSchema } from "./schema-utils";
 import * as schemas from "./section-schemas";
 import * as prompts from "./section-prompts";
 
