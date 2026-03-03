@@ -77,7 +77,7 @@ export async function POST(
      WHERE id = $1`,
     [assemblyId]
   );
-  if (total_size + file.size > MAX_TOTAL_SIZE) {
+  if (Number(total_size) + file.size > MAX_TOTAL_SIZE) {
     return NextResponse.json({ error: "Total attachments exceed 50MB limit" }, { status: 400 });
   }
 
