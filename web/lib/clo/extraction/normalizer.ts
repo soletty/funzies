@@ -70,6 +70,58 @@ function deduplicateComplianceTests(
   });
 }
 
+/** Dedup key for a holding: prefer ISIN > LXID > obligor+facility */
+function holdingDedupKey(h: { obligorName?: string | null; facilityName?: string | null; isin?: string | null; lxid?: string | null }): string {
+  if (h.isin) return `isin:${h.isin.trim().toUpperCase()}`;
+  if (h.lxid) return `lxid:${h.lxid.trim().toUpperCase()}`;
+  const obligor = (h.obligorName ?? "").toLowerCase().trim();
+  const facility = (h.facilityName ?? "").toLowerCase().trim();
+  return `name:${obligor}|${facility}`;
+}
+
+/** Score a holding by data completeness (higher = more complete) */
+function holdingDataScore(h: Record<string, unknown>): number {
+  let score = 0;
+  if (h.parBalance != null) score += 10;
+  if (h.spreadBps != null) score += 5;
+  if (h.moodysRating != null) score += 3;
+  if (h.spRating != null) score += 3;
+  if (h.maturityDate != null) score += 2;
+  if (h.industryDescription != null) score += 2;
+  if (h.currentPrice != null) score += 1;
+  if (h.allInRate != null) score += 1;
+  return score;
+}
+
+/** Deduplicate holdings — keep the entry with most data for each unique asset */
+function deduplicateHoldings(
+  holdings: Pass2Output["holdings"],
+): Pass2Output["holdings"] {
+  if (holdings.length === 0) return holdings;
+
+  const groups = new Map<string, typeof holdings>();
+  for (const h of holdings) {
+    const key = holdingDedupKey(h);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push(h);
+  }
+
+  return Array.from(groups.values()).map((group) => {
+    if (group.length === 1) return group[0];
+    // Merge: start with most complete entry, fill nulls from others
+    group.sort((a, b) => holdingDataScore(b) - holdingDataScore(a));
+    const best = { ...group[0] };
+    for (const other of group.slice(1)) {
+      for (const [key, val] of Object.entries(other)) {
+        if (val != null && (best as Record<string, unknown>)[key] == null) {
+          (best as Record<string, unknown>)[key] = val;
+        }
+      }
+    }
+    return best;
+  });
+}
+
 export function normalizePass1(data: Pass1Output, reportPeriodId: string): {
   poolSummary: Record<string, unknown>;
   complianceTests: Record<string, unknown>[];
@@ -91,8 +143,9 @@ export function normalizePass2(data: Pass2Output, reportPeriodId: string): {
   holdings: Record<string, unknown>[];
 } {
   const base = { report_period_id: reportPeriodId };
+  const deduped = deduplicateHoldings(data.holdings);
   return {
-    holdings: data.holdings.map((h) => toDbRow(h, base)),
+    holdings: deduped.map((h) => toDbRow(h, base)),
   };
 }
 
