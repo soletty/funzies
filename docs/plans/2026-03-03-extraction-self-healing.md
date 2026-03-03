@@ -289,7 +289,7 @@ In `runner.ts`, after the validation result is computed (after line 407 `const v
           const schema = repair.pass === 2 ? pass2Schema : repair.pass === 3 ? pass3Schema : repair.pass === 4 ? pass4Schema : pass5Schema;
           const toolName = `extract_pass${repair.pass}`;
 
-          console.log(`[extraction] Running continuation for Pass ${repair.pass}, last items: ${items.join(", ")}`);
+          console.log(`[extraction] Running continuation  for Pass ${repair.pass}, last items: ${items.join(", ")}`);
           const contResult = await callClaudeStructured(apiKey, contPrompt.system, documents, contPrompt.user, 65536, schema, toolName);
 
           if (contResult.data && !contResult.error) {
