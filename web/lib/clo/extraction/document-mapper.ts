@@ -1,7 +1,10 @@
 import { z } from "zod";
+import { PDFDocument } from "pdf-lib";
 import { callAnthropicWithTool, buildDocumentContent } from "../api";
 import { zodToToolSchema } from "./schema-utils";
 import type { CloDocument } from "../types";
+
+const MAX_MAPPING_PAGES = 95; // Stay under the 100-page API limit
 
 // Section types for compliance reports (trustee reports / monthly reports)
 export const COMPLIANCE_SECTION_TYPES = [
@@ -48,7 +51,11 @@ const documentMapSchema = z.object({
 export type DocumentMap = z.infer<typeof documentMapSchema>;
 export type SectionEntry = z.infer<typeof sectionSchema>;
 
-function mapperPrompt(): { system: string; user: string } {
+function mapperPrompt(pageOffset?: number, totalPages?: number): { system: string; user: string } {
+  const pageOffsetNote = pageOffset && totalPages
+    ? `\n\nIMPORTANT: You are viewing pages ${pageOffset + 1} through ${Math.min(pageOffset + MAX_MAPPING_PAGES, totalPages)} of a ${totalPages}-page document. Report page numbers relative to the ORIGINAL document (the first page you see is page ${pageOffset + 1}).`
+    : "";
+
   const system = `You are a CLO document analyst. Your task is to identify the structure of a CLO document by finding each major section and the page range it occupies.
 
 First, determine the document type:
@@ -71,20 +78,22 @@ Rules:
 - Add notes for unusual layouts, merged sections, or anything noteworthy.
 - Only include sections that are actually present in the document. Do not guess or fabricate sections.
 - A section's pageEnd must be >= its pageStart.
-- Sections may overlap if content spans shared pages.`;
+- Sections may overlap if content spans shared pages.${pageOffsetNote}`;
 
   const user = `Analyze this CLO document. Identify the document type and map out all sections with their page ranges. Use the provided tool to return the structured result.`;
 
   return { system, user };
 }
 
-export async function mapDocument(
+async function mapDocumentChunk(
   apiKey: string,
-  documents: CloDocument[],
+  chunkDoc: CloDocument,
+  nonPdfDocs: CloDocument[],
+  pageOffset: number,
+  totalPages: number,
 ): Promise<DocumentMap> {
-  const { system, user } = mapperPrompt();
-  const content = buildDocumentContent(documents, user);
-
+  const { system, user } = mapperPrompt(pageOffset, totalPages);
+  const content = buildDocumentContent([...nonPdfDocs, chunkDoc], user);
   const inputSchema = zodToToolSchema(documentMapSchema);
 
   const result = await callAnthropicWithTool(apiKey, system, content, 4096, {
@@ -102,4 +111,76 @@ export async function mapDocument(
   }
 
   return result.data as unknown as DocumentMap;
+}
+
+const CONFIDENCE_RANK = { high: 3, medium: 2, low: 1 } as const;
+
+function mergeSectionMaps(maps: DocumentMap[]): DocumentMap {
+  const documentType = maps[0].documentType;
+  const bestByType = new Map<string, SectionEntry>();
+
+  for (const map of maps) {
+    for (const section of map.sections) {
+      const existing = bestByType.get(section.sectionType);
+      if (!existing || CONFIDENCE_RANK[section.confidence] > CONFIDENCE_RANK[existing.confidence]) {
+        bestByType.set(section.sectionType, section);
+      }
+    }
+  }
+
+  return { documentType, sections: Array.from(bestByType.values()) };
+}
+
+export async function mapDocument(
+  apiKey: string,
+  documents: CloDocument[],
+): Promise<DocumentMap> {
+  const pdfDoc = documents.find((d) => d.type === "application/pdf");
+  const nonPdfDocs = documents.filter((d) => d.type !== "application/pdf");
+
+  // Small PDF or no PDF: send directly
+  if (!pdfDoc) {
+    const { system, user } = mapperPrompt();
+    const content = buildDocumentContent(documents, user);
+    const inputSchema = zodToToolSchema(documentMapSchema);
+    const result = await callAnthropicWithTool(apiKey, system, content, 4096, {
+      name: "map_document_sections",
+      description: "Return the document type and a list of identified sections with their page ranges.",
+      inputSchema,
+    });
+    if (result.error) throw new Error(`Document mapping failed: ${result.error}`);
+    if (!result.data) throw new Error("Document mapping returned no data");
+    return result.data as unknown as DocumentMap;
+  }
+
+  const srcDoc = await PDFDocument.load(Buffer.from(pdfDoc.base64, "base64"));
+  const totalPages = srcDoc.getPageCount();
+
+  if (totalPages <= MAX_MAPPING_PAGES) {
+    return mapDocumentChunk(apiKey, pdfDoc, nonPdfDocs, 0, totalPages);
+  }
+
+  // Large PDF: split into chunks and map each, then merge
+  console.log(`[document-mapper] PDF has ${totalPages} pages, splitting into chunks of ${MAX_MAPPING_PAGES}`);
+  const chunkPromises: Promise<DocumentMap>[] = [];
+
+  for (let start = 0; start < totalPages; start += MAX_MAPPING_PAGES) {
+    const end = Math.min(start + MAX_MAPPING_PAGES, totalPages);
+    const chunkDoc = await PDFDocument.create();
+    const pages = await chunkDoc.copyPages(srcDoc, Array.from({ length: end - start }, (_, i) => start + i));
+    pages.forEach((p) => chunkDoc.addPage(p));
+    const chunkBytes = await chunkDoc.save();
+
+    const chunkCloDoc: CloDocument = {
+      name: `${pdfDoc.name} (pages ${start + 1}-${end})`,
+      type: "application/pdf",
+      size: chunkBytes.length,
+      base64: Buffer.from(chunkBytes).toString("base64"),
+    };
+
+    chunkPromises.push(mapDocumentChunk(apiKey, chunkCloDoc, nonPdfDocs, start, totalPages));
+  }
+
+  const maps = await Promise.all(chunkPromises);
+  return mergeSectionMaps(maps);
 }
