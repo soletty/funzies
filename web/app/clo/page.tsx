@@ -164,16 +164,19 @@ function TestComplianceSection({ tests, newTests }: { tests?: ComplianceTest[]; 
       <h2>Test Compliance</h2>
       <div style={{ display: "grid", gap: "0.75rem" }}>
         {tests.map((t) => {
-          const maxVal = Math.max(t.actual, t.trigger) * 1.1;
-          const actualPct = (t.actual / maxVal) * 100;
-          const triggerPct = (t.trigger / maxVal) * 100;
-          const color = cushionColor(t.cushion, t.trigger);
+          const actual = t.actual ?? 0;
+          const trigger = t.trigger ?? 0;
+          const cushion = t.cushion ?? 0;
+          const maxVal = Math.max(actual, trigger) * 1.1 || 1;
+          const actualPct = (actual / maxVal) * 100;
+          const triggerPct = (trigger / maxVal) * 100;
+          const color = cushionColor(cushion, trigger);
           return (
             <div key={t.name}>
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem", marginBottom: "0.25rem" }}>
                 <span style={{ fontWeight: 600 }}>{t.name}</span>
                 <span style={{ color: "var(--color-text-muted)" }}>
-                  {t.actual.toFixed(1)}% (trigger: {t.trigger.toFixed(1)}%, cushion: {t.cushion >= 0 ? "+" : ""}{t.cushion.toFixed(1)}%)
+                  {(t.actual ?? 0).toFixed(1)}% (trigger: {(t.trigger ?? 0).toFixed(1)}%, cushion: {(t.cushion ?? 0) >= 0 ? "+" : ""}{(t.cushion ?? 0).toFixed(1)}%)
                 </span>
               </div>
               <div style={{ position: "relative", height: "1.25rem", background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: "var(--radius-sm)", overflow: "hidden" }}>
@@ -386,13 +389,13 @@ function LegacyConcentrationsSection({ concentrations }: { concentrations: Extra
       <div key={item.category} style={{ marginBottom: "0.4rem" }}>
         <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.75rem", marginBottom: "0.15rem" }}>
           <span>{item.category}</span>
-          <span>{item.percentage.toFixed(1)}%{item.limit != null ? ` / ${item.limit}%` : ""}</span>
+          <span>{(item.percentage ?? 0).toFixed(1)}%{item.limit != null ? ` / ${item.limit}%` : ""}</span>
         </div>
         <div style={{ position: "relative", height: "0.5rem", background: "var(--color-border)", borderRadius: "3px", overflow: "hidden" }}>
           <div style={{
             height: "100%",
-            width: `${Math.min(item.percentage, 100)}%`,
-            background: item.limit != null && item.percentage > item.limit
+            width: `${Math.min(item.percentage ?? 0, 100)}%`,
+            background: item.limit != null && (item.percentage ?? 0) > item.limit
               ? "var(--color-error, #ef4444)"
               : "var(--color-accent)",
             borderRadius: "3px",
