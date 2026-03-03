@@ -114,6 +114,22 @@ async function mapDocumentChunk(
   return result.data as unknown as DocumentMap;
 }
 
+const VALID_SECTION_TYPES: Set<string> = new Set([
+  ...COMPLIANCE_SECTION_TYPES,
+  ...PPM_SECTION_TYPES,
+]);
+
+function filterToKnownSections(map: DocumentMap): DocumentMap {
+  const before = map.sections.length;
+  const filtered = map.sections.filter((s) => VALID_SECTION_TYPES.has(s.sectionType));
+  const removed = before - filtered.length;
+  if (removed > 0) {
+    const dropped = map.sections.filter((s) => !VALID_SECTION_TYPES.has(s.sectionType)).map((s) => s.sectionType);
+    console.log(`[document-mapper] filtered out ${removed} unknown section types: ${dropped.join(", ")}`);
+  }
+  return { ...map, sections: filtered };
+}
+
 const CONFIDENCE_RANK = { high: 3, medium: 2, low: 1 } as const;
 
 function mergeSectionMaps(maps: DocumentMap[]): DocumentMap {
@@ -131,7 +147,7 @@ function mergeSectionMaps(maps: DocumentMap[]): DocumentMap {
 
   const merged = Array.from(bestByType.values());
   console.log(`[document-mapper] merged ${maps.length} chunk maps → ${merged.length} sections: ${merged.map((s) => `${s.sectionType}(pp${s.pageStart}-${s.pageEnd},${s.confidence})`).join(", ")}`);
-  return { documentType, sections: merged };
+  return filterToKnownSections({ documentType, sections: merged });
 }
 
 export async function mapDocument(
@@ -153,14 +169,15 @@ export async function mapDocument(
     });
     if (result.error) throw new Error(`Document mapping failed: ${result.error}`);
     if (!result.data) throw new Error("Document mapping returned no data");
-    return result.data as unknown as DocumentMap;
+    return filterToKnownSections(result.data as unknown as DocumentMap);
   }
 
   const srcDoc = await PDFDocument.load(Buffer.from(pdfDoc.base64, "base64"));
   const totalPages = srcDoc.getPageCount();
 
   if (totalPages <= MAX_MAPPING_PAGES) {
-    return mapDocumentChunk(apiKey, pdfDoc, nonPdfDocs, 0, totalPages);
+    const map = await mapDocumentChunk(apiKey, pdfDoc, nonPdfDocs, 0, totalPages);
+    return filterToKnownSections(map);
   }
 
   // Large PDF: split into chunks, map in batches of 2, then merge
