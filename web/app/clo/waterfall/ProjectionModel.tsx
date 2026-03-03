@@ -158,7 +158,6 @@ export default function ProjectionModel({
   const [recoveryPct, setRecoveryPct] = useState(60);
   const [recoveryLagMonths, setRecoveryLagMonths] = useState(12);
   const [reinvestmentSpreadBps, setReinvestmentSpreadBps] = useState(350);
-  const [showAdvanced, setShowAdvanced] = useState(false);
   const [baseRatePct, setBaseRatePct] = useState(4.5);
   const [seniorFeePct, setSeniorFeePct] = useState(0.45);
   const [showCashFlows, setShowCashFlows] = useState(false);
@@ -290,40 +289,9 @@ export default function ProjectionModel({
           <SliderInput label="Recovery Rate" value={recoveryPct} onChange={setRecoveryPct} min={0} max={80} step={1} suffix="%" />
           <SliderInput label="Recovery Lag" value={recoveryLagMonths} onChange={setRecoveryLagMonths} min={0} max={24} step={1} suffix=" mo" />
           <SliderInput label="Reinvestment Spread" value={reinvestmentSpreadBps} onChange={setReinvestmentSpreadBps} min={0} max={500} step={10} suffix=" bps" />
+          <SliderInput label="Base Rate (SOFR)" value={baseRatePct} onChange={setBaseRatePct} min={0} max={8} step={0.25} suffix="%" />
+          <SliderInput label="Senior Fee Rate" value={seniorFeePct} onChange={setSeniorFeePct} min={0} max={1} step={0.05} suffix="%" />
         </div>
-
-        <div style={{ marginTop: "1rem" }}>
-          <button
-            onClick={() => setShowAdvanced(!showAdvanced)}
-            style={{
-              background: "none",
-              border: "none",
-              color: "var(--color-text-muted)",
-              cursor: "pointer",
-              fontSize: "0.78rem",
-              padding: 0,
-              fontFamily: "var(--font-body)",
-            }}
-          >
-            {showAdvanced ? "▾" : "▸"} Advanced
-          </button>
-        </div>
-
-        {showAdvanced && (
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-              gap: "1.25rem",
-              marginTop: "1rem",
-              paddingTop: "1rem",
-              borderTop: "1px solid var(--color-border-light)",
-            }}
-          >
-            <SliderInput label="Base Rate (SOFR)" value={baseRatePct} onChange={setBaseRatePct} min={0} max={8} step={0.25} suffix="%" />
-            <SliderInput label="Senior Fee Rate" value={seniorFeePct} onChange={setSeniorFeePct} min={0} max={1} step={0.05} suffix="%" />
-          </div>
-        )}
       </div>
 
       {/* AI Suggest */}

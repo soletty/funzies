@@ -14,6 +14,57 @@ interface Props {
   complianceTests: CloComplianceTest[];
 }
 
+/**
+ * Extract the class letter/number from a tranche name.
+ * "Class A Senior Secured Floating Rate Notes due 2035" → "A"
+ * "Class B-1 Senior Secured Floating Rate Notes due 2035" → "B-1"
+ * "Subordinated Notes due 2035" → "SUB"
+ */
+function extractClassKey(name: string): string {
+  if (/subordinated/i.test(name)) return "SUB";
+  const m = name.match(/class\s+([a-z](?:[/-]\d+)?)/i);
+  return m ? m[1].toUpperCase() : name.toLowerCase();
+}
+
+/** Is this a detailed tranche name (has "due YYYY" or specific terms)? */
+function isDetailedName(name: string): boolean {
+  return /due\s+\d{4}/i.test(name) || /\b(floating|fixed|deferrable|secured|loan)\b/i.test(name);
+}
+
+/**
+ * Deduplicate tranches. Reports often have both summary ("Class A Notes $248M")
+ * and detailed ("Class A Loan $115M" + "Class A Notes $114.30M") entries.
+ * When detailed versions exist for a class, remove the aggregate summary.
+ */
+function deduplicateTranches(
+  tranches: CloTranche[],
+  _snapshots: Map<string, CloTrancheSnapshot>,
+): CloTranche[] {
+  const groups = new Map<string, CloTranche[]>();
+  for (const t of tranches) {
+    const key = extractClassKey(t.className);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push(t);
+  }
+
+  const result: CloTranche[] = [];
+  for (const group of groups.values()) {
+    if (group.length === 1) {
+      result.push(group[0]);
+      continue;
+    }
+    const detailed = group.filter((t) => isDetailedName(t.className));
+    const summary = group.filter((t) => !isDetailedName(t.className));
+    // If we have both detailed and summary, keep only detailed
+    if (detailed.length > 0 && summary.length > 0) {
+      result.push(...detailed);
+    } else {
+      result.push(...group);
+    }
+  }
+  return result;
+}
+
 function formatAmount(val: number | null): string {
   if (val === null || val === undefined) return "—";
   if (Math.abs(val) >= 1e6) return `$${(val / 1e6).toFixed(2)}M`;
@@ -223,12 +274,22 @@ export default function WaterfallVisualization({
   const combinedSteps = waterfallSteps.filter((s) => s.waterfallType === "COMBINED" || !s.waterfallType);
 
   const snapshotByTrancheId = new Map(trancheSnapshots.map((s) => [s.trancheId, s]));
-  const trancheRows = tranches
+
+  // Deduplicate tranches — extraction may create both "Class A Notes" and
+  // "Class A Senior Secured Floating Rate Notes due 2035" for the same tranche.
+  // Keep the one with more data (has snapshot, has balance, has spread).
+  const deduped = deduplicateTranches(tranches, snapshotByTrancheId);
+
+  const trancheRows = deduped
     .sort((a, b) => (a.seniorityRank ?? 99) - (b.seniorityRank ?? 99))
     .map((t) => {
       const snap = snapshotByTrancheId.get(t.id);
       return { tranche: t, snapshot: snap ?? null };
     });
+
+  const hasPaymentData = trancheRows.some(
+    (r) => r.snapshot && (r.snapshot.interestPaid != null || r.snapshot.principalPaid != null),
+  );
 
   return (
     <div className="wf-section" style={{ marginBottom: "2.5rem" }}>
@@ -267,7 +328,9 @@ export default function WaterfallVisualization({
         <WaterfallSection title="Payment Waterfall" steps={combinedSteps} />
       )}
 
-      {trancheRows.length > 0 && trancheRows.some((r) => r.snapshot) && (
+      {trancheRows.length > 0 && (() => {
+        const hasPaymentData = trancheRows.some((r) => r.snapshot);
+        return (
         <div style={{ marginTop: "2rem" }}>
           <h3
             style={{
@@ -277,7 +340,7 @@ export default function WaterfallVisualization({
               marginBottom: "0.75rem",
             }}
           >
-            Tranche Payment Summary
+            {hasPaymentData ? "Tranche Payment Summary" : "Capital Structure"}
           </h3>
           <div
             style={{
@@ -303,21 +366,11 @@ export default function WaterfallVisualization({
                     background: "var(--color-surface)",
                   }}
                 >
-                  <th style={{ padding: "0.6rem 0.75rem", fontWeight: 600, fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--color-text-muted)" }}>
-                    Class
-                  </th>
-                  <th style={{ padding: "0.6rem 0.75rem", textAlign: "right", fontWeight: 600, fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--color-text-muted)" }}>
-                    Balance
-                  </th>
-                  <th style={{ padding: "0.6rem 0.75rem", textAlign: "right", fontWeight: 600, fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--color-text-muted)" }}>
-                    Interest
-                  </th>
-                  <th style={{ padding: "0.6rem 0.75rem", textAlign: "right", fontWeight: 600, fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--color-text-muted)" }}>
-                    Principal
-                  </th>
-                  <th style={{ padding: "0.6rem 0.75rem", textAlign: "right", fontWeight: 600, fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--color-text-muted)" }}>
-                    Shortfall
-                  </th>
+                  {["Class", "Balance", ...(hasPaymentData ? ["Interest", "Principal", "Shortfall"] : [])].map((col) => (
+                    <th key={col} style={{ padding: "0.6rem 0.75rem", textAlign: col === "Class" ? "left" : "right", fontWeight: 600, fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--color-text-muted)" }}>
+                      {col}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
@@ -332,37 +385,42 @@ export default function WaterfallVisualization({
                     <td style={{ padding: "0.6rem 0.75rem", textAlign: "right", fontFamily: "var(--font-mono)", fontSize: "0.78rem" }}>
                       {formatAmount(snapshot?.currentBalance ?? tranche.originalBalance)}
                     </td>
-                    <td style={{ padding: "0.6rem 0.75rem", textAlign: "right", fontFamily: "var(--font-mono)", fontSize: "0.78rem" }}>
-                      {formatAmount(snapshot?.interestPaid ?? null)}
-                    </td>
-                    <td style={{ padding: "0.6rem 0.75rem", textAlign: "right", fontFamily: "var(--font-mono)", fontSize: "0.78rem" }}>
-                      {formatAmount(snapshot?.principalPaid ?? null)}
-                    </td>
-                    <td
-                      style={{
-                        padding: "0.6rem 0.75rem",
-                        textAlign: "right",
-                        fontFamily: "var(--font-mono)",
-                        fontSize: "0.78rem",
-                        color:
-                          snapshot?.interestShortfall && snapshot.interestShortfall > 0
-                            ? "var(--color-low)"
-                            : undefined,
-                        fontWeight:
-                          snapshot?.interestShortfall && snapshot.interestShortfall > 0
-                            ? 600
-                            : undefined,
-                      }}
-                    >
-                      {formatAmount(snapshot?.interestShortfall ?? null)}
-                    </td>
+                    {hasPaymentData && (
+                      <>
+                        <td style={{ padding: "0.6rem 0.75rem", textAlign: "right", fontFamily: "var(--font-mono)", fontSize: "0.78rem" }}>
+                          {formatAmount(snapshot?.interestPaid ?? null)}
+                        </td>
+                        <td style={{ padding: "0.6rem 0.75rem", textAlign: "right", fontFamily: "var(--font-mono)", fontSize: "0.78rem" }}>
+                          {formatAmount(snapshot?.principalPaid ?? null)}
+                        </td>
+                        <td
+                          style={{
+                            padding: "0.6rem 0.75rem",
+                            textAlign: "right",
+                            fontFamily: "var(--font-mono)",
+                            fontSize: "0.78rem",
+                            color:
+                              snapshot?.interestShortfall && snapshot.interestShortfall > 0
+                                ? "var(--color-low)"
+                                : undefined,
+                            fontWeight:
+                              snapshot?.interestShortfall && snapshot.interestShortfall > 0
+                                ? 600
+                                : undefined,
+                          }}
+                        >
+                          {formatAmount(snapshot?.interestShortfall ?? null)}
+                        </td>
+                      </>
+                    )}
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         </div>
-      )}
+        );
+      })()}
     </div>
   );
 }
