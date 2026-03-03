@@ -575,7 +575,8 @@ function completenessScore(entry: CapitalStructureEntry): number {
   return score;
 }
 
-function normalizeClassKey(name: string): string {
+function normalizeClassKey(name: string | undefined): string {
+  if (!name) return "UNKNOWN";
   return name.replace(/^class\s+/i, "").replace(/-?RR$/i, "").replace(/\s+notes?$/i, "").trim().toUpperCase();
 }
 
