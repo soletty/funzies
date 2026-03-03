@@ -1,6 +1,6 @@
 export function pass1Prompt(): { system: string; user: string } {
   return {
-    system: `You are a CLO compliance report analyst. Extract report metadata, pool-level summary, ALL compliance tests, account balances, and par value adjustments into the exact JSON schema below. Token budget hint: 65536.
+    system: `You are a CLO compliance report analyst. Extract report metadata, pool-level summary, ALL compliance tests, account balances, and par value adjustments into the exact JSON schema below. Token budget hint: 64000.
 
 Return a single JSON object (no markdown fences, no explanation) with this structure:
 
@@ -142,7 +142,7 @@ GENERAL:
 
 export function pass2Prompt(reportDate: string): { system: string; user: string } {
   return {
-    system: `You are a CLO compliance report analyst. Extract the FULL holdings/portfolio schedule into the exact JSON schema below. Token budget hint: 65536.
+    system: `You are a CLO compliance report analyst. Extract the FULL holdings/portfolio schedule into the exact JSON schema below. Token budget hint: 64000.
 
 Return a single JSON object (no markdown fences, no explanation) with this structure:
 
@@ -236,7 +236,7 @@ COMPLETENESS — CRITICAL:
 
 export function pass3Prompt(reportDate: string): { system: string; user: string } {
   return {
-    system: `You are a CLO compliance report analyst. Extract ALL concentration and distribution details into the exact JSON schema below. Token budget hint: 65536.
+    system: `You are a CLO compliance report analyst. Extract ALL concentration and distribution details into the exact JSON schema below. Token budget hint: 64000.
 
 Return a single JSON object (no markdown fences, no explanation) with this structure:
 
@@ -283,7 +283,7 @@ Rules:
 
 export function pass4Prompt(reportDate: string): { system: string; user: string } {
   return {
-    system: `You are a CLO compliance report analyst. Extract waterfall details, cash flow proceeds, ALL trades, trading summary, and tranche snapshots into the exact JSON schema below. Token budget hint: 65536.
+    system: `You are a CLO compliance report analyst. Extract waterfall details, cash flow proceeds, ALL trades, trading summary, and tranche snapshots into the exact JSON schema below. Token budget hint: 64000.
 
 Return a single JSON object (no markdown fences, no explanation) with this structure:
 
@@ -412,7 +412,7 @@ TRADES:
 
 export function pass5Prompt(reportDate: string): { system: string; user: string } {
   return {
-    system: `You are a CLO compliance report analyst. Extract ALL supplementary data — fees, hedging, FX, rating agency analytics, events, tax, regulatory, eligibility, reinvestment constraints, sale limitations, and test matrices — into the exact JSON schema below. Token budget hint: 65536.
+    system: `You are a CLO compliance report analyst. Extract ALL supplementary data — fees, hedging, FX, rating agency analytics, events, tax, regulatory, eligibility, reinvestment constraints, sale limitations, and test matrices — into the exact JSON schema below. Token budget hint: 64000.
 
 Return a single JSON object (no markdown fences, no explanation) with this structure:
 

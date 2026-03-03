@@ -253,7 +253,7 @@ export async function runExtraction(
 
   // Pass 1: blocking — we need reportDate before anything else
   const p1Prompt = pass1Prompt();
-  const p1Result = await callClaudeStructured(apiKey, p1Prompt.system, documents, p1Prompt.user, 65536, pass1Schema, "extract_pass1");
+  const p1Result = await callClaudeStructured(apiKey, p1Prompt.system, documents, p1Prompt.user, 64000, pass1Schema, "extract_pass1");
 
   if (p1Result.error) {
     throw new Error(`Pass 1 API error: ${p1Result.error}`);
@@ -320,10 +320,10 @@ export async function runExtraction(
   }
 
   const [p2Result, p3Result, p4Result, p5Result] = await Promise.all([
-    callClaudeStructured(apiKey, pass2Prompt(reportDate).system, documents, pass2Prompt(reportDate).user, 65536, pass2Schema, "extract_pass2"),
-    callClaudeStructured(apiKey, pass3Prompt(reportDate).system, documents, pass3Prompt(reportDate).user, 65536, pass3Schema, "extract_pass3"),
-    callClaudeStructured(apiKey, pass4Prompt(reportDate).system, documents, pass4Prompt(reportDate).user, 65536, pass4Schema, "extract_pass4"),
-    callClaudeStructured(apiKey, pass5Prompt(reportDate).system, documents, pass5Prompt(reportDate).user, 65536, pass5Schema, "extract_pass5"),
+    callClaudeStructured(apiKey, pass2Prompt(reportDate).system, documents, pass2Prompt(reportDate).user, 64000, pass2Schema, "extract_pass2"),
+    callClaudeStructured(apiKey, pass3Prompt(reportDate).system, documents, pass3Prompt(reportDate).user, 64000, pass3Schema, "extract_pass3"),
+    callClaudeStructured(apiKey, pass4Prompt(reportDate).system, documents, pass4Prompt(reportDate).user, 64000, pass4Schema, "extract_pass4"),
+    callClaudeStructured(apiKey, pass5Prompt(reportDate).system, documents, pass5Prompt(reportDate).user, 64000, pass5Schema, "extract_pass5"),
   ]);
 
   const passInputs = [
@@ -488,7 +488,7 @@ export async function runExtraction(
           const schema = repair.pass === 2 ? pass2Schema : repair.pass === 3 ? pass3Schema : repair.pass === 4 ? pass4Schema : pass5Schema;
 
           console.log(`[extraction] Running continuation for Pass ${repair.pass}, last items: ${items.join(", ")}`);
-          const contResult = await callClaudeStructured(apiKey, contPrompt.system, documents, contPrompt.user, 65536, schema, `extract_pass${repair.pass}`);
+          const contResult = await callClaudeStructured(apiKey, contPrompt.system, documents, contPrompt.user, 64000, schema, `extract_pass${repair.pass}`);
 
           if (contResult.data && !contResult.error) {
             const existing = pr.data as Record<string, unknown>;
@@ -534,7 +534,7 @@ export async function runExtraction(
         const repairPr = pass2RepairPrompt(reportDate, holdings.length, expectedAssets);
 
         console.log(`[extraction] Running repair extraction for Pass 2 (${holdings.length}/${expectedAssets} holdings)`);
-        const repairResult = await callClaudeStructured(apiKey, repairPr.system, documents, repairPr.user, 65536, pass2Schema, "extract_pass2");
+        const repairResult = await callClaudeStructured(apiKey, repairPr.system, documents, repairPr.user, 64000, pass2Schema, "extract_pass2");
 
         if (repairResult.data && !repairResult.error) {
           try {
