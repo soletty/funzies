@@ -3,6 +3,31 @@ import { chunkDocuments, MAX_PDF_PAGES } from "./pdf-chunking";
 
 interface AnthropicBlock { type: string; text?: string }
 
+const RETRY_DELAYS = [5000, 15000, 30000]; // 3 retries with backoff
+
+async function fetchWithRetry(url: string, init: RequestInit): Promise<Response> {
+  for (let attempt = 0; attempt <= RETRY_DELAYS.length; attempt++) {
+    try {
+      const response = await fetch(url, { ...init, signal: AbortSignal.timeout(5 * 60 * 1000) });
+      // Retry on transient server errors
+      if ((response.status >= 500 || response.status === 529) && attempt < RETRY_DELAYS.length) {
+        console.log(`[anthropic] ${response.status} on attempt ${attempt + 1}, retrying in ${RETRY_DELAYS[attempt]}ms`);
+        await new Promise((r) => setTimeout(r, RETRY_DELAYS[attempt]));
+        continue;
+      }
+      return response;
+    } catch (err) {
+      if (attempt < RETRY_DELAYS.length) {
+        console.log(`[anthropic] fetch error on attempt ${attempt + 1}: ${(err as Error).message}, retrying in ${RETRY_DELAYS[attempt]}ms`);
+        await new Promise((r) => setTimeout(r, RETRY_DELAYS[attempt]));
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw new Error("unreachable");
+}
+
 export function buildDocumentContent(
   documents: CloDocument[],
   userText: string,
@@ -30,7 +55,7 @@ export async function callAnthropic(
   content: Array<Record<string, unknown>>,
   maxTokens: number,
 ): Promise<{ text: string; truncated: boolean; error?: string; status?: number }> {
-  const response = await fetch("https://api.anthropic.com/v1/messages", {
+  const response = await fetchWithRetry("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
       "x-api-key": apiKey,
@@ -77,7 +102,7 @@ export async function callAnthropicWithTool(
   maxTokens: number,
   tool: { name: string; description: string; inputSchema: Record<string, unknown> },
 ): Promise<{ data: Record<string, unknown> | null; truncated: boolean; error?: string; status?: number }> {
-  const response = await fetch("https://api.anthropic.com/v1/messages", {
+  const response = await fetchWithRetry("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
       "x-api-key": apiKey,

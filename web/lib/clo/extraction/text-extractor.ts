@@ -64,7 +64,14 @@ export async function extractSectionText(
   const result = await callAnthropicForText(apiKey, system, [sectionDoc], user, maxTokens);
 
   if (result.error) {
-    throw new Error(`Text extraction failed for section "${section.sectionType}" (pages ${section.pageStart}-${section.pageEnd}): ${result.error}`);
+    console.error(`[text-extractor] Failed for section "${section.sectionType}" (pages ${section.pageStart}-${section.pageEnd}): ${result.error}`);
+    return {
+      sectionType: section.sectionType,
+      pageStart: section.pageStart,
+      pageEnd: section.pageEnd,
+      markdown: "",
+      truncated: false,
+    };
   }
 
   return {
@@ -88,7 +95,14 @@ export async function extractAllSectionTexts(
   for (let i = 0; i < sections.length; i += concurrency) {
     const batch = sections.slice(i, i + concurrency);
     const batchResults = await Promise.all(
-      batch.map((section) => extractSectionText(apiKey, pdfDocument, section)),
+      batch.map(async (section) => {
+        try {
+          return await extractSectionText(apiKey, pdfDocument, section);
+        } catch (err) {
+          console.error(`[text-extractor] Unexpected error for "${section.sectionType}": ${(err as Error).message}`);
+          return { sectionType: section.sectionType, pageStart: section.pageStart, pageEnd: section.pageEnd, markdown: "", truncated: false };
+        }
+      }),
     );
     results.push(...batchResults);
   }

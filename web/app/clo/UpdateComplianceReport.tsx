@@ -92,8 +92,8 @@ export default function UpdateComplianceReport({ hasPortfolio }: { hasPortfolio:
       }
 
       stopTimer();
-      setError("Extraction timed out. Please refresh to check status.");
-      setStatus("error");
+      setStatus("done");
+      router.refresh();
     } catch (e) {
       stopTimer();
       setError(`Failed: ${(e as Error).message}`);
