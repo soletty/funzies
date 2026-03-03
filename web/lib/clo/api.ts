@@ -31,7 +31,10 @@ async function fetchWithRetry(url: string, init: RequestInit, label?: string): P
       return response;
     } catch (err) {
       const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
-      const msg = (err as Error).message;
+      const e = err as Error & { cause?: unknown; code?: string };
+      const cause = e.cause ? ` cause=${e.cause instanceof Error ? e.cause.message : JSON.stringify(e.cause)}` : "";
+      const code = e.code ? ` code=${e.code}` : "";
+      const msg = `${e.message}${code}${cause}`;
       if (attempt < RETRY_DELAYS.length) {
         console.log(`${tag} FAILED after ${elapsed}s (${sizeMB}MB): ${msg}, retrying in ${RETRY_DELAYS[attempt]}ms`);
         await new Promise((r) => setTimeout(r, RETRY_DELAYS[attempt]));
