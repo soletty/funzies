@@ -50,6 +50,23 @@ export interface DocumentChunkSet {
   chunkLabel: string;
 }
 
+export async function extractPdfPages(
+  base64: string,
+  pageStart: number,
+  pageEnd: number,
+): Promise<string> {
+  const srcDoc = await PDFDocument.load(Buffer.from(base64, "base64"));
+  const destDoc = await PDFDocument.create();
+  const totalPages = srcDoc.getPageCount();
+  const start = Math.max(0, pageStart - 1); // 1-indexed to 0-indexed
+  const end = Math.min(totalPages, pageEnd);
+  const indices = Array.from({ length: end - start }, (_, i) => start + i);
+  const pages = await destDoc.copyPages(srcDoc, indices);
+  pages.forEach((p) => destDoc.addPage(p));
+  const bytes = await destDoc.save();
+  return Buffer.from(bytes).toString("base64");
+}
+
 export async function chunkDocuments(documents: CloDocument[], pageLimit?: number): Promise<DocumentChunkSet[]> {
   const limit = pageLimit ?? MAX_PDF_PAGES;
 
