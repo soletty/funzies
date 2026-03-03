@@ -90,9 +90,36 @@ export async function runSectionExtraction(
     sections[result.sectionType] = result.data;
   }
 
+  // Log detailed extraction summary per section
+  console.log(`[extraction] ═══ SECTION DATA SUMMARY ═══`);
+  for (const [sectionType, data] of Object.entries(sections)) {
+    if (!data) {
+      console.log(`[extraction] ${sectionType}: NULL (extraction failed)`);
+      continue;
+    }
+    const keys = Object.keys(data);
+    const summary: string[] = [];
+    for (const key of keys) {
+      const val = data[key];
+      if (Array.isArray(val)) {
+        summary.push(`${key}=${val.length} items`);
+      } else if (val === null || val === undefined) {
+        summary.push(`${key}=null`);
+      } else if (typeof val === "object") {
+        summary.push(`${key}={${Object.keys(val as Record<string, unknown>).length} keys}`);
+      } else {
+        const s = String(val);
+        summary.push(`${key}=${s.length > 50 ? s.slice(0, 50) + "..." : s}`);
+      }
+    }
+    console.log(`[extraction] ${sectionType}: ${summary.join(", ")}`);
+  }
+  console.log(`[extraction] ═══════════════════════════`);
+
   // Extract reportDate from compliance_summary
-  const summary = sections.compliance_summary as Record<string, unknown> | null;
-  const reportDate = (summary?.reportDate as string) ?? new Date().toISOString().slice(0, 10);
+  const summarySection = sections.compliance_summary as Record<string, unknown> | null;
+  const reportDate = (summarySection?.reportDate as string) ?? new Date().toISOString().slice(0, 10);
+  console.log(`[extraction] reportDate=${reportDate}`);
 
   // Get or create deal, create report period
   const dealId = await getOrCreateDeal(profileId);
@@ -117,49 +144,82 @@ export async function runSectionExtraction(
   await progress("saving", "Saving extracted data to database...");
   const normalized = normalizeSectionResults(sections, reportPeriodId, dealId);
 
+  // Log normalized data counts
+  console.log(`[extraction] ═══ NORMALIZED DATA COUNTS ═══`);
+  console.log(`[extraction] poolSummary: ${normalized.poolSummary ? Object.keys(normalized.poolSummary).length + " fields" : "null"}`);
+  console.log(`[extraction] complianceTests: ${normalized.complianceTests.length}`);
+  console.log(`[extraction] holdings: ${normalized.holdings.length}`);
+  console.log(`[extraction] concentrations: ${normalized.concentrations.length}`);
+  console.log(`[extraction] waterfallSteps: ${normalized.waterfallSteps.length}`);
+  console.log(`[extraction] proceeds: ${normalized.proceeds.length}`);
+  console.log(`[extraction] trades: ${normalized.trades.length}`);
+  console.log(`[extraction] tradingSummary: ${normalized.tradingSummary ? "yes" : "null"}`);
+  console.log(`[extraction] trancheSnapshots: ${normalized.trancheSnapshots.length}`);
+  console.log(`[extraction] accountBalances: ${normalized.accountBalances.length}`);
+  console.log(`[extraction] parValueAdjustments: ${normalized.parValueAdjustments.length}`);
+  console.log(`[extraction] events: ${normalized.events.length}`);
+  console.log(`[extraction] ═══════════════════════════════`);
+
   // Insert pool summary
   if (normalized.poolSummary) {
     await replaceIfPresent("clo_pool_summary", [normalized.poolSummary]);
+    console.log(`[extraction] → clo_pool_summary: inserted`);
   }
 
   // Insert compliance tests
   await replaceIfPresent("clo_compliance_tests", normalized.complianceTests);
+  if (normalized.complianceTests.length > 0) console.log(`[extraction] → clo_compliance_tests: ${normalized.complianceTests.length} rows`);
 
   // Insert account balances
   await replaceIfPresent("clo_account_balances", normalized.accountBalances);
+  if (normalized.accountBalances.length > 0) console.log(`[extraction] → clo_account_balances: ${normalized.accountBalances.length} rows`);
 
   // Insert par value adjustments
   await replaceIfPresent("clo_par_value_adjustments", normalized.parValueAdjustments);
+  if (normalized.parValueAdjustments.length > 0) console.log(`[extraction] → clo_par_value_adjustments: ${normalized.parValueAdjustments.length} rows`);
 
   // Insert holdings
   await replaceIfPresent("clo_holdings", normalized.holdings);
+  if (normalized.holdings.length > 0) console.log(`[extraction] → clo_holdings: ${normalized.holdings.length} rows`);
 
   // Insert concentrations
   await replaceIfPresent("clo_concentrations", normalized.concentrations);
+  if (normalized.concentrations.length > 0) console.log(`[extraction] → clo_concentrations: ${normalized.concentrations.length} rows`);
 
   // Insert waterfall steps
   await replaceIfPresent("clo_waterfall_steps", normalized.waterfallSteps);
+  if (normalized.waterfallSteps.length > 0) console.log(`[extraction] → clo_waterfall_steps: ${normalized.waterfallSteps.length} rows`);
 
   // Insert proceeds
   await replaceIfPresent("clo_proceeds", normalized.proceeds);
+  if (normalized.proceeds.length > 0) console.log(`[extraction] → clo_proceeds: ${normalized.proceeds.length} rows`);
 
   // Insert trades
   await replaceIfPresent("clo_trades", normalized.trades);
+  if (normalized.trades.length > 0) console.log(`[extraction] → clo_trades: ${normalized.trades.length} rows`);
 
   // Insert trading summary
   if (normalized.tradingSummary) {
     await query("DELETE FROM clo_trading_summary WHERE report_period_id = $1", [reportPeriodId]);
     await batchInsert("clo_trading_summary", [normalized.tradingSummary]);
+    console.log(`[extraction] → clo_trading_summary: inserted`);
   }
 
   // Insert events
   if (normalized.events.length > 0) {
     await query("DELETE FROM clo_events WHERE report_period_id = $1", [reportPeriodId]);
     await batchInsert("clo_events", normalized.events);
+    console.log(`[extraction] → clo_events: ${normalized.events.length} rows`);
   }
 
   // Tranche snapshots: lookup/create tranches, insert snapshots, enrich tranche records
   if (normalized.trancheSnapshots.length > 0) {
+    console.log(`[extraction] ═══ TRANCHE SNAPSHOTS ═══`);
+    for (const ts of normalized.trancheSnapshots) {
+      const dataKeys = Object.entries(ts.data).filter(([, v]) => v != null && v !== undefined).map(([k, v]) => `${k}=${v}`);
+      console.log(`[extraction] tranche "${ts.className}": ${dataKeys.join(", ")}`);
+    }
+    console.log(`[extraction] ════════════════════════`);
     await query("DELETE FROM clo_tranche_snapshots WHERE report_period_id = $1", [reportPeriodId]);
     for (const snapshot of normalized.trancheSnapshots) {
       const normalizedName = normalizeClassName(snapshot.className);
@@ -229,6 +289,14 @@ export async function runSectionExtraction(
   // Phase 4: Validate
   await progress("validating", "Cross-validating extracted data...");
   let validationResult = validateSectionExtraction(sections);
+  console.log(`[extraction] ═══ VALIDATION ═══`);
+  console.log(`[extraction] score: ${validationResult.score}/${validationResult.totalChecks} (${validationResult.checksRun} run)`);
+  for (const check of validationResult.checks) {
+    if (check.status !== "pass") {
+      console.log(`[extraction] ${check.status}: ${check.name} — ${check.message ?? ""}`);
+    }
+  }
+  console.log(`[extraction] ═════════════════`);
 
   // Cap structure cross-validation: PPM vs compliance report tranches
   const ppmConstraints = await query<{ extracted_constraints: Record<string, unknown> }>(
@@ -338,11 +406,15 @@ export async function runSectionExtraction(
   }
 
   // Determine final status
-  const failedSections = Object.values(sections).filter((s) => s === null);
+  const failedSections = Object.entries(sections).filter(([, s]) => s === null);
   const truncatedSections = sectionResults.filter((r) => r.truncated);
   const status = failedSections.length > 0 ? "partial"
     : truncatedSections.length > 0 ? "partial"
     : "complete";
+
+  console.log(`[extraction] ═══ FINAL STATUS: ${status} ═══`);
+  if (failedSections.length > 0) console.log(`[extraction] failed sections: ${failedSections.map(([k]) => k).join(", ")}`);
+  if (truncatedSections.length > 0) console.log(`[extraction] truncated sections: ${truncatedSections.map((r) => r.sectionType).join(", ")}`);
 
   // Build raw extraction output
   const rawOutputs: Record<string, unknown> = {};

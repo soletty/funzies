@@ -39,8 +39,64 @@ export async function runSectionPpmExtraction(
     rawOutputs[result.sectionType] = sectionTexts[i]?.markdown ?? "";
   }
 
+  // Log detailed extraction summary per section
+  console.log(`[ppm-extraction] ═══ SECTION DATA SUMMARY ═══`);
+  for (const [sectionType, data] of Object.entries(sections)) {
+    if (!data) {
+      console.log(`[ppm-extraction] ${sectionType}: NULL (extraction failed)`);
+      continue;
+    }
+    const keys = Object.keys(data);
+    const summary: string[] = [];
+    for (const key of keys) {
+      const val = data[key];
+      if (Array.isArray(val)) {
+        summary.push(`${key}=${val.length} items`);
+      } else if (val === null || val === undefined) {
+        summary.push(`${key}=null`);
+      } else if (typeof val === "object") {
+        summary.push(`${key}={${Object.keys(val as Record<string, unknown>).length} keys}`);
+      } else {
+        const s = String(val);
+        summary.push(`${key}=${s.length > 80 ? s.slice(0, 80) + "..." : s}`);
+      }
+    }
+    console.log(`[ppm-extraction] ${sectionType}: ${summary.join(", ")}`);
+  }
+  console.log(`[ppm-extraction] ═══════════════════════════`);
+
   // Merge into extractedConstraints format
   const extractedConstraints = normalizePpmSectionResults(sections);
+
+  // Log the final merged constraints
+  console.log(`[ppm-extraction] ═══ FINAL CONSTRAINTS ═══`);
+  for (const [key, value] of Object.entries(extractedConstraints)) {
+    if (key.startsWith("_")) continue;
+    if (Array.isArray(value)) {
+      console.log(`[ppm-extraction] ${key}: ${value.length} items`);
+      // Log first few items for arrays
+      for (const item of value.slice(0, 3)) {
+        if (typeof item === "object" && item) {
+          const preview = Object.entries(item as Record<string, unknown>)
+            .filter(([, v]) => v != null)
+            .map(([k, v]) => `${k}=${String(v).slice(0, 40)}`)
+            .join(", ");
+          console.log(`[ppm-extraction]   - ${preview}`);
+        }
+      }
+      if (value.length > 3) console.log(`[ppm-extraction]   ... and ${value.length - 3} more`);
+    } else if (typeof value === "object" && value) {
+      const obj = value as Record<string, unknown>;
+      const fields = Object.entries(obj).filter(([, v]) => v != null).map(([k, v]) => {
+        const s = String(v);
+        return `${k}=${s.length > 40 ? s.slice(0, 40) + "..." : s}`;
+      });
+      console.log(`[ppm-extraction] ${key}: {${fields.join(", ")}}`);
+    } else {
+      console.log(`[ppm-extraction] ${key}: ${value}`);
+    }
+  }
+  console.log(`[ppm-extraction] ═══════════════════════`);
 
   extractedConstraints._extractionPasses = sectionResults.length;
   extractedConstraints._sectionBasedExtraction = true;
