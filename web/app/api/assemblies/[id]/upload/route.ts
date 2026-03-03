@@ -91,7 +91,9 @@ export async function POST(
   };
 
   if (isText) {
-    attachment.textContent = await file.text();
+    const text = await file.text();
+    // PostgreSQL jsonb cannot store \u0000 null bytes
+    attachment.textContent = text.replace(/\0/g, "");
   } else {
     const buffer = Buffer.from(await file.arrayBuffer());
     attachment.base64 = buffer.toString("base64");
