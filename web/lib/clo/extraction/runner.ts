@@ -14,6 +14,54 @@ import { extractPdfText } from "./pdf-text-extractor";
 import { extractPdfTables } from "./table-extractor";
 import { parseComplianceSummaryTables } from "./table-parser";
 import { reconcileDates } from "./date-reconciler";
+import type { DocumentMap, SectionEntry } from "./document-mapper";
+
+// ---------------------------------------------------------------------------
+// BNY Mellon compliance report template — known section layout.
+// Page ranges are approximate (±2-3 pages depending on portfolio size).
+// Used as fallback to fill gaps when the mapper misses sections.
+// ---------------------------------------------------------------------------
+const BNY_COMPLIANCE_TEMPLATE: Array<{ sectionType: string; pageStart: number; pageEnd: number }> = [
+  { sectionType: "compliance_summary", pageStart: 1, pageEnd: 3 },
+  { sectionType: "par_value_tests", pageStart: 3, pageEnd: 7 },
+  { sectionType: "interest_coverage_tests", pageStart: 7, pageEnd: 8 },
+  { sectionType: "account_balances", pageStart: 8, pageEnd: 10 },
+  { sectionType: "asset_schedule", pageStart: 10, pageEnd: 28 },
+  { sectionType: "trading_activity", pageStart: 28, pageEnd: 30 },
+  { sectionType: "supplementary", pageStart: 30, pageEnd: 72 },
+  // concentration_tables and waterfall are less consistently positioned,
+  // so we don't add them as fallback — they'll be extracted from the test data if present.
+];
+
+/**
+ * Ensure critical compliance sections exist in the document map.
+ * If the mapper missed a section, add it with estimated BNY template page ranges.
+ * This prevents entire sections from being silently dropped.
+ */
+function ensureComplianceSections(documentMap: DocumentMap): void {
+  const existing = new Set(documentMap.sections.map((s) => s.sectionType));
+  const totalPages = Math.max(...documentMap.sections.map((s) => s.pageEnd), 0);
+
+  for (const template of BNY_COMPLIANCE_TEMPLATE) {
+    if (existing.has(template.sectionType)) continue;
+
+    // Adjust page ranges if document is shorter/longer than the 72-page template
+    const adjustedEnd = Math.min(template.pageEnd, totalPages);
+    if (adjustedEnd < template.pageStart) continue;
+
+    const entry: SectionEntry = {
+      sectionType: template.sectionType,
+      pageStart: template.pageStart,
+      pageEnd: adjustedEnd,
+      confidence: "low" as const,
+      notes: "Added from BNY template fallback — mapper did not detect this section",
+    };
+
+    documentMap.sections.push(entry);
+    console.log(`[extraction] added missing section from BNY template: ${template.sectionType} (pp${template.pageStart}-${adjustedEnd})`);
+  }
+}
+
 // Common field name aliases the model returns → correct DB column names
 const POOL_SUMMARY_ALIASES: Record<string, string> = {
   aggregate_principal_balance: "total_principal_balance",
@@ -738,13 +786,38 @@ export async function runSectionExtraction(
   // Phase 1: Map document structure
   await progress("mapping", "Identifying document sections...");
   const documentMap = await mapDocument(apiKey, documents);
+
+  // For compliance reports, check for missing critical sections and add them with estimated page ranges.
+  // The BNY Mellon template has a known layout, so we can fill gaps the mapper missed.
+  if (documentMap.documentType === "compliance_report") {
+    ensureComplianceSections(documentMap);
+  }
+
   await progress("mapping_done", `Found ${documentMap.sections.length} sections`);
 
-  // Phase 2: Transcribe sections to markdown (parallel)
-  await progress("transcribing", `Transcribing ${documentMap.sections.length} sections to text...`);
-  const sectionTexts = await extractAllSectionTexts(apiKey, pdfDoc, documentMap);
+  // Phase 2: Extract text with pdfplumber (fast, deterministic, no API calls)
+  // Falls back to Claude vision transcription only if pdfplumber is unavailable.
+  await progress("transcribing", `Extracting text from ${documentMap.sections.length} sections...`);
+  let sectionTexts: SectionText[];
+  try {
+    const pdfText = await extractPdfText(pdfDoc.base64);
+    sectionTexts = documentMap.sections.map((section) => ({
+      sectionType: section.sectionType,
+      pageStart: section.pageStart,
+      pageEnd: section.pageEnd,
+      markdown: pdfText.pages
+        .filter((p) => p.page >= section.pageStart && p.page <= section.pageEnd)
+        .map((p) => p.text)
+        .join("\n\n"),
+      truncated: false,
+    }));
+    console.log(`[extraction] pdfplumber text extracted ${pdfText.totalPages} pages`);
+  } catch (err) {
+    console.warn(`[extraction] pdfplumber text extraction failed, falling back to Claude vision: ${(err as Error).message}`);
+    sectionTexts = await extractAllSectionTexts(apiKey, pdfDoc, documentMap);
+  }
   const successfulTexts = sectionTexts.filter((t) => t.markdown.length > 0);
-  await progress("transcribing_done", `Transcribed ${successfulTexts.length}/${documentMap.sections.length} sections`);
+  await progress("transcribing_done", `Extracted text for ${successfulTexts.length}/${documentMap.sections.length} sections`);
 
   // Phase 3: Extract structured data per section (parallel)
   await progress("extracting", `Extracting structured data from ${successfulTexts.length} sections...`);
