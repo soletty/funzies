@@ -144,6 +144,7 @@ export async function callAnthropicWithTool(
   maxTokens: number,
   tool: { name: string; description: string; inputSchema: Record<string, unknown> },
   label?: string,
+  temperature?: number,
 ): Promise<{ data: Record<string, unknown> | null; truncated: boolean; error?: string; status?: number }> {
   const callLabel = label ?? tool.name;
   const response = await fetchWithRetry("https://api.anthropic.com/v1/messages", {
@@ -156,7 +157,7 @@ export async function callAnthropicWithTool(
     body: JSON.stringify({
       model: "claude-sonnet-4-20250514",
       max_tokens: maxTokens,
-      temperature: 0,
+      temperature: temperature ?? 0,
       system,
       messages: [{ role: "user", content }],
       tools: [{

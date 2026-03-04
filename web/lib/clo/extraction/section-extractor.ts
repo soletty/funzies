@@ -119,6 +119,7 @@ export async function extractSection(
   apiKey: string,
   sectionText: SectionText,
   documentType: "compliance_report" | "ppm",
+  temperature?: number,
 ): Promise<SectionExtractionResult> {
   const config = getSectionConfig(sectionText.sectionType, documentType);
   if (!config) {
@@ -138,7 +139,7 @@ export async function extractSection(
   const maxTokens = sectionText.sectionType === "asset_schedule" ? 64000 : 16000;
 
   const label = `extract:${sectionText.sectionType}`;
-  const result = await callAnthropicWithTool(apiKey, prompt.system, content, maxTokens, tool, label);
+  const result = await callAnthropicWithTool(apiKey, prompt.system, content, maxTokens, tool, label, temperature);
 
   if (result.error) {
     console.error(`[section-extractor] ${sectionText.sectionType}: ${result.error.slice(0, 200)}`);
@@ -165,6 +166,7 @@ export async function extractAllSections(
   sectionTexts: SectionText[],
   documentType: "compliance_report" | "ppm",
   concurrency = 3,
+  temperature?: number,
 ): Promise<SectionExtractionResult[]> {
   const results: SectionExtractionResult[] = [];
   const items = [...sectionTexts];
@@ -176,7 +178,7 @@ export async function extractAllSections(
     console.log(`[section-extractor] batch ${batchNum}/${totalBatches}: ${batch.map((s) => `${s.sectionType}(${s.markdown.length} chars)`).join(", ")}`);
     const batchResults = await Promise.all(
       batch.map(async (st) => {
-        const result = await extractSection(apiKey, st, documentType);
+        const result = await extractSection(apiKey, st, documentType, temperature);
         const status = result.data ? "OK" : `FAILED${result.error ? `: ${result.error.slice(0, 100)}` : ""}`;
         console.log(`[section-extractor] ${st.sectionType}: ${status}`);
         return result;

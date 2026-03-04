@@ -14,6 +14,7 @@ import { extractPdfText } from "./pdf-text-extractor";
 import { extractPdfTables } from "./table-extractor";
 import { parseComplianceSummaryTables } from "./table-parser";
 import { reconcileDates } from "./date-reconciler";
+import { mergeAllPasses, EXTRACTION_PASSES } from "./multi-pass-merger";
 import type { DocumentMap, SectionEntry } from "./document-mapper";
 
 // ---------------------------------------------------------------------------
@@ -771,33 +772,34 @@ export async function runExtraction(
 
 export type ProgressCallback = (step: string, detail?: string) => void | Promise<void>;
 
-export async function runSectionExtraction(
-  profileId: string,
-  apiKey: string,
-  documents: CloDocument[],
-  onProgress?: ProgressCallback,
-): Promise<{ reportPeriodId: string; status: "complete" | "partial" | "error" }> {
-  const progress = onProgress ?? (() => {});
+// ---------------------------------------------------------------------------
+// Single extraction pass: mapping → text → structured extraction → table enhancement.
+// Returns extracted sections without persisting anything to the DB.
+// ---------------------------------------------------------------------------
+interface SinglePassResult {
+  sectionResults: import("./section-extractor").SectionExtractionResult[];
+  documentMap: DocumentMap;
+  tablePagesForDates?: import("./table-extractor").PageTableData[];
+  extractionAuditLog?: import("./audit-logger").ExtractionAuditLog;
+}
 
-  // Find the primary PDF document
-  const pdfDoc = documents.find((d) => d.type === "application/pdf");
-  if (!pdfDoc) throw new Error("No PDF document found");
+async function runSingleExtractionPass(
+  passNum: number,
+  apiKey: string,
+  pdfDoc: CloDocument,
+  documents: CloDocument[],
+): Promise<SinglePassResult> {
+  const label = `[pass-${passNum}]`;
 
   // Phase 1: Map document structure
-  await progress("mapping", "Identifying document sections...");
+  console.log(`${label} mapping document...`);
   const documentMap = await mapDocument(apiKey, documents);
-
-  // For compliance reports, check for missing critical sections and add them with estimated page ranges.
-  // The BNY Mellon template has a known layout, so we can fill gaps the mapper missed.
   if (documentMap.documentType === "compliance_report") {
     ensureComplianceSections(documentMap);
   }
+  console.log(`${label} found ${documentMap.sections.length} sections`);
 
-  await progress("mapping_done", `Found ${documentMap.sections.length} sections`);
-
-  // Phase 2: Extract text with pdfplumber (fast, deterministic, no API calls)
-  // Falls back to Claude vision transcription only if pdfplumber is unavailable.
-  await progress("transcribing", `Extracting text from ${documentMap.sections.length} sections...`);
+  // Phase 2: Extract text with pdfplumber (deterministic)
   let sectionTexts: SectionText[];
   try {
     const pdfText = await extractPdfText(pdfDoc.base64);
@@ -811,40 +813,69 @@ export async function runSectionExtraction(
         .join("\n\n"),
       truncated: false,
     }));
-    console.log(`[extraction] pdfplumber text extracted ${pdfText.totalPages} pages`);
   } catch (err) {
-    console.warn(`[extraction] pdfplumber text extraction failed, falling back to Claude vision: ${(err as Error).message}`);
+    console.warn(`${label} pdfplumber failed, falling back to Claude vision: ${(err as Error).message}`);
     sectionTexts = await extractAllSectionTexts(apiKey, pdfDoc, documentMap);
   }
-  const successfulTexts = sectionTexts.filter((t) => t.markdown.length > 0);
-  await progress("transcribing_done", `Extracted text for ${successfulTexts.length}/${documentMap.sections.length} sections`);
+  console.log(`${label} text extracted for ${sectionTexts.filter((t) => t.markdown.length > 0).length} sections`);
 
-  // Phase 3: Extract structured data per section (parallel)
-  await progress("extracting", `Extracting structured data from ${successfulTexts.length} sections...`);
-  let sectionResults = await extractAllSections(apiKey, sectionTexts, documentMap.documentType);
-  const successfulExtracts = sectionResults.filter((r) => r.data != null);
-  await progress("extracting_done", `Extracted data from ${successfulExtracts.length}/${sectionTexts.length} sections`);
+  // Phase 3: Extract structured data per section
+  const MULTI_PASS_TEMPERATURE = 0.2;
+  let sectionResults = await extractAllSections(apiKey, sectionTexts, documentMap.documentType, 3, MULTI_PASS_TEMPERATURE);
+  console.log(`${label} extracted ${sectionResults.filter((r) => r.data != null).length}/${sectionResults.length} sections`);
 
-  // Phase 3.5: Enhance Claude results with pdfplumber table data (compliance only)
+  // Phase 3.5: Enhance with pdfplumber table data (compliance only)
   let extractionAuditLog: import("./audit-logger").ExtractionAuditLog | undefined;
   let tablePagesForDates: import("./table-extractor").PageTableData[] | undefined;
 
   if (documentMap.documentType === "compliance_report") {
     try {
-      await progress("enhancing_tables", "Enhancing extraction with pdfplumber tables...");
       const tableResult = await extractPdfTables(pdfDoc.base64);
       tablePagesForDates = tableResult.pages;
-      const totalTables = tableResult.pages.reduce((sum, p) => sum + p.tables.length, 0);
-      console.log(`[extraction] pdfplumber found ${totalTables} tables across ${tableResult.totalPages} pages`);
-
       const { enhanced, auditLog } = enhanceWithTableData(sectionResults, tableResult.pages, documentMap);
       sectionResults = enhanced;
       extractionAuditLog = auditLog;
-      await progress("enhancing_tables_done", `Enhanced extraction with table data`);
     } catch (err) {
-      console.warn(`[extraction] table enhancement failed (non-fatal): ${(err as Error).message}`);
+      console.warn(`${label} table enhancement failed (non-fatal): ${(err as Error).message}`);
     }
   }
+
+  return { sectionResults, documentMap, tablePagesForDates, extractionAuditLog };
+}
+
+export async function runSectionExtraction(
+  profileId: string,
+  apiKey: string,
+  documents: CloDocument[],
+  onProgress?: ProgressCallback,
+): Promise<{ reportPeriodId: string; status: "complete" | "partial" | "error" }> {
+  const progress = onProgress ?? (() => {});
+
+  // Find the primary PDF document
+  const pdfDoc = documents.find((d) => d.type === "application/pdf");
+  if (!pdfDoc) throw new Error("No PDF document found");
+
+  // Run N independent extraction passes in parallel, then merge
+  await progress("extracting", `Running ${EXTRACTION_PASSES} independent extraction passes...`);
+  console.log(`[extraction] starting ${EXTRACTION_PASSES} independent passes in parallel`);
+
+  const passResults = await Promise.all(
+    Array.from({ length: EXTRACTION_PASSES }, (_, i) =>
+      runSingleExtractionPass(i + 1, apiKey, pdfDoc, documents),
+    ),
+  );
+
+  // Merge section results across all passes with AI reconciliation
+  await progress("merging", `Merging ${EXTRACTION_PASSES} passes with AI reconciliation...`);
+  const allSectionResults = passResults.map((p) => p.sectionResults);
+  let sectionResults = await mergeAllPasses(apiKey, allSectionResults);
+  const successfulExtracts = sectionResults.filter((r) => r.data != null);
+  await progress("extracting_done", `Merged ${EXTRACTION_PASSES} passes → ${successfulExtracts.length} sections`);
+
+  // Use the first pass's metadata for document map, table data, audit log
+  const documentMap = passResults[0].documentMap;
+  const tablePagesForDates = passResults[0].tablePagesForDates;
+  const extractionAuditLog = passResults[0].extractionAuditLog;
 
   // Build sections map
   const sections: Record<string, Record<string, unknown> | null> = {};
@@ -853,7 +884,7 @@ export async function runSectionExtraction(
   }
 
   // Log detailed extraction summary per section
-  console.log(`[extraction] ═══ SECTION DATA SUMMARY ═══`);
+  console.log(`[extraction] ═══ SECTION DATA SUMMARY (${EXTRACTION_PASSES} passes merged) ═══`);
   for (const [sectionType, data] of Object.entries(sections)) {
     if (!data) {
       console.log(`[extraction] ${sectionType}: NULL (extraction failed)`);
