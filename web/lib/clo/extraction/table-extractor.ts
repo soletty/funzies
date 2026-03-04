@@ -42,7 +42,7 @@ export async function extractPdfTables(
   const scriptPath = resolveScriptPath();
   const pythonBin = findPython();
 
-  const env: Record<string, string> = { ...process.env } as Record<string, string>;
+  const env = { ...process.env } as NodeJS.ProcessEnv;
   if (startPage) env.START_PAGE = String(startPage);
   if (endPage) env.END_PAGE = String(endPage);
 
