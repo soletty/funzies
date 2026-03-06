@@ -115,6 +115,9 @@ export default function SynthesisPage() {
       </div>
 
       <h1>{synth.title}</h1>
+      {synth.title !== title && (
+        <p className="original-prompt">{title}</p>
+      )}
       <p className="page-subtitle">{meta}</p>
 
       {emergentInsight && (

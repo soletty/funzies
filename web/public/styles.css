@@ -281,6 +281,16 @@ p {
   letter-spacing: 0.08em;
 }
 
+.original-prompt {
+  color: var(--color-text-secondary);
+  font-size: 0.9rem;
+  font-style: italic;
+  margin: 0.25rem 0 0.5rem;
+  padding-left: 0.75rem;
+  border-left: 2px solid var(--color-border);
+  line-height: 1.5;
+}
+
 a {
   color: var(--color-accent);
   text-decoration: none;
