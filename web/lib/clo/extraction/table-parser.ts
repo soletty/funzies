@@ -117,7 +117,7 @@ export function parseDate(cell: string | null | undefined): string | null {
 }
 
 export function isHeaderRow(row: string[]): boolean {
-  const headerKeywords = ["test name", "class", "description", "security id", "type", "numerator", "denominator", "isin", "obligor"];
+  const headerKeywords = ["test name", "class", "description", "security id", "type", "numerator", "denominator", "isin", "obligor", "original balance", "current balance", "spread", "coupon rate", "par balance", "maturity"];
   const text = row.join(" ").toLowerCase();
   return headerKeywords.some((kw) => text.includes(kw));
 }
@@ -241,9 +241,10 @@ export function parseComplianceSummaryTables(
 
     for (const row of table.rows) {
       if (row.length < 3) continue;
+      if (isHeaderRow(row)) continue;
       const firstCell = row[0]?.trim() ?? "";
 
-      if (/^(Class|Senior|Subordinated)/i.test(firstCell)) {
+      if (/^(Class\s|Senior|Subordinated|[A-F][-\d]?\b|Sub\b|Mezz|Equity)/i.test(firstCell)) {
         if (colMap) {
           // Header-aware mapping
           tranches.push({

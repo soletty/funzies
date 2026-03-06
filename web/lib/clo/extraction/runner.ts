@@ -622,8 +622,11 @@ export async function runExtraction(
           legacyValues.push(bal);
         }
         if (spreadLegacy != null && typeof spreadLegacy === "number") {
+          const spreadBpsLegacy = spreadLegacy > 0 && spreadLegacy < 20
+            ? Math.round(spreadLegacy * 100)
+            : spreadLegacy;
           legacyClauses.push(`spread_bps = COALESCE(spread_bps, $${li++})`);
-          legacyValues.push(spreadLegacy);
+          legacyValues.push(spreadBpsLegacy);
         }
         if (legacyClauses.length > 0) {
           legacyValues.push(existing[0].id);
@@ -1137,8 +1140,12 @@ export async function runSectionExtraction(
       }
       // Set spread_bps from compliance report if PPM didn't set it
       if (spreadFromReport != null && typeof spreadFromReport === "number") {
+        // Guard: if AI returned percentage (e.g., 1.45) instead of bps (145), convert
+        const spreadBps = spreadFromReport > 0 && spreadFromReport < 20
+          ? Math.round(spreadFromReport * 100)
+          : spreadFromReport;
         enrichClauses.push(`spread_bps = COALESCE(spread_bps, $${ei++})`);
-        enrichValues.push(spreadFromReport);
+        enrichValues.push(spreadBps);
       }
       if (enrichClauses.length > 0) {
         enrichValues.push(existing[0].id);

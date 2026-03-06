@@ -102,7 +102,9 @@ export function validateExtraction(
         const waSpread = totalParForSpread > 0
           ? holdingsWithSpread.reduce((sum, h) => sum + (h.spreadBps ?? 0) * (h.parBalance ?? 0), 0) / totalParForSpread
           : 0;
-        const c4 = check("wa_spread", pool.wacSpread, waSpread, 10, "abs", "WA spread (bps)");
+        // Normalize units: if summary WA spread looks like percentage (<20) but calculated is bps (>100), convert
+        const wacSpreadBps = pool.wacSpread < 20 && waSpread > 100 ? pool.wacSpread * 100 : pool.wacSpread;
+        const c4 = check("wa_spread", wacSpreadBps, waSpread, 10, "abs", "WA spread (bps)");
         if (c4) checks.push(c4); else skipped++;
       } else {
         skipped++;
@@ -446,14 +448,16 @@ export function validateSectionExtraction(
     const c3 = check("asset_count", summary.numberOfAssets as number | null, holdings.length, 1, "abs", "Asset count");
     if (c3) checks.push(c3); else skipped++;
 
-    const wacSpread = summary.wacSpread as number | null | undefined;
-    if (wacSpread != null) {
+    const rawWacSpread = summary.wacSpread as number | null | undefined;
+    if (rawWacSpread != null) {
       const holdingsWithSpread = holdingsWithPar.filter((h) => h.spreadBps != null);
       if (holdingsWithSpread.length > 0) {
         const totalParForSpread = holdingsWithSpread.reduce((sum, h) => sum + (h.parBalance as number ?? 0), 0);
         const waSpread = totalParForSpread > 0
           ? holdingsWithSpread.reduce((sum, h) => sum + (h.spreadBps as number ?? 0) * (h.parBalance as number ?? 0), 0) / totalParForSpread
           : 0;
+        // Normalize units: if summary WA spread looks like percentage (<20) but calculated is bps (>100), convert
+        const wacSpread = rawWacSpread < 20 && waSpread > 100 ? rawWacSpread * 100 : rawWacSpread;
         const c4 = check("wa_spread", wacSpread, waSpread, 10, "abs", "WA spread (bps)");
         if (c4) checks.push(c4); else skipped++;
       } else {

@@ -304,7 +304,7 @@ def generate():
     pdf.label_value("Aggregate Principal Balance:", fmt_dollars_cents(m["total_par"] - 624_568))  # slight difference is normal
     pdf.label_value("Number of Assets:", str(m["n_assets"]))
     pdf.label_value("Number of Obligors:", str(m["n_obligors"]))
-    pdf.label_value("Weighted Average Spread:", f"{m['wa_spread_pct']:.2f}%")
+    pdf.label_value("Weighted Average Spread (bps):", f"{m['wa_spread_pct'] * 100:.0f}")
     pdf.label_value("Weighted Average Coupon (All-in):", f"{m['wa_coupon']:.2f}%")
     pdf.label_value("Diversity Score:", str(m["diversity"]))
     pdf.label_value("WARF:", f"{m['warf']:.0f}")
@@ -453,9 +453,9 @@ def generate():
     pdf.add_page()
     pdf.section_title("V. SCHEDULE OF INVESTMENTS")
 
-    cols_h = ["Obligor", "ISIN", "Industry", "Maturity", "Par Balance", "Price", "Spread", "Moody's", "S&P"]
-    widths_h = [30, 24, 22, 20, 24, 14, 14, 14, 14]
-    aligns_h = ["L", "L", "L", "C", "R", "R", "C", "C", "C"]
+    cols_h = ["Obligor", "ISIN", "Maturity", "Par Balance", "Price", "Spread (bps)", "Fixed", "Moody's", "S&P"]
+    widths_h = [30, 24, 20, 24, 14, 16, 12, 14, 14]
+    aligns_h = ["L", "L", "C", "R", "R", "C", "C", "C", "C"]
 
     pdf.sub_title("Portfolio Holdings")
     pdf.table_header(cols_h, widths_h)
@@ -466,8 +466,9 @@ def generate():
             pdf.table_header(cols_h, widths_h)
         spread_str = str(h["spread_bps"]) if h["spread_bps"] else "N/A"
         pdf.table_row([
-            h["obligor"][:18], h["isin"], h["industry"][:14], h["maturity"],
-            fmt_dollars(h["par"]), f"{h['price']:.2f}", spread_str, h["moodys"], h["sp"]
+            h["obligor"][:18], h["isin"], h["maturity"],
+            fmt_dollars(h["par"]), f"{h['price']:.2f}", spread_str,
+            "Yes" if h["fixed"] else "No", h["moodys"], h["sp"]
         ], widths_h, aligns_h)
 
     # ── Tranche Payment Summary ──
@@ -587,7 +588,7 @@ def generate():
     pdf.sub_title("Moody's Analytics")
     pdf.label_value("WARF:", f"{m['warf']:.0f}")
     pdf.label_value("Diversity Score:", str(m["diversity"]))
-    pdf.label_value("WA Spread:", f"{m['wa_spread_pct']:.2f}%")
+    pdf.label_value("WA Spread (bps):", f"{m['wa_spread_pct'] * 100:.0f}")
     pdf.label_value("WA Coupon:", f"{m['wa_coupon']:.2f}%")
     pdf.label_value("WA Recovery:", f"{m['wa_recovery']:.2f}%")
     pdf.label_value("WA Life:", f"{m['wal']:.2f} years")

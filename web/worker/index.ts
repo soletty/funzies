@@ -635,7 +635,11 @@ async function syncPpmToRelationalTables(
     const values: unknown[] = [];
     let pi = 1;
 
-    const spreadBps = entry.spreadBps ?? parseSpreadBps(entry.spread);
+    let spreadBps = entry.spreadBps ?? parseSpreadBps(entry.spread);
+    // Guard: if AI returned percentage (e.g., 1.45) instead of bps (145), convert
+    if (spreadBps != null && spreadBps > 0 && spreadBps < 20) {
+      spreadBps = Math.round(spreadBps * 100);
+    }
     if (spreadBps != null) {
       setClauses.push(`spread_bps = $${pi++}`);
       values.push(spreadBps);

@@ -72,6 +72,7 @@ COMPLIANCE REPORT STRUCTURE GUIDE (BNY Mellon template — most common format):
 - Pages 6-7: Par Value Tests detailed breakdown (par_value_tests)
 - Pages 7-8: Interest Coverage Tests detailed breakdown (interest_coverage_tests)
 - Pages 8-10: Account Balances (account_balances)
+- Pages after account balances: Tranche Payment Summary / Note Payment Summary / Waterfall Distribution — beginning balances, interest paid, principal paid, ending balances per tranche (waterfall)
 - Pages 10-28: Asset Information I/II/III — the full holdings schedule (asset_schedule)
 - Pages 28-30: Purchases, Sales, Paydowns (trading_activity)
 - Pages 30-35: Supplementary — CCC obligations, hedge transactions, interest smoothing (supplementary)

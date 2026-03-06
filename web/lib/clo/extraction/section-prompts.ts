@@ -174,6 +174,8 @@ Extract proceeds: proceedsType, sourceDescription, amount, periodStart, periodEn
 TRANCHE SNAPSHOTS — CRITICAL:
 - Extract one for EVERY note class. These are essential for the waterfall model.
 - For each: className, currentBalance, factor, couponRate, interestAccrued, interestPaid, interestShortfall, principalPaid, beginningBalance, endingBalance.
+- Look for "Note Balances", "Tranche Payment Summary", "Payment Summary", "Note Payment" tables.
+- beginningBalance and endingBalance are the opening/closing balances for the period.
 - If BOTH aggregated ("Class A Notes") and detailed ("Class A Loan" + "Class A Notes") entries exist, use ONLY the detailed ones.
 
 ${COMMON_RULES}`,
