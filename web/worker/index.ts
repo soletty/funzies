@@ -739,6 +739,13 @@ async function syncPpmToRelationalTables(
 // ─── CLO Extraction Jobs ─────────────────────────────────────────────
 
 async function pollCloExtractionJobs() {
+  // Recover stale PPM 'extracting' jobs (stuck > 10 min)
+  await pool.query(
+    `UPDATE clo_profiles SET ppm_extraction_status = 'queued'
+     WHERE ppm_extraction_status = 'extracting'
+       AND updated_at < NOW() - INTERVAL '10 minutes'`
+  );
+
   // PPM extraction
   const ppmJob = await pool.query<{
     id: string;
@@ -809,7 +816,13 @@ async function pollCloExtractionJobs() {
     }
   }
 
-  // Compliance report extraction
+  // Compliance report extraction — also recover stale 'extracting' jobs (stuck > 10 min)
+  await pool.query(
+    `UPDATE clo_profiles SET report_extraction_status = 'queued'
+     WHERE report_extraction_status = 'extracting'
+       AND updated_at < NOW() - INTERVAL '10 minutes'`
+  );
+
   const reportJob = await pool.query<{
     id: string;
     user_id: string;

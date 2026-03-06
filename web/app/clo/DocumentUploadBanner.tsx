@@ -118,12 +118,22 @@ export default function DocumentUploadBanner({ hasDocuments }: { hasDocuments?: 
 
     // Queue PPM extraction
     if (hadPpm) {
-      await fetch("/api/clo/profile/extract", { method: "POST" });
+      const res = await fetch("/api/clo/profile/extract", { method: "POST" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error || "Failed to queue PPM extraction");
+        return;
+      }
     }
 
     // Queue compliance report extraction + portfolio extraction
     if (hadCompliance) {
-      await fetch("/api/clo/report/extract", { method: "POST" });
+      const res = await fetch("/api/clo/report/extract", { method: "POST" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error || "Failed to queue compliance extraction");
+        return;
+      }
       fetch("/api/clo/profile/extract-portfolio", { method: "POST" }).catch(() => {});
     }
 
