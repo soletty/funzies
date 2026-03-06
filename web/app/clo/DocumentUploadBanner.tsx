@@ -54,12 +54,11 @@ export default function DocumentUploadBanner({ hasDocuments }: { hasDocuments?: 
         return;
       }
 
-      const progressDetail = data.progress?.detail;
-      if (progressDetail) {
-        setStatusText(progressDetail);
-      } else if (data.status === "extracting") {
-        setStatusText("Extracting constraints from PPM...");
+      if (data.status === "extracting") {
+        const progressDetail = data.progress?.detail;
+        setStatusText(progressDetail || "Extracting constraints from PPM...");
       }
+      // status === "queued" → keep showing "waiting for PPM extraction to start..."
     }
 
     setError("PPM extraction timed out. Check back later.");
@@ -70,6 +69,7 @@ export default function DocumentUploadBanner({ hasDocuments }: { hasDocuments?: 
   async function handleUpload() {
     if (ppmFiles.length === 0 && complianceFiles.length === 0) return;
     setError("");
+    setDone(false);
     setUploading(true);
 
     // Upload PPM files
@@ -158,12 +158,11 @@ export default function DocumentUploadBanner({ hasDocuments }: { hasDocuments?: 
             setStatusText("");
             return;
           }
-          const progressDetail = data.progress?.detail;
-          if (progressDetail) {
-            setStatusText(progressDetail);
-          } else if (data.status === "extracting") {
-            setStatusText("Extracting compliance data...");
+          if (data.status === "extracting") {
+            const progressDetail = data.progress?.detail;
+            setStatusText(progressDetail || "Extracting compliance data...");
           }
+          // status === "queued" → keep showing "waiting for extraction to start..."
         }
       } catch {
         // Continue polling

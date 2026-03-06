@@ -71,11 +71,9 @@ export default function UpdateComplianceReport({ hasPortfolio }: { hasPortfolio:
               setProgressText("");
               return;
             }
-            const detail = data.progress?.detail;
-            if (detail) {
-              setProgressText(detail);
-            } else if (data.status === "extracting") {
-              setProgressText("Extracting compliance data...");
+            if (data.status === "extracting") {
+              const detail = data.progress?.detail;
+              setProgressText(detail || "Extracting compliance data...");
             }
           }
         } catch {

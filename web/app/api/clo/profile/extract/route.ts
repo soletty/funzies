@@ -42,6 +42,7 @@ export async function POST() {
     `UPDATE clo_profiles
      SET ppm_extraction_status = 'queued',
          ppm_extraction_error = NULL,
+         ppm_extraction_progress = NULL,
          updated_at = now()
      WHERE id = $1`,
     [profile.id]

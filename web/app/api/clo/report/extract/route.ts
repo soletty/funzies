@@ -30,6 +30,7 @@ export async function POST() {
     `UPDATE clo_profiles
      SET report_extraction_status = 'queued',
          report_extraction_error = NULL,
+         report_extraction_progress = NULL,
          updated_at = now()
      WHERE id = $1`,
     [profiles[0].id],
