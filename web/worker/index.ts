@@ -569,13 +569,18 @@ function parseAmount(s: string | undefined | null): number | null {
 
 function parseSpreadBps(s: string | undefined | null): number | null {
   if (!s) return null;
+  const str = String(s).trim();
+  if (str === "N/A" || str === "-" || str === "") return null;
   // Match patterns like "SOFR + 145bps", "E + 1.50%", "145 bps", "1.45%"
-  const bpsMatch = String(s).match(/(\d+(?:\.\d+)?)\s*bps/i);
+  const bpsMatch = str.match(/(\d+(?:\.\d+)?)\s*bps/i);
   if (bpsMatch) return parseFloat(bpsMatch[1]);
-  const pctMatch = String(s).match(/[+]\s*(\d+(?:\.\d+)?)\s*%/);
+  const pctMatch = str.match(/[+]\s*(\d+(?:\.\d+)?)\s*%/);
   if (pctMatch) return parseFloat(pctMatch[1]) * 100;
-  const perCentMatch = String(s).match(/(\d+(?:\.\d+)?)\s*per\s*cent/i);
+  const perCentMatch = str.match(/(\d+(?:\.\d+)?)\s*per\s*cent/i);
   if (perCentMatch) return parseFloat(perCentMatch[1]) * 100;
+  // Fallback: plain number (e.g., "145" from a column labeled "Spread (bps)")
+  const plainNum = parseFloat(str.replace(/[,\s]/g, ""));
+  if (!isNaN(plainNum) && plainNum > 0) return plainNum;
   return null;
 }
 
@@ -656,12 +661,14 @@ async function syncPpmToRelationalTables(
       values.push(entry.rateType.toLowerCase() === "floating");
     }
 
-    if (entry.isSubordinated != null) {
-      setClauses.push(`is_subordinate = $${pi++}`);
-      values.push(entry.isSubordinated);
-      setClauses.push(`is_income_note = $${pi++}`);
-      values.push(entry.isSubordinated);
-    }
+    // Detect subordinated/equity tranches by flag OR name pattern
+    const isSub = entry.isSubordinated ??
+      (/\b(sub|equity|income|residual)\b/i.test(entry.class) ||
+       /\b(sub|equity|income|residual)\b/i.test(entry.designation ?? ""));
+    setClauses.push(`is_subordinate = $${pi++}`);
+    values.push(!!isSub);
+    setClauses.push(`is_income_note = $${pi++}`);
+    values.push(!!isSub);
 
     if (entry.deferrable != null) {
       setClauses.push(`is_deferrable = $${pi++}`);
