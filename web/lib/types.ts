@@ -46,6 +46,8 @@ export interface Synthesis {
   knowledgeGaps: string[];
   recommendations: string[];
   unexpectedAlliances: string[];
+  convictionHolds: string[];
+  maverickTakes: string[];
   sections: SynthesisSection[];
 }
 

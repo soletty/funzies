@@ -143,6 +143,34 @@ export default function SynthesisPage() {
         </div>
       )}
 
+      {synth.convictionHolds?.length > 0 && (
+        <div className="hero-card">
+          <h3>Conviction Holds</h3>
+          {synth.convictionHolds.map((hold, i) => (
+            <div key={i} className="point-card conviction-hold">
+              <div
+                className="point-claim"
+                dangerouslySetInnerHTML={{ __html: md(hold) }}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {synth.maverickTakes?.length > 0 && (
+        <div className="hero-card">
+          <h3>Boldest Takes</h3>
+          {synth.maverickTakes.map((take, i) => (
+            <div key={i} className="point-card maverick-take">
+              <div
+                className="point-claim"
+                dangerouslySetInnerHTML={{ __html: md(take) }}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+
       <div className="action-group">
         {characters.length > 0 && (
           <Link href={`${base}/characters`} className="action-pill">

@@ -165,7 +165,11 @@ export default function ProjectionModel({
   const inputs: ProjectionInputs = useMemo(
     () => ({
       initialPar: poolSummary?.totalPar ?? 0,
-      wacSpreadBps: poolSummary?.wacSpread ?? 0,
+      wacSpreadBps: (() => {
+        const was = poolSummary?.wacSpread ?? 0;
+        // Extraction may return spread as percentage (e.g. 3.85) or bps (e.g. 385)
+        return was < 20 ? was * 100 : was;
+      })(),
       baseRatePct,
       seniorFeePct,
       tranches: trancheInputs,

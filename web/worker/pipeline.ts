@@ -16,6 +16,7 @@ import {
   synthesisPrompt,
   deliverablePrompt,
   verificationPrompt,
+  maverickRoundPrompt,
 } from "./prompts.js";
 
 export interface Attachment {
@@ -377,12 +378,25 @@ export async function runPipeline(config: PipelineConfig): Promise<void> {
     await updateParsedData(buildParsedTopic(rawFiles, slug, topic));
   }
 
+  // Phase 4.5: Maverick Round
+  if (!rawFiles["maverick-round.md"]) {
+    await updatePhase("maverick-round");
+    const result = await callClaude(
+      client,
+      maverickRoundPrompt(topic, rawFiles["characters.md"], rawFiles["debate-transcript.md"]),
+      `Run the Maverick Round for: ${topic}`,
+      8192
+    );
+    rawFiles["maverick-round.md"] = result;
+    await updateRawFiles(rawFiles);
+  }
+
   // Phase 5: Synthesis
   if (!rawFiles["synthesis.md"]) {
     await updatePhase("synthesis");
     const result = await callClaude(
       client,
-      synthesisPrompt(topic, rawFiles["debate-transcript.md"]),
+      synthesisPrompt(topic, rawFiles["debate-transcript.md"], rawFiles["maverick-round.md"]),
       `Synthesize the debate on: ${topic}`,
       8192
     );

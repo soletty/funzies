@@ -21,6 +21,8 @@ const RECOMMENDATION_KEYWORDS = [
   "action",
   "next step",
 ];
+const CONVICTION_KEYWORDS = ["conviction hold", "conviction", "steadfast", "unwavering"];
+const MAVERICK_KEYWORDS = ["maverick", "boldest", "bold", "hot take"];
 
 export function parseSynthesis(markdown: string): Synthesis {
   const sections = splitIntoSections(markdown);
@@ -32,6 +34,8 @@ export function parseSynthesis(markdown: string): Synthesis {
   const knowledgeGaps: string[] = [];
   const recommendations: string[] = [];
   const unexpectedAlliances: string[] = [];
+  const convictionHolds: string[] = [];
+  const maverickTakes: string[] = [];
 
   const titleMatch = markdown.match(/^#\s+(.+)$/m);
   const title = titleMatch ? titleMatch[1].trim() : "Synthesis";
@@ -51,6 +55,10 @@ export function parseSynthesis(markdown: string): Synthesis {
       knowledgeGaps.push(...parseBulletSection(block.fullContent));
     } else if (matchesKeywords(headingLower, RECOMMENDATION_KEYWORDS)) {
       recommendations.push(...parseBulletSection(block.fullContent));
+    } else if (matchesKeywords(headingLower, CONVICTION_KEYWORDS)) {
+      convictionHolds.push(...parseBulletSection(block.fullContent));
+    } else if (matchesKeywords(headingLower, MAVERICK_KEYWORDS)) {
+      maverickTakes.push(...parseBulletSection(block.fullContent));
     }
   }
 
@@ -63,6 +71,8 @@ export function parseSynthesis(markdown: string): Synthesis {
     knowledgeGaps,
     recommendations,
     unexpectedAlliances,
+    convictionHolds,
+    maverickTakes,
     sections,
   };
 }

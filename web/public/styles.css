@@ -805,6 +805,32 @@ th {
   border-left-color: var(--color-accent);
 }
 
+.point-card.conviction-hold {
+  border-left-color: #d97706;
+}
+
+.point-card.maverick-take {
+  border-left-color: #dc2626;
+}
+
+.badge-unwavering {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fcd34d;
+}
+
+.badge-strengthened {
+  background: #d1fae5;
+  color: #065f46;
+  border: 1px solid #6ee7b7;
+}
+
+.badge-firm {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fca5a5;
+}
+
 .point-claim {
   font-weight: 550;
   font-size: 0.9rem;

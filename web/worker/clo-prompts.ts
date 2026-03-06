@@ -623,7 +623,7 @@ export function formatReportPeriodState(
     if (poolSummary.numberOfIndustries != null) metrics.push(`Industries: ${poolSummary.numberOfIndustries}`);
     if (poolSummary.warf != null) metrics.push(`WARF: ${poolSummary.warf}`);
     if (poolSummary.walYears != null) metrics.push(`WAL: ${poolSummary.walYears}y`);
-    if (poolSummary.wacSpread != null) metrics.push(`WAS: ${poolSummary.wacSpread} bps`);
+    if (poolSummary.wacSpread != null) metrics.push(`WAS: ${poolSummary.wacSpread < 20 ? `${poolSummary.wacSpread}%` : `${poolSummary.wacSpread} bps`}`);
     if (poolSummary.diversityScore != null) metrics.push(`Diversity Score: ${poolSummary.diversityScore}`);
     if (poolSummary.waRecoveryRate != null) metrics.push(`WA Recovery: ${poolSummary.waRecoveryRate}%`);
     if (poolSummary.pctCccAndBelow != null) metrics.push(`CCC & Below: ${poolSummary.pctCccAndBelow}%`);
@@ -829,6 +829,9 @@ A detailed markdown profile (3-5 paragraphs) covering their career arc, credit t
 
 ## No Strawmen
 Every member must be the strongest possible version of their perspective. If you can easily reconcile two members' positions, they are not different enough. The distressed debt specialist must have genuinely compelling reasons to be cautious, not just be "the negative one."
+
+## Maverick Requirement
+At least 2 members must hold extreme, high-conviction positions. A timid panel member is a useless panel member. Members should be the boldest defensible version of their credit perspective — not the moderate, hedge-everything version. The person who says "this credit is uninvestable" or "this is a table-pounding buy" with specific evidence is more valuable than five members who say "it depends."
 
 ${QUALITY_RULES}`,
     user: `Generate the credit analysis panel based on this analysis:
@@ -1085,10 +1088,12 @@ Use clear round headers and **Speaker:** attribution:
 
 ## Rules
 - Members ENGAGE with each other by name, not just restate positions
-- At least one member should visibly update their view during the debate
+- At least one member should visibly update their view during the debate, AND at least one member should explicitly refuse to update, explaining exactly why the counterarguments failed to persuade them
 - The debate should surface credit risks or strengths that no single assessment captured
 - For switch analyses, frame the debate as a comparative assessment of the two credits
 - Keep exchanges sharp — 2-4 sentences per turn, not paragraphs
+- **Depth Rule**: Every claim must be backed by specifics — real data, named comparables, concrete mechanisms. "Sector headwinds" is not an argument. "The sector has seen 3 defaults in the last 12 months and covenant-lite issuance is at 85%" is an argument. If a member can't provide specifics, they must say "I believe this but can't cite evidence."
+- **Conviction Hold Rule**: Members should NOT concede unless genuinely persuaded by a specific argument. Holding firm on a position despite group pressure is explicitly valued. A member who caves to social pressure rather than evidence has failed.
 - Assumption labels ([VERIFIED], [MANAGEMENT CLAIM], [ASSUMPTION]) from assessments must be preserved when referencing claims
 - Convergence check: When members appear to agree, one member must challenge: "Are we actually agreeing, or using different words for different positions?" Surface at least one case where apparent agreement masks a real disagreement.
 - Members speak only when their expertise genuinely informs the point. Not every member needs to respond to every topic. Silence is better than filler.
@@ -1234,7 +1239,10 @@ For each kill criterion from the credit analysis, state whether it was CLEARED, 
 How does this credit fit or conflict with the current CLO portfolio holdings? Reference compliance cushions from the compliance report if available. Assess impact on diversification, WARF, WAS, WAL, and concentration limits.
 
 ## Recommendation
-The panel's synthesized view — not a simple vote count but a reasoned conclusion reflecting the weight of argument. For switch analyses, include a comparative section explaining whether the switch improves portfolio quality.
+The panel's synthesized view — not a simple vote count but a reasoned conclusion reflecting the weight of argument. Lead with conviction, not caution. If the credit case is clearly strong or clearly weak, say so bluntly. For switch analyses, include a comparative section explaining whether the switch improves portfolio quality.
+
+## Dissenting View
+If any panel member held a strong dissenting position that wasn't adopted by the majority, present it here at full strength — not as a token counterpoint but as a genuinely compelling alternative read on the credit. The reader should feel the pull of the dissent.
 
 ## Self-Verification
 Before finalizing, audit your own output:
@@ -1366,13 +1374,13 @@ For each member:
 ## [MemberName]
 Vote: [strong_buy / buy / hold / pass / strong_pass]
 Conviction: [high / medium / low]
-Rationale: 2-3 sentences explaining their vote, referencing specific points from the debate.
+Rationale: 2-3 sentences explaining their vote, referencing specific points from the debate. If their position hasn't changed, explain what counterarguments they considered and specifically why those arguments failed.
 
 After all individual votes, provide:
 
 ## Aggregate Recommendation
-- **Verdict**: The panel's overall recommendation based on the vote pattern and weight of argument (not just majority). For switch analyses, the verdict should specifically address whether to proceed with the switch.
-- **Dissents**: Any notable dissents and their reasoning
+- **Verdict**: The panel's overall recommendation based on the vote pattern and weight of argument (not just majority). Lead with conviction — if the case is clearly strong or clearly weak, say so bluntly. Don't soften strong conclusions to appear balanced. For switch analyses, the verdict should specifically address whether to proceed with the switch.
+- **Dissents**: Any notable dissents and their reasoning — present dissenting views at full strength, not as token counterpoints. The reader should understand why a smart professional disagrees.
 - **Conditions**: Specific conditions or milestones that would change the recommendation
 - **Trade Implementation**: If PASS — what conditions make it a BUY? If BUY — optimal position size given CLO constraints, WARF/WAS impact, concentration utilization
 - **Kill Criteria Status**: For each kill criterion, confirm whether it has been CLEARED or flag it as UNRESOLVED. Any FAILED criterion must be prominently noted.

@@ -105,7 +105,9 @@ export function characterGenerationPrompt(
 
 3. **No Strawmen**: Every character must be the strongest possible version of their perspective. If you can reconcile two characters' positions easily, they're not different enough.
 
-4. **Tag System**: Each character gets a single-word TAG in caps that captures their core archetype (e.g., PRAGMATIST, RADICAL, GUARDIAN, BRIDGE, DISSENTER, EMPIRICIST).
+4. **Maverick Requirement**: At least 2 characters must hold extreme, high-conviction positions. A timid character is a useless character. Characters should be the boldest defensible version of their perspective — not the moderate, hedge-everything version. Think: the person at the dinner party who says the thing everyone's thinking but nobody will say.
+
+5. **Tag System**: Each character gets a single-word TAG in caps that captures their core archetype (e.g., PRAGMATIST, RADICAL, GUARDIAN, BRIDGE, DISSENTER, EMPIRICIST, MAVERICK). MAVERICK means they hold an extreme position with deep conviction and refuse to back down without overwhelming evidence.
 
 5. **Process Roles**: Distribute these roles across characters (${characterCount >= 5 ? "all 4 required" : "at least 3 required"}):
    - SKEPTIC — challenges assumptions, asks "what could go wrong?"
@@ -316,8 +318,10 @@ For Socrate interventions mid-round:
 2. Characters must ENGAGE with each other's arguments, not just restate their own
 3. Include specific references to works from the reference library
 4. Show genuine intellectual tension — not polite disagreement but substantive conflict
-5. At least 2 characters should visibly update their positions during the debate
+5. At least 2 characters should visibly update their positions during the debate, AND at least 1 character should explicitly refuse to update, explaining exactly why the counterarguments failed to persuade them
 6. Socrate should ask at least 3 genuinely difficult questions that make characters uncomfortable
+12. **Depth Rule**: Every claim must be backed by specifics — real data, named examples, concrete mechanisms, not abstract labels. "Geopolitical concentration risk" is not an argument. "China manufactures 80% of global rare earths and has restricted exports twice in the last decade" is an argument. If a character can't provide specifics, they must say "I believe this but can't cite evidence" rather than presenting vague abstractions as analysis.
+13. **Conviction Hold Rule**: Characters should NOT concede unless genuinely persuaded by a specific argument. Holding firm on a position despite group pressure is explicitly valued and expected. A character who caves to social pressure rather than evidence has failed. After the debate, at least 1 character should hold their original position with STRONGER conviction than when they started.
 7. The debate should surface at least 1 idea that no single character held at the start
 8. When characters cite evidence, they must reference works from the Reference Library provided. Characters must NOT invent new citations, studies, or statistics that aren't grounded in the library or clearly labeled as their professional judgment.
 9. Characters speak only when their framework genuinely informs the question. Not every character needs to respond to every point. If a character's framework doesn't add specific, substantive insight, they stay silent.
@@ -423,7 +427,8 @@ Each character states in 2-3 sentences: what they still believe, what they've up
 
 export function synthesisPrompt(
   topic: string,
-  debateTranscript: string
+  debateTranscript: string,
+  maverickRound?: string
 ): string {
   return `You are an expert synthesizer analyzing the transcript of a multi-perspective intellectual debate on a topic. Your job is to produce a rigorous synthesis that captures the full intellectual landscape revealed by the debate.
 
@@ -435,7 +440,7 @@ export function synthesisPrompt(
 A descriptive title for the synthesis (use # heading).
 
 ### 2. Direct Answer
-Answer the user's question or address their topic head-on in 2-4 paragraphs. State the strongest position(s) that emerged from the debate, who holds them, and why. If there's no consensus, explain the key fault lines and what factors should guide the reader's own decision. Do not hedge everything equally — if the debate leaned one way, say so.
+Answer the user's question or address their topic head-on in 2-4 paragraphs. State the strongest position(s) that emerged — lead with conviction, not caution. If one position is clearly stronger, say so bluntly. Don't soften strong conclusions to appear balanced. If there's no consensus, explain the key fault lines and what factors should guide the reader's own decision. Do not hedge everything equally — if the debate leaned one way, say so.
 
 ## Convergence Points
 
@@ -463,6 +468,22 @@ List ideas that emerged FROM the debate interaction — insights no single chara
 
 Format:
 - **Bold the idea in under 20 words** — Brief description of how this emerged from the interaction between characters.
+
+## Conviction Holds
+
+List positions that a character held with deep conviction DESPITE opposition from the group. These are the takes that survived the debate's pressure. For each:
+- **Bold the position in one sentence**
+- Name the character who held it and WHY they refused to concede
+- What was the strongest argument against it, and why it failed to persuade them
+- Rate conviction strength: unwavering / strengthened / firm-but-tested
+
+## Boldest Defensible Takes
+
+List the most extreme but intellectually defensible positions that emerged. These are the "hot takes" — the positions that would make a room uncomfortable but that have genuine intellectual backing. For each:
+- **Bold the take in one provocative sentence**
+- Who holds it and the core argument
+- Why most people would instinctively disagree
+- Why they might be wrong to disagree
 
 ## Knowledge Gaps & Honest Failures
 
@@ -495,7 +516,7 @@ For every claim or recommendation:
 Topic: ${topic}
 
 Debate Transcript:
-${debateTranscript}`;
+${debateTranscript}${maverickRound ? `\n\n## Maverick Round (Independent Post-Debate Takes)\n\n${maverickRound}` : ""}`;
 }
 
 export function deliverablePrompt(
@@ -518,6 +539,7 @@ Based on the synthesis, produce a polished, actionable deliverable document. The
 5. **Credit multiple perspectives** — Show how different viewpoints informed the conclusions
 6. **Pass the Plaintext Test** — Every key claim must be expressible in one plain sentence with no jargon. If stripping the jargon makes the idea disappear, there was no idea.
 7. **Pass the Falsifiability Test** — For every major claim: what evidence would disprove it? If nothing could, the claim is empty.
+8. **Include Minority Reports** — If a strong dissenting view emerged that wasn't adopted by the majority, include it as a clearly labeled 'Dissenting View' section. Present it at full strength — not as a token counterpoint but as a genuinely compelling alternative perspective. The reader should feel the pull of the dissent.
 
 ## Slop Test — BANNED PHRASES
 
@@ -750,4 +772,46 @@ ${deliverable}
 
 Synthesis (for context):
 ${synthesis}`;
+}
+
+export function maverickRoundPrompt(
+  topic: string,
+  characters: string,
+  debateTranscript: string
+): string {
+  return `You are orchestrating the Maverick Round — a post-debate phase where each character independently writes their strongest, most conviction-driven take on the topic WITHOUT group pressure.
+
+## Rules
+
+1. Each character writes independently — they've seen the debate but are now alone with their thoughts
+2. Characters should write their BOLDEST defensible position — the thing they believe most strongly that the group didn't fully appreciate
+3. This is NOT a summary of their debate position. This is their "if I could only say one thing" take — sharper, more extreme, more specific than anything they said in the debate
+4. Characters who updated positions during debate should explain whether they ACTUALLY changed their mind or just conceded for social reasons
+5. Each take should be 100-200 words, specific, and provocative
+6. Characters must provide concrete evidence or reasoning — no vague abstractions
+7. Socrate does NOT participate in this round
+
+## Format
+
+For each character (except Socrate):
+
+### [Character Name] — Maverick Take
+
+**The Take:** [One bold sentence]
+
+[100-200 word argument with specifics]
+
+**Conviction Level:** [Unwavering / Strengthened by debate / Firm despite opposition / Actually changed my mind]
+
+**What the group got wrong:** [1-2 sentences on where the consensus failed]
+
+## Context
+
+Topic: ${topic}
+
+Characters:
+${characters}
+
+Debate Transcript:
+${debateTranscript}`;
 }

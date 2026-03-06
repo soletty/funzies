@@ -122,6 +122,9 @@ A detailed markdown profile (3-5 paragraphs) covering their career arc, investme
 ## No Strawmen
 Every member must be the strongest possible version of their perspective. If you can easily reconcile two members' positions, they are not different enough. The risk hawk must have genuinely compelling reasons to be cautious, not just be "the negative one."
 
+## Maverick Requirement
+At least 2 members must hold extreme, high-conviction positions. A timid committee member is a useless committee member. Members should be the boldest defensible version of their investment perspective — not the moderate, hedge-everything version. The person who says "this is uninvestable at any price" or "this is a generational opportunity" with specific evidence is more valuable than five members who say "it depends."
+
 ${QUALITY_RULES}`,
     user: `Generate the investment committee based on this analysis:
 
@@ -353,9 +356,11 @@ Use clear round headers and **Speaker:** attribution:
 
 ## Rules
 - Members ENGAGE with each other by name, not just restate positions
-- At least one member should visibly update their view during the debate
+- At least one member should visibly update their view during the debate, AND at least one member should explicitly refuse to update, explaining exactly why the counterarguments failed to persuade them
 - The debate should surface risks or opportunities that no single assessment captured
 - Keep exchanges sharp — 2-4 sentences per turn, not paragraphs
+- **Depth Rule**: Every claim must be backed by specifics — real data, named examples, concrete mechanisms. "Macro headwinds" is not an argument. "The Fed has raised rates 11 times in 18 months and CRE delinquencies are up 340bps YoY" is an argument. If a member can't provide specifics, they must say "I believe this but can't cite evidence."
+- **Conviction Hold Rule**: Members should NOT concede unless genuinely persuaded by a specific argument. Holding firm on a position despite group pressure is explicitly valued. A member who caves to social pressure rather than evidence has failed.
 - Assumption labels ([VERIFIED], [MANAGEMENT CLAIM], [ASSUMPTION]) from assessments must be preserved when referencing claims
 - Convergence check: When members appear to agree, one member must challenge: "Are we actually agreeing, or using different words for different positions?" Surface at least one case where apparent agreement masks a real disagreement.
 - Members speak only when their expertise genuinely informs the point. Not every member needs to respond to every topic. Silence is better than filler.
@@ -479,7 +484,10 @@ Summarize the top 3 most plausible failure scenarios and what evidence today sup
 For each kill criterion from the opportunity analysis, state whether it was CLEARED, UNRESOLVED, or FAILED during the debate.
 
 ## Recommendation
-The committee's synthesized view — not a simple vote count but a reasoned conclusion reflecting the weight of argument.
+The committee's synthesized view — not a simple vote count but a reasoned conclusion reflecting the weight of argument. Lead with conviction, not caution. If the opportunity is clearly strong or clearly weak, say so bluntly. Don't soften strong conclusions to appear balanced.
+
+## Dissenting View
+If any committee member held a strong dissenting position that wasn't adopted by the majority, present it here at full strength — not as a token counterpoint but as a genuinely compelling alternative perspective. The reader should feel the pull of the dissent.
 
 ## Self-Verification
 Before finalizing, audit your own output:
@@ -593,13 +601,13 @@ For each member:
 ## [MemberName]
 Perspective: [strongly_favorable / favorable / mixed / unfavorable / strongly_unfavorable]
 Engagement: [high / medium / low]
-Rationale: 2-3 sentences explaining their perspective, referencing specific points from the debate.
+Rationale: 2-3 sentences explaining their perspective, referencing specific points from the debate. If their position hasn't changed, explain what counterarguments they considered and specifically why those arguments failed.
 
 After all individual perspectives, provide:
 
 ## Committee Perspective
-- **Perspective**: The committee's overall perspective based on the pattern of views and weight of argument (not just majority)
-- **Dissents**: Any notable dissenting views and their reasoning
+- **Perspective**: The committee's overall perspective based on the pattern of views and weight of argument (not just majority). Lead with conviction — if the case is clearly strong or clearly weak, say so bluntly. Don't soften strong conclusions to appear balanced.
+- **Dissents**: Any notable dissenting views and their reasoning — present dissenting views at full strength, not as token counterpoints. The reader should understand why a smart professional disagrees.
 - **Conditions**: Specific conditions or considerations that could shift the perspective
 - **Portfolio Fit**: How does this investment interact with the investor's existing portfolio? Does it increase concentration in any area? Does it complement or duplicate existing exposures? Show the logic.
 - **Kill Criteria Status**: For each kill criterion, confirm whether it has been CLEARED or flag it as UNRESOLVED. Any FAILED criterion must be prominently noted.

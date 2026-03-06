@@ -200,7 +200,11 @@ function PoolMetricsSection({ poolSummary }: { poolSummary: CloPoolSummary }) {
   if (poolSummary.numberOfAssets != null) metrics.push({ label: "Assets", value: String(poolSummary.numberOfAssets) });
   if (poolSummary.warf != null) metrics.push({ label: "WARF", value: String(poolSummary.warf) });
   if (poolSummary.walYears != null) metrics.push({ label: "WAL", value: `${poolSummary.walYears.toFixed(2)}y` });
-  if (poolSummary.wacSpread != null) metrics.push({ label: "WAS", value: `${poolSummary.wacSpread} bps` });
+  if (poolSummary.wacSpread != null) {
+    // Extraction may return spread as percentage (e.g. 3.85) or bps (e.g. 385)
+    const was = poolSummary.wacSpread;
+    metrics.push({ label: "WAS", value: was < 20 ? `${was}%` : `${was} bps` });
+  }
   if (poolSummary.diversityScore != null) metrics.push({ label: "Diversity", value: String(poolSummary.diversityScore) });
   if (poolSummary.waRecoveryRate != null) metrics.push({ label: "WA Recovery", value: `${poolSummary.waRecoveryRate.toFixed(1)}%` });
   if (poolSummary.pctCccAndBelow != null) metrics.push({ label: "CCC & Below", value: `${poolSummary.pctCccAndBelow.toFixed(1)}%` });

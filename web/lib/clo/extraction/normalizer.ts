@@ -235,13 +235,32 @@ export function normalizeSectionResults(
         poolMetrics[key] = value;
       }
     }
+    // Derive totalPar from standard CLO fallback fields when missing
+    if (poolMetrics.totalPar == null && poolMetrics.adjustedCollateralPrincipalAmount != null) {
+      poolMetrics.totalPar = poolMetrics.adjustedCollateralPrincipalAmount;
+    } else if (poolMetrics.totalPar == null && poolMetrics.aggregatePrincipalBalance != null) {
+      poolMetrics.totalPar = poolMetrics.aggregatePrincipalBalance;
+    }
+
     poolSummary = toDbRow(poolMetrics, base);
 
     const tranches = cs.tranches as Array<Record<string, unknown>> | undefined;
     if (tranches) {
       complianceTranches = tranches.map((t) => {
         const { className, ...rest } = t;
-        return { className: className as string, data: toDbRow(rest, base) };
+        const data = toDbRow(rest, base);
+        // Ensure current_balance is populated from principal_amount if missing
+        // (compliance summary often has principalAmount but not currentBalance)
+        if (data.current_balance == null && data.principal_amount != null) {
+          data.current_balance = data.principal_amount;
+        }
+        // Map all_in_rate or spread to coupon_rate if coupon_rate is missing
+        if (data.coupon_rate == null && data.all_in_rate != null) {
+          data.coupon_rate = data.all_in_rate;
+        } else if (data.coupon_rate == null && data.spread != null) {
+          data.coupon_rate = data.spread;
+        }
+        return { className: className as string, data };
       });
     }
   }

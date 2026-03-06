@@ -101,8 +101,8 @@ function remapColumnAliases(
   const result: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(row)) {
     const mapped = aliases[k] ?? k;
-    // Don't overwrite if we already have a value for the target column
-    if (mapped !== k && result[mapped] != null) continue;
+    // Don't overwrite a non-null value (whether from alias or original key)
+    if (result[mapped] != null) continue;
     result[mapped] = v;
   }
   return result;
