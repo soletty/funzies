@@ -436,7 +436,8 @@ export function validateSectionExtraction(
     const holdingsWithPar = holdings.filter((h) => h.parBalance != null);
     const totalHoldingsPar = holdingsWithPar.reduce((sum, h) => sum + (h.parBalance as number ?? 0), 0);
 
-    const c1 = check("total_par_match", summary.totalPar as number | null, totalHoldingsPar, 2, "pct", "Total par");
+    const summaryTotalPar = (summary.totalPar ?? summary.adjustedCollateralPrincipalAmount ?? summary.aggregatePrincipalBalance) as number | null;
+    const c1 = check("total_par_match", summaryTotalPar, totalHoldingsPar, 2, "pct", "Total par");
     if (c1) checks.push(c1); else skipped++;
 
     const uniqueObligors = new Set(holdings.map((h) => (h.obligorName as string | null)?.toLowerCase().trim()).filter(Boolean)).size;
@@ -506,25 +507,28 @@ export function validateSectionExtraction(
 
   // ─── Concentration Checks ───
 
-  if (concentrations && concentrations.length > 0 && allTests.length > 0) {
-    const industryBuckets = concentrations.filter((c) => c.concentrationType === "INDUSTRY");
-    const maxIndustryPct = industryBuckets.reduce((max, c) => Math.max(max, c.actualPct as number ?? 0), 0);
-    const industryTests = allTests.filter((t) =>
-      t.testType === "CONCENTRATION" && (t.testName as string | undefined)?.toLowerCase().includes("industry")
-    );
-    if (maxIndustryPct > 0 && industryTests.length > 0) {
-      const industryLimit = (industryTests[0].triggerLevel ?? industryTests[0].thresholdLevel) as number | undefined;
-      if (industryLimit != null) {
-        const status = maxIndustryPct <= industryLimit ? "pass" : "fail";
+  if (concentrations && concentrations.length > 0) {
+    // Industry concentration: use limit from concentration data itself, or from tests
+    const industryBuckets = concentrations.filter((c) =>
+      (c.concentrationType as string)?.toUpperCase() === "INDUSTRY");
+    if (industryBuckets.length > 0) {
+      const maxIndustry = industryBuckets.reduce((best, c) =>
+        (c.actualPct as number ?? 0) > (best.actualPct as number ?? 0) ? c : best, industryBuckets[0]);
+      const maxPct = maxIndustry.actualPct as number ?? 0;
+      const limit = (maxIndustry.limitPct as number | null)
+        ?? allTests.find((t) => (t.testName as string)?.toLowerCase().includes("industry"))?.triggerLevel as number | null
+        ?? null;
+      if (maxPct > 0 && limit != null) {
+        const status = maxPct <= limit ? "pass" : "fail";
         checks.push({
           name: "industry_concentration",
           status,
-          expected: industryLimit,
-          actual: maxIndustryPct,
-          discrepancy: Math.round((maxIndustryPct - industryLimit) * 100) / 100,
+          expected: limit,
+          actual: maxPct,
+          discrepancy: Math.round((maxPct - limit) * 100) / 100,
           message: status === "pass"
-            ? `Largest industry bucket (${maxIndustryPct.toFixed(1)}%) within limit (${industryLimit}%)`
-            : `Largest industry bucket (${maxIndustryPct.toFixed(1)}%) exceeds limit (${industryLimit}%)`,
+            ? `Largest industry bucket (${maxPct.toFixed(1)}%) within limit (${limit}%)`
+            : `Largest industry bucket (${maxPct.toFixed(1)}%) exceeds limit (${limit}%)`,
         });
       } else {
         skipped++;
@@ -533,24 +537,27 @@ export function validateSectionExtraction(
       skipped++;
     }
 
-    const obligorBuckets = concentrations.filter((c) => c.concentrationType === "SINGLE_OBLIGOR");
-    const maxObligorPct = obligorBuckets.reduce((max, c) => Math.max(max, c.actualPct as number ?? 0), 0);
-    const obligorTests = allTests.filter((t) =>
-      t.testType === "CONCENTRATION" && ((t.testName as string | undefined)?.toLowerCase().includes("obligor") || (t.testName as string | undefined)?.toLowerCase().includes("single"))
-    );
-    if (maxObligorPct > 0 && obligorTests.length > 0) {
-      const obligorLimit = (obligorTests[0].triggerLevel ?? obligorTests[0].thresholdLevel) as number | undefined;
-      if (obligorLimit != null) {
-        const status = maxObligorPct <= obligorLimit ? "pass" : "fail";
+    // Single obligor concentration: use limit from concentration data itself
+    const obligorBuckets = concentrations.filter((c) =>
+      (c.concentrationType as string)?.toUpperCase() === "SINGLE_OBLIGOR");
+    if (obligorBuckets.length > 0) {
+      const maxObligor = obligorBuckets.reduce((best, c) =>
+        (c.actualPct as number ?? 0) > (best.actualPct as number ?? 0) ? c : best, obligorBuckets[0]);
+      const maxPct = maxObligor.actualPct as number ?? 0;
+      const limit = (maxObligor.limitPct as number | null)
+        ?? allTests.find((t) => (t.testName as string)?.toLowerCase().includes("obligor"))?.triggerLevel as number | null
+        ?? null;
+      if (maxPct > 0 && limit != null) {
+        const status = maxPct <= limit ? "pass" : "fail";
         checks.push({
           name: "single_obligor_concentration",
           status,
-          expected: obligorLimit,
-          actual: maxObligorPct,
-          discrepancy: Math.round((maxObligorPct - obligorLimit) * 100) / 100,
+          expected: limit,
+          actual: maxPct,
+          discrepancy: Math.round((maxPct - limit) * 100) / 100,
           message: status === "pass"
-            ? `Largest obligor exposure (${maxObligorPct.toFixed(1)}%) within limit (${obligorLimit}%)`
-            : `Largest obligor exposure (${maxObligorPct.toFixed(1)}%) exceeds limit (${obligorLimit}%)`,
+            ? `Largest obligor exposure (${maxPct.toFixed(1)}%) within limit (${limit}%)`
+            : `Largest obligor exposure (${maxPct.toFixed(1)}%) exceeds limit (${limit}%)`,
         });
       } else {
         skipped++;
