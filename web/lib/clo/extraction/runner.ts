@@ -1220,25 +1220,31 @@ export async function runSectionExtraction(
         if (spreadBps != null && spreadBps > 0 && spreadBps < 20) {
           spreadBps = Math.round(spreadBps * 100);
         }
+        // Determine sub/equity status early (needed for spread default)
+        const isSub = !!(entry.isSubordinated ??
+          /\b(sub|equity|income|residual)\b/i.test(entryClass) ??
+          /\b(sub|equity|income|residual)\b/i.test(String(entry.designation ?? "")));
+
+        // For income notes (sub/equity), default spread to 0 (they get residual, not fixed spread)
+        if (spreadBps == null && isSub) spreadBps = 0;
+
         if (spreadBps != null) {
           setClauses.push(`spread_bps = COALESCE(spread_bps, $${pi++})`);
           values.push(spreadBps);
         }
 
-        // Set is_floating
+        // Set is_floating (income notes are not floating)
         if (entry.rateType) {
           setClauses.push(`is_floating = COALESCE(is_floating, $${pi++})`);
           values.push(String(entry.rateType).toLowerCase() === "floating");
+        } else if (isSub) {
+          setClauses.push(`is_floating = COALESCE(is_floating, $${pi++})`);
+          values.push(false);
         }
 
         // Set seniority_rank
         setClauses.push(`seniority_rank = COALESCE(seniority_rank, $${pi++})`);
         values.push(i + 1);
-
-        // Set is_subordinate and is_income_note
-        const isSub = !!(entry.isSubordinated ??
-          /\b(sub|equity|income|residual)\b/i.test(entryClass) ??
-          /\b(sub|equity|income|residual)\b/i.test(String(entry.designation ?? "")));
         setClauses.push(`is_subordinate = COALESCE(is_subordinate, $${pi++})`);
         values.push(isSub);
         setClauses.push(`is_income_note = COALESCE(is_income_note, $${pi++})`);

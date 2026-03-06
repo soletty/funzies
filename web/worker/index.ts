@@ -667,11 +667,18 @@ async function syncPpmToRelationalTables(
     const values: unknown[] = [];
     let pi = 1;
 
+    // Detect subordinated/equity tranches by flag OR name pattern (needed before spread default)
+    const isSub = entry.isSubordinated ??
+      (/\b(sub|equity|income|residual)\b/i.test(entry.class) ||
+       /\b(sub|equity|income|residual)\b/i.test(entry.designation ?? ""));
+
     let spreadBps = entry.spreadBps ?? parseSpreadBps(entry.spread);
     // Guard: if AI returned percentage (e.g., 1.45) instead of bps (145), convert
     if (spreadBps != null && spreadBps > 0 && spreadBps < 20) {
       spreadBps = Math.round(spreadBps * 100);
     }
+    // Income notes (sub/equity) get residual cash flows, default spread to 0
+    if (spreadBps == null && isSub) spreadBps = 0;
     if (spreadBps != null) {
       setClauses.push(`spread_bps = $${pi++}`);
       values.push(spreadBps);
@@ -686,12 +693,11 @@ async function syncPpmToRelationalTables(
     if (entry.rateType) {
       setClauses.push(`is_floating = $${pi++}`);
       values.push(entry.rateType.toLowerCase() === "floating");
+    } else if (isSub) {
+      // Income notes are not floating-rate
+      setClauses.push(`is_floating = $${pi++}`);
+      values.push(false);
     }
-
-    // Detect subordinated/equity tranches by flag OR name pattern
-    const isSub = entry.isSubordinated ??
-      (/\b(sub|equity|income|residual)\b/i.test(entry.class) ||
-       /\b(sub|equity|income|residual)\b/i.test(entry.designation ?? ""));
     setClauses.push(`is_subordinate = $${pi++}`);
     values.push(!!isSub);
     setClauses.push(`is_income_note = $${pi++}`);
