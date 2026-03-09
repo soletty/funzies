@@ -28,9 +28,30 @@ const QUALITY_RULES = `
 - OC (overcollateralization) tests protect senior tranches: if par value drops below the OC trigger, cash is diverted from equity to pay down senior notes until the test is cured.
 - IC (interest coverage) tests ensure there is enough interest income to cover coupon payments to each tranche level.
 - Subordinated tranche holders (equity, BB) absorb losses first — this is the intended design, not a sign of "dysfunction." Equity is supposed to be the first-loss piece.
+### Refinancing vs Reset — these are NOT the same
+- A REFINANCING replaces the CLO's liability tranches at new (hopefully tighter) spreads, keeping the same collateral pool and reinvestment period end date. It only changes the cost of funding.
+- A RESET extends the reinvestment period AND replaces liabilities — it effectively restarts the deal's clock. Resets are more powerful but require investor consent and market access.
+- Do NOT use "refi" and "reset" interchangeably. A refi that locks in tighter liabilities is unambiguously positive for equity. A reset has more trade-offs (longer commitment, potential collateral changes).
+### CCC Bucket and Par Haircuts
+- When CCC-rated holdings exceed the bucket limit (typically 7.5%), the EXCESS above the limit is carried at the LOWER of par and market value for OC test calculations. This is a haircut to par, not a forced sale.
+- A CCC downgrade does NOT force the manager to sell — it triggers a par haircut in the OC test math. The manager may choose to hold if they believe in recovery.
+- CCC excess haircuts can cascade: the haircut reduces OC cushion, which if it trips the OC trigger, diverts cash from equity to deleverage the deal. This is the mechanism by which a wave of downgrades kills equity distributions.
+### Par Building and Erosion
+- Buying loans below par (at a discount) BUILDS par — a loan purchased at 95 cents is still counted at par (100) in OC tests. This is a key manager skill: buying discounted performing loans to build OC cushion.
+- Defaults, write-downs, and sales below par ERODE par. Par erosion is the primary path to OC test failure.
+- Par value and market value are different concepts. OC tests use par value. Market value fluctuations (mark-to-market) do NOT directly affect OC tests unless a loan is sold below par or written down.
+### Reinvestment Period Mechanics
+- DURING the reinvestment period (RP), the manager has broad discretion to buy and sell loans, subject to eligibility criteria, concentration limits, and collateral quality tests.
+- AFTER the RP ends, the manager can typically only reinvest principal proceeds from credit-improved or credit-risk sales, unscheduled principal (prepayments), and recoveries — NOT scheduled amortization. Post-RP, the deal naturally delevers.
+- A shorter remaining RP = less runway for the manager to actively manage the portfolio and recover from credit events. This is a material risk factor.
+### Loan Repricing
+- Borrower-initiated repricing (where the borrower lowers the spread on its existing loan) HURTS CLO equity because it reduces WAS without any change in credit quality. Do NOT conflate borrower repricing with market spread tightening — repricing is a unilateral borrower action in a strong market.
+- Heavy repricing activity compresses the arb from the asset side and is a key risk for CLOs in strong credit markets, even though the underlying credits are performing well.
+### WARF Direction
+- Higher WARF = WORSE credit quality (higher expected default rate). Lower WARF = BETTER. When assessing whether a credit "helps" or "hurts" WARF, remember that a high-quality addition (low rating factor) LOWERS the portfolio WARF, which is the desired direction.
 ### Market Dynamics
 - New-issue CLO spreads (primary) vs secondary CLO spreads can diverge — do not conflate them.
-- CLO formation arbitrage (for new deals) depends on primary loan spreads vs new-issue liability costs at the time of pricing.
+- CLO formation arbitrage (for new deals) = primary loan spreads minus new-issue liability costs. When loan spreads widen, formation arb typically WIDENS (improves for new managers), because asset yields move out faster than CLO liability spreads. Do NOT say wider spreads "compress" formation arb — the opposite is true.
 - Existing CLO equity performance depends on the portfolio's CURRENT weighted average spread vs the LOCKED-IN liability costs from the deal's original pricing (plus any refinancing/reset).
 - A CLO that locked in tight liabilities during favorable conditions has a structural advantage even if current new-issue liability spreads widen.`;
 

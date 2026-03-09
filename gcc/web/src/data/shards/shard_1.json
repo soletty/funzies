@@ -1,0 +1,1333 @@
+[
+  {
+    "type": "family",
+    "id": "al_jallaf",
+    "data": {
+      "history": "The research provided contains no information about the Al Jallaf family's origins, history, or background. Without documented evidence, it is impossible to determine whether this family has tribal Bedouin origins, Persian merchant heritage, Indian trading connections, Hadrami ancestry, or other backgrounds that are common among GCC families. The lack of research data means that their settlement patterns, business activities, political involvement, and modern status cannot be verified or documented.",
+      "description": "Al Jallaf is a family name in the GCC region, but no verified historical or genealogical information is available from the research provided.",
+      "originStory": null,
+      "tribalOrigin": null,
+      "modernStatus": null,
+      "migrationPath": [],
+      "timelineEvents": [],
+      "connections": [],
+      "notableFigures": []
+    }
+  },
+  {
+    "type": "family",
+    "id": "galadari",
+    "data": {
+      "history": "The Galadari family is one of the prominent Huwala Arab families of Dubai, with origins tracing back to their role as merchants in the Arabian Peninsula and the Trucial States. Originally, the family became a vassal house of the Al Qawasem dynasty through royal intermarriage and migrated to the Fars province area of Lengeh in Persia in the 1800s in concordance with the Qawasem. The family settled in a village which was later called Galleh Dar (Persian: گله‌دار) pertaining to the family name, with the etymology originally given to them by the Persians to denote their socioeconomic profession of shepherding. The Galadaris established extensive trade ports between Dubai, Kuwait, India, and Iran, accumulating vast wealth through their trading operations. After the fall of Al Qawasem dynasty rule in Lengeh and increased hostility from the Persians towards Iranian Arabs, they resettled in their hometown Dubai permanently. Although a small house, the Galadari family played a significant role in the development of Dubai and were prominent advisers to Sheikh Rashid bin Saeed Al Maktoum during Dubai's economic boom. The business tradition stretched back to Hassan Galadari, who was a businessman in 1879. The modern Galadari Brothers Group was founded by Abdul Rahim E. Galadari, Abdul Latif E. Galadari, and Abdul Wahab E. Galadari in the early 1960s, establishing numerous companies including the Intercontinental Hotel, Dubai Bank, a Mazda Vehicle Dealership, and the Khaleej Times newspaper. They built GICC, which became the world's largest franchisee for Baskin-Robbins with close to 700 stores across the GCC. In 2015, the Galadari Brothers ranked 27th on a Forbes list of companies in the Middle East.",
+      "description": "A prominent Huwala Arab merchant family of Dubai with Persian connections, originally shepherds who became wealthy traders and influential advisers to the Al Maktoum rulers. They established the Galadari Brothers Group, a major conglomerate with extensive business interests across the GCC.",
+      "originStory": "Originally merchants in the Arabian Peninsula who became vassals of the Al Qawasem dynasty through royal intermarriage, later migrating to Lengeh in Persia before permanently resettling in Dubai.",
+      "tribalOrigin": null,
+      "modernStatus": "Major business conglomerate with the Galadari Brothers Group ranking 27th on Forbes Middle East companies list in 2015, controlling extensive retail, media, and hospitality operations across the GCC",
+      "migrationPath": [
+        {
+          "year": 1800,
+          "endYear": null,
+          "from": "Arabian Peninsula",
+          "fromCoords": null,
+          "to": "Lengeh, Fars Province, Persia",
+          "toCoords": [
+            27.1833,
+            54.8833
+          ],
+          "description": "Migration to Fars province in concordance with the Qawasem dynasty"
+        },
+        {
+          "year": 1800,
+          "endYear": null,
+          "from": "Lengeh, Persia",
+          "fromCoords": [
+            27.1833,
+            54.8833
+          ],
+          "to": "Dubai",
+          "toCoords": [
+            25.2048,
+            55.2708
+          ],
+          "description": "Permanent resettlement in Dubai after fall of Al Qawasem rule and Persian hostility"
+        }
+      ],
+      "timelineEvents": [
+        {
+          "year": 1879,
+          "title": "Hassan Galadari Business Establishment",
+          "description": "Hassan Galadari established as businessman, founding the family's commercial tradition",
+          "location": "Dubai",
+          "coords": [
+            25.2048,
+            55.2708
+          ],
+          "eventType": "business_founding"
+        },
+        {
+          "year": 1960,
+          "title": "Galadari Brothers Group Founded",
+          "description": "Abdul Rahim, Abdul Latif, and Abdul Wahab Galadari founded the Galadari Brothers Group",
+          "location": "Dubai",
+          "coords": [
+            25.2048,
+            55.2708
+          ],
+          "eventType": "business_founding"
+        }
+      ],
+      "connections": [
+        {
+          "entityId": "al_qawasem",
+          "entityType": "ruling_family",
+          "relationship": "vassal_house",
+          "context": "Became a vassal house through royal intermarriage"
+        },
+        {
+          "entityId": "al_maktoum",
+          "entityType": "ruling_family",
+          "relationship": "advisors",
+          "context": "Prominent advisers to Sheikh Rashid bin Saeed Al Maktoum during Dubai's economic boom"
+        }
+      ],
+      "notableFigures": [
+        {
+          "id": "hassan_galadari",
+          "name": "Hassan Galadari",
+          "title": "Businessman",
+          "roleDescription": "Patriarch who established the family business tradition",
+          "bornYear": null,
+          "diedYear": null,
+          "era": "19th century"
+        },
+        {
+          "id": "abdul_latif_galadari",
+          "name": "Abdul Latif Galadari",
+          "title": "Co-founder of Galadari Brothers Group",
+          "roleDescription": "Youngest son of Ibrahim Galadari, co-headed the Galadari Group and established major business ventures including Dubai Bank and Khaleej Times",
+          "bornYear": 1939,
+          "diedYear": 2002,
+          "era": "20th century"
+        },
+        {
+          "id": "suhail_galadari",
+          "name": "Suhail Abdul Latif Galadari",
+          "title": "Co-Chairman at Galadari Brothers",
+          "roleDescription": "Eldest son of Abdul Latif Galadari, current Co-Chairman and shareholder in Khaleej Times",
+          "bornYear": 1977,
+          "diedYear": null,
+          "era": "21st century"
+        }
+      ]
+    }
+  },
+  {
+    "type": "family",
+    "id": "sajwani",
+    "data": {
+      "history": "The Sajwani family is prominently represented by Hussain Sajwani, born in Dubai in 1952/53 to a middle-class family. He was the eldest of five children, and his early business experience came from working in his father's shop selling watches, pens, and goods imported from China. After initially studying medicine at Baghdad University on a government scholarship, he transferred to the University of Washington where he graduated with a degree in industrial engineering in 1981. Sajwani began his professional career in 1981 as a contracts manager at GASCO (Abu Dhabi Gas Industries), a subsidiary of ADNOC. After two years, he founded his own catering business in 1983, providing food services to major institutions including the US Army and Bechtel Corporation, which continues to operate as Global Logistics Services. In 2002, he founded DAMAC Properties, which became one of the largest real estate development companies in the Middle East. The company went public on the Dubai Financial Market in 2015 and was ranked by Forbes Global 2000 in 2017 as the world's fastest-growing company based on annual compound growth rate from 2013-2016. Sajwani has been consistently ranked among the most influential Arab personalities by Gulf Business magazine and Arabian Business, and was listed among the top 10 richest Arabs by Forbes in 2021 with a wealth estimated at $2.5 billion. In 2022, he acquired Swiss jewelry company De Grisogono, and in 2025 announced a $20 billion investment commitment for data center development in the United States.",
+      "description": "A wealthy Emirati business family based in Dubai, prominently represented by billionaire property developer Hussain Sajwani, founder of DAMAC Properties and one of the UAE's wealthiest individuals.",
+      "originStory": "The family originates from Dubai, with Hussain Sajwani born there in 1952/53 to a middle-class merchant family involved in importing goods from China.",
+      "tribalOrigin": null,
+      "modernStatus": "Major real estate development empire through DAMAC Properties, with global operations and investments in luxury hospitality, fashion (Roberto Cavalli), and jewelry (De Grisogono)",
+      "migrationPath": [],
+      "timelineEvents": [
+        {
+          "year": 1981,
+          "title": "Professional Career Begins",
+          "description": "Hussain Sajwani graduates from University of Washington and joins GASCO as contracts manager",
+          "location": "Abu Dhabi",
+          "coords": [
+            24.4539,
+            54.3773
+          ],
+          "eventType": "career"
+        },
+        {
+          "year": 1983,
+          "title": "First Business Venture",
+          "description": "Establishes catering business serving US Army and major corporations",
+          "location": "UAE",
+          "coords": [
+            24.4539,
+            54.3773
+          ],
+          "eventType": "founding"
+        },
+        {
+          "year": 2002,
+          "title": "DAMAC Properties Founded",
+          "description": "Establishes DAMAC Properties which becomes major Middle Eastern real estate developer",
+          "location": "Dubai",
+          "coords": [
+            25.2048,
+            55.2708
+          ],
+          "eventType": "founding"
+        },
+        {
+          "year": 2015,
+          "title": "Public Listing",
+          "description": "DAMAC Properties lists on Dubai Financial Market",
+          "location": "Dubai",
+          "coords": [
+            25.2048,
+            55.2708
+          ],
+          "eventType": "business"
+        },
+        {
+          "year": 2022,
+          "title": "De Grisogono Acquisition",
+          "description": "Acquires Swiss luxury jewelry company De Grisogono",
+          "location": "Switzerland",
+          "coords": [
+            46.8182,
+            8.2275
+          ],
+          "eventType": "acquisition"
+        }
+      ],
+      "connections": [],
+      "notableFigures": [
+        {
+          "id": "hussain_sajwani",
+          "name": "Hussain Sajwani",
+          "title": "Founder and Chairman of DAMAC Properties",
+          "roleDescription": "Billionaire property developer, founder of DAMAC Properties, owner of Roberto Cavalli and De Grisogono",
+          "bornYear": 1952,
+          "diedYear": null,
+          "era": "20th-21st century"
+        }
+      ]
+    }
+  },
+  {
+    "type": "family",
+    "id": "al_mohebi",
+    "data": {
+      "history": "The research provided does not contain any specific information about the Al Mohebi family's origins, migration patterns, or historical development. While the name 'Mohebi' appears in the context of Iranian footballer Amir Mohebi (born 1981), there is no genealogical or family history information provided. The research focuses on Iranian political movements, Shia clergy structures, and football-related content, but does not establish any connection between these topics and the Al Mohebi family specifically. Without concrete historical documentation about this family's origins, settlement patterns, or business activities in the research provided, their actual background - whether Persian, Arab, Indian, or other - cannot be determined.",
+      "description": "A GCC family with limited documented history in the provided research sources.",
+      "originStory": null,
+      "tribalOrigin": null,
+      "modernStatus": null,
+      "migrationPath": [],
+      "timelineEvents": [],
+      "connections": [],
+      "notableFigures": [
+        {
+          "id": "amir_mohebi_footballer",
+          "name": "Amir Mohebi",
+          "title": "Professional Footballer",
+          "roleDescription": "Iranian footballer",
+          "bornYear": 1981,
+          "diedYear": null,
+          "era": "21st century"
+        }
+      ]
+    }
+  },
+  {
+    "type": "family",
+    "id": "al_amoudi",
+    "data": {
+      "history": "The Al Amoudi family traces its origins to Sheikh Sa'eed ibn Isa Al-Amoudi (1203-1272 CE), a prominent Sunni Shafi'i Islamic scholar from Hadhramaut, Yemen. Born in Qaydun in the Wadi Daw'an region, he was descended from the first Muslim Caliph Abu Bakr As-Siddiq through a lineage that includes Sa'eed ibn Isa Al-Bakri, known as 'Amoududdin' (Pillar of the religion), from whom the family name derives. Sheikh Sa'eed's father, Sheikh Isa ibn Ahmad Al-Amoudi, was originally a Mufti of Medina who migrated to spread Islamic learning, eventually settling in Hadhramaut where he married into the Bani Muhammad of the Himyarite Siban tribe. Sheikh Sa'eed became a renowned Sufi master, founding the Tariqah Al-Amoudiyyah and allegedly receiving the Staff of Moses and Coat of Joseph from his teacher Muhammad ibn Ali Ba'Alawi. His descendants established the Al-Amoudi state in Wadi Daw'an from 1531-1899 CE, with their capital at Budha village. The family's modern prominence emerged through Mohammed Hussein Al Amoudi, born in Ethiopia in 1946 to a Yemeni father from Hadhramaut and an Ethiopian mother. He migrated to Saudi Arabia with his brother and became a Saudi citizen, building a business empire worth $9.3 billion through construction, oil refineries, mining, and agriculture across Saudi Arabia, Ethiopia, Sweden, and Morocco through his companies MIDROC and Corral Petroleum Holdings.",
+      "description": "A Hadhrami family descended from medieval Islamic scholar Sheikh Sa'eed ibn Isa Al-Amoudi, tracing lineage to Caliph Abu Bakr. Modern prominence through billionaire businessman Mohammed Hussein Al Amoudi's multinational empire.",
+      "originStory": "Descended from Sheikh Sa'eed ibn Isa Al-Amoudi (1203-1272), a Sufi scholar from Qaydun in Hadhramaut's Wadi Daw'an, whose lineage traces to the first Muslim Caliph Abu Bakr As-Siddiq.",
+      "tribalOrigin": "Mashaikh Al-Amoudi tribe",
+      "modernStatus": "Global business empire led by Mohammed Hussein Al Amoudi with interests in construction, oil refining, mining, agriculture, and manufacturing across multiple countries, employing over 70,000 people.",
+      "migrationPath": [
+        {
+          "year": 1960,
+          "endYear": null,
+          "from": "Dessie, Ethiopia",
+          "fromCoords": [
+            11.1342,
+            39.6341
+          ],
+          "to": "Saudi Arabia",
+          "toCoords": [
+            24.7136,
+            46.6753
+          ],
+          "description": "Mohammed Hussein Al Amoudi migrated from Ethiopia to Saudi Arabia with his brother Mauricet"
+        }
+      ],
+      "timelineEvents": [
+        {
+          "year": 1203,
+          "title": "Birth of Sheikh Sa'eed ibn Isa Al-Amoudi",
+          "description": "Born in Qaydun, Wadi Daw'an, Hadhramaut, founding figure of the Al-Amoudi lineage",
+          "location": "Qaydun, Yemen",
+          "coords": [
+            15.9573,
+            48.6348
+          ],
+          "eventType": "founding"
+        },
+        {
+          "year": 1272,
+          "title": "Death of Sheikh Sa'eed ibn Isa",
+          "description": "Died in Qaydun and buried next to his mosque, now called Sheikh Sa'eed ibn Isa Al-Amoudi Masjid",
+          "location": "Qaydun, Yemen",
+          "coords": [
+            15.9573,
+            48.6348
+          ],
+          "eventType": "death"
+        },
+        {
+          "year": 1433,
+          "title": "First Political Conquest",
+          "description": "Sheikh Abdullah ibn Muhammad Al-Amoudi conquered the town of Al-Khurayba",
+          "location": "Al-Khurayba, Yemen",
+          "coords": null,
+          "eventType": "conquest"
+        },
+        {
+          "year": 1531,
+          "title": "Establishment of Al-Amoudi State",
+          "description": "Sheikh Uthman ibn Ahmed Al-Amoudi established independent state in Wadi Daw'an",
+          "location": "Wadi Daw'an, Yemen",
+          "coords": [
+            15.9573,
+            48.6348
+          ],
+          "eventType": "political"
+        },
+        {
+          "year": 1946,
+          "title": "Birth of Mohammed Hussein Al Amoudi",
+          "description": "Born in Dessie, Ethiopia to Yemeni father and Ethiopian mother",
+          "location": "Dessie, Ethiopia",
+          "coords": [
+            11.1342,
+            39.6341
+          ],
+          "eventType": "birth"
+        },
+        {
+          "year": 1988,
+          "title": "Major Saudi Contract",
+          "description": "MIDROC won contract to build Saudi Arabia's $30 billion underground oil storage complex",
+          "location": "Saudi Arabia",
+          "coords": [
+            24.7136,
+            46.6753
+          ],
+          "eventType": "business"
+        },
+        {
+          "year": 1994,
+          "title": "MIDROC Ethiopia Founded",
+          "description": "Established MIDROC Ethiopia for business operations in Ethiopia",
+          "location": "Addis Ababa, Ethiopia",
+          "coords": [
+            9.032,
+            38.7469
+          ],
+          "eventType": "business"
+        }
+      ],
+      "connections": [
+        {
+          "entityId": "siban_tribe",
+          "entityType": "tribe",
+          "relationship": "marriage_alliance",
+          "context": "Sheikh Isa ibn Ahmad Al-Amoudi married into the Bani Muhammad of the Himyarite Siban tribe in Qaydun"
+        },
+        {
+          "entityId": "ba_alawi",
+          "entityType": "family",
+          "relationship": "teacher_student",
+          "context": "Sheikh Sa'eed ibn Isa was a student of Faqih Al-Muqaddam Sayyid Muhammad ibn Ali Ba'Alawi"
+        }
+      ],
+      "notableFigures": [
+        {
+          "id": "saeed_ibn_isa_al_amoudi",
+          "name": "Sheikh Sa'eed ibn Isa Al-Amoudi",
+          "title": "Sufi Scholar and Saint",
+          "roleDescription": "Founder of Tariqah Al-Amoudiyyah, prominent Islamic scholar known as Wali Allah",
+          "bornYear": 1203,
+          "diedYear": 1272,
+          "era": "13th century"
+        },
+        {
+          "id": "mohammed_hussein_al_amoudi",
+          "name": "Mohammed Hussein Ali Al Amoudi",
+          "title": "Billionaire Businessman",
+          "roleDescription": "Ethiopian-born Saudi billionaire, owner of MIDROC and Corral Petroleum Holdings",
+          "bornYear": 1946,
+          "diedYear": null,
+          "era": "20th-21st century"
+        },
+        {
+          "id": "nabil_al_amoudi",
+          "name": "Nabil bin Mohammed Al-Amoudi",
+          "title": "Former Transport Minister",
+          "roleDescription": "CEO of Olayan Financing Co., former Saudi Transport Minister (2017-2019)",
+          "bornYear": null,
+          "diedYear": null,
+          "era": "21st century"
+        }
+      ]
+    }
+  },
+  {
+    "type": "family",
+    "id": "alireza",
+    "data": {
+      "history": "The name Alireza appears across multiple distinct lineages in the region. The House of Alireza represents Saudi Arabia's oldest organized commercial enterprise, founded by Zainal Alireza in 1845 after arriving in Jeddah from Laristan in southern Iran during the 1840s. This Persian merchant family initially traded food, textiles, and merchandise from the Middle East and Indian subcontinent, while serving as hajj agents for British-Indian shipping lines. They became early political supporters of Abdulaziz al Saud, with family members serving in Ottoman parliament and as governors of Jeddah. The business expanded to include the first Ford dealership in Saudi Arabia (1940) and rights to Western brands like Pepsi Cola and Goodyear, eventually incorporating as a limited liability company in 2003. The research also reveals the Iranian Pahlavi dynasty included Ali Reza Pahlavi (1966-2011), son of the last Shah, who studied ancient Iranian studies at Harvard before his death by suicide in Boston. Additionally, contemporary figures like Alireza Arafi, born 1959 in Maybod to a Lak-Kurdish family whose ancestors converted from Zoroastrianism to Islam in the 19th century, represent the clerical establishment in Iran.",
+      "description": "Multiple distinct Alireza lineages including the House of Alireza merchant family from Iranian Laristan who founded Saudi Arabia's oldest commercial enterprise, and various Iranian political and religious figures.",
+      "originStory": "The House of Alireza originated from Laristan in southern Iran, arriving in Jeddah during the 1840s as Persian merchants.",
+      "tribalOrigin": null,
+      "modernStatus": "The House of Alireza operates as a diversified Saudi business empire through companies like SISCO, Tusdeer, and Xenel, while Iranian Alireza figures hold various political and clerical positions.",
+      "migrationPath": [
+        {
+          "year": 1840,
+          "endYear": 1845,
+          "from": "Laristan, Iran",
+          "fromCoords": [
+            27.67,
+            54.33
+          ],
+          "to": "Jeddah, Saudi Arabia",
+          "toCoords": [
+            21.49,
+            39.19
+          ],
+          "description": "Zainal Alireza migrated from Laristan in southern Iran to establish trading operations in Jeddah"
+        }
+      ],
+      "timelineEvents": [
+        {
+          "year": 1845,
+          "title": "House of Alireza Founded",
+          "description": "Zainal Alireza established what became Saudi Arabia's oldest organized commercial enterprise",
+          "location": "Jeddah",
+          "coords": [
+            21.49,
+            39.19
+          ],
+          "eventType": "founding"
+        },
+        {
+          "year": 1908,
+          "title": "Political Representation",
+          "description": "Qasim bin Zainal Alireza elected as deputy for Jeddah in Ottoman parliament",
+          "location": "Jeddah",
+          "coords": [
+            21.49,
+            39.19
+          ],
+          "eventType": "political"
+        },
+        {
+          "year": 1929,
+          "title": "Business Renamed",
+          "description": "Business renamed to Haji Abdullah Alireza & Co. and received first commercial registration in Saudi Arabia",
+          "location": "Saudi Arabia",
+          "coords": [
+            24.71,
+            46.68
+          ],
+          "eventType": "business"
+        },
+        {
+          "year": 1940,
+          "title": "Ford Dealership",
+          "description": "House of Alireza secured rights to first Ford dealership in the kingdom",
+          "location": "Saudi Arabia",
+          "coords": [
+            24.71,
+            46.68
+          ],
+          "eventType": "business"
+        }
+      ],
+      "connections": [],
+      "notableFigures": [
+        {
+          "id": "zainal_alireza",
+          "name": "Zainal Alireza",
+          "title": "Founder",
+          "roleDescription": "Founded the House of Alireza trading business in 1845, establishing Saudi Arabia's oldest organized commercial enterprise",
+          "bornYear": null,
+          "diedYear": null,
+          "era": "19th century"
+        },
+        {
+          "id": "abdullah_alireza_zainal",
+          "name": "Abdullah Alireza Zainal",
+          "title": "Kaymakam of Jeddah",
+          "roleDescription": "Served as governor of Jeddah during Hashemite and early al Saud rule, later became senior advisor to King Abdullah bin Abdulaziz",
+          "bornYear": null,
+          "diedYear": null,
+          "era": "20th century"
+        },
+        {
+          "id": "muhammad_alireza",
+          "name": "Muhammad Alireza",
+          "title": "Minister of Commerce",
+          "roleDescription": "Second Minister of Commerce from 1953 to 1958, later served as Saudi ambassador to Egypt and France",
+          "bornYear": null,
+          "diedYear": null,
+          "era": "20th century"
+        },
+        {
+          "id": "ali_reza_pahlavi_1966",
+          "name": "Ali Reza Pahlavi",
+          "title": "Prince",
+          "roleDescription": "Younger son of Mohammad Reza Pahlavi, studied ancient Iranian studies and philology at Harvard University",
+          "bornYear": 1966,
+          "diedYear": 2011,
+          "era": "20th-21st century"
+        }
+      ]
+    }
+  },
+  {
+    "type": "family",
+    "id": "zahid",
+    "data": {
+      "history": "The name Zahid has its roots in Arabic language and culture, with meanings including 'Altruistic' and 'the noble man who stops others from wrongdoing.' In Islamic tradition, a Zahid is defined as 'the literal believer in the letter of the Law, opposed to the Sufi, who believes in its spirit,' representing an outsider (Zahiri) perspective versus the inner (Batini) spiritual approach. The name has gained prominence across Middle Eastern and South Asian regions, particularly in Pakistan where it appears frequently among notable figures in sports, entertainment, and religious scholarship. Contemporary bearers of the name include Pakistani cricketers, actors, and Islamic scholars, as well as individuals of Pakistani heritage who have achieved international recognition, such as Norwegian footballer Ghayas Zahid who became the first person of Pakistani descent to play in the UEFA Champions League. The name's widespread adoption reflects its cultural significance in Islamic communities and the diaspora populations who maintain connections to traditional Islamic values while adapting to modern contexts.",
+      "description": "Zahid is an Arabic-origin name meaning 'Altruistic' or 'noble believer,' particularly popular in Middle Eastern and South Asian Muslim communities. The name carries religious significance in Islamic tradition, distinguishing literal believers from mystical Sufis.",
+      "originStory": "The name Zahid originates from Arabic language and Islamic religious tradition, where it denotes someone who is a literal believer in religious law as opposed to mystical interpretation.",
+      "tribalOrigin": null,
+      "modernStatus": "The name remains widely used across Muslim communities globally, with notable contemporary bearers in sports, entertainment, academia, and religious scholarship",
+      "migrationPath": [],
+      "timelineEvents": [],
+      "connections": [],
+      "notableFigures": [
+        {
+          "id": "ghayas_zahid",
+          "name": "Ghayas Zahid",
+          "title": "Professional Footballer",
+          "roleDescription": "Norwegian professional footballer of Pakistani descent, first person of Pakistani heritage to play in UEFA Champions League",
+          "bornYear": 1994,
+          "diedYear": null,
+          "era": "21st century"
+        },
+        {
+          "id": "zahid_valencia",
+          "name": "Zahid Valencia",
+          "title": "Professional Wrestler",
+          "roleDescription": "American freestyle wrestler, 2025 World Champion and two-time NCAA Division I national champion",
+          "bornYear": 1997,
+          "diedYear": null,
+          "era": "21st century"
+        },
+        {
+          "id": "zahid_rashidi",
+          "name": "Zaid al-Rashidi (Muhammad Abdul Matin Khan Zahid)",
+          "title": "Islamic Scholar",
+          "roleDescription": "Pakistani Islamic scholar, writer, and founder-director of Sharia Academy in Gujranwala",
+          "bornYear": 1948,
+          "diedYear": null,
+          "era": "20th-21st century"
+        }
+      ]
+    }
+  },
+  {
+    "type": "family",
+    "id": "al_issa",
+    "data": {
+      "history": "The Al Issa family represents multiple distinct lineages across the Middle East and Arab world. The El-Issa family emerged as a prominent Palestinian Christian family from Jaffa in the 20th century, distinguished by their intellectual contributions, politics, and journalism. Founded by Issa El-Issa and his cousin Yousef El-Issa, they established the influential newspaper Falastin in 1909, becoming among the first to warn about the Zionist movement in Mandatory Palestine. The family supported Palestinian nationalism through numerous publications including Al-Asma'i, Alif Bā', and Al-Bilād. After displacement, family members continued their journalistic legacy in Jordan and Syria. Separately, the name appears in the UAE royal context with Issa bin Zayed Al Nahyan, a member of the ruling House of Nahyan of Abu Dhabi, who is involved in real estate development as owner of Al Hekma Tower in Dubai. The research also documents individuals bearing the Al-Issa surname in other contexts, including Yemeni performers and athletes, indicating the widespread geographic distribution of this patronymic name across the Arab world.",
+      "description": "Multiple distinct Al Issa lineages documented across Palestine, UAE, Yemen, and Jordan, most notably the Palestinian Christian El-Issa family of journalists and the UAE Al Nahyan royal branch member.",
+      "originStory": null,
+      "tribalOrigin": null,
+      "modernStatus": "The Palestinian El-Issa family continues in media and activism, while UAE branch member Issa bin Zayed Al Nahyan operates in real estate development",
+      "migrationPath": [
+        {
+          "year": 1948,
+          "endYear": 1960,
+          "from": "Jaffa, Palestine",
+          "fromCoords": [
+            32.0568,
+            34.7516
+          ],
+          "to": "Amman, Jordan",
+          "toCoords": [
+            31.9454,
+            35.9284
+          ],
+          "description": "El-Issa family displacement from Palestine, continuing newspaper operations in Jordan"
+        }
+      ],
+      "timelineEvents": [
+        {
+          "year": 1909,
+          "title": "Falastin Newspaper Founded",
+          "description": "Issa El-Issa and Yousef El-Issa established Falastin newspaper in Jaffa",
+          "location": "Jaffa, Palestine",
+          "coords": [
+            32.0568,
+            34.7516
+          ],
+          "eventType": "founding"
+        },
+        {
+          "year": 1956,
+          "title": "Jordan Press Association Established",
+          "description": "Raja El-Issa became first chairman of Jordan Press Association in Amman",
+          "location": "Amman, Jordan",
+          "coords": [
+            31.9454,
+            35.9284
+          ],
+          "eventType": "political"
+        }
+      ],
+      "connections": [],
+      "notableFigures": [
+        {
+          "id": "issa_el_issa",
+          "name": "Issa El-Issa",
+          "title": "Founder of Falastin Newspaper",
+          "roleDescription": "Pioneering Palestinian journalist who founded Falastin newspaper and warned against Zionist movement",
+          "bornYear": null,
+          "diedYear": null,
+          "era": "early 20th century"
+        },
+        {
+          "id": "raja_el_issa",
+          "name": "Raja El-Issa",
+          "title": "First Chairman of Jordan Press Association",
+          "roleDescription": "Son of Issa El-Issa who managed Falastin and became first chairman of Jordan Press Association",
+          "bornYear": null,
+          "diedYear": null,
+          "era": "mid 20th century"
+        },
+        {
+          "id": "issa_bin_zayed",
+          "name": "Issa bin Zayed Al Nahyan",
+          "title": "UAE Royal Family Member and Real Estate Developer",
+          "roleDescription": "Son of former UAE President Zayed bin Sultan Al Nahyan, owner of Al Hekma Tower in Dubai",
+          "bornYear": null,
+          "diedYear": null,
+          "era": "contemporary"
+        }
+      ]
+    }
+  },
+  {
+    "type": "family",
+    "id": "al_jomaih",
+    "data": {
+      "history": "The Al Jomaih family has emerged as a prominent Saudi Arabian business dynasty with significant international investments. Based on the research, the Al-Jomaih Investment Group stands as one of the main shareholders in major international companies, including Crossgate AG (a German B2B integration company that was later acquired by SAP in 2011). The family has established Al-Jomaih Power Limited as their energy investment vehicle, which became a key component of KES Power, a joint venture that acquired majority control of Pakistan's K-Electric Limited in 2005. Through this venture, Al-Jomaih Power holds significant influence over Pakistan's only vertically integrated utility company, serving 3.7 million customers across Karachi and surrounding regions. The family's investment strategy demonstrates their focus on technology and energy sectors, with partnerships extending from European software companies to South Asian utilities, establishing them as significant players in the Gulf's modern business landscape.",
+      "description": "Saudi Arabian business family known for major international investments through Al-Jomaih Investment Group and Al-Jomaih Power Limited, with significant stakes in technology and energy companies.",
+      "originStory": null,
+      "tribalOrigin": null,
+      "modernStatus": "Major investors in international technology and energy sectors through Al-Jomaih Investment Group and Al-Jomaih Power Limited",
+      "migrationPath": [],
+      "timelineEvents": [
+        {
+          "year": 2008,
+          "title": "Investment in Crossgate AG",
+          "description": "Al-Jomaih Investment Group became one of the main shareholders in German B2B integration company Crossgate AG",
+          "location": "Germany",
+          "coords": [
+            51.1657,
+            10.4515
+          ],
+          "eventType": "business"
+        },
+        {
+          "year": 2005,
+          "title": "K-Electric Acquisition",
+          "description": "Al-Jomaih Power Limited became part of KES Power joint venture that acquired majority stake in Pakistan's K-Electric",
+          "location": "Karachi, Pakistan",
+          "coords": [
+            24.8607,
+            67.0011
+          ],
+          "eventType": "business"
+        }
+      ],
+      "connections": [],
+      "notableFigures": []
+    }
+  },
+  {
+    "type": "family",
+    "id": "al_fakieh",
+    "data": {
+      "history": "The Al Fakieh family is a prominent Saudi Arabian business family known for their extensive commercial empire centered in Jeddah and Mecca. The family has established itself as major players in multiple industries including poultry farming, fast food restaurants, entertainment, and theme parks. Abdul Rahman Fakieh founded Al Tazaj restaurant chain in 1989 in Mecca, specializing in flame-grilled chicken prepared with proprietary sauces and sourcing chickens from their own Fakieh Poultry Farms. The family expanded into entertainment through the Tarfeeh Fakieh Group, which owns and operates Al-Shallal Theme Park in Jeddah that opened in 2004. By 2001, Tarfeeh Fakieh Group had grown to become the 34th largest company in Saudi Arabia with over $480 million in assets and more than 6,000 employees. The family has produced notable political figures, most prominently Adel Fakeih, born in 1959 into what is described as 'a family known for its active members in the fields of finance and business.' His father was both a businessman and published poet, while his uncle served as chair of the Fakeih Group. Adel Fakeih held several high-profile government positions including Mayor of Jeddah (2005-2010), Minister of Labor (2010-2015), Minister of Health (2014), and Minister of Economy and Planning (2015-2017), where he played a key role in developing Saudi Arabia's Vision 2030 economic transformation plan. However, the family's political prominence was disrupted when Adel Fakeih was arrested in November 2017 during the Saudi Arabian anti-corruption purge, along with another family member, businessman Abdulrahman Fakieh. The Al Fakieh business empire spans from their original poultry and restaurant operations to major entertainment ventures, representing one of Saudi Arabia's significant commercial dynasties.",
+      "description": "Prominent Saudi Arabian business family based in Jeddah and Mecca, known for their diversified commercial empire including Al Tazaj restaurant chain, Fakieh Poultry Farms, and Tarfeeh Fakieh Group entertainment ventures. The family has produced notable political figures including former minister Adel Fakeih.",
+      "originStory": "The research does not provide specific information about the family's ethnic or tribal origins, though they are established as a business family active in Mecca and Jeddah with members described as active in finance and business fields.",
+      "tribalOrigin": null,
+      "modernStatus": "Major business family operating diversified commercial empire including restaurant chains, poultry farming, and entertainment venues, though political influence diminished following 2017 arrests during anti-corruption purge",
+      "migrationPath": [],
+      "timelineEvents": [
+        {
+          "year": 1989,
+          "title": "Al Tazaj Restaurant Chain Founded",
+          "description": "Abdul Rahman Fakieh founded Al Tazaj fast-casual restaurant chain in Mecca, specializing in flame-grilled chicken",
+          "location": "Mecca",
+          "coords": [
+            21.4225,
+            39.8262
+          ],
+          "eventType": "founding"
+        },
+        {
+          "year": 2001,
+          "title": "Tarfeeh Fakieh Group Major Growth",
+          "description": "Tarfeeh Fakieh Group ranked as 34th largest company in Saudi Arabia with over $480 million in assets and 6,000+ employees",
+          "location": "Saudi Arabia",
+          "coords": [
+            24.7136,
+            46.6753
+          ],
+          "eventType": "business_milestone"
+        },
+        {
+          "year": 2004,
+          "title": "Al-Shallal Theme Park Opening",
+          "description": "Tarfeeh Fakieh Group opened Al-Shallal Theme Park in Jeddah, becoming one of the few major amusement parks in the Middle East",
+          "location": "Jeddah",
+          "coords": [
+            21.4858,
+            39.1925
+          ],
+          "eventType": "business_expansion"
+        },
+        {
+          "year": 2005,
+          "title": "Adel Fakeih Appointed Mayor of Jeddah",
+          "description": "Adel Fakeih was appointed mayor of Jeddah, launching major urban development projects including Central Jeddah Redevelopment Project",
+          "location": "Jeddah",
+          "coords": [
+            21.4858,
+            39.1925
+          ],
+          "eventType": "political_appointment"
+        },
+        {
+          "year": 2017,
+          "title": "Family Members Arrested in Anti-Corruption Purge",
+          "description": "Adel Fakeih and Abdulrahman Fakieh were arrested during the Saudi Arabian anti-corruption purge, significantly impacting family's political influence",
+          "location": "Riyadh",
+          "coords": [
+            24.7136,
+            46.6753
+          ],
+          "eventType": "political_crisis"
+        }
+      ],
+      "connections": [],
+      "notableFigures": [
+        {
+          "id": "adel_fakeih",
+          "name": "Adel Fakeih",
+          "title": "Former Minister of Economy and Planning",
+          "roleDescription": "Former Mayor of Jeddah, Minister of Labor, Minister of Health, and Minister of Economy and Planning who played key role in developing Saudi Vision 2030",
+          "bornYear": 1959,
+          "diedYear": null,
+          "era": "20th-21st century"
+        },
+        {
+          "id": "abdul_rahman_fakieh",
+          "name": "Abdul Rahman Fakieh",
+          "title": "Founder of Al Tazaj",
+          "roleDescription": "Businessman who founded Al Tazaj restaurant chain in 1989, establishing the family's presence in the fast food industry",
+          "bornYear": null,
+          "diedYear": null,
+          "era": "20th-21st century"
+        },
+        {
+          "id": "abdulrahman_fakieh_businessman",
+          "name": "Abdulrahman Fakieh",
+          "title": "Businessman",
+          "roleDescription": "Prominent businessman arrested during 2017 Saudi Arabian anti-corruption purge",
+          "bornYear": null,
+          "diedYear": null,
+          "era": "20th-21st century"
+        }
+      ]
+    }
+  },
+  {
+    "type": "family",
+    "id": "al_drees",
+    "data": {
+      "history": null,
+      "description": null,
+      "originStory": null,
+      "tribalOrigin": null,
+      "modernStatus": null,
+      "migrationPath": [],
+      "timelineEvents": [],
+      "connections": [],
+      "notableFigures": []
+    }
+  },
+  {
+    "type": "family",
+    "id": "al_shobokshi",
+    "data": {
+      "history": "The Al Shobokshi family appears to be a prominent Saudi business and academic family, though their specific ethnic or tribal origins are not detailed in the available research. The family's modern prominence is evidenced through several notable figures in academia, business, and government. Fahd Shobokshi was among the Saudi elite who attended Victoria College in Alexandria, Egypt in the mid-20th century, studying alongside future regional leaders including King Hussein of Jordan, the Kashoggi brothers, and other influential Saudi businessmen like Mohammed Al Attas. This indicates the family's established position within Saudi Arabia's educated merchant class by at least the 1940s-1950s. The family has maintained significant influence in academia and government, with Ossama bin Abdul Majed Shobokshi serving as director of King Abdulaziz University from 1994-1995, and later as Saudi Minister of Health from 1995-2003, followed by his appointment as Saudi Ambassador to Germany until 2015. Another family member, Hussein Shobokshi, became a prominent columnist for the Saudi newspaper Okaz, though he was later blacklisted in 2003 after publishing articles advocating for government accountability and democratic reforms. The family appears to represent the Saudi technocratic and business elite, with connections to major educational institutions and government positions.",
+      "description": "A prominent Saudi family involved in academia, government, and business, with notable figures serving as university directors, government ministers, and media personalities in the Kingdom.",
+      "originStory": null,
+      "tribalOrigin": null,
+      "modernStatus": "Established Saudi family with members in academia, government service, and media, maintaining influence in educational and political circles",
+      "migrationPath": [],
+      "timelineEvents": [
+        {
+          "year": 1940,
+          "title": "Fahd Shobokshi at Victoria College",
+          "description": "Fahd Shobokshi attended Victoria College in Alexandria, Egypt alongside future regional leaders",
+          "location": "Alexandria, Egypt",
+          "coords": [
+            31.2001,
+            29.9187
+          ],
+          "eventType": "education"
+        },
+        {
+          "year": 1994,
+          "title": "Ossama Shobokshi becomes KAU Director",
+          "description": "Ossama bin Abdul Majed Shobokshi appointed as director of King Abdulaziz University",
+          "location": "Jeddah, Saudi Arabia",
+          "coords": [
+            21.4858,
+            39.1925
+          ],
+          "eventType": "appointment"
+        },
+        {
+          "year": 1995,
+          "title": "Minister of Health Appointment",
+          "description": "Ossama Shobokshi appointed as Saudi Minister of Health, serving until 2003",
+          "location": "Riyadh, Saudi Arabia",
+          "coords": [
+            24.7136,
+            46.6753
+          ],
+          "eventType": "appointment"
+        },
+        {
+          "year": 2003,
+          "title": "Hussein Shobokshi Controversy",
+          "description": "Hussein Shobokshi blacklisted from Okaz newspaper after publishing articles on government accountability",
+          "location": "Saudi Arabia",
+          "coords": [
+            23.8859,
+            45.0792
+          ],
+          "eventType": "controversy"
+        }
+      ],
+      "connections": [
+        {
+          "entityId": "king_abdulaziz_university",
+          "entityType": "institution",
+          "relationship": "leadership",
+          "context": "Ossama bin Abdul Majed Shobokshi served as director from 1994-1995"
+        },
+        {
+          "entityId": "victoria_college_alexandria",
+          "entityType": "institution",
+          "relationship": "education",
+          "context": "Fahd Shobokshi attended alongside other Saudi elite"
+        }
+      ],
+      "notableFigures": [
+        {
+          "id": "ossama_shobokshi",
+          "name": "Ossama bin Abdul Majed Shobokshi",
+          "title": "Former Minister of Health and University Director",
+          "roleDescription": "Served as director of King Abdulaziz University (1994-1995), Minister of Health (1995-2003), and Ambassador to Germany until 2015",
+          "bornYear": 1943,
+          "diedYear": 2023,
+          "era": "20th-21st century"
+        },
+        {
+          "id": "fahd_shobokshi",
+          "name": "Fahd Shobokshi",
+          "title": "Saudi Businessman and Contractor",
+          "roleDescription": "Prominent businessman who attended Victoria College alongside future regional leaders",
+          "bornYear": null,
+          "diedYear": null,
+          "era": "20th century"
+        },
+        {
+          "id": "hussein_shobokshi",
+          "name": "Hussein Shobokshi",
+          "title": "Former Columnist and Media Personality",
+          "roleDescription": "Former columnist for Okaz newspaper who advocated for government accountability and democratic reforms",
+          "bornYear": null,
+          "diedYear": null,
+          "era": "21st century"
+        }
+      ]
+    }
+  },
+  {
+    "type": "family",
+    "id": "al_sayer",
+    "data": {
+      "history": null,
+      "description": null,
+      "originStory": null,
+      "tribalOrigin": null,
+      "modernStatus": null,
+      "migrationPath": [],
+      "timelineEvents": [],
+      "connections": [],
+      "notableFigures": []
+    }
+  },
+  {
+    "type": "family",
+    "id": "al_mutawa",
+    "data": {
+      "history": "The Al Mutawa family is documented through several prominent figures across Kuwait, Bahrain, and the UAE, though their precise origins are not detailed in the available research. The name 'Mutawa' derives from the Arabic term for religious teacher or scholar, suggesting the family's historical connection to Islamic education and scholarship. In Kuwait, Bader Ahmed al-Mutawa emerged as one of the country's most celebrated footballers, born in Kuwait City in 1985, becoming the second-most-capped international player globally with 202 appearances for the Kuwaiti national team. He holds the military rank of colonel and serves as director of the Security Affairs Department of the Kuwaiti National Assembly Guard, indicating the family's integration into Kuwait's governmental structure. In Bahrain, Leila Al Mutawa represents the family's literary contributions, born in Muharraq in 1987 to a devout family, becoming a notable novelist and journalist known for works that frankly address women's perspectives in conservative society. Her literary career began after receiving a library of masterpieces from her father upon his death, leading to her debut novel 'My Heart Is Not for Sale' published in 2012. The family's presence across multiple GCC states and their involvement in diverse fields from sports to literature to government service demonstrates their established position within Gulf society, though the research does not provide details about their migration patterns or tribal affiliations.",
+      "description": "A Gulf family name documented across Kuwait, Bahrain, and the UAE, with notable figures in sports, literature, and government service. The name derives from 'mutawa' meaning religious teacher in Arabic.",
+      "originStory": null,
+      "tribalOrigin": null,
+      "modernStatus": "Established across multiple GCC states with members in sports, government, and literature",
+      "migrationPath": [],
+      "timelineEvents": [
+        {
+          "year": 1985,
+          "title": "Birth of Bader Al-Mutawa",
+          "description": "Birth of prominent Kuwaiti footballer in Kuwait City",
+          "location": "Kuwait City",
+          "coords": [
+            29.3759,
+            47.9774
+          ],
+          "eventType": "birth"
+        },
+        {
+          "year": 1987,
+          "title": "Birth of Leila Al Mutawa",
+          "description": "Birth of Bahraini novelist and journalist in Muharraq",
+          "location": "Muharraq",
+          "coords": [
+            26.2361,
+            50.6111
+          ],
+          "eventType": "birth"
+        },
+        {
+          "year": 2003,
+          "title": "Bader's International Debut",
+          "description": "First major international competition for Bader Al-Mutawa with Kuwait national team",
+          "location": "Kuwait",
+          "coords": [
+            29.3759,
+            47.9774
+          ],
+          "eventType": "career"
+        },
+        {
+          "year": 2012,
+          "title": "Literary Debut",
+          "description": "Publication of Leila Al Mutawa's debut novel 'My Heart Is Not for Sale'",
+          "location": "Bahrain",
+          "coords": [
+            26.0667,
+            50.5577
+          ],
+          "eventType": "publication"
+        }
+      ],
+      "connections": [],
+      "notableFigures": [
+        {
+          "id": "bader_al_mutawa",
+          "name": "Bader Ahmed al-Mutawa",
+          "title": "Colonel & Professional Footballer",
+          "roleDescription": "Kuwait's most-capped international footballer with 202 appearances, director of Security Affairs Department of Kuwaiti National Assembly Guard",
+          "bornYear": 1985,
+          "diedYear": null,
+          "era": "21st century"
+        },
+        {
+          "id": "leila_al_mutawa",
+          "name": "Leila Al Mutawa",
+          "title": "Novelist and Journalist",
+          "roleDescription": "Bahraini novelist known for works addressing women's perspectives, participated in International Prize for Arabic Fiction workshop",
+          "bornYear": 1987,
+          "diedYear": null,
+          "era": "21st century"
+        }
+      ]
+    }
+  },
+  {
+    "type": "family",
+    "id": "al_humaidi",
+    "data": {
+      "history": "The Al Humaidi family is documented across multiple regions of the GCC and broader Middle East, with notable members in Kuwait, Qatar, Yemen, and Libya. The most prominent contemporary figure is Abdulla Al-Humaidi, a Kuwaiti businessman born in January 1986 who pursued medical studies at the Royal College of Surgeons in Dublin before obtaining an MBA from the University of Leicester. Despite his medical training, he entered business, establishing Kuwaiti European Holdings (KEH) as an investment firm operating across real estate, healthcare, and leisure sectors, with significant expansion into the UK during the early 2010s. His major ventures included acquiring Ebbsfleet United F.C. in 2013 through KEH Sports Ltd and launching the ambitious £3.5 billion London Resort theme park project in 2014, though both enterprises faced significant difficulties. The London Resort project ultimately collapsed into insolvency in 2023, leading to Abdulla Al-Humaidi's bankruptcy declaration in November 2023 and subsequent legal proceedings. In Qatar, Lance Corporal Bader Saad Mohammed Al Humaidi Al Dosari served as a security official who was killed in the September 9, 2025 Israeli airstrike on Doha. The family name also appears in Kuwaiti politics, with Bader Al-Humaidi mentioned as a parliamentary candidate in the December 2020 elections where 40 MPs announced their intention to vote for him as speaker of parliament, though he ultimately lost to Marzouq Al-Ghanim. Additional family members include Yemeni judoka Salah Al-Humaidi who competed in the 1992 Summer Olympics, and historically, Al-Khweldi Muhammad Salih Abdullah El-Hamedi, a Libyan major general who was part of Gaddafi's inner circle and founding member of the Libyan Revolutionary Command Council.",
+      "description": "A family name documented across multiple GCC states with notable members in business, politics, and military service, most prominently represented by Kuwaiti businessman Abdulla Al-Humaidi.",
+      "originStory": null,
+      "tribalOrigin": null,
+      "modernStatus": "Active in business and politics across Kuwait and Qatar, with significant involvement in real estate, sports ownership, and government service",
+      "migrationPath": [],
+      "timelineEvents": [
+        {
+          "year": 1986,
+          "title": "Birth of Abdulla Al-Humaidi",
+          "description": "Abdulla Al-Humaidi born in Kuwait",
+          "location": "Kuwait",
+          "coords": [
+            29.3759,
+            47.9774
+          ],
+          "eventType": "birth"
+        },
+        {
+          "year": 2013,
+          "title": "Acquisition of Ebbsfleet United F.C.",
+          "description": "Abdulla Al-Humaidi acquired Ebbsfleet United F.C. through KEH Sports Ltd",
+          "location": "Kent, United Kingdom",
+          "coords": [
+            51.4421,
+            0.3181
+          ],
+          "eventType": "business"
+        },
+        {
+          "year": 2014,
+          "title": "Launch of London Resort Project",
+          "description": "Abdulla Al-Humaidi launched the £3.5 billion London Resort theme park project on the Swanscombe Peninsula",
+          "location": "Kent, United Kingdom",
+          "coords": [
+            51.4421,
+            0.3181
+          ],
+          "eventType": "business"
+        },
+        {
+          "year": 2023,
+          "title": "London Resort Collapse and Bankruptcy",
+          "description": "London Resort project collapsed into insolvency and Abdulla Al-Humaidi declared bankrupt in November",
+          "location": "United Kingdom",
+          "coords": [
+            51.5074,
+            -0.1278
+          ],
+          "eventType": "business"
+        },
+        {
+          "year": 2025,
+          "title": "Death of Bader Al Dosari",
+          "description": "Lance Corporal Bader Saad Mohammed Al Humaidi Al Dosari killed in Israeli airstrike on Doha",
+          "location": "Doha, Qatar",
+          "coords": [
+            25.276,
+            51.52
+          ],
+          "eventType": "death"
+        }
+      ],
+      "connections": [],
+      "notableFigures": [
+        {
+          "id": "abdulla_al_humaidi",
+          "name": "Abdulla Al-Humaidi",
+          "title": "Businessman and Investor",
+          "roleDescription": "Kuwaiti businessman, founder of London Resort Company Holdings, owner of Ebbsfleet United F.C.",
+          "bornYear": 1986,
+          "diedYear": null,
+          "era": "21st century"
+        },
+        {
+          "id": "bader_al_dosari",
+          "name": "Bader Saad Mohammed Al Humaidi Al Dosari",
+          "title": "Lance Corporal",
+          "roleDescription": "Qatari security official killed in Israeli airstrike on Doha",
+          "bornYear": null,
+          "diedYear": 2025,
+          "era": "21st century"
+        },
+        {
+          "id": "bader_al_humaidi_mp",
+          "name": "Bader Al-Humaidi",
+          "title": "Parliamentary Candidate",
+          "roleDescription": "Kuwaiti parliamentary candidate supported by 40 MPs for speaker position in 2020",
+          "bornYear": null,
+          "diedYear": null,
+          "era": "21st century"
+        },
+        {
+          "id": "salah_al_humaidi",
+          "name": "Salah Al-Humaidi",
+          "title": "Olympic Judoka",
+          "roleDescription": "Yemeni judoka who competed in the 1992 Summer Olympics",
+          "bornYear": 1974,
+          "diedYear": null,
+          "era": "20th-21st century"
+        }
+      ]
+    }
+  },
+  {
+    "type": "family",
+    "id": "al_emadi",
+    "data": {
+      "history": "Al-Emadi (Arabic: العمادي) is an Arab family and tribal lineage commonly found in Qatar and Bahrain. The family has produced numerous prominent businessmen, diplomats, politicians, and government officials in Qatar. Most notably, Ali Sharif Al Emadi (born 3 January 1969) served as Qatar's Minister of Finance from June 2013 to May 2021 and was chairman of Qatar National Bank (QNB Group). He holds a bachelor's degree in finance from the University of Arizona and worked in the banking control department of the Qatar Central Bank for eight years until 1998, before joining Qatar National Bank where he became CEO in 2005. In 2013, he was appointed Minister of Economy and Finance following Sheikh Tamim bin Hamad Al Thani's ascension as Emir, and was also named to the administrative council of the Qatar Investment Authority. However, in May 2021, he was arrested on charges of misuse of public money, abuse of function and power, and in March 2023 was charged with bribery, abuse of position and power, damage to public funds and money laundering. Other notable Al-Emadi family members include Mohammed bin Abdulrahim Al-Emadi, Mohammed bin Ismail Al-Emadi (Ambassador, politician and businessman), Yousef Hussain Kamal Al Emadi (former Minister of Finance), Ibrahim bin Hassan alasmakh Al-Emadi, Abdullah bin Mohammed Al-Emadi, Hassan bin Mohammed Rafee Al-Emadi (ambassador and politician), and several Shura Council members including Khalid Kamal Al-Emadi and Ismail Shareef Al-Emadi.",
+      "description": "An Arab family and tribal lineage prominent in Qatar and Bahrain, known for producing influential businessmen, government ministers, ambassadors, and banking executives.",
+      "originStory": null,
+      "tribalOrigin": null,
+      "modernStatus": "Major business and political family in Qatar with members serving as government ministers, ambassadors, bank executives, Shura Council members, and prominent businessmen",
+      "migrationPath": [],
+      "timelineEvents": [
+        {
+          "year": 1969,
+          "title": "Birth of Ali Sharif Al Emadi",
+          "description": "Ali Sharif Al Emadi born, future Qatar Minister of Finance",
+          "location": "Qatar",
+          "coords": [
+            25.3548,
+            51.1839
+          ],
+          "eventType": "birth"
+        },
+        {
+          "year": 2005,
+          "title": "Ali Sharif Al Emadi becomes QNB CEO",
+          "description": "Appointed CEO of Qatar National Bank, succeeding Saeed bin Abdullah Al Misnad",
+          "location": "Doha, Qatar",
+          "coords": [
+            25.2854,
+            51.531
+          ],
+          "eventType": "appointment"
+        },
+        {
+          "year": 2013,
+          "title": "Ministerial Appointment",
+          "description": "Ali Sharif Al Emadi appointed Minister of Economy and Finance",
+          "location": "Doha, Qatar",
+          "coords": [
+            25.2854,
+            51.531
+          ],
+          "eventType": "appointment"
+        },
+        {
+          "year": 2021,
+          "title": "Arrest and Dismissal",
+          "description": "Ali Sharif Al Emadi arrested on corruption charges and dismissed from positions",
+          "location": "Doha, Qatar",
+          "coords": [
+            25.2854,
+            51.531
+          ],
+          "eventType": "legal"
+        }
+      ],
+      "connections": [],
+      "notableFigures": [
+        {
+          "id": "ali_sharif_al_emadi",
+          "name": "Ali Sharif Al Emadi",
+          "title": "Former Minister of Finance",
+          "roleDescription": "Economist, businessman, former Qatar Minister of Finance (2013-2021), former QNB Chairman",
+          "bornYear": 1969,
+          "diedYear": null,
+          "era": "21st century"
+        },
+        {
+          "id": "mohammed_bin_abdulrahim_al_emadi",
+          "name": "Mohammed bin Abdulrahim Al-Emadi",
+          "title": "Businessman",
+          "roleDescription": "Qatari businessman",
+          "bornYear": null,
+          "diedYear": null,
+          "era": "contemporary"
+        },
+        {
+          "id": "yousef_hussain_kamal_al_emadi",
+          "name": "Yousef Hussain Kamal Al Emadi",
+          "title": "Former Minister of Finance",
+          "roleDescription": "Former Qatari minister of finance, politician and businessman",
+          "bornYear": null,
+          "diedYear": null,
+          "era": "contemporary"
+        },
+        {
+          "id": "hassan_bin_mohammed_rafee_al_emadi",
+          "name": "Hassan bin Mohammed Rafee Al-Emadi",
+          "title": "Ambassador",
+          "roleDescription": "Qatari ambassador, politician and businessman",
+          "bornYear": null,
+          "diedYear": null,
+          "era": "contemporary"
+        }
+      ]
+    }
+  },
+  {
+    "type": "family",
+    "id": "al_mohannadi",
+    "data": {
+      "history": "The Al Mohannadi (also spelled Al-Muhannadi) is an Arab tribal confederation that emerged as a significant power in Qatar's northern coastal region, particularly in Al Khor (formerly known as Khor Al Shaqiq) and Al Thakhira. According to tradition, the tribe was first settled by two nomadic Al Muhannadi tribesmen, Mohammed bin Baddah and Majid Al Shuqairi, who discovered fresh water at Ain Hleetan around 1750, leading to the establishment of Al Khor as one of Qatar's oldest settlements. The larger portion of the tribal confederation belongs to the Bani Hajer, a Qahtanite tribe, with the leading family being the Al-Misnid family. The confederation expanded in the 19th century when other tribes including Shahwan and Bani Hajer migrated to the area and intermarried, forming new families such as Al-Baddha, Al-Missned, Al-Hassan, and Al Arbeed. By 1850, many of these tribes united under the Al Muhannadi confederation. The tribe dominated the pearling and fishing industries of northern Qatar, with J.G. Lorimer recording in 1908 that they owned 80 pearl boats manned by 1,200 men, along with 90 other sea-going vessels. The Al Mohannadi maintained significant autonomy from central Qatari authority, with Captain Francis Prideaux noting in 1906 that northern settlements including Al Khor did not pay tribute to Sheikh Jassim bin Mohammed Al Thani. In the modern era, the Al Mohannadi have produced notable figures in sports administration, government, and infrastructure development, maintaining their historical connection to northern Qatar while playing important roles in the country's development.",
+      "description": "An Arab tribal confederation based primarily in Qatar, especially in Al Khor and Al Thakhira, with origins tracing to the Bani Hajer Qahtanite tribe. Historically dominated the pearling and maritime industries of northern Qatar and maintained significant autonomy from central authority.",
+      "originStory": "According to tradition, two nomadic Al Muhannadi tribesmen discovered fresh water at Ain Hleetan around 1750, leading to the settlement of Al Khor by the entire tribe after relocating from Al Khuwayr in northeast Qatar.",
+      "tribalOrigin": "Bani Hajer",
+      "modernStatus": "Members hold prominent positions in Qatar's government and sports administration, including leadership roles in Ashghal (Public Works Authority), Qatar Football Association, and municipal councils",
+      "migrationPath": [
+        {
+          "year": 1750,
+          "endYear": null,
+          "from": "Al Khuwayr",
+          "fromCoords": [
+            25.7,
+            51.6
+          ],
+          "to": "Al Khor",
+          "toCoords": [
+            25.6833,
+            51.5
+          ],
+          "description": "Original settlement of Al Khor after discovering fresh water at Ain Hleetan"
+        },
+        {
+          "year": 1910,
+          "endYear": null,
+          "from": "Al Khor",
+          "fromCoords": [
+            25.6833,
+            51.5
+          ],
+          "to": "Al Thakhira",
+          "toCoords": [
+            25.7,
+            51.55
+          ],
+          "description": "Al Hassan branch migration from Al Khor to Al Thakhira via Al Jumail"
+        }
+      ],
+      "timelineEvents": [
+        {
+          "year": 1750,
+          "title": "Discovery of Ain Hleetan",
+          "description": "Mohammed bin Baddah and Majid Al Shuqairi discovered fresh water source leading to Al Khor settlement",
+          "location": "Al Khor",
+          "coords": [
+            25.6833,
+            51.5
+          ],
+          "eventType": "founding"
+        },
+        {
+          "year": 1785,
+          "title": "Establishment of Al Khor",
+          "description": "City of Al Khor officially established with population reaching over 2,000 people",
+          "location": "Al Khor",
+          "coords": [
+            25.6833,
+            51.5
+          ],
+          "eventType": "settlement"
+        },
+        {
+          "year": 1850,
+          "title": "Formation of Tribal Confederation",
+          "description": "Multiple tribes united to form the Al Muhannadi tribal confederation",
+          "location": "Al Khor",
+          "coords": [
+            25.6833,
+            51.5
+          ],
+          "eventType": "political"
+        },
+        {
+          "year": 1900,
+          "title": "Construction of Al Khor Towers",
+          "description": "Built defensive towers to protect Ain Hleetan Well and harbor",
+          "location": "Al Khor",
+          "coords": [
+            25.6833,
+            51.5
+          ],
+          "eventType": "construction"
+        }
+      ],
+      "connections": [
+        {
+          "entityId": "bani_hajer",
+          "entityType": "tribe",
+          "relationship": "descended_from",
+          "context": "The larger portion of Al Mohannadi confederation belongs to the Bani Hajer, a Qahtanite tribe"
+        }
+      ],
+      "notableFigures": [
+        {
+          "id": "saoud_al_mohannadi",
+          "name": "Saoud Abdul Aziz M. Al Mohannadi",
+          "title": "Vice President of Qatar Football Association and AFC",
+          "roleDescription": "Vice president of Qatar Football Association, vice president of Asian Football Confederation, and FIFA Council member",
+          "bornYear": 1957,
+          "diedYear": 2023,
+          "era": "20th-21st century"
+        },
+        {
+          "id": "saad_al_mohannadi",
+          "name": "Saad Ahmed Ibrahim Al Mohannadi",
+          "title": "President of Ashghal",
+          "roleDescription": "President of Qatar's Public Works Authority (Ashghal), electrical engineer with extensive experience in project management",
+          "bornYear": 1974,
+          "diedYear": null,
+          "era": "21st century"
+        },
+        {
+          "id": "ali_hassan_al_mohannadi",
+          "name": "Ali Hassan Al-Mohannadi",
+          "title": "Central Municipal Council Member",
+          "roleDescription": "First elected representative of Al Thakhira constituency in Qatar's inaugural municipal elections",
+          "bornYear": null,
+          "diedYear": null,
+          "era": "20th-21st century"
+        }
+      ]
+    }
+  },
+  {
+    "type": "family",
+    "id": "al_jalal",
+    "data": {
+      "history": "The research provided does not contain information about a GCC merchant family named Al Jalal. Instead, the documents discuss several notable individuals with the name 'Jalal': Jalāl al-Dīn Muḥammad Rūmī (1207-1273), the famous Persian Sufi mystic and poet who lived in Anatolia; Jalal Al-e-Ahmad (1923-1969), an Iranian intellectual and writer who popularized the concept of 'gharbzadegi' (westernstruck); and various other political and historical figures from Iraq, Libya, and Syria. None of these sources provide any evidence of an 'Al Jalal' family operating as merchants in the GCC region or having any connection to Gulf commerce, tribal structures, or settlement patterns. Without specific research about the Al Jalal family in question, no verified historical narrative about their origins, migration, or business activities can be constructed.",
+      "description": "No verified information available about Al Jalal as a GCC merchant family based on the provided research sources.",
+      "originStory": null,
+      "tribalOrigin": null,
+      "modernStatus": null,
+      "migrationPath": [],
+      "timelineEvents": [],
+      "connections": [],
+      "notableFigures": []
+    }
+  },
+  {
+    "type": "family",
+    "id": "bahwan",
+    "data": {
+      "history": "The Bahwan family is a prominent Omani business dynasty led by Suhail Bahwan (1939-2025), who built a diversified conglomerate empire. The research shows that Suhail Bahwan was an Omani conglomerate industry executive who passed away in 2025 at age 86, indicating he was born around 1939. The Bahwan business empire includes Bahwan CyberTek Group, a global software company where notable figures like V.M. Muralidharan served as Chief Operating Officer since 2010, and Jay Vijayan began his career before moving to Singapore and the United States to eventually found Tekion Corp. The family's business operations span technology, with Bahwan CyberTek serving as a launching pad for tech entrepreneurs who went on to achieve significant success in international markets. The research does not provide specific details about the family's ethnic origins, tribal affiliations, or early settlement patterns in Oman.",
+      "description": "Prominent Omani business family known for building a diversified conglomerate empire, particularly in technology through Bahwan CyberTek Group.",
+      "originStory": null,
+      "tribalOrigin": null,
+      "modernStatus": "Major conglomerate family in Oman with significant technology sector presence through Bahwan CyberTek Group",
+      "migrationPath": [],
+      "timelineEvents": [],
+      "connections": [],
+      "notableFigures": [
+        {
+          "id": "suhail_bahwan",
+          "name": "Suhail Bahwan",
+          "title": "Conglomerate Industry Executive",
+          "roleDescription": "Built the Bahwan business empire and conglomerate operations",
+          "bornYear": 1939,
+          "diedYear": 2025,
+          "era": "20th-21st century"
+        }
+      ]
+    }
+  }
+]

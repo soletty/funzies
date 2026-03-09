@@ -1,0 +1,1277 @@
+[
+  {
+    "type": "family",
+    "id": "al_lootah",
+    "data": {
+      "history": "The research provided does not contain any information about the Al Lootah family. The provided research focuses entirely on Sheikh Ahmed bin Mohammed Al Maktoum of the Al Maktoum ruling family of Dubai, and extensive information about the Druze religious community and their history in the Levant. There is no mention of the Al Lootah family, their origins, business activities, tribal affiliations, or any connection to the individuals or communities discussed in the research materials.",
+      "description": "No information about the Al Lootah family is available in the provided research materials.",
+      "originStory": null,
+      "tribalOrigin": null,
+      "modernStatus": null,
+      "migrationPath": [],
+      "timelineEvents": [],
+      "connections": [],
+      "notableFigures": []
+    }
+  },
+  {
+    "type": "family",
+    "id": "al_sari",
+    "data": {
+      "history": "The research provided focuses extensively on Sari, Iran - a historic city in Mazandaran province that served as a regional capital and has deep Persian cultural roots dating back to the 7th millennium BCE. However, the research does not establish any direct connection between this Iranian city of Sari and the Al Sari family mentioned in the genealogical context. While the research mentions various historical figures with 'Sari' in their names - including Ubaydallah ibn al-Sari (died 865), a governor of Egypt, and Palestinian academic Sari Nusseibeh (born 1949) - none of these individuals are documented as being connected to a GCC family lineage called 'Al Sari'. The research also covers Jordanian singer Toni Qattan who worked with lyricist Omar Sari, but again provides no genealogical connection to an Al Sari family. Without concrete evidence linking the Al Sari family to any of these documented Sari references, or information about their actual origins, migration patterns, or business activities in the Gulf region, no verified family history can be established from the available research.",
+      "description": "The Al Sari family name appears in the research context, but no verifiable information about this specific GCC family's origins, history, or activities is provided in the available sources.",
+      "originStory": null,
+      "tribalOrigin": null,
+      "modernStatus": null,
+      "migrationPath": [],
+      "timelineEvents": [],
+      "connections": [],
+      "notableFigures": []
+    }
+  },
+  {
+    "type": "family",
+    "id": "al_gaz",
+    "data": {
+      "history": "The Al Gaz family's documented history centers on Mohamed Abdallah AlGaz (c. 1920-2016), born in Al Dhagaya, Deira, to a modest family. His father, Abdulla Mohamed AlFalasi, died when AlGaz was an adolescent, indicating the family's Al Falasi tribal connection. During World War II's famine in Dubai, AlGaz's family temporarily relocated to Bahrain while he found work as a carpenter in Dammam, using his earnings to start commodity trading operations between Bahrain, Kuwait, and Dubai. In the 1950s, AlGaz formed a historic partnership with Juma Al Majid, establishing the Switzerland-Dubai-India gold trade through their company Mohamed & Juma Al Majid. This partnership secured exclusive distribution rights for major brands including General Electric, Samsung, Phillips, Opel, Pepsi, Nissan, Hyundai, and Kia. After eleven years, they amicably split their assets, with AlGaz focusing on real estate development, building Dubai's first three-story building and developing areas around Port Said including the clock-tower plaza and Hamriya in Bur Deira. Post-UAE federation, AlGaz served as the first Deputy Chairman of the Central Bank of the UAE from 1980 through the mid-1990s under Sheikh Suroor bin Mohammad Al Nahyan. He was also nominated to the Dubai Municipal Council on July 7, 1958, serving on the budget and treasury committee, and acted as a diplomatic adviser to Sheikh Rashid bin Saeed al Maktoum. AlGaz became a pioneering philanthropist, helping establish the UAE's first charitable society, Beit Al Khair, in 1989 with Juma Al Majid, and building schools including the Amna bint Wahb Girls School and Gamal Abdulnasser Boys School. The family's Al Falasi tribal heritage connects them to the broader Al Maktoum ruling family lineage of Dubai.",
+      "description": "Al Falasi merchant family known through Mohamed Abdallah AlGaz, pioneering Dubai businessman, central banker, and philanthropist who helped establish the UAE's financial institutions and first charitable society.",
+      "originStory": "The family belongs to the Al Falasi tribe, with Mohamed Abdallah AlGaz born in Al Dhagaya, Deira around 1920 to Abdulla Mohamed AlFalasi.",
+      "tribalOrigin": "Al Falasi",
+      "modernStatus": "Historical prominence through Mohamed Abdallah AlGaz's legacy in UAE banking and philanthropy; he died in 2016 and is listed among notable Al Falasi members",
+      "migrationPath": [
+        {
+          "year": 1940,
+          "endYear": 1945,
+          "from": "Dubai",
+          "fromCoords": [
+            25.2048,
+            55.2708
+          ],
+          "to": "Bahrain",
+          "toCoords": [
+            26.0667,
+            50.5577
+          ],
+          "description": "AlGaz family relocated to Bahrain during WWII famine, while Mohamed worked as carpenter in Dammam"
+        }
+      ],
+      "timelineEvents": [
+        {
+          "year": 1920,
+          "title": "Birth of Mohamed Abdallah AlGaz",
+          "description": "Born in Al Dhagaya, Deira to Abdulla Mohamed AlFalasi",
+          "location": "Al Dhagaya, Deira",
+          "coords": [
+            25.2697,
+            55.3095
+          ],
+          "eventType": "birth"
+        },
+        {
+          "year": 1950,
+          "title": "Gold Trade Partnership",
+          "description": "Formed historic partnership with Juma Al Majid for Switzerland-Dubai-India gold trade",
+          "location": "Dubai",
+          "coords": [
+            25.2048,
+            55.2708
+          ],
+          "eventType": "business_founding"
+        },
+        {
+          "year": 1958,
+          "title": "Dubai Municipal Council Appointment",
+          "description": "Nominated to Dubai Municipal Council on July 7, served on budget and treasury committee",
+          "location": "Dubai",
+          "coords": [
+            25.2048,
+            55.2708
+          ],
+          "eventType": "political_appointment"
+        },
+        {
+          "year": 1980,
+          "title": "UAE Central Bank Deputy Chairman",
+          "description": "Became first Deputy Chairman of the Central Bank of the UAE",
+          "location": "UAE",
+          "coords": [
+            24.2999,
+            54.6977
+          ],
+          "eventType": "political_appointment"
+        },
+        {
+          "year": 1989,
+          "title": "Beit Al Khair Foundation",
+          "description": "Co-founded UAE's first charitable society with Juma Al Majid",
+          "location": "UAE",
+          "coords": [
+            24.2999,
+            54.6977
+          ],
+          "eventType": "founding"
+        }
+      ],
+      "connections": [
+        {
+          "entityId": "al_falasi",
+          "entityType": "tribe",
+          "relationship": "descended_from",
+          "context": "Mohamed Abdallah AlGaz's father was Abdulla Mohamed AlFalasi, indicating tribal membership"
+        }
+      ],
+      "notableFigures": [
+        {
+          "id": "mohamed_abdallah_algaz",
+          "name": "Mohamed Abdallah AlGaz",
+          "title": "Deputy Chairman of UAE Central Bank",
+          "roleDescription": "Pioneering businessman, central banker, diplomat, and philanthropist who helped establish UAE's financial institutions and first charitable society",
+          "bornYear": 1920,
+          "diedYear": 2016,
+          "era": "20th-21st century"
+        }
+      ]
+    }
+  },
+  {
+    "type": "family",
+    "id": "al_bastaki",
+    "data": {
+      "history": "The Al Bastaki family is of Persian Achomi origin, tracing their ancestry to the Iranian city of Bastak in southern Fars Province. They are part of the broader Achomi community, Persian-speaking people from Irahistan (including Bastak, Khonj, Evaz, and Jenah) who migrated to the Arabian Peninsula over several centuries. The family follows Sunni Islam, specifically the Shafi'i and Maliki schools of jurisprudence, which distinguished them from the majority Shia populations in southern Iran. The Al Bastaki established themselves as influential merchants and builders in the UAE, playing a crucial role in the development of Dubai's historic Al Bastakiya district, which was named after their hometown of Bastak. Mohammed Al Bastaki supervised the construction of Qasr Al Hosn in Abu Dhabi in 1761, the oldest stone building in the UAE that served as a watchtower and later became the ruling family's palace. The family benefited from the UAE's 1972 Citizenship Law, which granted nationality to Iranians residing in the Trucial States prior to 1925, formally recognizing their status as Ajam Emiratis. Today, the Al Bastaki family includes notable figures in business, media, entertainment, and medicine, representing the successful integration of Persian merchant families into modern Emirati society while maintaining their cultural heritage through Persian culinary traditions, architectural styles, and family surnames that reflect their Bastaki origins.",
+      "description": "Persian Achomi merchant family originating from Bastak, Iran, who became influential builders and businesspeople in the UAE, notably constructing Qasr Al Hosn and establishing Dubai's Al Bastakiya district.",
+      "originStory": "The Al Bastaki originated from the Iranian city of Bastak in southern Fars Province as part of the Achomi Persian-speaking community.",
+      "tribalOrigin": null,
+      "modernStatus": "Established Emirati family with members in business, entertainment, medicine, and media, including businesswoman Khadija Al-Bastaki, singer Shahad Al-Bastaki, and TV presenter Moein Al-Bastaki",
+      "migrationPath": [
+        {
+          "year": 1700,
+          "endYear": 1800,
+          "from": "Bastak, Iran",
+          "fromCoords": [
+            27.2069,
+            54.3603
+          ],
+          "to": "Dubai and Abu Dhabi, UAE",
+          "toCoords": [
+            25.2048,
+            55.2708
+          ],
+          "description": "Migration of Achomi Persian merchants from Bastak to the Trucial States as part of broader Persian settlement in the Gulf region"
+        }
+      ],
+      "timelineEvents": [
+        {
+          "year": 1761,
+          "title": "Construction of Qasr Al Hosn",
+          "description": "Mohammed Al Bastaki supervised the construction of Qasr Al Hosn in Abu Dhabi, the oldest stone building in the UAE",
+          "location": "Abu Dhabi",
+          "coords": [
+            24.4539,
+            54.3773
+          ],
+          "eventType": "construction"
+        }
+      ],
+      "connections": [],
+      "notableFigures": [
+        {
+          "id": "mohammed_al_bastaki_1761",
+          "name": "Mohammed Al Bastaki",
+          "title": "Master Builder",
+          "roleDescription": "Supervised construction of Qasr Al Hosn, the oldest stone building in Abu Dhabi",
+          "bornYear": null,
+          "diedYear": null,
+          "era": "18th century"
+        },
+        {
+          "id": "khadija_al_bastaki",
+          "name": "Khadija Al-Bastaki",
+          "title": "Businesswoman",
+          "roleDescription": "Emirati businesswoman of Achomi ancestry",
+          "bornYear": null,
+          "diedYear": null,
+          "era": "contemporary"
+        },
+        {
+          "id": "shahad_al_bastaki",
+          "name": "Shahad Al-Bastaki",
+          "title": "Singer",
+          "roleDescription": "Emirati singer of Achomi ancestry",
+          "bornYear": null,
+          "diedYear": null,
+          "era": "contemporary"
+        },
+        {
+          "id": "ibtessam_al_bastaki",
+          "name": "Ibtessam Al-Bastaki",
+          "title": "Doctor",
+          "roleDescription": "Emirati doctor of Achomi ancestry",
+          "bornYear": null,
+          "diedYear": null,
+          "era": "contemporary"
+        },
+        {
+          "id": "arvin_bastaki",
+          "name": "Arvin Bastaki",
+          "title": "Singer",
+          "roleDescription": "Emirati Achomi singer",
+          "bornYear": null,
+          "diedYear": null,
+          "era": "contemporary"
+        },
+        {
+          "id": "moein_al_bastaki",
+          "name": "Moein Al-Bastaki",
+          "title": "TV Presenter",
+          "roleDescription": "Emirati presenter of Achomi ancestry",
+          "bornYear": null,
+          "diedYear": null,
+          "era": "contemporary"
+        }
+      ]
+    }
+  },
+  {
+    "type": "family",
+    "id": "al_juffali",
+    "data": {
+      "history": "The Al Juffali family originates from Unayzah in Al-Qassim province of Najd, and are members of the Bani Khalid dynasty, who ruled Eastern Arabia from the early 1600s to the late 1800s before suffering military defeats against the Saudis. The family claims descent from Khālid ibn al-Walīd, the famous Arab military commander. The modern business empire was founded by Abdullah bin Ibrahim Al Juffali, whose sons Ibrahim and Ali initially oversaw the family's electricity operations (later becoming Saudi Electricity Company). The most prominent founder was Ahmed bin Abdullah Al Juffali (1924-1994), who established E.A. Juffali and Brothers in 1946, which became Saudi Arabia's largest privately owned enterprise. Ahmed was instrumental in founding SAMA (Saudi Arabian Monetary Authority) and served on boards of international companies including IBM and Wells Fargo. The company expanded rapidly during Saudi Arabia's oil boom, introducing Mercedes-Benz, Siemens, IBM, and numerous other multinational brands to the Saudi market. After Ahmed's death in 1994, leadership passed to his sons Walid (1955-2016) and Khaled (born 1958), who continued expanding the business empire. Walid became chairman of Saudi American Bank and developed interests in neuroscience, while Khaled serves as managing partner and vice chairman. The family maintains significant philanthropic activities and has been involved in various humanitarian projects throughout the Middle East.",
+      "description": "The Al Juffali family from Unayzah, Al-Qassim, claims descent from the Bani Khalid dynasty and Khālid ibn al-Walīd. They built Saudi Arabia's largest private enterprise, E.A. Juffali and Brothers, founded in 1946, representing major international brands and spanning multiple industries.",
+      "originStory": "The Al Juffali family originates from Unayzah in Al-Qassim province and are members of the Bani Khalid dynasty, rulers of Eastern Arabia from the early 1600s to late 1800s, claiming descent from the military commander Khālid ibn al-Walīd.",
+      "tribalOrigin": "Bani Khalid",
+      "modernStatus": "Controls Saudi Arabia's largest privately owned enterprise E.A. Juffali and Brothers with 49,218 employees worldwide, representing major international brands across multiple industries including automotive, technology, and manufacturing",
+      "migrationPath": [
+        {
+          "year": null,
+          "endYear": null,
+          "from": "Unayzah, Al-Qassim",
+          "fromCoords": [
+            26.0877,
+            44.0125
+          ],
+          "to": "Mecca",
+          "toCoords": [
+            21.4225,
+            39.8262
+          ],
+          "description": "Family established presence in Mecca where Ahmed Al Juffali was born and educated"
+        },
+        {
+          "year": 1946,
+          "endYear": null,
+          "from": "Mecca",
+          "fromCoords": [
+            21.4225,
+            39.8262
+          ],
+          "to": "Jeddah",
+          "toCoords": [
+            21.4858,
+            39.1925
+          ],
+          "description": "Established E.A. Juffali and Brothers headquarters in Jeddah"
+        }
+      ],
+      "timelineEvents": [
+        {
+          "year": 1946,
+          "title": "Founding of E.A. Juffali and Brothers",
+          "description": "Ahmed bin Abdullah Al Juffali founded the company that would become Saudi Arabia's largest privately owned enterprise",
+          "location": "Jeddah",
+          "coords": [
+            21.4858,
+            39.1925
+          ],
+          "eventType": "founding"
+        },
+        {
+          "year": 1994,
+          "title": "Death of Ahmed Al Juffali",
+          "description": "Founder Ahmed bin Abdullah Al Juffali died of heart attack on his yacht in the Balearic Sea",
+          "location": "Balearic Sea",
+          "coords": null,
+          "eventType": "death"
+        },
+        {
+          "year": 2016,
+          "title": "Death of Walid Al Juffali",
+          "description": "Walid Ahmed Al Juffali died of cancer in Zurich, Switzerland, after leading the family business empire",
+          "location": "Zurich",
+          "coords": [
+            47.3769,
+            8.5417
+          ],
+          "eventType": "death"
+        }
+      ],
+      "connections": [
+        {
+          "entityId": "bani_khalid",
+          "entityType": "tribe",
+          "relationship": "descended_from",
+          "context": "Al Juffali family are members of the Bani Khalid dynasty, rulers of Eastern Arabia from early 1600s to late 1800s"
+        }
+      ],
+      "notableFigures": [
+        {
+          "id": "ahmed_al_juffali",
+          "name": "Ahmed bin Abdullah bin Ibrahim Al Juffali",
+          "title": "Founder and Chairman",
+          "roleDescription": "Founder of E.A. Juffali and Brothers, co-founder of SAMA, board member of IBM and Wells Fargo",
+          "bornYear": 1924,
+          "diedYear": 1994,
+          "era": "20th century"
+        },
+        {
+          "id": "walid_al_juffali",
+          "name": "Walid Ahmed Al Juffali",
+          "title": "Chairman",
+          "roleDescription": "Chairman of E.A. Juffali and Brothers, Saudi American Bank, neuroscience researcher with PhD from Imperial College",
+          "bornYear": 1955,
+          "diedYear": 2016,
+          "era": "20th-21st century"
+        },
+        {
+          "id": "khaled_al_juffali",
+          "name": "Khaled Ahmed Al Juffali",
+          "title": "Managing Partner and Vice Chairman",
+          "roleDescription": "Current managing partner and vice chairman of E.A. Juffali and Brothers, chairman of multiple subsidiaries",
+          "bornYear": 1958,
+          "diedYear": null,
+          "era": "20th-21st century"
+        }
+      ]
+    }
+  },
+  {
+    "type": "family",
+    "id": "bugshan",
+    "data": {
+      "history": "The Bugshan family is prominently mentioned in the research as a wealthy conglomerate with elaborate palaces in Khailah, within a branch of Wadi Dawan in the Hadhramaut region of Yemen. Their palaces are specifically noted for their elaborate oil-based painted decorations on exteriors, distinguishing them architecturally from other structures in the area. The family appears to have established significant wealth and influence in the Hadhramaut region, with their architectural legacy serving as a notable example of affluent Hadhrami construction. In modern times, the Bugshan family conglomerate has maintained its business prominence and has been identified as a client of high-profile legal services, including those of former French Prime Minister Dominique de Villepin's law firm, indicating their continued significance in international business circles.",
+      "description": "A prominent Hadhrami family known for their elaborate palaces in Wadi Dawan and their modern conglomerate business operations with international reach.",
+      "originStory": "The family established themselves in Khailah within the Wadi Dawan branch of the Hadhramaut region of Yemen, where they built distinctive palaces with elaborate oil-based painted decorations.",
+      "tribalOrigin": null,
+      "modernStatus": "International business conglomerate with legal representation by high-profile international law firms",
+      "migrationPath": [],
+      "timelineEvents": [],
+      "connections": [],
+      "notableFigures": []
+    }
+  },
+  {
+    "type": "family",
+    "id": "al_naghi",
+    "data": {
+      "history": "The Al Naghi family traces its origins to Persian scholarly lineage, specifically connected to the prominent Iranian philosopher Mir Damad (c. 1561-1631/1632). Mir Damad, also known as Seyyed Mir Mohammad Baqer Esterabadi, was a leading Twelver Shia philosopher and founder of the School of Isfahan. His son was Seyed Ali Naghi Astarabadi, and his grandson was Sayyid Mahdi bin Sayyid Ali Naqi. The family name 'Naghi' appears to derive from this Ali Naghi lineage. In the modern era, the Al Naghi name appears in the business world through Mohamed Yousuf Naghi Motors in Saudi Arabia, which became part of a consortium that acquired the Bavarian Auto Group in Egypt in 2022. This consortium, comprising BMW importers and distributors from Kuwait, Saudi Arabia, and local Egyptian investors, renamed BAG as the Global Auto Group and signed new BMW and MINI assembly agreements. The family's transition from Persian scholarly traditions to modern automotive business represents a significant evolution across centuries.",
+      "description": "A family of Persian scholarly origin descended from the 17th-century philosopher Mir Damad, now involved in modern automotive business through Mohamed Yousuf Naghi Motors in Saudi Arabia.",
+      "originStory": "Descended from the Persian philosopher Mir Damad through his son Seyed Ali Naghi Astarabadi in the 17th century.",
+      "tribalOrigin": null,
+      "modernStatus": "Involved in automotive business through Mohamed Yousuf Naghi Motors, part of consortium owning Global Auto Group (formerly Bavarian Auto Group)",
+      "migrationPath": [],
+      "timelineEvents": [
+        {
+          "year": 1631,
+          "title": "Death of Mir Damad",
+          "description": "Death of the family patriarch and renowned philosopher Mir Damad",
+          "location": "Iran",
+          "coords": [
+            32.4279,
+            53.688
+          ],
+          "eventType": "death"
+        },
+        {
+          "year": 2022,
+          "title": "Bavarian Auto Group Acquisition",
+          "description": "Mohamed Yousuf Naghi Motors joins consortium to acquire Bavarian Auto Group in Egypt",
+          "location": "Egypt",
+          "coords": [
+            30.0444,
+            31.2357
+          ],
+          "eventType": "business"
+        }
+      ],
+      "connections": [],
+      "notableFigures": [
+        {
+          "id": "mir_damad",
+          "name": "Mir Damad (Seyyed Mir Mohammad Baqer Esterabadi)",
+          "title": "Philosopher and Third Teacher",
+          "roleDescription": "Iranian Twelver Shia philosopher, founder of the School of Isfahan, architect of Shah Mosque",
+          "bornYear": 1561,
+          "diedYear": 1631,
+          "era": "17th century"
+        },
+        {
+          "id": "seyed_ali_naghi",
+          "name": "Seyed Ali Naghi Astarabadi",
+          "title": "Son of Mir Damad",
+          "roleDescription": "Son of the philosopher Mir Damad",
+          "bornYear": null,
+          "diedYear": null,
+          "era": "17th century"
+        }
+      ]
+    }
+  },
+  {
+    "type": "family",
+    "id": "kamel",
+    "data": {
+      "history": "The Kamel family emerged as a prominent branch within the extended al-Majid clan of Iraq's al-Bu Nasir tribe from the Tikrit region. The most notable figure was Kamel Hassan al-Majid (c. 1920-1996), who served as a Ba'ath Party official but was later marginalized years before his death. His sons Hussein Kamel al-Majid and Saddam Kamel Hassan al-Majid became central figures in Saddam Hussein's regime through marriage to the dictator's daughters. Hussein Kamel served as Minister of Military Industries and was responsible for Iraq's Chemical, Biological and Nuclear Weapons programmes during the 1980s, while also holding the position of Oil Minister. Saddam Kamel served as head of the Republican Guard until 1986 and was known for his physical resemblance to Saddam Hussein, even portraying him in the propaganda film 'The Long Days'. Both brothers defected to Jordan in 1995 with their wives (Saddam's daughters Raghad and Rana), providing intelligence to UNSCOM, CIA and MI6 about Iraq's weapons programs. However, they were convinced to return to Iraq in February 1996 under assurances of pardoning, only to be killed in a prolonged firefight with clan members or soldiers loyal to Saddam shortly after their return, effectively ending the Kamel family's political influence.",
+      "description": "Iraqi branch of the al-Majid clan from the al-Bu Nasir tribe, prominent in Saddam Hussein's regime through marriage alliances, ultimately destroyed in 1996 after defection and return.",
+      "originStory": "Descended from the al-Majid family, part of the al-Bu Nasir tribal confederation from the Tikrit region of Iraq.",
+      "tribalOrigin": "al-Bu Nasir",
+      "modernStatus": "Family effectively eliminated following the 1996 executions; surviving members presumed to be in exile or deceased.",
+      "migrationPath": [],
+      "timelineEvents": [
+        {
+          "year": 1995,
+          "title": "Defection to Jordan",
+          "description": "Hussein and Saddam Kamel defected with their families to Jordan, providing intelligence on Iraq's WMD programs",
+          "location": "Jordan",
+          "coords": [
+            31.95,
+            35.93
+          ],
+          "eventType": "political"
+        },
+        {
+          "year": 1996,
+          "title": "Return and Execution",
+          "description": "Both Kamel brothers returned to Iraq and were killed in a firefight on 23 February",
+          "location": "Iraq",
+          "coords": [
+            33.31,
+            44.36
+          ],
+          "eventType": "death"
+        }
+      ],
+      "connections": [
+        {
+          "entityId": "al_bu_nasir",
+          "entityType": "tribe",
+          "relationship": "descended_from",
+          "context": "Part of the al-Majid branch of this tribal confederation"
+        },
+        {
+          "entityId": "saddam_hussein",
+          "entityType": "political_figure",
+          "relationship": "allied_through_marriage",
+          "context": "Hussein and Saddam Kamel married Saddam's daughters Raghad and Rana"
+        }
+      ],
+      "notableFigures": [
+        {
+          "id": "kamel_hassan_almajid",
+          "name": "Kamel Hassan al-Majid",
+          "title": "Ba'ath Party Official",
+          "roleDescription": "Ba'ath Party official, later marginalized, father of Hussein and Saddam Kamel",
+          "bornYear": 1920,
+          "diedYear": 1996,
+          "era": "20th century"
+        },
+        {
+          "id": "hussein_kamel_almajid",
+          "name": "Hussein Kamel Hassan al-Majid",
+          "title": "Minister of Military Industries",
+          "roleDescription": "Minister of Military Industries and Oil Minister, responsible for Iraq's WMD programs, married to Raghad Hussein",
+          "bornYear": 1954,
+          "diedYear": 1996,
+          "era": "20th century"
+        },
+        {
+          "id": "saddam_kamel_almajid",
+          "name": "Saddam Kamel Hassan al-Majid",
+          "title": "Republican Guard Commander",
+          "roleDescription": "Head of Republican Guard until 1986, Saddam's personal bodyguard and body double, married to Rana Hussein",
+          "bornYear": 1960,
+          "diedYear": 1996,
+          "era": "20th century"
+        }
+      ]
+    }
+  },
+  {
+    "type": "family",
+    "id": "al_khereiji",
+    "data": {
+      "history": "The Al Khereiji family appears to be a prominent Saudi family with members holding significant government positions and business interests. Based on the research, Waleed Abdulkarim El Khereiji has served in high-level government roles, including as Deputy Minister of Foreign Affairs since July 2020, previously serving as agriculture minister in 2014-2015, and as Saudi Ambassador to Turkey from 2017-2020. He was also appointed as a member of the Shura Council by King Salman bin Abdulaziz Al Saud in February 2015. The family name also appears in media contexts, with Nourah Abdul Aziz Al-Khereiji working as a journalist for Arab News and conducting interviews at cultural festivals. Additionally, there are business connections, with Mohammed Al-Khereiji leading the Saudi investment consortium SMC Group that acquired UD Almería football club in May 2025, demonstrating the family's involvement in international sports investments and business ventures.",
+      "description": "A prominent Saudi family with members serving in high government positions including Deputy Minister of Foreign Affairs, and involved in media and international business investments.",
+      "originStory": null,
+      "tribalOrigin": null,
+      "modernStatus": "Active in Saudi government at ministerial level, media sector, and international business investments including sports",
+      "migrationPath": [],
+      "timelineEvents": [
+        {
+          "year": 2014,
+          "title": "Government Appointment",
+          "description": "Waleed Abdulkarim El Khereiji appointed as agriculture minister",
+          "location": "Saudi Arabia",
+          "coords": [
+            24.7136,
+            46.6753
+          ],
+          "eventType": "political"
+        },
+        {
+          "year": 2015,
+          "title": "Shura Council Appointment",
+          "description": "Appointed member of the Shura Council by King Salman bin Abdulaziz Al Saud",
+          "location": "Saudi Arabia",
+          "coords": [
+            24.7136,
+            46.6753
+          ],
+          "eventType": "political"
+        },
+        {
+          "year": 2017,
+          "title": "Ambassador to Turkey",
+          "description": "Waleed A. Elkhereiji appointed as Saudi Ambassador to Turkey",
+          "location": "Turkey",
+          "coords": [
+            39.9334,
+            32.8597
+          ],
+          "eventType": "diplomatic"
+        },
+        {
+          "year": 2020,
+          "title": "Deputy Foreign Minister",
+          "description": "Appointed Deputy Minister of Foreign Affairs",
+          "location": "Saudi Arabia",
+          "coords": [
+            24.7136,
+            46.6753
+          ],
+          "eventType": "political"
+        },
+        {
+          "year": 2025,
+          "title": "Sports Investment",
+          "description": "Mohammed Al-Khereiji leads SMC Group acquisition of UD Almería football club",
+          "location": "Spain",
+          "coords": [
+            36.8381,
+            -2.4597
+          ],
+          "eventType": "business"
+        }
+      ],
+      "connections": [],
+      "notableFigures": [
+        {
+          "id": "waleed_elkhereiji",
+          "name": "Waleed Abdulkarim El Khereiji",
+          "title": "Deputy Minister of Foreign Affairs",
+          "roleDescription": "Senior Saudi government official serving as Deputy Minister of Foreign Affairs, former Ambassador to Turkey and agriculture minister",
+          "bornYear": 1958,
+          "diedYear": null,
+          "era": "21st century"
+        },
+        {
+          "id": "nourah_alkhereiji",
+          "name": "Nourah Abdul Aziz Al-Khereiji",
+          "title": "Journalist",
+          "roleDescription": "Journalist for Arab News who conducted interviews at cultural festivals",
+          "bornYear": null,
+          "diedYear": null,
+          "era": "21st century"
+        },
+        {
+          "id": "mohammed_alkhereiji",
+          "name": "Mohammed Al-Khereiji",
+          "title": "Business Leader",
+          "roleDescription": "Leader of Saudi investment consortium SMC Group that acquired UD Almería football club",
+          "bornYear": null,
+          "diedYear": null,
+          "era": "21st century"
+        }
+      ]
+    }
+  },
+  {
+    "type": "family",
+    "id": "al_saedan",
+    "data": {
+      "history": "The Al Saedan family demonstrates a presence in both Thailand and Saudi Arabia based on the available research. In Thailand, the family is represented by Surachai Danwattananusorn, who was born Surachai Saedan with the Chinese name 陳嘉前 on December 24, 1942, in Thaphaya Tumbol, Pak Phanang District, Nakhon Si Thammarat Province. His parents were Yokyuan and Somchao Saedan. Surachai became a prominent political activist and former member of the Communist Party of Thailand, later entering mainstream politics with the New Aspiration Party and Thai Rak Thai Party, though he was never elected to office. He established the Red Siam political movement and was known for his anti-monarchist views, which led to arrests under Thailand's lèse majesté laws. In Saudi Arabia, the Al Saedan name appears in connection with real estate development, specifically the Al Saedan Real Estate Office Building Headquarters project completed in Riyadh in 2008, which was designed by Italian lighting designer Filippo Cannata. However, the research provides no information about the actual origins, tribal connections, or historical development of the Al Saedan family as a GCC merchant or tribal entity.",
+      "description": "The Al Saedan name appears in both Thai political history through activist Surachai Saedan and Saudi real estate development in Riyadh. The research provides no clear information about the family's origins, tribal connections, or traditional GCC merchant activities.",
+      "originStory": null,
+      "tribalOrigin": null,
+      "modernStatus": "Associated with real estate development in Riyadh based on 2008 project documentation",
+      "migrationPath": [],
+      "timelineEvents": [
+        {
+          "year": 1942,
+          "title": "Birth of Surachai Saedan",
+          "description": "Surachai Danwattananusorn born as Surachai Saedan in Nakhon Si Thammarat Province, Thailand",
+          "location": "Nakhon Si Thammarat, Thailand",
+          "coords": [
+            8.4304,
+            99.9631
+          ],
+          "eventType": "birth"
+        },
+        {
+          "year": 2008,
+          "title": "Al Saedan Real Estate Project",
+          "description": "Al Saedan Real Estate Office Building Headquarters completed in Riyadh",
+          "location": "Riyadh, Saudi Arabia",
+          "coords": [
+            24.7136,
+            46.6753
+          ],
+          "eventType": "business"
+        }
+      ],
+      "connections": [],
+      "notableFigures": [
+        {
+          "id": "surachai_saedan",
+          "name": "Surachai Danwattananusorn (born Surachai Saedan)",
+          "title": "Political Activist",
+          "roleDescription": "Thai political activist, former Communist Party member, founder of Red Siam movement",
+          "bornYear": 1942,
+          "diedYear": null,
+          "era": "20th-21st century"
+        }
+      ]
+    }
+  },
+  {
+    "type": "family",
+    "id": "al_tamimi",
+    "data": {
+      "history": "The Al Tamimi family represents a significant branch of the ancient Banu Tamim tribe, one of the largest Arab tribes originating from the Najd and Hejaz regions of the Arabian Peninsula. The Banu Tamim trace their lineage through a traditional genealogy: Tamim ibn Murr ibn 'Udd ibn Amr ibn Ilyas ibn Mudar bin Nizar bin Ma'add bin Adnan, claiming descent from Ishmael, son of Abraham. The tribe played an important role in early Islamic history, coming into contact with Prophet Muhammad in the 8th year of Hijrah. The Banu Tamim established numerous dynasties throughout the Islamic world, including the Aghlabids who ruled Ifriqiya (modern Tunisia, Algeria, and Libya) from 800-909 CE, and continue to hold significant political power today through ruling families like the Al Thani of Qatar and the Al ash-Sheikh religious leadership family of Saudi Arabia. Modern members of the Al Tamimi lineage have achieved prominence across various fields - from Ali al-Tamimi, an American-born computational biologist and Islamic scholar who studied at the Islamic University of Madinah, to Abu al-Fadl al-Tamimi (952-1020 CE), a renowned 10th-century Muslim saint of the Junaidia order whose family originated from Yemen. The family's scholarly tradition continues through figures like Muhammad ibn Abd al-Wahhab, founder of the Nejdi Salafi movement, and various contemporary Islamic scholars and leaders throughout the Gulf region.",
+      "description": "Al Tamimi is a prominent branch of the ancient Banu Tamim tribe, one of Arabia's largest tribal confederations tracing descent from Adnan. The family has produced notable scholars, religious leaders, and political figures across the Islamic world from medieval times to the present day.",
+      "originStory": "The Al Tamimi descend from the Banu Tamim tribe, which originated in the Najd and Hejaz regions of the Arabian Peninsula and claims Adnanite lineage tracing back to Ishmael, son of Abraham.",
+      "tribalOrigin": "Banu Tamim",
+      "modernStatus": "Members hold significant positions across the Gulf region, including ruling dynasties (Al Thani of Qatar), religious leadership (Al ash-Sheikh of Saudi Arabia), and scholarly prominence in Islamic studies and sciences.",
+      "migrationPath": [
+        {
+          "year": 622,
+          "endYear": 800,
+          "from": "Arabian Peninsula",
+          "fromCoords": [
+            24.0,
+            45.0
+          ],
+          "to": "Various Islamic territories",
+          "toCoords": null,
+          "description": "Post-Islamic expansion migration across the Middle East and North Africa following Islamic conquests"
+        }
+      ],
+      "timelineEvents": [
+        {
+          "year": 622,
+          "title": "Contact with Prophet Muhammad",
+          "description": "Banu Tamim came into contact with Prophet Muhammad in the 8th year of Hijrah",
+          "location": "Arabian Peninsula",
+          "coords": [
+            24.0,
+            45.0
+          ],
+          "eventType": "religious"
+        },
+        {
+          "year": 800,
+          "title": "Aghlabid Dynasty Founded",
+          "description": "Banu Tamim established the Aghlabid ruling dynasty of Ifriqiya",
+          "location": "Tunisia",
+          "coords": [
+            33.8,
+            9.5
+          ],
+          "eventType": "political"
+        },
+        {
+          "year": 1020,
+          "title": "Death of Abu al-Fadl al-Tamimi",
+          "description": "Renowned Muslim saint and scholar of Yemeni Tamimi lineage died in Baghdad",
+          "location": "Baghdad",
+          "coords": [
+            33.3,
+            44.4
+          ],
+          "eventType": "religious"
+        }
+      ],
+      "connections": [
+        {
+          "entityId": "banu_tamim",
+          "entityType": "tribe",
+          "relationship": "descended_from",
+          "context": "Al Tamimi is a direct branch of the ancient Banu Tamim tribe"
+        }
+      ],
+      "notableFigures": [
+        {
+          "id": "ali_al_tamimi",
+          "name": "Ali al-Tamimi",
+          "title": "Computational Biologist and Islamic Scholar",
+          "roleDescription": "American-born scientist and Salafi preacher who studied at Islamic University of Madinah",
+          "bornYear": 1963,
+          "diedYear": null,
+          "era": "21st century"
+        },
+        {
+          "id": "abu_al_fadl_al_tamimi",
+          "name": "Abu al-Fadl al-Tamimi",
+          "title": "Muslim Saint",
+          "roleDescription": "10th century Sufi saint of the Junaidia order from Yemen",
+          "bornYear": 952,
+          "diedYear": 1020,
+          "era": "10th-11th century"
+        },
+        {
+          "id": "muhammad_ibn_abd_al_wahhab",
+          "name": "Muhammad ibn Abd al-Wahhab",
+          "title": "Religious Reformer",
+          "roleDescription": "Founder of Nejdi Salafi movement and author of Kitāb at-Tawḥīd",
+          "bornYear": null,
+          "diedYear": null,
+          "era": "18th century"
+        }
+      ]
+    }
+  },
+  {
+    "type": "family",
+    "id": "al_saleh",
+    "data": {
+      "history": "The research provided does not contain information about the Al Saleh family genealogy, business history, or tribal lineage. Instead, it covers several unrelated individuals with the surname Al-Saleh or variations thereof: Saleh al-Arouri (a Palestinian Hamas leader), members of the al-Houthi family from Yemen, various Saudi religious scholars including Saleh al-Fawzan and Saleh al-Maghamsi, Ali Abdullah Saleh (former Yemeni president), and Mohammed Saleh Al Sada (Qatari energy minister). None of these individuals appear to be connected to a unified Al Saleh family structure or genealogy within the GCC context. The research does not provide any information about the Al Saleh family's origins, whether tribal, Persian, Indian, Hadrami, or otherwise, nor does it mention any business ventures, migration patterns, or family connections that would constitute a coherent family history.",
+      "description": "No verifiable information about the Al Saleh family is available in the provided research materials.",
+      "originStory": null,
+      "tribalOrigin": null,
+      "modernStatus": null,
+      "migrationPath": [],
+      "timelineEvents": [],
+      "connections": [],
+      "notableFigures": []
+    }
+  },
+  {
+    "type": "family",
+    "id": "al_shaya",
+    "data": {
+      "history": "The research provided does not contain any information about the Al Shaya family's origins, tribal background, or business activities in the GCC region. While the name 'Shaya' appears in several unrelated contexts - including Yemeni diplomat Shaya al-Zindani (whose family traces lineage to the Arhab region of northern Yemen), American-Israeli former police officer Carol Shaya (of Greek Orthodox background), and references to Al-Zulfi city in Saudi Arabia having connections to Kuwaiti families including 'AlShaya' - none of these sources provide verified information about the Al Shaya family's actual origins, migration patterns, or establishment in the Gulf region. The research mentions that 'a significant amount of Kuwaiti families, including the ruling Al-Sabah family and the prominent AlShaya and Alghanim families hail from Al-Zulfi' and that 'many of them emigrated in the 19th and early 20th century,' but provides no further details about their origins, whether they were of tribal, Persian, Indian, or other background, or their specific business activities.",
+      "description": "Prominent Kuwaiti merchant family mentioned as having origins in Al-Zulfi, Saudi Arabia, with emigration occurring in the 19th-20th centuries, though specific details about their origins and business activities are not documented in available research.",
+      "originStory": null,
+      "tribalOrigin": null,
+      "modernStatus": null,
+      "migrationPath": [],
+      "timelineEvents": [],
+      "connections": [],
+      "notableFigures": []
+    }
+  },
+  {
+    "type": "family",
+    "id": "al_ghunaim",
+    "data": {
+      "history": "The research provided contains a single specific reference to the Al Ghunaim family in the context of Saudi royal marriages. King Fahd of Saudi Arabia was married to Seeta bint Ghunaim bin Sunaitan Abu Thnain, though this marriage ended in divorce. This represents the only verifiable connection between the Al Ghunaim name and documented historical events in the provided research materials. The research also mentions Maha Al Ghunaim as co-founder of Global Investment House (GIH) in Kuwait in the list of notable Kuwaiti businesspeople, indicating the family's presence in modern Kuwaiti financial sector. However, no information is provided about the family's origins, tribal affiliations, migration patterns, or broader historical development beyond these two specific references.",
+      "description": "A family name documented in Saudi royal marriage records and contemporary Kuwaiti business leadership, with limited historical information available in current research.",
+      "originStory": null,
+      "tribalOrigin": null,
+      "modernStatus": "Present in Kuwaiti financial sector through Global Investment House",
+      "migrationPath": [],
+      "timelineEvents": [],
+      "connections": [],
+      "notableFigures": [
+        {
+          "id": "maha_al_ghunaim",
+          "name": "Maha Al Ghunaim",
+          "title": "Co-founder",
+          "roleDescription": "Co-founder of Global Investment House (GIH)",
+          "bornYear": null,
+          "diedYear": null,
+          "era": "contemporary"
+        },
+        {
+          "id": "seeta_bint_ghunaim",
+          "name": "Seeta bint Ghunaim bin Sunaitan Abu Thnain",
+          "title": "Former spouse",
+          "roleDescription": "Former wife of King Fahd of Saudi Arabia (divorced)",
+          "bornYear": null,
+          "diedYear": null,
+          "era": "20th century"
+        }
+      ]
+    }
+  },
+  {
+    "type": "family",
+    "id": "al_nafisi",
+    "data": {
+      "history": "The Al Nafisi family represents a prominent lineage with deep roots in both Kuwait and Iran, demonstrating the complex ethnic and cultural heritage characteristic of Gulf merchant families. Research reveals multiple branches of the Nafisi name with distinct origins. The Kuwaiti branch, exemplified by Abdullah Fahad Al-Nafisi (born 1945), traces its lineage to the Al-Nafsiah family that originated from the Mutayr tribe, establishing their presence in Freej Soud, Jibla, Kuwait. Abdullah Al-Nafisi became a distinguished academic and politician, earning his PhD from Cambridge University in 1972 and serving as a member of Kuwait's National Assembly in 1985. His political career was marked by opposition activities, including interrogating government ministers about oil contracts, which contributed to the dissolution of parliament in 1986.\n\nParallel to the Kuwaiti branch exists a distinguished Persian intellectual lineage exemplified by the renowned physician and scholar Mirza Ali Akbar Khan Nafisi (1847-1924), known as Nazem al-Atebba. Born in Kerman, Iran, he came from the Nafisi family of Kerman, whose medical tradition traced back to Burhan-ud-din Kermani, a 15th-century court physician. Nazem al-Atebba became one of Iran's most prominent doctors during the late Qajar era, serving as personal physician to Mozaffar ad-Din Shah and playing a crucial role in Iran's Constitutional Revolution. His son, Saeed Nafisi, became a celebrated scholar, while his other son Ali-Asghar Nafisi served as Iran's first Minister of Health. This Iranian branch demonstrates the family's significant contributions to medicine, literature, and politics across the Persian Gulf region, highlighting the interconnected nature of Gulf intellectual and merchant families.",
+      "description": "Al Nafisi represents multiple distinguished lineages across the Gulf region, including a Kuwaiti branch descended from the Mutayr tribe and a Persian branch from Kerman, Iran, both contributing significantly to politics, academia, medicine, and literature.",
+      "originStory": "The name Al Nafisi encompasses distinct origins: the Kuwaiti Al-Nafsiah family originated from the Mutayr tribe, while the Iranian Nafisi family of Kerman traced their medical lineage back to 15th-century court physicians.",
+      "tribalOrigin": "Mutayr",
+      "modernStatus": "Contemporary members include academics, politicians, and professionals across Kuwait and Iran, with the family maintaining influence in political, medical, and intellectual circles.",
+      "migrationPath": [
+        {
+          "year": 1951,
+          "endYear": null,
+          "from": "Kuwait",
+          "fromCoords": [
+            29.3759,
+            47.9774
+          ],
+          "to": "Alexandria, Egypt",
+          "toCoords": [
+            31.2001,
+            29.9187
+          ],
+          "description": "Abdullah Al-Nafisi and his brother moved to Egypt to study at Victoria College"
+        },
+        {
+          "year": 1881,
+          "endYear": null,
+          "from": "Tehran, Iran",
+          "fromCoords": [
+            35.6892,
+            51.389
+          ],
+          "to": "Mashhad, Iran",
+          "toCoords": [
+            36.2605,
+            59.6168
+          ],
+          "description": "Nazem al-Atebba accompanied Mirza Hossein Khan Sepahsalar to renovate Mashhad Hospital"
+        }
+      ],
+      "timelineEvents": [
+        {
+          "year": 1847,
+          "title": "Birth of Nazem al-Atebba",
+          "description": "Mirza Ali Akbar Khan Nafisi born in Kerman to medical family",
+          "location": "Kerman, Iran",
+          "coords": [
+            30.2839,
+            57.0834
+          ],
+          "eventType": "birth"
+        },
+        {
+          "year": 1945,
+          "title": "Birth of Abdullah Al-Nafisi",
+          "description": "Abdullah Fahad Al-Nafisi born in Freej Soud, Jibla, Kuwait",
+          "location": "Kuwait City",
+          "coords": [
+            29.3759,
+            47.9774
+          ],
+          "eventType": "birth"
+        },
+        {
+          "year": 1985,
+          "title": "Parliamentary Election Victory",
+          "description": "Abdullah Al-Nafisi elected to Kuwaiti National Assembly in Eighth District",
+          "location": "Kuwait City",
+          "coords": [
+            29.3759,
+            47.9774
+          ],
+          "eventType": "political"
+        }
+      ],
+      "connections": [
+        {
+          "entityId": "mutayr_tribe",
+          "entityType": "tribe",
+          "relationship": "descended_from",
+          "context": "Kuwaiti Al-Nafsiah family originated from Mutayr tribe"
+        }
+      ],
+      "notableFigures": [
+        {
+          "id": "nazem_al_atebba",
+          "name": "Mirza Ali Akbar Khan Nafisi",
+          "title": "Nazem al-Atebba (Superintendent of Physicians)",
+          "roleDescription": "Prominent physician, scholar, personal physician to Mozaffar ad-Din Shah, and influential figure in Iran's Constitutional Revolution",
+          "bornYear": 1847,
+          "diedYear": 1924,
+          "era": "late Qajar period"
+        },
+        {
+          "id": "abdullah_al_nafisi",
+          "name": "Abdullah Fahad Al-Nafisi",
+          "title": "Academic and Politician",
+          "roleDescription": "Political scientist, Cambridge PhD, Kuwait University professor, and member of Kuwait National Assembly",
+          "bornYear": 1945,
+          "diedYear": null,
+          "era": "20th-21st century"
+        },
+        {
+          "id": "saeed_nafisi",
+          "name": "Saeed Nafisi",
+          "title": "Scholar",
+          "roleDescription": "Renowned Iranian scholar, fiction writer, and poet, son of Nazem al-Atebba",
+          "bornYear": null,
+          "diedYear": null,
+          "era": "20th century"
+        }
+      ]
+    }
+  },
+  {
+    "type": "family",
+    "id": "al_jaidah",
+    "data": {
+      "history": "The research mentions Al Jaidah in the context of Qatari cultural history, specifically noting that Mohammed Al-Jaida was among the significant artists who made Al Jasrah the hub of Qatari cultural life in the 1950s. Al-Jaida was one of several artists including Jassim Zaini, Yousef Ahmad, Hassan Al Mulla, Ali Hassan, and Salman Al-Malik who gathered in Al Jasrah district. Their shared passion for art and childhood stories led to the establishment of Qatar's first art group called 'The Three Friends' and later the Qatari Society for Fine Arts. The research also references 'Souq Jaidah' as a point of interest in the Al Jasrah district of Doha, suggesting the family had commercial connections to the historic souq areas of the capital. However, the research does not provide specific details about the family's tribal origins, migration patterns, or broader business activities beyond these cultural and commercial references.",
+      "description": "A Qatari family associated with the arts and culture scene in 1950s Doha, with historical connections to the Al Jasrah district and its souq areas.",
+      "originStory": null,
+      "tribalOrigin": null,
+      "modernStatus": null,
+      "migrationPath": [],
+      "timelineEvents": [
+        {
+          "year": 1950,
+          "title": "Cultural Leadership in Al Jasrah",
+          "description": "Mohammed Al-Jaida was among the artists who made Al Jasrah the hub of Qatari cultural life, leading to the establishment of Qatar's first art group",
+          "location": "Al Jasrah, Doha",
+          "coords": [
+            25.2854,
+            51.531
+          ],
+          "eventType": "cultural"
+        }
+      ],
+      "connections": [],
+      "notableFigures": [
+        {
+          "id": "mohammed_al_jaida",
+          "name": "Mohammed Al-Jaida",
+          "title": "Artist",
+          "roleDescription": "One of the artists who established Al Jasrah as the hub of Qatari cultural life and helped found Qatar's first art group 'The Three Friends' and later the Qatari Society for Fine Arts",
+          "bornYear": null,
+          "diedYear": null,
+          "era": "20th century"
+        }
+      ]
+    }
+  },
+  {
+    "type": "family",
+    "id": "al_khater",
+    "data": {
+      "history": "The Al Khater (آل خاطر) is a prestigious Arabian Peninsula family belonging to Al Buainain of Banu Tamim, with origins tracing to Bani Abdullah bin Darem, a branch of Bani Hanzala from Bani Tamim. Their ancestral roots trace back to Hotat Bani Tamim, from where they migrated to settle in an area called 'Aynain' (two springs), giving the tribe its name. The family expanded across multiple Arabian Peninsula countries including Saudi Arabia, Qatar, and Bahrain, where they established themselves as influential builders and political allies. They are credited with founding two major Arabian Peninsula cities: Jubail in Saudi Arabia and Al Wakrah, the former capital of Qatar. The family developed strong political and marital ties with the ruling families of the Gulf states through strategic alliances and intermarriages. Their relationship with Al Saud began when Mohammed bin Hassan Al Khater provided refuge to Abdul Rahman ibn Faisal, the last ruler of the Second Saudi State, in his mosque in Bahrain during his exile. In Saudi Arabia, Sheikh Mohammed bin Ali Al Khater, ruler of Jubail, joined forces with Abdul-Aziz bin Saud in the unification wars, participating in battles such as Kinzan in 1915. With Al Khalifa of Bahrain, the family maintained strong ties through Sheikh Mohammed bin Hassan's extensive agricultural holdings near Bahrain International Airport and his role in prisoner exchanges. The strongest family bonds were forged with Al Thani through multiple strategic marriages, including Sheikh Mohammed bin Hassan's marriage to Sheikha Sabika, daughter of Sheikh Qassim bin Mohammed Al Thani, establishing one of the strongest family alliances in Qatar.",
+      "description": "A prestigious Arabian Peninsula family from Banu Tamim who founded Jubail and Al Wakrah, maintaining strong political and marital ties with the ruling families of Saudi Arabia, Qatar, and Bahrain.",
+      "originStory": "Originally from Hotat Bani Tamim, they migrated to and settled in an area called 'Aynain' (two springs), belonging to Al Buainain of Banu Tamim.",
+      "tribalOrigin": "Banu Tamim",
+      "modernStatus": "Prominent family with members serving in high-level diplomatic, governmental, and business positions across the Gulf states, particularly in Qatar's foreign ministry and various ambassadorial roles.",
+      "migrationPath": [
+        {
+          "year": null,
+          "endYear": null,
+          "from": "Hotat Bani Tamim",
+          "fromCoords": null,
+          "to": "Aynain",
+          "toCoords": null,
+          "description": "Migration from ancestral homeland to area known as 'two springs'"
+        }
+      ],
+      "timelineEvents": [
+        {
+          "year": 1915,
+          "title": "Battle of Kinzan",
+          "description": "Sheikh Mohammed bin Ali Al Khater joined forces with Abdul-Aziz bin Saud in the unification wars",
+          "location": "Kinzan, near Al-Ahsa",
+          "coords": [
+            25.4,
+            49.6
+          ],
+          "eventType": "military_alliance"
+        }
+      ],
+      "connections": [
+        {
+          "entityId": "banu_tamim",
+          "entityType": "tribe",
+          "relationship": "descended_from",
+          "context": "Al Khater belong to Al Buainain of Banu Tamim, specifically Bani Abdullah bin Darem branch"
+        },
+        {
+          "entityId": "al_thani",
+          "entityType": "family",
+          "relationship": "allied_through_marriage",
+          "context": "Multiple strategic marriages including Mohammed bin Hassan to Sheikha Sabika and other cross-family unions"
+        },
+        {
+          "entityId": "al_saud",
+          "entityType": "family",
+          "relationship": "political_alliance",
+          "context": "Historical alliance dating to providing refuge to Abdul Rahman ibn Faisal and military cooperation in unification wars"
+        },
+        {
+          "entityId": "al_khalifa",
+          "entityType": "family",
+          "relationship": "political_alliance",
+          "context": "Strong ties through business relationships and diplomatic mediation efforts"
+        }
+      ],
+      "notableFigures": [
+        {
+          "id": "lolwah_al_khater",
+          "name": "Lolwah Rashid Mohammed Al-Khater",
+          "title": "Minister of Education and Higher Education",
+          "roleDescription": "First Qatari woman to serve as Foreign Ministry Spokesperson, appointed Minister of Education in 2024",
+          "bornYear": null,
+          "diedYear": null,
+          "era": "21st century"
+        },
+        {
+          "id": "mohammed_bin_hassan_al_khater",
+          "name": "Mohammed bin Hassan Al Khater",
+          "title": "Head of Al Khater in Bahrain",
+          "roleDescription": "Provided refuge to Saudi royal family and facilitated prisoner exchanges between ruling families",
+          "bornYear": null,
+          "diedYear": null,
+          "era": "19th-20th century"
+        },
+        {
+          "id": "mohammed_bin_ali_al_khater",
+          "name": "Mohammed bin Ali Al Khater",
+          "title": "Ruler and Founder of Jubail",
+          "roleDescription": "One of three founders of Jubail, allied with Abdul-Aziz bin Saud in unification wars",
+          "bornYear": null,
+          "diedYear": null,
+          "era": "19th-20th century"
+        }
+      ]
+    }
+  },
+  {
+    "type": "family",
+    "id": "nass",
+    "data": {
+      "history": "Based on the research provided, the Nass family appears to have diverse origins across different regions, with no clear connection between the documented branches. In the United States, Stephen Nass represents a family of German Pomeranian origin - his ancestor Friedrich Nass settled in Walworth County, Wisconsin in the 1880s after emigrating from the Pomerania region of the German Empire. Stephen Leonard Nass, born in 1952 in Whitewater, Wisconsin, is the son of Wilfred Nass Sr., a longtime police officer, and Joyce (née Sherman). This branch has established itself in American politics, with Stephen serving in Wisconsin state government for over three decades, including 24 years in the State Assembly and service in the Wisconsin Senate since 2015. In Tanzania, a completely separate Nass lineage exists with William Nicholaus Lyimo, known professionally as Bill Nass, born in 1993 to Chagga parents from the Kilimanjaro Region. This branch has achieved prominence in the East African music industry, with Bill Nass becoming a notable rapper and founding his own record label, Mafioso Inc., in 2021. The research provides no evidence of any historical connection between these geographically and ethnically distinct Nass family branches.",
+      "description": "The documented Nass families represent distinct lineages: German-Pomeranian immigrants to Wisconsin establishing a political dynasty, and Chagga heritage in Tanzania producing musical talent, with no apparent historical connections between branches.",
+      "originStory": null,
+      "tribalOrigin": null,
+      "modernStatus": "The family shows diverse modern achievements across different regions - political leadership in Wisconsin and entertainment industry success in Tanzania, representing completely separate family lines.",
+      "migrationPath": [],
+      "timelineEvents": [],
+      "connections": [],
+      "notableFigures": [
+        {
+          "id": "stephen_nass",
+          "name": "Stephen Leonard Nass",
+          "title": "Wisconsin State Senator",
+          "roleDescription": "American Republican politician serving Wisconsin's 11th Senate district since 2015, previously served 24 years in Wisconsin State Assembly",
+          "bornYear": 1952,
+          "diedYear": null,
+          "era": "20th-21st century"
+        },
+        {
+          "id": "bill_nass",
+          "name": "William Nicholaus Lyimo (Bill Nass)",
+          "title": "Tanzanian Rapper",
+          "roleDescription": "Tanzanian rapper of Chagga heritage, founder of Mafioso Inc. record label, winner of 2022 Tanzania Music Award for Best Male Hip Hop Artist",
+          "bornYear": 1993,
+          "diedYear": null,
+          "era": "21st century"
+        }
+      ]
+    }
+  },
+  {
+    "type": "family",
+    "id": "al_zubair",
+    "data": {
+      "history": "The Al Zubair family traces its lineage to the earliest companions of Prophet Muhammad, specifically to Zubayr ibn al-Awwam (c. 594–656), one of the ten companions promised paradise and Muhammad's first cousin through his aunt Safiyya bint Abd al-Muttalib. Zubayr belonged to the Banu Asad clan of the Quraysh tribe and served as a distinguished military commander during the early Islamic conquests across Arabia, Syria, Persia, Egypt, and North Africa. His son Abd Allah ibn al-Zubayr (624-692) became a rival caliph during the Second Fitna, establishing the Zubayrid Caliphate from Mecca between 683-692 in opposition to the Umayyads. The family's descendants, known as Zubayrids, became influential across the Islamic world, with many claiming descent from this prestigious lineage due to Zubayr's status as an early Muslim hero. The research indicates that Zubayrid communities spread to various regions including the Hejaz, Egypt, Iraq, Iran, and the Indian subcontinent, with some allegedly migrating during the Umayyad campaigns in India in the 7th century. Modern branches of families claiming Al Zubair ancestry can be found globally, though the specific connection to contemporary GCC Al Zubair families would require additional genealogical verification.",
+      "description": "An ancient Arabian family claiming descent from Zubayr ibn al-Awwam, companion of Prophet Muhammad and military commander during early Islamic conquests. The lineage includes the rival caliph Abd Allah ibn al-Zubayr who established the Zubayrid Caliphate from Mecca (683-692).",
+      "originStory": "The family originates from Zubayr ibn al-Awwam of the Banu Asad clan of Quraysh tribe in 6th-7th century Mecca, one of the earliest converts to Islam and military commanders under Prophet Muhammad.",
+      "tribalOrigin": "Quraysh",
+      "modernStatus": null,
+      "migrationPath": [],
+      "timelineEvents": [
+        {
+          "year": 594,
+          "title": "Birth of Zubayr ibn al-Awwam",
+          "description": "Birth of the family patriarch in Mecca, future companion of Prophet Muhammad",
+          "location": "Mecca",
+          "coords": [
+            21.4225,
+            39.8262
+          ],
+          "eventType": "founding"
+        },
+        {
+          "year": 624,
+          "title": "Birth of Abd Allah ibn al-Zubayr",
+          "description": "Birth of Zubayr's eldest son, future rival caliph, first child born to the Muhajirun",
+          "location": "Medina",
+          "coords": [
+            24.4539,
+            39.6126
+          ],
+          "eventType": "birth"
+        },
+        {
+          "year": 683,
+          "title": "Zubayrid Caliphate Established",
+          "description": "Abd Allah ibn al-Zubayr proclaimed himself caliph in Mecca, establishing rival caliphate to Umayyads",
+          "location": "Mecca",
+          "coords": [
+            21.4225,
+            39.8262
+          ],
+          "eventType": "political"
+        },
+        {
+          "year": 692,
+          "title": "End of Zubayrid Caliphate",
+          "description": "Death of Abd Allah ibn al-Zubayr during siege of Mecca by Umayyad forces under al-Hajjaj ibn Yusuf",
+          "location": "Mecca",
+          "coords": [
+            21.4225,
+            39.8262
+          ],
+          "eventType": "political"
+        }
+      ],
+      "connections": [
+        {
+          "entityId": "quraysh",
+          "entityType": "tribe",
+          "relationship": "descended_from",
+          "context": "Zubayr ibn al-Awwam belonged to the Banu Asad clan of the Quraysh tribe"
+        }
+      ],
+      "notableFigures": [
+        {
+          "id": "zubayr_ibn_al_awwam",
+          "name": "Zubayr ibn al-Awwam",
+          "title": "Sahabi and Military Commander",
+          "roleDescription": "Companion of Prophet Muhammad, military commander in early Islamic conquests, one of ten promised paradise",
+          "bornYear": 594,
+          "diedYear": 656,
+          "era": "7th century"
+        },
+        {
+          "id": "abd_allah_ibn_al_zubayr",
+          "name": "Abd Allah ibn al-Zubayr",
+          "title": "Zubayrid Caliph",
+          "roleDescription": "Rival caliph who established the Zubayrid Caliphate in opposition to the Umayyads during the Second Fitna",
+          "bornYear": 624,
+          "diedYear": 692,
+          "era": "7th century"
+        }
+      ]
+    }
+  },
+  {
+    "type": "family",
+    "id": "khimji",
+    "data": {
+      "history": "The Khimji family is a prominent Gujarati business family with deep roots in Oman's commercial landscape. According to the research, the Khimji Ramdas Group was established in 1870, making it one of the oldest trading companies in the region. The family belongs to the broader Gujarati diaspora community that has had a significant presence in Oman dating back centuries. As noted in the research on Gujarati people in Oman, some of the earliest Indian immigrants to settle in Oman were Gujarati traders, particularly the Bhatias of Kutch, who established a powerful presence dating back to the 16th century. The Khimji family represents this merchant tradition, having built their business empire across infrastructure, consumer products, and retail sectors. In modern times, the family has achieved remarkable prominence, with Kanaksi Khimji from the famous Khimji family being conferred the title of Sheikh by the Sultan - noted as the first ever use of the title for a member of the Hindu community in Oman. The current generation continues this legacy through the Khimji Ramdas Group, while also taking on significant roles in sports administration and government advisory positions. Pankaj Khimji serves as chairman of Oman Cricket, a position previously held by his father Kanak Khimji, and was appointed Foreign Trade Advisor to the Omani government by Royal Decree in 2022. The family's influence extends internationally through cricket administration, with Pankaj Khimji serving as an Associate Member Director of the International Cricket Council and vice-president of the Asian Cricket Council.",
+      "description": "A prominent Gujarati merchant family in Oman, founders of the Khimji Ramdas Group established in 1870, with significant roles in business, cricket administration, and government advisory positions.",
+      "originStory": "Part of the historic Gujarati merchant community that migrated to Oman, with their business roots tracing back to the establishment of Khimji Ramdas Group in 1870.",
+      "tribalOrigin": null,
+      "modernStatus": "Major business conglomerate through Khimji Ramdas Group operating in infrastructure, consumer products, and retail; family members hold prominent positions in cricket administration and government advisory roles",
+      "migrationPath": [
+        {
+          "year": 1870,
+          "endYear": null,
+          "from": "Gujarat",
+          "fromCoords": [
+            23.0225,
+            72.5714
+          ],
+          "to": "Oman",
+          "toCoords": [
+            23.588,
+            58.3829
+          ],
+          "description": "Establishment of Khimji Ramdas Group business operations"
+        }
+      ],
+      "timelineEvents": [
+        {
+          "year": 1870,
+          "title": "Khimji Ramdas Group Founded",
+          "description": "Establishment of the family business that would grow to operate in infrastructure, consumer products, and retail sectors",
+          "location": "Oman",
+          "coords": [
+            23.588,
+            58.3829
+          ],
+          "eventType": "founding"
+        },
+        {
+          "year": 2016,
+          "title": "Pankaj Khimji Becomes Oman Cricket Chairman",
+          "description": "Pankaj Khimji succeeded his father Kanak Khimji as chairman of Oman Cricket in February",
+          "location": "Oman",
+          "coords": [
+            23.588,
+            58.3829
+          ],
+          "eventType": "appointment"
+        },
+        {
+          "year": 2021,
+          "title": "ICC Associate Member Director",
+          "description": "Pankaj Khimji elected as Associate Member Director of the International Cricket Council, replacing Mahinda Vallipuram",
+          "location": "International",
+          "coords": null,
+          "eventType": "appointment"
+        },
+        {
+          "year": 2022,
+          "title": "Foreign Trade Advisor Appointment",
+          "description": "Pankaj Khimji appointed Foreign Trade Advisor to the Omani government by Royal Decree in January",
+          "location": "Oman",
+          "coords": [
+            23.588,
+            58.3829
+          ],
+          "eventType": "appointment"
+        }
+      ],
+      "connections": [],
+      "notableFigures": [
+        {
+          "id": "pankaj_khimji",
+          "name": "Pankaj Khimji",
+          "title": "Chairman of Oman Cricket, Foreign Trade Advisor",
+          "roleDescription": "Director of Khimji Ramdas Group, Chairman of Oman Cricket, Foreign Trade Advisor to Omani government, ICC Associate Member Director",
+          "bornYear": 1961,
+          "diedYear": null,
+          "era": "20th-21st century"
+        },
+        {
+          "id": "kanak_khimji",
+          "name": "Kanak Khimji",
+          "title": "Former Chairman of Oman Cricket",
+          "roleDescription": "Previous chairman of Oman Cricket before being succeeded by his son Pankaj Khimji",
+          "bornYear": null,
+          "diedYear": null,
+          "era": "20th-21st century"
+        },
+        {
+          "id": "kanaksi_khimji",
+          "name": "Kanaksi Khimji",
+          "title": "Sheikh",
+          "roleDescription": "Business tycoon conferred title of Sheikh by the Sultan, first ever use of the title for a member of the Hindu community in Oman",
+          "bornYear": null,
+          "diedYear": null,
+          "era": "20th century"
+        },
+        {
+          "id": "bhavanji_arjan_khimji",
+          "name": "Bhavanji Arjan Khimji",
+          "title": "Member of Parliament, JP",
+          "roleDescription": "Member of Indian National Congress who served twice as member of Indian parliament from Kachchh constituency, member of Bombay Legislative Assembly 1937-1951",
+          "bornYear": 1902,
+          "diedYear": 1970,
+          "era": "20th century"
+        }
+      ]
+    }
+  }
+]

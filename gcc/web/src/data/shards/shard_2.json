@@ -1,0 +1,1637 @@
+[
+  {
+    "type": "family",
+    "id": "al_kazim",
+    "data": {
+      "history": "The Al Kazim family traces its lineage to Musa al-Kazim (745-799 CE), the seventh Imam in Twelver Shia Islam and a direct descendant of the Islamic prophet Muhammad through Ali ibn Abi Talib and Fatima. Musa al-Kazim was born in Medina to Ja'far al-Sadiq, the sixth Shia Imam, and spent most of his life under severe restrictions by the Abbasid caliphs. He established an underground network of representatives throughout the Abbasid Empire to organize Shia affairs and collect religious donations. Al-Kazim died in 799 CE in a Baghdad prison, likely poisoned by order of Harun al-Rashid, and was buried in what is now Kazimayn, Baghdad. His son Ali al-Rida succeeded him as the eighth Imam and was notably appointed heir apparent by the Abbasid caliph al-Mamun in 817 CE before dying mysteriously in 818 CE in Tus (present-day Mashhad, Iran). The Al Kazim lineage has produced numerous Islamic scholars across the region, with the Al-Sadr family of Iraq and Lebanon being a prominent branch that traces its descent through 27 generations back to Musa al-Kazim, producing notable figures like Mohammad Baqir al-Sadr and Muqtada al-Sadr.",
+      "description": "A Hashemite Shia clerical family tracing descent from Musa al-Kazim, the seventh Shia Imam, through multiple scholarly branches across Iraq, Iran, and Lebanon including the prominent Al-Sadr family.",
+      "originStory": "The family originates from Musa al-Kazim (745-799 CE), seventh Shia Imam born in Medina, who was a direct descendant of Prophet Muhammad through Ali ibn Abi Talib and Fatima.",
+      "tribalOrigin": null,
+      "modernStatus": "The family continues through various clerical and scholarly branches, most notably the Al-Sadr family which remains influential in Iraqi and Lebanese Shia religious and political circles.",
+      "migrationPath": [
+        {
+          "year": 745,
+          "endYear": 799,
+          "from": "Medina",
+          "fromCoords": [
+            24.4686,
+            39.6141
+          ],
+          "to": "Baghdad",
+          "toCoords": [
+            33.3128,
+            44.3615
+          ],
+          "description": "Musa al-Kazim's final imprisonment and death in Baghdad"
+        }
+      ],
+      "timelineEvents": [
+        {
+          "year": 745,
+          "title": "Birth of Musa al-Kazim",
+          "description": "Musa al-Kazim born in Medina as seventh Shia Imam",
+          "location": "Medina",
+          "coords": [
+            24.4686,
+            39.6141
+          ],
+          "eventType": "founding"
+        },
+        {
+          "year": 765,
+          "title": "Succession to Imamate",
+          "description": "Became seventh Shia Imam after death of father Ja'far al-Sadiq",
+          "location": "Medina",
+          "coords": [
+            24.4686,
+            39.6141
+          ],
+          "eventType": "succession"
+        },
+        {
+          "year": 799,
+          "title": "Death of Musa al-Kazim",
+          "description": "Died in Baghdad prison, likely poisoned by Abbasid caliph",
+          "location": "Baghdad",
+          "coords": [
+            33.3128,
+            44.3615
+          ],
+          "eventType": "death"
+        },
+        {
+          "year": 817,
+          "title": "Ali al-Rida Named Heir Apparent",
+          "description": "Son Ali al-Rida appointed heir to Abbasid caliphate by al-Mamun",
+          "location": "Merv",
+          "coords": [
+            37.6653,
+            62.1906
+          ],
+          "eventType": "political"
+        }
+      ],
+      "connections": [
+        {
+          "entityId": "prophet_muhammad",
+          "entityType": "religious_figure",
+          "relationship": "descended_from",
+          "context": "Direct descent through Ali ibn Abi Talib and Fatima"
+        }
+      ],
+      "notableFigures": [
+        {
+          "id": "musa_al_kazim",
+          "name": "Musa al-Kazim",
+          "title": "Seventh Shia Imam",
+          "roleDescription": "Seventh Imam in Twelver Shia Islam, established underground network of representatives",
+          "bornYear": 745,
+          "diedYear": 799,
+          "era": "8th century"
+        },
+        {
+          "id": "ali_al_rida",
+          "name": "Ali al-Rida",
+          "title": "Eighth Shia Imam and Abbasid Heir Apparent",
+          "roleDescription": "Eighth Shia Imam, appointed heir apparent by Abbasid caliph al-Mamun",
+          "bornYear": 766,
+          "diedYear": 818,
+          "era": "8th-9th century"
+        },
+        {
+          "id": "mohammad_baqir_sadr",
+          "name": "Mohammad Baqir al-Sadr",
+          "title": "Islamic Scholar and Thinker",
+          "roleDescription": "Major Islamic thinker from Al-Sadr branch, known as 'Third Martyr'",
+          "bornYear": 1935,
+          "diedYear": 1980,
+          "era": "20th century"
+        },
+        {
+          "id": "muqtada_sadr",
+          "name": "Muqtada al-Sadr",
+          "title": "Iraqi Religious and Political Leader",
+          "roleDescription": "Contemporary Iraqi Shia leader heading large militia, descendant through Al-Sadr branch",
+          "bornYear": 1973,
+          "diedYear": null,
+          "era": "21st century"
+        }
+      ]
+    }
+  },
+  {
+    "type": "family",
+    "id": "al_shafar",
+    "data": {
+      "history": "The Al Shafar family emerges in the research as a prominent construction and contracting dynasty in the UAE, with Al Shafar Transport and Contracting Company being established as a major player in Dubai's development sector. The family's business prominence is evidenced through their role in significant Dubai projects, including being awarded construction contracts for Al Furjan development by Nakheel in 2008. When construction was halted in 2009 due to economic pressures, Al Shafar was notably the first contractor to restart work, demonstrating their resilience and strong market position. The family expanded their operations into a comprehensive construction conglomerate, with ASGC (Al Shafar General Contracting Co. LLC) being established in 1989 as part of the larger Al Shafar Group, which encompasses 26 companies. Under the leadership of Mohamed Saif Bin Shafar as chairman, the company has grown to achieve annual revenues of $1 billion by 2020 with 17,000 employees. ASGC has worked on high-profile projects including Dubai's Ministry of Public Works building, Dubai Police headquarters, sectors of Jumeirah Beach Residence, and the Mohammad Bin Rashid Library. The company has also expanded internationally, becoming a major shareholder in the UK's Costain Group in 2020, though they later sold this stake in 2024. The research indicates the business was established through a partnership between a Dubai national and an Egyptian engineer, suggesting possible local Emirati origins for the Al Shafar family, though their specific tribal or ethnic background is not detailed in the available sources.",
+      "description": "The Al Shafar family is a prominent Emirati business dynasty known for their construction and contracting empire, including ASGC Construction and the broader Al Shafar Group comprising 26 companies. They have been instrumental in major Dubai development projects and have achieved significant international expansion.",
+      "originStory": null,
+      "tribalOrigin": null,
+      "modernStatus": "Leading construction and business conglomerate with Mohamed Saif Bin Shafar as chairman of ASGC Construction, generating $1 billion annual revenue with 17,000 employees across 26 companies in the Al Shafar Group",
+      "migrationPath": [],
+      "timelineEvents": [
+        {
+          "year": 1989,
+          "title": "ASGC Construction Established",
+          "description": "Al Shafar General Contracting Co. LLC established by Dubai national and Egyptian engineer",
+          "location": "Dubai",
+          "coords": [
+            25.2048,
+            55.2708
+          ],
+          "eventType": "founding"
+        },
+        {
+          "year": 2008,
+          "title": "Al Furjan Contract Award",
+          "description": "Al Shafar Transport and Contracting Company awarded contract to construct villas and terraced homes in Al Furjan development",
+          "location": "Dubai",
+          "coords": [
+            25.2048,
+            55.2708
+          ],
+          "eventType": "business"
+        },
+        {
+          "year": 2009,
+          "title": "First to Resume Construction",
+          "description": "Al Shafar became first contractor to restart work after construction halt in Al Furjan project",
+          "location": "Dubai",
+          "coords": [
+            25.2048,
+            55.2708
+          ],
+          "eventType": "business"
+        },
+        {
+          "year": 2020,
+          "title": "Costain Group Investment",
+          "description": "ASGC became largest shareholder in UK's Costain Group with 15% stake during £100 million capital raise",
+          "location": "United Kingdom",
+          "coords": [
+            55.3781,
+            -3.436
+          ],
+          "eventType": "business"
+        }
+      ],
+      "connections": [],
+      "notableFigures": [
+        {
+          "id": "mohamed_saif_bin_shafar",
+          "name": "Mohamed Saif Bin Shafar",
+          "title": "Chairman",
+          "roleDescription": "Chairman of ASGC Construction and the Al Shafar Group",
+          "bornYear": null,
+          "diedYear": null,
+          "era": "21st century"
+        }
+      ]
+    }
+  },
+  {
+    "type": "family",
+    "id": "al_farooq",
+    "data": {
+      "history": "The Al Farooq (Arabic: فاروق) family are a Sunni Muslim business family originating from Saudi Arabia whose ancestral home was later Bastak in the Hormozgan province of southern Iran before eventually migrating to Dubai. They are amongst the first of UAE's business and aristocratic families. As of 2014, the majority of the family members reside in the UAE, Bahrain, Kuwait, the United States and Canada. The Al Farooq family led by Al Hajj Mohammed Aqil was part of the first wave of migration which started in 1899 due to the introduction of customs tax by the Persian government under the Qajar dynasty which led to reduced profits for merchants. Political instability in 1909, and a flu epidemic in 1918 saw the heads of most merchant families from Bastak relocate to the Persian Gulf region, Karachi and the Indian Ocean regions. After Al Hajj Mohammed Aqil died, his sons Mohammed Farooq, known as The Great Farooq and Ahmed Al Arshi took over as the heads of the family expanding the business internationally and mainly trading in diamonds, pearls and precious stones. Mohammed Farooq is remembered as the most famous pearl merchant of Lengeh, Bastak and the Persian Gulf. After Mohammed Farooq died, his son Abdulkarim Farooq became the heir to the family and was an advisor to the former rulers across the Persian Gulf. Abdulkarim Farooq owned a general trading establishment in Al Bastakiya, Dubai known as London store which specialized in importing quality brands directly from London, UK. He was regarded as the 'wealthiest man in Dubai and owned symbols of affluence which included a yacht'. The Al Farooq family has a history of association with humanitarian causes, with the Bait Farooq in Bahrain playing host to events that contributed to society, including a mass meeting in 1948 that provided initial impetus for Bahrain's support for Palestine. Today, the family's generosity is evident through various landmarks including mosques and the Farooq House part of the Dubai creek heritage in Al Bastakiya, Dubai.",
+      "description": "A Sunni Muslim business family originally from Saudi Arabia, later based in Bastak, Iran before migrating to Dubai. They were among the first UAE business and aristocratic families, known for pearl trading and maintaining close ties with Gulf royalty.",
+      "originStory": "Originally from Saudi Arabia, the family settled in Bastak in the Hormozgan province of southern Iran before eventually migrating to Dubai starting in 1899.",
+      "tribalOrigin": "Al Ansar",
+      "modernStatus": "The rapidly expanding family business is now a truly global brand through various members. Family members that currently rule the business include Mohammed Farooq Abdulkarim Farooq, Essa Farooq Abdulkarim Farooq and Rashid Farooq. Two-thirds of the family currently resides in the UAE.",
+      "migrationPath": [
+        {
+          "year": 1200,
+          "endYear": null,
+          "from": "Saudi Arabia",
+          "fromCoords": [
+            24.7136,
+            46.6753
+          ],
+          "to": "Bastak, Hormozgan Province, Iran",
+          "toCoords": [
+            27.2094,
+            54.3647
+          ],
+          "description": "Initial settlement from Saudi Arabia to Bastak in Iran in 1200 Hijri"
+        },
+        {
+          "year": 1899,
+          "endYear": 1918,
+          "from": "Bastak, Iran",
+          "fromCoords": [
+            27.2094,
+            54.3647
+          ],
+          "to": "Dubai, UAE",
+          "toCoords": [
+            25.2048,
+            55.2708
+          ],
+          "description": "Migration from Bastak to Dubai due to Persian customs tax, political instability, and flu epidemic"
+        }
+      ],
+      "timelineEvents": [
+        {
+          "year": 1899,
+          "title": "First Wave Migration Begins",
+          "description": "Al Hajj Mohammed Aqil leads family migration from Bastak due to Persian customs tax introduction",
+          "location": "Bastak, Iran",
+          "coords": [
+            27.2094,
+            54.3647
+          ],
+          "eventType": "migration"
+        },
+        {
+          "year": 1948,
+          "title": "Palestine Support Meeting",
+          "description": "Bait Farooq in Bahrain hosts mass meeting providing initial impetus for Bahrain's support for Palestine",
+          "location": "Bahrain",
+          "coords": [
+            26.0667,
+            50.5577
+          ],
+          "eventType": "political"
+        }
+      ],
+      "connections": [
+        {
+          "entityId": "al_ansar",
+          "entityType": "tribe",
+          "relationship": "descended_from",
+          "context": "The family belongs to the Al Ansar tribe that settled in Iran"
+        },
+        {
+          "entityId": "al_olema",
+          "entityType": "family",
+          "relationship": "first_cousins",
+          "context": "The Farooq Al Arshi family are first cousins of the Al Olema family, also known as Sheikh Sultan Al Ulama, the Fikree, and the Al Khaldi family"
+        }
+      ],
+      "notableFigures": [
+        {
+          "id": "mohammed_aqil_al_farooq",
+          "name": "Al Hajj Mohammed Aqil",
+          "title": "Family Patriarch",
+          "roleDescription": "Led the family migration from Bastak and established the family business",
+          "bornYear": null,
+          "diedYear": null,
+          "era": "19th century"
+        },
+        {
+          "id": "mohammed_farooq_the_great",
+          "name": "Mohammed Farooq (The Great Farooq)",
+          "title": "Pearl Merchant",
+          "roleDescription": "Most famous pearl merchant of Lengeh, Bastak and the Persian Gulf, known for generosity and hospitality that earned respect among Gulf royalty",
+          "bornYear": null,
+          "diedYear": null,
+          "era": "19th-20th century"
+        },
+        {
+          "id": "abdulkarim_farooq",
+          "name": "Abdulkarim Farooq",
+          "title": "Merchant and Advisor",
+          "roleDescription": "Heir to family business, advisor to Persian Gulf rulers, owned London store in Al Bastakiya Dubai, regarded as wealthiest man in Dubai",
+          "bornYear": null,
+          "diedYear": null,
+          "era": "20th century"
+        },
+        {
+          "id": "faiqa_farooq",
+          "name": "Faiqa Farooq",
+          "title": "UN Ambassador",
+          "roleDescription": "Daughter of The Great Farooq, Arab world's first female ambassador of the United Nations, joined diplomatic corps of Tunisia",
+          "bornYear": 1929,
+          "diedYear": null,
+          "era": "20th century"
+        }
+      ]
+    }
+  },
+  {
+    "type": "family",
+    "id": "abdul_latif_jameel",
+    "data": {
+      "history": "The Abdul Latif Jameel family represents one of Saudi Arabia's most successful business dynasties, founded by Sheikh Abdul Latif Jameel (1909-1993) in Jeddah in 1945. Abdul Latif Jameel was the son of Hussein Jameel Mohammed Al-Saadi, and had brothers Abdullah and Abdul Aziz, the latter being one of the founders of Al-Ittihad football club in Jeddah. Starting with simple goods purchased at public auctions in Jeddah's Islamic port alongside his friend Abdullah Hashem, Abdul Latif built a small car sales company that achieved a major breakthrough in 1955 when he secured the Toyota distributorship for Saudi Arabia, introducing the first four-wheel drive 'BJ' model from Toyota. He became the first to establish an automotive parts business in Mecca and expanded to secure agencies for global brands like Toshiba. Upon his death in 1993, his son Mohammed Abdul Latif Jameel assumed leadership as Chairman and CEO. The family business has grown into a diversified conglomerate operating across seven core sectors in over 30 countries, with Mohammed's sons Fady serving as Vice Chairman International and Hassan as Vice Chairman of Saudi operations. Hassan Jameel, born 1979-1980, studied at Sophia University in Tokyo and London Business School, trained with Toyota in Japan, and became instrumental in the company's major investment in electric vehicle startup Rivian. The family has established significant philanthropic initiatives including Community Jameel (founded 2003), which supports the MIT Abdul Latif Jameel Poverty Action Lab, MIT Jameel Clinic, and various educational and poverty alleviation programs globally.",
+      "description": "Saudi business family founded by Abdul Latif Jameel (1909-1993), who established one of the largest Toyota distributorships globally and built a diversified conglomerate operating across 30 countries. The family ranked seventh among Forbes' Top 100 Arab Family Businesses in 2022.",
+      "originStory": "Founded in Jeddah in 1945 by Sheikh Abdul Latif Jameel, son of Hussein Jameel Mohammed Al-Saadi, who started by purchasing goods at public auctions in Jeddah's Islamic port.",
+      "tribalOrigin": "Al-Saadi",
+      "modernStatus": "Led by Mohammed Abdul Latif Jameel as Chairman, with sons Fady and Hassan as Vice Chairmen. The conglomerate operates across transportation, manufacturing, financial services, energy, real estate, advertising, and consumer goods sectors globally.",
+      "migrationPath": [],
+      "timelineEvents": [
+        {
+          "year": 1945,
+          "title": "Company founding",
+          "description": "Abdul Latif Jameel establishes small car sales company in Jeddah",
+          "location": "Jeddah",
+          "coords": [
+            21.5433,
+            39.1728
+          ],
+          "eventType": "founding"
+        },
+        {
+          "year": 1955,
+          "title": "Toyota distributorship",
+          "description": "Becomes Toyota distributor in Saudi Arabia, introducing first four-wheel drive BJ model",
+          "location": "Saudi Arabia",
+          "coords": [
+            24.7136,
+            46.6753
+          ],
+          "eventType": "business_expansion"
+        },
+        {
+          "year": 1979,
+          "title": "Finance company established",
+          "description": "Abdul Latif Jameel United Finance Company (ALJUF) established",
+          "location": "Saudi Arabia",
+          "coords": [
+            24.7136,
+            46.6753
+          ],
+          "eventType": "business_expansion"
+        },
+        {
+          "year": 1993,
+          "title": "Leadership transition",
+          "description": "Abdul Latif Jameel dies, son Mohammed takes over as Chairman",
+          "location": "Saudi Arabia",
+          "coords": [
+            24.7136,
+            46.6753
+          ],
+          "eventType": "succession"
+        },
+        {
+          "year": 2003,
+          "title": "Philanthropy establishment",
+          "description": "Abdul Latif Jameel Community Initiatives established as philanthropic arm",
+          "location": "Saudi Arabia",
+          "coords": [
+            24.7136,
+            46.6753
+          ],
+          "eventType": "philanthropy"
+        },
+        {
+          "year": 2005,
+          "title": "MIT partnership",
+          "description": "MIT Poverty Action Lab renamed Abdul Latif Jameel Poverty Action Lab (J-PAL)",
+          "location": "Cambridge, Massachusetts",
+          "coords": [
+            42.3601,
+            -71.0942
+          ],
+          "eventType": "philanthropy"
+        },
+        {
+          "year": 2018,
+          "title": "MIT Jameel Clinic",
+          "description": "Co-founded MIT Jameel Clinic for Machine Learning in Health",
+          "location": "Cambridge, Massachusetts",
+          "coords": [
+            42.3601,
+            -71.0942
+          ],
+          "eventType": "philanthropy"
+        }
+      ],
+      "connections": [
+        {
+          "entityId": "al_saadi_tribe",
+          "entityType": "tribe",
+          "relationship": "descended_from",
+          "context": "Abdul Latif Jameel was son of Hussein Jameel Mohammed Al-Saadi"
+        }
+      ],
+      "notableFigures": [
+        {
+          "id": "abdul_latif_jameel_founder",
+          "name": "Abdul Latif Jameel",
+          "title": "Founder and Chairman",
+          "roleDescription": "Founded the company in 1945, secured Toyota distributorship, built diversified business empire",
+          "bornYear": 1909,
+          "diedYear": 1993,
+          "era": "20th century"
+        },
+        {
+          "id": "mohammed_abdul_latif_jameel",
+          "name": "Mohammed Abdul Latif Jameel",
+          "title": "Chairman and CEO",
+          "roleDescription": "Succeeded his father in 1993, leads the company's global expansion",
+          "bornYear": null,
+          "diedYear": null,
+          "era": "modern"
+        },
+        {
+          "id": "hassan_jameel",
+          "name": "Hassan Mohammed Abdul Latif Jameel",
+          "title": "Vice Chairman Saudi Operations",
+          "roleDescription": "Deputy president and vice chairman of domestic Saudi Arabia operations, key investor in Rivian",
+          "bornYear": 1979,
+          "diedYear": null,
+          "era": "modern"
+        },
+        {
+          "id": "fady_jameel",
+          "name": "Fady Mohammed Abdul Latif Jameel",
+          "title": "Vice Chairman International",
+          "roleDescription": "Vice Chairman overseeing international operations",
+          "bornYear": null,
+          "diedYear": null,
+          "era": "modern"
+        }
+      ]
+    }
+  },
+  {
+    "type": "family",
+    "id": "bin_mahfouz",
+    "data": {
+      "history": "The Bin Mahfouz family originates from the Hadhramaut region of Yemen, as confirmed by research indicating that Salim Ahmed bin Mahfouz was 'of Hadharem origin.' Salim bin Ahmed bin Al Shaiba bin Mahfouz began his career as a governor in Mecca before entering the money-changing business in partnership with the Al-Kaki family. Recognizing his business acumen, he proposed the establishment of Saudi Arabia's first bank during a newspaper meeting, which impressed the Minister of Finance Ibn Suleiman. This led to a meeting with King Abdulaziz Al Saud, who approved the concept, resulting in the founding of the Saudi National Commercial Bank (NCB), which became the largest banking institution in the Middle East. Salim's son Khalid bin Mahfouz inherited management of NCB in the 1980s and became a billionaire with an estimated net worth of $6 billion, ranking 24th in Arabian Business magazine's list of the world's most influential Arabs in 2008. The family's wealth extended internationally, with Khalid acquiring Irish citizenship through investment procedures in 1990 and owning substantial properties in Houston, Texas, including a $3.5 million chateau-style house and a 44,000-acre ranch. However, the family faced significant controversies, including Khalid's $225 million settlement related to the BCCI scandal in 1995 and various allegations regarding terrorism financing, though he successfully defended against many of these claims through legal action. Following Salim's death in 1994, his children established the Salim Bin Mahfouz Foundation for Civil and Development Work in 2012, continuing the family's philanthropic legacy.",
+      "description": "A prominent Saudi banking family of Hadhramaut Yemeni origin who founded and controlled the National Commercial Bank, Saudi Arabia's first private bank. The family achieved billionaire status but faced significant controversies regarding financial irregularities and terrorism financing allegations.",
+      "originStory": "The family originates from the Hadhramaut region of Yemen, with patriarch Salim Ahmed bin Mahfouz establishing himself in Saudi Arabia through the money-changing business before founding the country's first private bank.",
+      "tribalOrigin": null,
+      "modernStatus": "The family retained 34% ownership of NCB after the Saudi government acquired controlling interest in 1999, though they surrendered management positions. The Salim Bin Mahfouz Foundation continues their philanthropic work.",
+      "migrationPath": [
+        {
+          "year": 1900,
+          "endYear": 1950,
+          "from": "Hadhramaut, Yemen",
+          "fromCoords": [
+            15.9,
+            48.6
+          ],
+          "to": "Mecca, Saudi Arabia",
+          "toCoords": [
+            21.4,
+            39.8
+          ],
+          "description": "Salim Ahmed bin Mahfouz migrated from Hadhramaut to establish himself in Mecca as a governor and money-changer"
+        }
+      ],
+      "timelineEvents": [
+        {
+          "year": 1950,
+          "title": "Founding of National Commercial Bank",
+          "description": "Salim bin Mahfouz established Saudi Arabia's first private bank with King Abdulaziz's approval",
+          "location": "Saudi Arabia",
+          "coords": [
+            24.7,
+            46.7
+          ],
+          "eventType": "founding"
+        },
+        {
+          "year": 1980,
+          "title": "Khalid assumes NCB management",
+          "description": "Khalid bin Mahfouz took over management of NCB, becoming one of Saudi Arabia's most influential businessmen",
+          "location": "Saudi Arabia",
+          "coords": [
+            24.7,
+            46.7
+          ],
+          "eventType": "business"
+        },
+        {
+          "year": 1995,
+          "title": "BCCI scandal settlement",
+          "description": "Khalid bin Mahfouz settled fraud charges for $225 million related to his 20% stake in BCCI",
+          "location": "New York, USA",
+          "coords": [
+            40.7,
+            -74.0
+          ],
+          "eventType": "legal"
+        },
+        {
+          "year": 1994,
+          "title": "Death of Salim bin Mahfouz",
+          "description": "The family patriarch and NCB founder passed away",
+          "location": "Saudi Arabia",
+          "coords": [
+            24.7,
+            46.7
+          ],
+          "eventType": "death"
+        },
+        {
+          "year": 2009,
+          "title": "Death of Khalid bin Mahfouz",
+          "description": "The billionaire banker and former NCB chairman died",
+          "location": "Saudi Arabia",
+          "coords": [
+            24.7,
+            46.7
+          ],
+          "eventType": "death"
+        }
+      ],
+      "connections": [],
+      "notableFigures": [
+        {
+          "id": "salim_bin_mahfouz",
+          "name": "Salim Ahmed bin Al Shaiba bin Mahfouz",
+          "title": "Founder of National Commercial Bank",
+          "roleDescription": "Founded Saudi Arabia's first private bank and served as personal banker to the Saudi royal family",
+          "bornYear": null,
+          "diedYear": 1994,
+          "era": "20th century"
+        },
+        {
+          "id": "khalid_bin_mahfouz",
+          "name": "Khalid bin Mahfouz",
+          "title": "Billionaire Banker and NCB Chairman",
+          "roleDescription": "Managed NCB and became one of Saudi Arabia's wealthiest individuals with $6 billion net worth",
+          "bornYear": 1949,
+          "diedYear": 2009,
+          "era": "20th-21st century"
+        },
+        {
+          "id": "abdulrahman_bin_mahfouz",
+          "name": "Abdulrahman bin Mahfouz",
+          "title": "Board Director",
+          "roleDescription": "Khalid's eldest son, served on the board of directors of the Muwafaq Foundation",
+          "bornYear": null,
+          "diedYear": null,
+          "era": "21st century"
+        }
+      ]
+    }
+  },
+  {
+    "type": "family",
+    "id": "binzagr",
+    "data": {
+      "history": "The Binzagr family is described as a 'well-known merchant family' in Jeddah, Saudi Arabia, based on information about prominent family member Safeya Binzagr (1940-2024). Safeya was born in 1940 to this established merchant family in Jeddah and became a pioneering Saudi Arabian artist. She was privately taught art in Egypt and earned a degree from St Martin's School of Art in London in 1965. In 1970, she became the first woman to hold a solo exhibition of her work in Saudi Arabia, though initially she was not allowed to attend the openings and was represented by male family members. The family's prominence in Jeddah's merchant community is evidenced by their ability to provide Safeya with international education and support her artistic career. In 2000, Safeya opened the Darat Safeya Binzagr museum and gallery in Jeddah, making her the only artist in Saudi Arabia to have her own museum. The museum, which she founded as a non-profit cultural institution, serves as both her home and studio while documenting Hejazi heritage and social life through art and artifacts. The family's merchant background and cultural contributions through Safeya's artistic work have established them as notable figures in Jeddah's cultural landscape.",
+      "description": "The Binzagr family is a well-known merchant family from Jeddah, Saudi Arabia, most notably represented by pioneering artist Safeya Binzagr (1940-2024) who founded the Darat Safeya Binzagr museum.",
+      "originStory": null,
+      "tribalOrigin": null,
+      "modernStatus": "Established merchant family in Jeddah with significant cultural contributions through the arts",
+      "migrationPath": [],
+      "timelineEvents": [
+        {
+          "year": 1940,
+          "title": "Birth of Safeya Binzagr",
+          "description": "Safeya Binzagr born to well-known merchant family in Jeddah",
+          "location": "Jeddah",
+          "coords": [
+            21.4858,
+            39.1925
+          ],
+          "eventType": "birth"
+        },
+        {
+          "year": 1968,
+          "title": "First Joint Exhibition",
+          "description": "Safeya Binzagr and Mounirah Mosly held their first joint exhibition at Dar Al-Tarbiyyah Al-Hadeethah School",
+          "location": "Jeddah",
+          "coords": [
+            21.4858,
+            39.1925
+          ],
+          "eventType": "cultural"
+        },
+        {
+          "year": 1970,
+          "title": "First Solo Female Exhibition",
+          "description": "Safeya becomes first woman to hold solo exhibition in Saudi Arabia",
+          "location": "Saudi Arabia",
+          "coords": [
+            24.7136,
+            46.6753
+          ],
+          "eventType": "cultural"
+        },
+        {
+          "year": 2000,
+          "title": "Darat Safeya Binzagr Opening",
+          "description": "Safeya opens museum and gallery, becoming only artist in Saudi Arabia with own museum",
+          "location": "Jeddah",
+          "coords": [
+            21.4858,
+            39.1925
+          ],
+          "eventType": "founding"
+        }
+      ],
+      "connections": [],
+      "notableFigures": [
+        {
+          "id": "safeya_binzagr",
+          "name": "Safeya Binzagr",
+          "title": "Artist and Museum Founder",
+          "roleDescription": "Pioneer Saudi Arabian artist who became the first woman to hold a solo exhibition in Saudi Arabia and founded the Darat Safeya Binzagr museum",
+          "bornYear": 1940,
+          "diedYear": 2024,
+          "era": "20th-21st century"
+        }
+      ]
+    }
+  },
+  {
+    "type": "family",
+    "id": "sharbatly",
+    "data": {
+      "history": "The Sharbatly family represents a prominent Saudi Arabian business dynasty with documented members across multiple fields including equestrian sports, art, and business. The research reveals several notable contemporary figures: Abdullah Sharbatly, born in London in 1982, is a renowned equestrian who has achieved significant international success in show jumping, including Olympic bronze in 2012, Asian Games silver in 2014, and multiple Asian Games gold medals including individual and team gold in the 2022 Asian Games held in Hangzhou, China in 2023. Another prominent member is Shalimar Hassan Abbas Sharbatly, born in 1971, an abstract artist who became the first woman commissioned by the Saudi government to create public street art in Jeddah. She is the daughter of businessman Hassan Abbas Sharbatly and has gained international recognition for her moving art exhibitions at the Louvre and other prestigious venues. The family's business interests are evidenced by Abdulrahman Hassan Sharbatly's involvement as a stakeholder in the Jeddah Economic Company, which is developing the Jeddah Tower project, holding a 16.67% stake through Abrar Holding Company alongside other major Saudi investors.",
+      "description": "A prominent Saudi Arabian family with notable achievements in equestrian sports, contemporary art, and major real estate development projects. Family members have gained international recognition across multiple disciplines.",
+      "originStory": null,
+      "tribalOrigin": null,
+      "modernStatus": "Active in high-level business ventures including major real estate development (Jeddah Tower project), international equestrian competition, and contemporary art with global exhibition presence",
+      "migrationPath": [],
+      "timelineEvents": [
+        {
+          "year": 1982,
+          "title": "Abdullah Sharbatly Born",
+          "description": "Born in London, England, future Olympic equestrian champion",
+          "location": "London",
+          "coords": [
+            51.5074,
+            -0.1278
+          ],
+          "eventType": "birth"
+        },
+        {
+          "year": 1971,
+          "title": "Shalimar Sharbatly Born",
+          "description": "Born in Jeddah, future internationally recognized abstract artist",
+          "location": "Jeddah",
+          "coords": [
+            21.4858,
+            39.1925
+          ],
+          "eventType": "birth"
+        },
+        {
+          "year": 2012,
+          "title": "Olympic Success",
+          "description": "Abdullah Sharbatly wins bronze medal in show jumping at Summer Olympics",
+          "location": "London",
+          "coords": [
+            51.5074,
+            -0.1278
+          ],
+          "eventType": "achievement"
+        }
+      ],
+      "connections": [],
+      "notableFigures": [
+        {
+          "id": "abdullah_sharbatly",
+          "name": "Abdullah Sharbatly",
+          "title": "Olympic Equestrian Champion",
+          "roleDescription": "International show jumping competitor with multiple Olympic and Asian Games medals",
+          "bornYear": 1982,
+          "diedYear": null,
+          "era": "21st century"
+        },
+        {
+          "id": "shalimar_sharbatly",
+          "name": "Shalimar Hassan Abbas Sharbatly",
+          "title": "Abstract Artist",
+          "roleDescription": "First woman commissioned by Saudi government for public street art, international contemporary artist",
+          "bornYear": 1971,
+          "diedYear": null,
+          "era": "21st century"
+        },
+        {
+          "id": "hassan_abbas_sharbatly",
+          "name": "Hassan Abbas Sharbatly",
+          "title": "Businessman",
+          "roleDescription": "Saudi businessman and father of artist Shalimar Sharbatly",
+          "bornYear": null,
+          "diedYear": null,
+          "era": "20th-21st century"
+        },
+        {
+          "id": "abdulrahman_hassan_sharbatly",
+          "name": "Abdulrahman Hassan Sharbatly",
+          "title": "Business Investor",
+          "roleDescription": "Stakeholder in Jeddah Economic Company, involved in Jeddah Tower development project",
+          "bornYear": null,
+          "diedYear": null,
+          "era": "21st century"
+        }
+      ]
+    }
+  },
+  {
+    "type": "family",
+    "id": "abunayyan",
+    "data": {
+      "history": "The Abunayyan family is a prominent Saudi Arabian family with established business and social connections. According to documented sources, Sheikh Mohammad bin Ibrahim bin Suleiman Abuniyyan is a notable figure within the family. The family gained international prominence through Princess Fahdah Mohammed Abunayyan, daughter of Sheikh Mohammad bin Ibrahim Abunayyan, who married Prince Hashim bin Hussein of Jordan in 2006, making her a member of the Jordanian royal family. Her maternal grandfather, Sheikh Turki bin Khaled bin Ahmed Al Sudairi, served as head of the Saudi Human Rights Commission, indicating the family's connections to other influential Saudi families including the Al Sudairi lineage. The marriage produced five children, cementing the family's ties to the Hashemite royal family of Jordan. The family appears to hold significant social standing within Saudi Arabia, as evidenced by their inclusion in royal marriage arrangements and their connections to senior government positions.",
+      "description": "A prominent Saudi Arabian family known for their connection to the Jordanian royal family through Princess Fahdah's marriage to Prince Hashim bin Hussein, with established ties to influential Saudi families including the Al Sudairi.",
+      "originStory": null,
+      "tribalOrigin": null,
+      "modernStatus": "Connected to Jordanian royalty through marriage, with family members holding positions in Saudi society",
+      "migrationPath": [],
+      "timelineEvents": [
+        {
+          "year": 2006,
+          "title": "Royal Marriage",
+          "description": "Fahdah Mohammed Abunayyan married Prince Hashim bin Hussein of Jordan",
+          "location": "Jordan",
+          "coords": [
+            31.95,
+            35.93
+          ],
+          "eventType": "marriage"
+        }
+      ],
+      "connections": [
+        {
+          "entityId": "al_sudairi",
+          "entityType": "family",
+          "relationship": "maternal_connection",
+          "context": "Princess Fahdah's maternal grandfather Sheikh Turki bin Khaled bin Ahmed Al Sudairi"
+        },
+        {
+          "entityId": "hashemite_jordan",
+          "entityType": "royal_family",
+          "relationship": "marriage_alliance",
+          "context": "Princess Fahdah married Prince Hashim bin Hussein"
+        }
+      ],
+      "notableFigures": [
+        {
+          "id": "mohammad_abunayyan",
+          "name": "Sheikh Mohammad bin Ibrahim bin Suleiman Abunayyan",
+          "title": "Sheikh",
+          "roleDescription": "Father of Princess Fahdah, prominent Saudi family figure",
+          "bornYear": null,
+          "diedYear": null,
+          "era": "contemporary"
+        },
+        {
+          "id": "fahdah_abunayyan",
+          "name": "Princess Fahdah Mohammed Abunayyan",
+          "title": "Princess",
+          "roleDescription": "Member of Jordanian royal family through marriage to Prince Hashim bin Hussein",
+          "bornYear": null,
+          "diedYear": null,
+          "era": "contemporary"
+        }
+      ]
+    }
+  },
+  {
+    "type": "family",
+    "id": "al_jeraisy",
+    "data": {
+      "history": "The research provided does not contain any information about the Al Jeraisy family. The documents discuss Sara bint Ahmed Al Sudairi (a member of the Al Sudairi family from the Dawasir tribe), Abdul Rahman bin Faisal Al Saud (from the Saudi royal family), and drug utilization review processes. No connection between these historical figures and the Al Jeraisy family is established in the provided research. Without specific information about the Al Jeraisy family's origins, business activities, tribal connections, or historical role, their background remains undocumented in these sources.",
+      "description": "No information about the Al Jeraisy family is provided in the research documents.",
+      "originStory": null,
+      "tribalOrigin": null,
+      "modernStatus": null,
+      "migrationPath": [],
+      "timelineEvents": [],
+      "connections": [],
+      "notableFigures": []
+    }
+  },
+  {
+    "type": "family",
+    "id": "al_qahtani",
+    "data": {
+      "history": "The Al Qahtani family represents one of the most prominent tribal lineages in Saudi Arabia, with documented members spanning from the Arabian Peninsula's traditional tribal structure to modern political influence. Based on the research, family members trace their origins to various regions including Kharj in Saudi Arabia, with some born in Riyadh to Syrian families who later returned to Damascus. The family demonstrates the complex nature of modern Arabian identity, with members like Ahmed Hussein al-Sharaa (Abu Mohammad al-Julani) born in Riyadh to a Syrian family from Daraa and the Golan Heights, whose father worked as an oil engineer. The Al Qahtani name appears across different contexts - from Mohammed Mani Ahmad al-Qahtani, a Saudi national from Kharj whose father served as a police officer for 28 years, to Saud bin Abdullah al-Qahtani, a royal court advisor born in Riyadh who studied law at King Saud University. The family's modern presence extends into media, security affairs, and political advisory roles, with members holding significant positions in Saudi governmental and royal court structures, though some have faced international sanctions and legal challenges.",
+      "description": "The Al Qahtani is a prominent Saudi family with members in government service, media, and tribal leadership, including royal court advisors and individuals with complex international profiles.",
+      "originStory": "Family members documented from Saudi Arabia including Kharj and Riyadh, with some branches tracing ancestry through Syrian connections to the Golan Heights region.",
+      "tribalOrigin": "Qahtani",
+      "modernStatus": "Mixed status with members in government advisory roles, some facing international sanctions, and others involved in regional political movements",
+      "migrationPath": [
+        {
+          "year": 1989,
+          "endYear": null,
+          "from": "Riyadh, Saudi Arabia",
+          "fromCoords": [
+            24.7136,
+            46.6753
+          ],
+          "to": "Damascus, Syria",
+          "toCoords": [
+            33.5138,
+            36.2765
+          ],
+          "description": "Al-Sharaa family returned to Syria, settling in Mezzeh neighborhood"
+        }
+      ],
+      "timelineEvents": [
+        {
+          "year": 1975,
+          "title": "Mohammed al-Qahtani Birth",
+          "description": "Mohammed Mani Ahmad al-Qahtani born in Kharj, Saudi Arabia",
+          "location": "Kharj, Saudi Arabia",
+          "coords": [
+            24.1442,
+            47.3154
+          ],
+          "eventType": "birth"
+        },
+        {
+          "year": 1978,
+          "title": "Saud al-Qahtani Birth",
+          "description": "Saud bin Abdullah al-Qahtani born in Riyadh, Saudi Arabia",
+          "location": "Riyadh, Saudi Arabia",
+          "coords": [
+            24.7136,
+            46.6753
+          ],
+          "eventType": "birth"
+        },
+        {
+          "year": 1982,
+          "title": "Ahmed al-Sharaa Birth",
+          "description": "Ahmed Hussein al-Sharaa born in Riyadh to Syrian family",
+          "location": "Riyadh, Saudi Arabia",
+          "coords": [
+            24.7136,
+            46.6753
+          ],
+          "eventType": "birth"
+        },
+        {
+          "year": 2025,
+          "title": "Syrian Presidency",
+          "description": "Ahmed al-Sharaa appointed President of Syria",
+          "location": "Damascus, Syria",
+          "coords": [
+            33.5138,
+            36.2765
+          ],
+          "eventType": "political"
+        }
+      ],
+      "connections": [
+        {
+          "entityId": "qahtani_tribe",
+          "entityType": "tribe",
+          "relationship": "descended_from",
+          "context": "Traditional tribal lineage from Qahtani tribal confederation"
+        }
+      ],
+      "notableFigures": [
+        {
+          "id": "mohammed_al_qahtani",
+          "name": "Mohammed Mani Ahmad al-Qahtani",
+          "title": "Former Guantanamo Detainee",
+          "roleDescription": "Saudi citizen detained at Guantanamo Bay for 20 years, alleged 20th hijacker",
+          "bornYear": 1975,
+          "diedYear": null,
+          "era": "21st century"
+        },
+        {
+          "id": "saud_al_qahtani",
+          "name": "Saud bin Abdullah al-Qahtani",
+          "title": "Former Royal Court Advisor",
+          "roleDescription": "Saudi consultant and former royal court advisor, sanctioned for Khashoggi assassination",
+          "bornYear": 1978,
+          "diedYear": null,
+          "era": "21st century"
+        },
+        {
+          "id": "nayif_al_qahtani",
+          "name": "Nayif Mohammed Saeed al-Kurdi al-Qahtani",
+          "title": "AQAP Commander",
+          "roleDescription": "Saudi jihadist militant and propagandist, founded Sada al-Malahem magazine",
+          "bornYear": 1988,
+          "diedYear": 2010,
+          "era": "21st century"
+        },
+        {
+          "id": "ahmed_al_sharaa",
+          "name": "Ahmed Hussein al-Sharaa",
+          "title": "President of Syria",
+          "roleDescription": "Syrian politician and former rebel commander, current President of Syria",
+          "bornYear": 1982,
+          "diedYear": null,
+          "era": "21st century"
+        }
+      ]
+    }
+  },
+  {
+    "type": "family",
+    "id": "al_agil",
+    "data": {
+      "history": "The research provided does not contain any information specifically about the Al Agil family. While the documents discuss various Arabian Peninsula families, tribes, and historical figures including the Bani Khalid tribe, Al-Khaldi families, and rulers of Kuwait and eastern Arabia, none of these sources mention or reference the Al Agil family. The provided research focuses primarily on the Bani Khalid tribal confederation, their emirate in eastern Arabia from 1669-1796, their conflicts with the Saudis, and their various branches including Al Humaid, Al Khalidi families in Jerusalem, and other related lineages. Without specific information about the Al Agil family in the research materials, no verified historical narrative can be constructed for this family based on the provided sources.",
+      "description": "No information about the Al Agil family is provided in the research materials.",
+      "originStory": null,
+      "tribalOrigin": null,
+      "modernStatus": null,
+      "migrationPath": [],
+      "timelineEvents": [],
+      "connections": [],
+      "notableFigures": []
+    }
+  },
+  {
+    "type": "family",
+    "id": "behbehani",
+    "data": {
+      "history": "The Behbehani family is documented as one of the earliest Persian merchant families to settle in Kuwait, with Marafi Behbehani being among the first merchants to establish himself in Kuwait during the 18th century. The family originates from the Iranian city of Behbahan in Khuzestan province, which has ancient roots dating back to the Elamite era and was historically known as Arrajan. The research indicates that the Behbehani family became significant players in Kuwait's early commercial development, with the arms trade being exclusively under the domain of Ajam (Persian) merchants like the Behbahanis. The family made substantial contributions to Kuwait's modernization - Yusuf Behbehani built the first hotel in Kuwait City, while Murad Behbehani was the first person to officially introduce television to Kuwait and founded Kuwait Television (KTV) before it was nationalized by the government. By the 1950s, approximately 40-50,000 Persian immigrants, including the Behbehani family, adopted Kuwaiti citizenship to maintain their economic stronghold in the country. The Behbahanis, along with the Marafi family, maintained substantial economic influence through this period. The family is part of Kuwait's Ajam community, which historically resided in the Sharq district of old Kuwait City and communicated in Persian, forming a linguistic enclave that preserved Kuwaiti Persian for generations until oil-led urbanization scattered them to the suburbs.",
+      "description": "A prominent Persian merchant family from Behbahan, Iran, who were among the first to settle in Kuwait in the 18th century and played key roles in the country's early commercial development and modernization.",
+      "originStory": "The family originates from the Iranian city of Behbahan in Khuzestan province, with Marafi Behbehani being documented as one of the first merchants to settle in Kuwait in the 18th century.",
+      "tribalOrigin": null,
+      "modernStatus": "Established Kuwaiti family of Persian origin who historically maintained significant economic influence and contributed to Kuwait's media and hospitality industries",
+      "migrationPath": [
+        {
+          "year": 1750,
+          "endYear": 1800,
+          "from": "Behbahan",
+          "fromCoords": [
+            30.595,
+            50.2417
+          ],
+          "to": "Kuwait City",
+          "toCoords": [
+            29.3759,
+            47.9774
+          ],
+          "description": "Marafi Behbehani was among the first Persian merchants to settle in Kuwait during the 18th century"
+        }
+      ],
+      "timelineEvents": [
+        {
+          "year": 1750,
+          "title": "Early Settlement",
+          "description": "Marafi Behbehani among first merchants to settle in Kuwait",
+          "location": "Kuwait City",
+          "coords": [
+            29.3759,
+            47.9774
+          ],
+          "eventType": "settlement"
+        },
+        {
+          "year": 1950,
+          "title": "First Hotel",
+          "description": "Yusuf Behbehani built the first hotel in Kuwait City",
+          "location": "Kuwait City",
+          "coords": [
+            29.3759,
+            47.9774
+          ],
+          "eventType": "business"
+        },
+        {
+          "year": 1960,
+          "title": "Television Pioneer",
+          "description": "Murad Behbehani founded Kuwait Television (KTV) before government nationalization",
+          "location": "Kuwait",
+          "coords": [
+            29.3759,
+            47.9774
+          ],
+          "eventType": "business"
+        }
+      ],
+      "connections": [
+        {
+          "entityId": "ajam_kuwait",
+          "entityType": "community",
+          "relationship": "member_of",
+          "context": "Part of Kuwait's Persian (Ajam) merchant community"
+        },
+        {
+          "entityId": "marafi",
+          "entityType": "family",
+          "relationship": "allied_with",
+          "context": "Maintained economic influence alongside the Marafi family"
+        }
+      ],
+      "notableFigures": [
+        {
+          "id": "marafi_behbehani",
+          "name": "Marafi Behbehani",
+          "title": "Merchant",
+          "roleDescription": "One of the first Persian merchants to settle in Kuwait in the 18th century",
+          "bornYear": null,
+          "diedYear": null,
+          "era": "18th century"
+        },
+        {
+          "id": "yusuf_behbehani",
+          "name": "Yusuf Behbehani",
+          "title": "Hotelier",
+          "roleDescription": "Built the first hotel in Kuwait City",
+          "bornYear": null,
+          "diedYear": null,
+          "era": "20th century"
+        },
+        {
+          "id": "murad_behbehani",
+          "name": "Murad Behbehani",
+          "title": "Media Pioneer",
+          "roleDescription": "First person to officially introduce television to Kuwait and founder of Kuwait Television (KTV)",
+          "bornYear": null,
+          "diedYear": null,
+          "era": "20th century"
+        },
+        {
+          "id": "kazem_behbehani",
+          "name": "Kazem Behbehani",
+          "title": "Immunologist",
+          "roleDescription": "Immunologist and retired professor, World Health Organization official",
+          "bornYear": null,
+          "diedYear": null,
+          "era": "20th century"
+        },
+        {
+          "id": "sarah_behbehani",
+          "name": "Sarah Behbehani",
+          "title": "Tennis Player",
+          "roleDescription": "Professional tennis player",
+          "bornYear": null,
+          "diedYear": null,
+          "era": "21st century"
+        }
+      ]
+    }
+  },
+  {
+    "type": "family",
+    "id": "al_wazzan",
+    "data": {
+      "history": "The Al Wazzan family traces its origins to the Najd region of the Arabian Peninsula, with lineage tracing back to the Banu Tamim tribe. The family established itself as a prominent merchant family in Kuwait, rising to significant influence in Kuwaiti society. In contemporary times, the family has diversified into creative industries, with Abdullah Al-Wazzan (born 1990 in Kuwait City) representing a new generation pursuing careers in architecture, filmmaking, and entrepreneurship. The family name al-Wazzan historically appears in various forms across the Arab world, as evidenced by the 16th-century scholar al-Ḥasan ibn Muḥammad ibn Aḥmad al-Wazzān (Leo Africanus), though direct family connections between these lineages cannot be established from available research. The Al Wazzan family's prominence in Kuwait's merchant community reflects the broader pattern of Najdi families establishing successful commercial enterprises in the Gulf region.",
+      "description": "Prominent Kuwaiti merchant family originating from the Najd region with Banu Tamim tribal lineage, known for their business prominence and contemporary achievements in creative industries.",
+      "originStory": "The family originates from the Najd region of the Arabian Peninsula, with lineage tracing back to the Banu Tamim tribe, before establishing themselves as prominent merchants in Kuwait.",
+      "tribalOrigin": "Banu Tamim",
+      "modernStatus": "Established merchant family with diversification into creative industries, architecture, and filmmaking, maintaining prominence in Kuwaiti society",
+      "migrationPath": [
+        {
+          "year": null,
+          "endYear": null,
+          "from": "Najd region",
+          "fromCoords": [
+            24.7,
+            46.7
+          ],
+          "to": "Kuwait",
+          "toCoords": [
+            29.3,
+            47.9
+          ],
+          "description": "Migration from Najd region to Kuwait where they established themselves as prominent merchants"
+        }
+      ],
+      "timelineEvents": [
+        {
+          "year": 1990,
+          "title": "Birth of Abdullah Al-Wazzan",
+          "description": "Abdullah Al-Wazzan born in Kuwait City, later becoming filmmaker, entrepreneur and architect",
+          "location": "Kuwait City",
+          "coords": [
+            29.3,
+            47.9
+          ],
+          "eventType": "birth"
+        },
+        {
+          "year": 2012,
+          "title": "Architecture Degree",
+          "description": "Abdullah Al-Wazzan earned Bachelor of Architecture degree",
+          "location": "Kuwait",
+          "coords": [
+            29.3,
+            47.9
+          ],
+          "eventType": "education"
+        },
+        {
+          "year": 2019,
+          "title": "Academy Awards Submission",
+          "description": "Falafel Cart became first Kuwaiti short film submitted to Academy Awards",
+          "location": "Kuwait",
+          "coords": [
+            29.3,
+            47.9
+          ],
+          "eventType": "achievement"
+        }
+      ],
+      "connections": [
+        {
+          "entityId": "banu_tamim",
+          "entityType": "tribe",
+          "relationship": "descended_from",
+          "context": "Al Wazzan lineage traces back to the Banu Tamim tribe from the Najd region"
+        }
+      ],
+      "notableFigures": [
+        {
+          "id": "abdullah_al_wazzan",
+          "name": "Abdullah Al-Wazzan",
+          "title": "Filmmaker, Entrepreneur, Architect",
+          "roleDescription": "Kuwaiti filmmaker and architect, created first Kuwaiti film submitted to Academy Awards",
+          "bornYear": 1990,
+          "diedYear": null,
+          "era": "21st century"
+        }
+      ]
+    }
+  },
+  {
+    "type": "family",
+    "id": "boodai",
+    "data": {
+      "history": "The Boodai family is a prominent Kuwaiti merchant family that has established itself as one of Kuwait's leading business dynasties. The family's modern prominence is anchored by Boodai Corp, a family-owned conglomerate that invests across various businesses throughout the Gulf countries. The company serves as the parent organization for multiple ventures including Al-Jazeera Airways, Kuwait's first private airline established in 2005, which ended the country's 50-year reliance on a single national carrier. Boodai Corp also owns Ramedia Group, which operates several newspapers and broadcasting channels including Al-Rai TV, as well as City Group Company, a transportation firm in Kuwait, alongside other ventures in engineering, services, and cement production. The family has produced notable figures across multiple sectors including aviation, finance, media, and fashion, demonstrating their diversified business acumen and significant influence in Kuwait's private sector economy.",
+      "description": "The Boodai family is a prominent Kuwaiti merchant dynasty known for establishing major businesses including Al-Jazeera Airways and owning the diversified Boodai Corp conglomerate. They have produced notable figures in aviation, finance, media, and fashion sectors.",
+      "originStory": null,
+      "tribalOrigin": null,
+      "modernStatus": "Leading Kuwaiti business family controlling Boodai Corp conglomerate with interests in aviation, media, transportation, finance, and various other sectors across the Gulf region",
+      "migrationPath": [],
+      "timelineEvents": [
+        {
+          "year": 2005,
+          "title": "Al-Jazeera Airways Founded",
+          "description": "Marwan Boodai co-founded Al-Jazeera Airways, Kuwait's first private airline, ending 50 years of reliance on a single national carrier",
+          "location": "Kuwait",
+          "coords": [
+            29.3759,
+            47.9774
+          ],
+          "eventType": "founding"
+        },
+        {
+          "year": 2007,
+          "title": "Gatehouse Bank Co-founded",
+          "description": "Fahed Boodai co-founded Gatehouse Bank, which later became a digital challenger bank",
+          "location": "United Kingdom",
+          "coords": [
+            51.5074,
+            -0.1278
+          ],
+          "eventType": "founding"
+        }
+      ],
+      "connections": [],
+      "notableFigures": [
+        {
+          "id": "marwan_boodai",
+          "name": "Marwan Marzouk Boodai",
+          "title": "CEO and Chairman of Al-Jazeera Airways",
+          "roleDescription": "Co-founder, Chairman, and CEO of Al-Jazeera Airways and Vice President of Boodai Corp",
+          "bornYear": 1960,
+          "diedYear": null,
+          "era": "20th-21st century"
+        },
+        {
+          "id": "fahed_boodai",
+          "name": "Fahed Faisal Boodai",
+          "title": "Chairman of Gatehouse Financial Group",
+          "roleDescription": "Kuwaiti entrepreneur, chairman and co-founder of Gatehouse Financial Group and Gatehouse Bank, veteran of Operation Desert Storm",
+          "bornYear": null,
+          "diedYear": null,
+          "era": "20th-21st century"
+        },
+        {
+          "id": "jassim_boodai",
+          "name": "Jassim Boodai",
+          "title": "Journalist and Media Owner",
+          "roleDescription": "Journalist and owner of Al Rai Media Group, brother of Marwan Boodai",
+          "bornYear": null,
+          "diedYear": null,
+          "era": "20th-21st century"
+        },
+        {
+          "id": "nejoud_boodai",
+          "name": "Nejoud Boodai",
+          "title": "Fashion Designer and Businesswoman",
+          "roleDescription": "Fashion designer and businesswoman who founded her own fashion house and launched multiple businesses including Kuwait's first specialist cupcake bakery",
+          "bornYear": 1972,
+          "diedYear": 2010,
+          "era": "20th-21st century"
+        }
+      ]
+    }
+  },
+  {
+    "type": "family",
+    "id": "bukhamseen",
+    "data": {
+      "history": "The Bukhamseen family represents a prominent Kuwaiti business dynasty with significant influence in media and commerce. The family's business empire is centered around Bukhamseen Holding, which serves as the parent company for various ventures. In the media sector, the family owns Annahar newspaper through their subsidiary Dar Annahar for Press, Publishing and Distribution, with the daily being launched on September 2, 2007 as Kuwait's ninth Arabic newspaper. Imad Bukhamseen serves as editor-in-chief of this independent political newspaper with liberal leanings. The family has maintained their business operations while navigating Kuwait's complex political landscape, as evidenced by the newspaper being fined 3,000 Kuwait dinars in March 2010 for publishing content deemed offensive to the ruling Al Sabah family. The Bukhamseen name also appears in academic contexts, with Amani Bukhamseen being associated with research at the National Center for Giftedness and Creativity Research, indicating the family's involvement in educational and research initiatives beyond their commercial enterprises.",
+      "description": "A prominent Kuwaiti business family known for their media empire through Bukhamseen Holding, which owns Annahar newspaper and other commercial ventures.",
+      "originStory": null,
+      "tribalOrigin": null,
+      "modernStatus": "Active in media ownership through Bukhamseen Holding and Annahar newspaper, with family members involved in journalism and academic research",
+      "migrationPath": [],
+      "timelineEvents": [
+        {
+          "year": 2007,
+          "title": "Launch of Annahar Newspaper",
+          "description": "Bukhamseen Holding launches Annahar newspaper on September 2, 2007, becoming Kuwait's ninth Arabic daily",
+          "location": "Kuwait City",
+          "coords": [
+            29.3759,
+            47.9774
+          ],
+          "eventType": "founding"
+        }
+      ],
+      "connections": [],
+      "notableFigures": [
+        {
+          "id": "imad_bukhamseen",
+          "name": "Imad Bukhamseen",
+          "title": "Editor-in-Chief",
+          "roleDescription": "Editor-in-Chief of Annahar newspaper, son of Jawad Bukhamseen",
+          "bornYear": null,
+          "diedYear": null,
+          "era": "21st century"
+        },
+        {
+          "id": "jawad_bukhamseen",
+          "name": "Jawad Bukhamseen",
+          "title": "Business Owner",
+          "roleDescription": "Kuwaiti businessman who owns Annahar newspaper",
+          "bornYear": null,
+          "diedYear": null,
+          "era": "21st century"
+        },
+        {
+          "id": "amani_bukhamseen",
+          "name": "Amani Bukhamseen",
+          "title": "Researcher",
+          "roleDescription": "Academic researcher associated with studies on metaverse technology in mathematics education",
+          "bornYear": null,
+          "diedYear": null,
+          "era": "21st century"
+        }
+      ]
+    }
+  },
+  {
+    "type": "family",
+    "id": "al_khayyat",
+    "data": {
+      "history": "The Al Khayyat family represents a modern Qatari business dynasty founded by Mohamad Raslan Al-Khayyat, who established Al-Khayyat Contracting and Trading in 1983. The family has built a diversified business empire through his sons Ramez and Moutaz Al-Khayyat, who both obtained business degrees from the University of the West of Scotland before expanding the family enterprises. In 2011, the brothers co-founded UCC Holding from their father's original contracting business, which undertook major construction projects including the Banana Island resort, Mall of Qatar, and Lekhwiya Sports Complex for the 2022 FIFA World Cup. The family gained international prominence during the 2017-2021 Qatar diplomatic crisis when they co-founded Baladna Food Industries in 2014 and rapidly expanded it by airlifting 4,000 dairy cows to Qatar, bypassing the Saudi-led blockade. This move made them central to Qatar's food security strategy, with Baladna now supplying over 85% of Qatar's fresh dairy products and exporting to eleven countries. The Al-Khayyat business empire, consolidated under Power International Holding, was ranked 13th in Forbes Middle East's Top 100 Arab Family Businesses in 2022, operating across construction, real estate, food and agriculture, and hospitality sectors. Both brothers hold senior positions in major Qatari corporations, with Ramez serving as Vice Chairman of Estithmar Holding and Moutaz as Chairman, representing the family's evolution from construction contractors to major players in Qatar's diversified economy.",
+      "description": "A modern Qatari business family founded by Mohamad Raslan Al-Khayyat in 1983, now led by his sons Ramez and Moutaz who built a diversified conglomerate including construction giant UCC Holding and dairy producer Baladna Food Industries. The family gained prominence during the Qatar blockade by airlifting cows to ensure food security.",
+      "originStory": null,
+      "tribalOrigin": null,
+      "modernStatus": "Major Qatari business conglomerate ranked 13th in Forbes Middle East's Top 100 Arab Family Businesses, with Power International Holding operating across construction, food production, real estate and hospitality sectors",
+      "migrationPath": [],
+      "timelineEvents": [
+        {
+          "year": 1983,
+          "title": "Al-Khayyat Contracting Founded",
+          "description": "Mohamad Raslan Al-Khayyat establishes Al-Khayyat Contracting and Trading",
+          "location": "Qatar",
+          "coords": [
+            25.2854,
+            51.531
+          ],
+          "eventType": "founding"
+        },
+        {
+          "year": 2011,
+          "title": "UCC Holding Established",
+          "description": "Brothers Ramez and Moutaz Al-Khayyat co-found UCC Holding construction company",
+          "location": "Qatar",
+          "coords": [
+            25.2854,
+            51.531
+          ],
+          "eventType": "business_expansion"
+        },
+        {
+          "year": 2014,
+          "title": "Baladna Food Industries Founded",
+          "description": "Moutaz Al-Khayyat co-founds Baladna Food Industries",
+          "location": "Qatar",
+          "coords": [
+            25.2854,
+            51.531
+          ],
+          "eventType": "founding"
+        },
+        {
+          "year": 2017,
+          "title": "Qatar Blockade Response",
+          "description": "Family airlifts 4,000 dairy cows to Qatar during diplomatic crisis, establishing food security",
+          "location": "Qatar",
+          "coords": [
+            25.2854,
+            51.531
+          ],
+          "eventType": "crisis_response"
+        },
+        {
+          "year": 2019,
+          "title": "Baladna IPO",
+          "description": "Baladna Food Industries launches IPO on Qatar Stock Exchange raising $392 million",
+          "location": "Doha",
+          "coords": [
+            25.2854,
+            51.531
+          ],
+          "eventType": "ipo"
+        },
+        {
+          "year": 2022,
+          "title": "Forbes Recognition",
+          "description": "Power International Holding ranked 13th in Forbes Middle East's Top 100 Arab Family Businesses",
+          "location": "Qatar",
+          "coords": [
+            25.2854,
+            51.531
+          ],
+          "eventType": "recognition"
+        }
+      ],
+      "connections": [],
+      "notableFigures": [
+        {
+          "id": "mohamad_raslan_alkhayyat",
+          "name": "Mohamad Raslan Al-Khayyat",
+          "title": "Founder",
+          "roleDescription": "Founder of Al-Khayyat Contracting and Trading in 1983, patriarch of the Al-Khayyat business dynasty",
+          "bornYear": null,
+          "diedYear": null,
+          "era": "20th-21st century"
+        },
+        {
+          "id": "ramez_alkhayyat",
+          "name": "Ramez Al-Khayyat",
+          "title": "President and GCEO of Power International Holding",
+          "roleDescription": "Co-founder of UCC Holding, Managing Director of Baladna Food Industries, Vice Chairman of Estithmar Holding, key figure in Qatar's food security during blockade",
+          "bornYear": null,
+          "diedYear": null,
+          "era": "21st century"
+        },
+        {
+          "id": "moutaz_alkhayyat",
+          "name": "Moutaz Al-Khayyat",
+          "title": "Chairman of Power International Holding",
+          "roleDescription": "Co-founder of UCC Holding and Baladna Food Industries, Chairman of Estithmar Holding, orchestrated airlift of 4,000 cows during Qatar blockade",
+          "bornYear": 1983,
+          "diedYear": null,
+          "era": "21st century"
+        }
+      ]
+    }
+  },
+  {
+    "type": "family",
+    "id": "fakhro",
+    "data": {
+      "history": "The Fakhro family (Arabic: آل فخرو) traces its lineage to their great-grandfather Fakher from the ancient Arab tribe of Banu Tamim, with genealogy extending to Tamim bin Mor bin Ad bin Muder bin Adnan from the Arabian Peninsula. In the seventeenth century, the Al Fakhro were obliged to move from the Arabian Peninsula, migrating through Iraq and areas in the Persian Gulf including Bandar Deylam and Shatt Bani Tamim, before finally settling in Qatar and Bahrain. In Qatar, they established themselves in Nozwah, Tembek, Tha'ayin, and Hawar Island, where they built famous wells that still exist today dating back three centuries. The family became renowned for their knowledge and trade, with Mohamed bin Abdurrahman Al Hassan Al Fakhro earning the nickname 'Half the Universe' for his vast knowledge, and Alwajih Abdurrahman bin Abdullah Al Hassan Al Fakhro financing the Ottoman Garrison in Basra for an entire year. The modern Fakhro Group was established in 1888 by Yousif bin Abdulrahman Fakhro as a traditional merchant house dealing in dates and building materials, expanding under his leadership until 1952 into shipping with around 40 dhows and branches across the GCC, Iraq, and India. After his death, his son Abdulla bin Yousif Fakhro acquired most businesses and expanded the group into automotive, restaurants, shipping logistics, insurance, and IT services, making it one of Bahrain's oldest and most prominent family businesses. Today, family members hold significant positions across the Gulf, including Abdulla Adel Fakhro as Bahrain's Minister of Industry and Commerce, Jamal Mohamed Al-Fakhro as Managing Partner of KPMG and member of Bahrain's National Assembly, and Munira Ahmed Fakhro as an academic and political activist who challenged the government in the 1990s for democratic reforms.",
+      "description": "The Fakhro family is a prominent Sunni Arab family descended from Banu Tamim who settled in Qatar and Bahrain in the 17th century. They established one of the Gulf's oldest business empires starting in 1888, evolving from traditional trading into modern diversified operations across automotive, hospitality, and financial services.",
+      "originStory": "The family descends from their great-grandfather Fakher of the ancient Arab tribe Banu Tamim, with lineage tracing to Tamim bin Mor bin Ad bin Muder bin Adnan from the Arabian Peninsula.",
+      "tribalOrigin": "Banu Tamim",
+      "modernStatus": "The Fakhro Group operates as one of Bahrain's most prominent family businesses with 14 companies across automotive, restaurants, shipping, insurance, and IT services, while family members hold senior government positions and lead major professional firms across the Gulf.",
+      "migrationPath": [
+        {
+          "year": 1600,
+          "endYear": 1699,
+          "from": "Arabian Peninsula",
+          "fromCoords": [
+            24.0,
+            45.0
+          ],
+          "to": "Iraq",
+          "toCoords": [
+            33.0,
+            44.0
+          ],
+          "description": "Migration from Arabian Peninsula through Iraq"
+        },
+        {
+          "year": 1600,
+          "endYear": 1699,
+          "from": "Iraq",
+          "fromCoords": [
+            33.0,
+            44.0
+          ],
+          "to": "Persian Gulf areas including Bandar Deylam",
+          "toCoords": [
+            29.0,
+            50.5
+          ],
+          "description": "Settlement in Persian Gulf areas including Bandar Deylam and Shatt Bani Tamim"
+        },
+        {
+          "year": 1600,
+          "endYear": 1699,
+          "from": "Persian Gulf areas",
+          "fromCoords": [
+            29.0,
+            50.5
+          ],
+          "to": "Qatar and Bahrain",
+          "toCoords": [
+            25.5,
+            51.0
+          ],
+          "description": "Final settlement in Qatar (Nozwah, Tembek, Tha'ayin, Hawar Island) and Bahrain"
+        }
+      ],
+      "timelineEvents": [
+        {
+          "year": 1888,
+          "title": "Fakhro Group Founded",
+          "description": "Yousif bin Abdulrahman Fakhro established the business as a traditional merchant house dealing in dates and building materials",
+          "location": "Bahrain",
+          "coords": [
+            26.2,
+            50.6
+          ],
+          "eventType": "founding"
+        },
+        {
+          "year": 1952,
+          "title": "Leadership Transition",
+          "description": "Yousif bin Abdulrahman died, with Abdulla bin Yousif and brothers taking control of expanded business including 40 dhows and regional branches",
+          "location": "Bahrain",
+          "coords": [
+            26.2,
+            50.6
+          ],
+          "eventType": "transition"
+        },
+        {
+          "year": 1994,
+          "title": "Democratic Petition",
+          "description": "Munira Fakhro signed petition to Sheikh Isa bin Salman Al Khalifa calling for restoration of 1973 parliament and constitution",
+          "location": "Bahrain",
+          "coords": [
+            26.2,
+            50.6
+          ],
+          "eventType": "political"
+        }
+      ],
+      "connections": [
+        {
+          "entityId": "banu_tamim",
+          "entityType": "tribe",
+          "relationship": "descended_from",
+          "context": "Family descends from great-grandfather Fakher of Banu Tamim tribe, with lineage to Tamim bin Mor bin Ad bin Muder bin Adnan"
+        }
+      ],
+      "notableFigures": [
+        {
+          "id": "yousif_abdulrahman_fakhro",
+          "name": "Yousif bin Abdulrahman Fakhro",
+          "title": "Founder of Fakhro Group",
+          "roleDescription": "Founded Fakhro Group in 1888, expanded from traditional merchant house to shipping empire with 40 dhows and regional branches",
+          "bornYear": null,
+          "diedYear": 1952,
+          "era": "19th-20th century"
+        },
+        {
+          "id": "mohamed_abdurrahman_fakhro",
+          "name": "Mohamed bin Abdurrahman Al Hassan Al Fakhro",
+          "title": "Scholar and Merchant",
+          "roleDescription": "Renowned for vast knowledge, nicknamed 'Half the Universe'",
+          "bornYear": null,
+          "diedYear": null,
+          "era": "Historical"
+        },
+        {
+          "id": "abdulla_adel_fakhro",
+          "name": "Abdulla Adel Fakhro",
+          "title": "Minister of Industry and Commerce",
+          "roleDescription": "Current Bahraini Minister of Industry and Commerce, former executive in Fakhro Group for 20 years, board member of Mumtalakat sovereign wealth fund",
+          "bornYear": null,
+          "diedYear": null,
+          "era": "21st century"
+        },
+        {
+          "id": "jamal_fakhro",
+          "name": "Jamal Mohamed Al-Fakhro",
+          "title": "Managing Partner KPMG, National Assembly Member",
+          "roleDescription": "Managing Partner of KPMG since 1987, first Arab on KPMG Global Board, member of Bahraini National Assembly since 1992",
+          "bornYear": null,
+          "diedYear": null,
+          "era": "20th-21st century"
+        },
+        {
+          "id": "munira_fakhro",
+          "name": "Munira bint Ahmed bin Yousuf Al Fakhro",
+          "title": "Academic and Political Activist",
+          "roleDescription": "Associate Professor at University of Bahrain with PhD from Columbia University, political candidate and democracy activist who was dismissed and later reinstated",
+          "bornYear": 1941,
+          "diedYear": null,
+          "era": "20th-21st century"
+        }
+      ]
+    }
+  },
+  {
+    "type": "family",
+    "id": "al_zawawi",
+    "data": {
+      "history": "The Al Zawawi family appears to represent multiple distinct lineages across different regions, rather than a single unified Gulf merchant family. The most prominent branch documented is the Omani Al Zawawi family, established by Abdul-Mun'im Al-Zawawi. His son Omar Zawawi built the Zawawi Mosque in Muscat in 1985 to commemorate his father's death, notable for having the entire Qur'an engraved on metal plates. This mosque replaced an earlier 1906 structure demolished in 2005. The family includes Qais Bin Abdul Munim Al Zawawi, who served as a prominent minister and was tragically killed in a 1995 car accident with Sultan Qaboos bin Said in Salalah. Other documented Al Zawawi individuals include Palestinian diplomat Salah Al-Zawawi (1937-2023), who served as Palestine's ambassador to Iran for over 40 years and was succeeded by his daughter Salam al-Zawawi, and Libyan satirical cartoonist Mohamed Al-Zawawi (1936-2011), known for his political commentary. The research also references historical connections to North African Berber regions, particularly the Zawawi (Zouaoua) tribes mentioned in medieval Arabic sources discussing the Hafsid dynasties of Béjaïa.",
+      "description": "The Al Zawawi represents multiple distinct family lines across the Gulf, Levant, and North Africa, with the most prominent being an influential Omani family known for religious and political contributions, including mosque construction and high-level government service.",
+      "originStory": null,
+      "tribalOrigin": null,
+      "modernStatus": "Prominent in Oman with continued religious and political influence, represented by figures like Qais Bin Abdul Munim Al Zawawi in government service",
+      "migrationPath": [],
+      "timelineEvents": [
+        {
+          "year": 1906,
+          "title": "First Zawawi Mosque Built",
+          "description": "Original Zawawi Mosque constructed in Muscat",
+          "location": "Muscat, Oman",
+          "coords": [
+            23.588,
+            58.3829
+          ],
+          "eventType": "founding"
+        },
+        {
+          "year": 1985,
+          "title": "New Zawawi Mosque Opens",
+          "description": "Omar Zawawi builds new mosque to commemorate his father Abdul-Mun'im Al-Zawawi",
+          "location": "Muscat, Oman",
+          "coords": [
+            23.588,
+            58.3829
+          ],
+          "eventType": "founding"
+        },
+        {
+          "year": 1995,
+          "title": "Death of Qais Bin Abdul Munim Al Zawawi",
+          "description": "Prominent minister killed in car accident with Sultan Qaboos in Salalah",
+          "location": "Salalah, Oman",
+          "coords": [
+            17.0151,
+            54.0924
+          ],
+          "eventType": "death"
+        },
+        {
+          "year": 2005,
+          "title": "Original Zawawi Mosque Demolished",
+          "description": "1906 mosque structure demolished",
+          "location": "Muscat, Oman",
+          "coords": [
+            23.588,
+            58.3829
+          ],
+          "eventType": "other"
+        }
+      ],
+      "connections": [],
+      "notableFigures": [
+        {
+          "id": "abdul_munim_al_zawawi",
+          "name": "Abdul-Mun'im Al-Zawawi",
+          "title": "Family Patriarch",
+          "roleDescription": "Father commemorated by Zawawi Mosque construction",
+          "bornYear": null,
+          "diedYear": null,
+          "era": "20th century"
+        },
+        {
+          "id": "omar_zawawi",
+          "name": "Omar Zawawi",
+          "title": "Mosque Builder",
+          "roleDescription": "Built Zawawi Mosque in 1985 to commemorate his father",
+          "bornYear": null,
+          "diedYear": null,
+          "era": "20th century"
+        },
+        {
+          "id": "qais_bin_abdul_munim_al_zawawi",
+          "name": "Qais Bin Abdul Munim Al Zawawi",
+          "title": "Government Minister",
+          "roleDescription": "Deputy Prime Minister for Finance and Economy, killed in 1995 car accident with Sultan Qaboos",
+          "bornYear": null,
+          "diedYear": 1995,
+          "era": "20th century"
+        }
+      ]
+    }
+  },
+  {
+    "type": "family",
+    "id": "towell",
+    "data": {
+      "history": "The research reveals multiple unrelated lineages using variations of the Towell name. The O'Toole family represents an ancient Irish clan (Ó Tuathail) descended from Tuathal Mac Augaire, King of Leinster (died 958), originally controlling territory in County Kildare before being driven to County Wicklow during the Anglo-Norman invasion. The name variants include Towell, Towle, and Tool among others. In Oman, a significant business partnership existed between Hajj Moosa AbdulRahman Hassan and W.J. Towell & Co., forming part of the Gary McKenzie Moosa Towell Group of Companies in 1956, which later became Oman United Agencies, providing supplies and logistics for oil companies. However, the research provides no information connecting any GCC Towell family to either the Irish O'Toole lineage or establishing their ethnic origins, migration patterns, or founding story in the Gulf region.",
+      "description": "Multiple unrelated lineages using Towell variants, including ancient Irish clan O'Toole and business partnerships in Oman, but no verified connection between them.",
+      "originStory": null,
+      "tribalOrigin": null,
+      "modernStatus": "Business partnerships documented in Oman through W.J. Towell & Co. involvement with oil industry logistics",
+      "migrationPath": [],
+      "timelineEvents": [
+        {
+          "year": 1956,
+          "title": "Gary McKenzie Moosa Towell Group Formation",
+          "description": "Partnership formed between British Gary McKenzie, Oman's W.J.Towell & Co., and Hajj Moosa AbdulRahman Hassan",
+          "location": "Oman",
+          "coords": [
+            23.6,
+            58.5
+          ],
+          "eventType": "business"
+        }
+      ],
+      "connections": [],
+      "notableFigures": []
+    }
+  }
+]

@@ -36,10 +36,15 @@ export async function POST(request: NextRequest) {
 
   const systemPrompt = `You are a CLO data quality analyst. Analyze the provided deal data and identify issues that could affect waterfall projection accuracy.
 
+CLO structural knowledge (DO NOT flag these as issues):
+- Subordinated Notes / Income Notes do NOT bear a fixed coupon or spread. They receive the RESIDUAL interest after all rated tranche coupons, fees, and coverage test diversions are paid. Seeing zero or null "interest paid" on sub notes is NORMAL — their distributions appear as residual equity distributions, not as interest. Do NOT flag this as an anomaly.
+- Sub notes also have no spread (spreadBps=NULL is correct) and no reference rate. This is by design.
+- Total tranche principal (original face value of all notes) will NOT match the current pool collateral balance. The pool balance changes constantly as loans repay, prepay, default, or are traded, while tranche balances only change through scheduled/unscheduled note payments. A mismatch between these two figures is completely normal — do NOT flag it as an error or warning.
+
 Check for:
 1. Missing required fields needed for the waterfall model (maturity date, tranche balances, spreads, OC/IC trigger levels)
-2. Cross-reference values for consistency (total tranche principal vs pool total par, test levels matching PPM data)
-3. Anything that looks unusual for a CLO deal (e.g., abnormally low/high WAC spread, missing tranches, zero balances)
+2. Cross-reference values for consistency (test levels matching PPM data, tranche names matching between PPM and report)
+3. Anything that looks unusual for a CLO deal (e.g., abnormally low/high WAC spread, missing rated tranches, zero balances on RATED tranches)
 4. Missing waterfall steps or compliance test data
 
 Output a JSON array of warnings. Each warning must have:
