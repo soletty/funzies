@@ -24,6 +24,7 @@ export interface ProjectionInputs {
   recoveryPct: number;
   recoveryLagMonths: number;
   reinvestmentSpreadBps: number;
+  maturitySchedule: { parBalance: number; maturityDate: string }[];
 }
 
 export interface PeriodResult {
@@ -32,6 +33,7 @@ export interface PeriodResult {
   beginningPar: number;
   defaults: number;
   prepayments: number;
+  scheduledMaturities: number;
   recoveries: number;
   reinvestment: number;
   endingPar: number;
@@ -97,6 +99,7 @@ export function runProjection(inputs: ProjectionInputs): ProjectionResult {
     tranches, ocTriggers, icTriggers,
     reinvestmentPeriodEnd, maturityDate, currentDate,
     cdrPct, cprPct, recoveryPct, recoveryLagMonths, reinvestmentSpreadBps,
+    maturitySchedule,
   } = inputs;
 
   const totalQuarters = maturityDate ? quartersBetween(currentDate, maturityDate) : 40;
@@ -133,6 +136,16 @@ export function runProjection(inputs: ProjectionInputs): ProjectionResult {
   let currentWacSpreadBps = wacSpreadBps;
   const periods: PeriodResult[] = [];
   const equityCashFlows: number[] = [];
+
+  // Pre-bucket maturity schedule into quarterly amounts
+  const maturityByQuarter = new Map<number, number>();
+  for (const loan of maturitySchedule) {
+    if (!loan.maturityDate || !loan.parBalance) continue;
+    const q = quartersBetween(currentDate, loan.maturityDate);
+    if (q < 1 || q > totalQuarters) continue;
+    maturityByQuarter.set(q, (maturityByQuarter.get(q) ?? 0) + loan.parBalance);
+  }
+
   const tranchePayoffQuarter: Record<string, number | null> = {};
   let totalEquityDistributions = 0;
 
@@ -167,6 +180,13 @@ export function runProjection(inputs: ProjectionInputs): ProjectionResult {
     const prepayments = currentPar * qPrepayRate;
     currentPar -= prepayments;
 
+    // ── 2b. Scheduled Maturities ─────────────────────────────────
+    // Loans reaching their contractual maturity date return par.
+    // Cap at remaining par to avoid double-counting with defaults/prepayments.
+    const rawMaturityAmount = maturityByQuarter.get(q) ?? 0;
+    const scheduledMaturities = Math.min(rawMaturityAmount, currentPar);
+    currentPar -= scheduledMaturities;
+
     // ── 3. Recoveries ───────────────────────────────────────────
     // Recovery cash from prior defaults. This is CASH, not a restoration of par.
     // It flows to the principal waterfall as available proceeds.
@@ -181,7 +201,7 @@ export function runProjection(inputs: ProjectionInputs): ProjectionResult {
     // During the RP, reinvest prepayment + recovery cash into new assets
     let reinvestment = 0;
     if (inRP) {
-      reinvestment = prepayments + recoveries;
+      reinvestment = prepayments + scheduledMaturities + recoveries;
       currentPar += reinvestment;
       // Blend WAC toward reinvestment spread for newly purchased assets
       if (currentPar > 0) {
@@ -273,7 +293,7 @@ export function runProjection(inputs: ProjectionInputs): ProjectionResult {
     // Post-RP:   reinvestment = 0, so net = prepayments + recoveries + diversion.
     // At maturity (final quarter): remaining collateral is liquidated at par.
     const liquidationProceeds = isMaturity ? endingPar : 0;
-    let availablePrincipal = prepayments + recoveries - reinvestment + diversionToPaydown + liquidationProceeds;
+    let availablePrincipal = prepayments + scheduledMaturities + recoveries - reinvestment + diversionToPaydown + liquidationProceeds;
     if (availablePrincipal < 0) availablePrincipal = 0;
     // If liquidating, the par is consumed
     if (isMaturity) currentPar = 0;
@@ -305,6 +325,7 @@ export function runProjection(inputs: ProjectionInputs): ProjectionResult {
       beginningPar,
       defaults,
       prepayments,
+      scheduledMaturities,
       recoveries,
       reinvestment,
       endingPar,
