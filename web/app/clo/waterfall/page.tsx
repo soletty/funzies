@@ -9,6 +9,7 @@ import {
   getTranches,
   getTrancheSnapshots,
   getAccountBalances,
+  getHoldings,
   getPanelForUser,
   rowToProfile,
 } from "@/lib/clo/access";
@@ -35,13 +36,14 @@ export default async function WaterfallPage() {
   // Fetch report-level data if a deal record exists
   const reportPeriod = deal ? await getLatestReportPeriod(deal.id) : null;
 
-  const [waterfallSteps, tranches, trancheSnapshots, periodData, accountBalances] =
+  const [waterfallSteps, tranches, trancheSnapshots, periodData, accountBalances, holdings] =
     await Promise.all([
       reportPeriod ? getWaterfallSteps(reportPeriod.id) : Promise.resolve([]),
       deal ? getTranches(deal.id) : Promise.resolve([]),
       reportPeriod ? getTrancheSnapshots(reportPeriod.id) : Promise.resolve([]),
       reportPeriod ? getReportPeriodData(reportPeriod.id) : Promise.resolve(null),
       reportPeriod ? getAccountBalances(reportPeriod.id) : Promise.resolve([]),
+      reportPeriod ? getHoldings(reportPeriod.id) : Promise.resolve([]),
     ]);
 
   const panel = await getPanelForUser(session.user.id);
@@ -113,6 +115,7 @@ export default async function WaterfallPage() {
         poolSummary={periodData?.poolSummary ?? null}
         complianceTests={periodData?.complianceTests ?? []}
         constraints={constraints}
+        holdings={holdings}
         panelId={panel?.id ?? null}
         dealContext={dealContext}
       />

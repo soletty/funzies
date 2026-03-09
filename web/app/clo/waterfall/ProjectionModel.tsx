@@ -7,6 +7,7 @@ import type {
   CloTrancheSnapshot,
   CloPoolSummary,
   CloComplianceTest,
+  CloHolding,
   ExtractedConstraints,
 } from "@/lib/clo/types";
 import {
@@ -25,6 +26,7 @@ interface Props {
   poolSummary: CloPoolSummary | null;
   complianceTests: CloComplianceTest[];
   constraints: ExtractedConstraints;
+  holdings: CloHolding[];
   panelId: string | null;
   dealContext: Record<string, unknown>;
 }
@@ -61,8 +63,8 @@ const MODEL_ASSUMPTIONS = [
     detail: "All portfolio assets are assumed to be floating-rate (base rate + WAC spread). Fixed-rate collateral is not modeled separately.",
   },
   {
-    label: "No scheduled amortization",
-    detail: "Principal reductions come only from prepayments, defaults/recoveries, and maturity liquidation. Scheduled loan amortization is not modeled.",
+    label: "Loan maturities from portfolio",
+    detail: "Scheduled loan maturities use the current portfolio's maturity dates. Loans that default before maturity are not double-counted (maturity amounts are capped at remaining par).",
   },
   {
     label: "Constant assumption rates",
@@ -112,6 +114,7 @@ export default function ProjectionModel({
   poolSummary,
   complianceTests,
   constraints,
+  holdings,
   panelId,
   dealContext,
 }: Props) {
@@ -194,10 +197,13 @@ export default function ProjectionModel({
       recoveryPct,
       recoveryLagMonths,
       reinvestmentSpreadBps,
+      maturitySchedule: holdings
+        .filter((h) => h.maturityDate && h.parBalance)
+        .map((h) => ({ parBalance: h.parBalance!, maturityDate: h.maturityDate! })),
     }),
     [
       poolSummary, baseRatePct, seniorFeePct, trancheInputs, ocTriggers, icTriggers,
-      maturityDate, reinvestmentPeriodEnd, cdrPct, cprPct, recoveryPct, recoveryLagMonths, reinvestmentSpreadBps,
+      maturityDate, reinvestmentPeriodEnd, cdrPct, cprPct, recoveryPct, recoveryLagMonths, reinvestmentSpreadBps, holdings,
     ]
   );
 
@@ -570,6 +576,7 @@ export default function ProjectionModel({
                       <th style={{ padding: "0.5rem 0.6rem", fontWeight: 600, fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--color-text-muted)" }}>Beg Par</th>
                       <th style={{ padding: "0.5rem 0.6rem", fontWeight: 600, fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--color-text-muted)" }}>Defaults</th>
                       <th style={{ padding: "0.5rem 0.6rem", fontWeight: 600, fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--color-text-muted)" }}>Prepays</th>
+                      <th style={{ padding: "0.5rem 0.6rem", fontWeight: 600, fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--color-text-muted)" }}>Maturities</th>
                       <th style={{ padding: "0.5rem 0.6rem", fontWeight: 600, fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--color-text-muted)" }}>Recoveries</th>
                       <th style={{ padding: "0.5rem 0.6rem", fontWeight: 600, fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--color-text-muted)" }}>Reinvest</th>
                       <th style={{ padding: "0.5rem 0.6rem", fontWeight: 600, fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--color-text-muted)" }}>End Par</th>
@@ -586,6 +593,7 @@ export default function ProjectionModel({
                           {formatAmount(p.defaults)}
                         </td>
                         <td style={{ padding: "0.45rem 0.6rem", textAlign: "right", fontFamily: "var(--font-mono)", fontSize: "0.72rem" }}>{formatAmount(p.prepayments)}</td>
+                        <td style={{ padding: "0.45rem 0.6rem", textAlign: "right", fontFamily: "var(--font-mono)", fontSize: "0.72rem" }}>{formatAmount(p.scheduledMaturities)}</td>
                         <td style={{ padding: "0.45rem 0.6rem", textAlign: "right", fontFamily: "var(--font-mono)", fontSize: "0.72rem" }}>{formatAmount(p.recoveries)}</td>
                         <td style={{ padding: "0.45rem 0.6rem", textAlign: "right", fontFamily: "var(--font-mono)", fontSize: "0.72rem" }}>{formatAmount(p.reinvestment)}</td>
                         <td style={{ padding: "0.45rem 0.6rem", textAlign: "right", fontFamily: "var(--font-mono)", fontSize: "0.72rem" }}>{formatAmount(p.endingPar)}</td>
