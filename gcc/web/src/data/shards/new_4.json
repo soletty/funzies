@@ -12724,5 +12724,169 @@
       "connections": [],
       "notableFigures": []
     }
+  },
+  {
+    "type": "family",
+    "id": "al_salmi",
+    "data": {
+      "history": null,
+      "description": null,
+      "originStory": null,
+      "tribalOrigin": null,
+      "modernStatus": null,
+      "folkLegends": [],
+      "nameEtymology": null,
+      "migrationPath": [],
+      "timelineEvents": [],
+      "connections": [],
+      "notableFigures": []
+    }
+  },
+  {
+    "type": "family",
+    "id": "al_zakwani",
+    "data": {
+      "history": null,
+      "description": null,
+      "originStory": null,
+      "tribalOrigin": null,
+      "modernStatus": null,
+      "folkLegends": [],
+      "nameEtymology": null,
+      "migrationPath": [],
+      "timelineEvents": [],
+      "connections": [],
+      "notableFigures": []
+    }
+  },
+  {
+    "type": "family",
+    "id": "al_waeli",
+    "data": {
+      "history": "The Al Waeli family appears to have significant historical connections to Arab tribal lineages and Islamic scholarship, though the research provides limited direct information about this specific family branch. The most prominent documented member is Ahmed Al-Waeli (1928-2003), a renowned Iraqi Shia Islamic scholar and orator born in Najaf, Iraq. His full lineage is given as Ahmad bin Hassoun bin Saeed bin Hamoud al-Waeli al-Laythi al-Kanani al-Mudari al-Adnani, indicating descent from the Kinanah tribe through the Layth branch. The research shows potential connections to the El-Assaad family of Lebanon, as Sheikh Nasif al-Nassar ibn al-Waeli (died 1781) was a powerful Shia leader in Jabal Amel (South Lebanon) and head of the Ali al-Saghir clan. However, the exact genealogical relationship between the Iraqi Al Waeli scholarly family and the Lebanese al-Waeli branch mentioned in El-Assaad lineage requires further verification. The family appears to have maintained strong traditions in Islamic scholarship and religious leadership, particularly within Shia communities.",
+      "description": "An Arab family with documented presence in Iraq and potential historical connections to Lebanon, known primarily for Islamic scholarship and religious leadership within Shia communities.",
+      "originStory": "Based on Ahmed Al-Waeli's documented lineage (al-Waeli al-Laythi al-Kanani al-Mudari al-Adnani), the family claims descent from the Kinanah tribe through the Layth branch, tracing back to Adnanite Arab origins. However, specific migration details are not provided in the research.",
+      "tribalOrigin": "Kinanah (through Layth branch)",
+      "modernStatus": "The family is primarily known for religious scholarship and Islamic education, with Ahmed Al-Waeli having been a prominent figure in Shia Islamic thought until his death in 2003.",
+      "folkLegends": [],
+      "nameEtymology": null,
+      "migrationPath": [],
+      "timelineEvents": [
+        {
+          "year": 1928,
+          "title": "Birth of Ahmed Al-Waeli",
+          "description": "Birth of prominent Islamic scholar Ahmed Al-Waeli in Najaf, Iraq",
+          "location": "Najaf, Iraq",
+          "coords": [
+            32.0,
+            44.3
+          ],
+          "eventType": "founding"
+        },
+        {
+          "year": 1781,
+          "title": "Death of Nasif al-Nassar ibn al-Waeli",
+          "description": "Death of Sheikh Nasif al-Nassar ibn al-Waeli, powerful Shia leader in Jabal Amel",
+          "location": "Yaroun, Lebanon",
+          "coords": [
+            33.1,
+            35.4
+          ],
+          "eventType": "conflict"
+        },
+        {
+          "year": 2003,
+          "title": "Death of Ahmed Al-Waeli",
+          "description": "Death of renowned Islamic scholar Ahmed Al-Waeli in Baghdad after 24 years in exile",
+          "location": "Baghdad, Iraq",
+          "coords": [
+            33.3,
+            44.4
+          ],
+          "eventType": "cultural"
+        }
+      ],
+      "connections": [
+        {
+          "entityId": "el_assaad",
+          "entityType": "family",
+          "relationship": "potential_ancestral_connection",
+          "context": "Sheikh Nasif al-Nassar ibn al-Waeli was mentioned as an ancestor in El-Assaad family genealogy, though direct relationship to Al Waeli family requires verification"
+        }
+      ],
+      "notableFigures": [
+        {
+          "id": "ahmed_al_waeli",
+          "name": "Ahmed Al-Waeli",
+          "title": "Islamic Scholar and Orator",
+          "roleDescription": "Prominent Iraqi Shia Islamic scholar, orator, and poet who developed the 'Al-Waeli School of Lecturing'",
+          "bornYear": 1928,
+          "diedYear": 2003,
+          "era": "20th century",
+          "biography": "Born in Najaf to a scholarly family, Ahmed Al-Waeli memorized the Quran by age seven and became renowned for his eloquent preaching style. He earned advanced degrees including a PhD from Cairo University and was praised by Ayatollah Khomeini as 'the Islamic Library' and by Grand Ayatollah Khoei as 'the Tongue of Shia'.",
+          "achievements": [
+            "Developed the Al-Waeli School of Lecturing",
+            "Authored several influential books on Islamic jurisprudence",
+            "Earned recognition from leading Shia authorities"
+          ],
+          "birthPlace": "Najaf, Iraq",
+          "birthCoords": [
+            32.0,
+            44.3
+          ]
+        },
+        {
+          "id": "nasif_al_nassar_al_waeli",
+          "name": "Nasif al-Nassar ibn al-Waeli",
+          "title": "Sheikh al-Mashayekh",
+          "roleDescription": "Most powerful sheikh of rural Shia Muslim tribes of Jabal Amil in mid-18th century",
+          "bornYear": null,
+          "diedYear": 1781,
+          "era": "18th century",
+          "biography": "Head of the Ali al-Saghir clan based in Tebnine, he led the Jabal Amil region to prosperity through cotton cloth exports. He allied with Zahir al-Umar and achieved major military victories before being killed by Jezzar Pasha's forces.",
+          "achievements": [
+            "Led prosperity of Jabal Amil region",
+            "Achieved victory at Battle of Lake Hula",
+            "Established Shia autonomy in South Lebanon"
+          ],
+          "birthPlace": null,
+          "birthCoords": null
+        }
+      ]
+    }
+  },
+  {
+    "type": "family",
+    "id": "al_mas",
+    "data": {
+      "history": null,
+      "description": null,
+      "originStory": null,
+      "tribalOrigin": null,
+      "modernStatus": null,
+      "folkLegends": [],
+      "nameEtymology": null,
+      "migrationPath": [],
+      "timelineEvents": [],
+      "connections": [],
+      "notableFigures": []
+    }
+  },
+  {
+    "type": "family",
+    "id": "al_maha",
+    "data": {
+      "history": "Based on the provided research, there is no specific information about the Al Maha family (id: al_maha) in terms of GCC genealogy, business history, or tribal lineage. The research contains information about several individuals named Maha from different contexts - including Saudi royalty (Maha bint Mohammed Al Sudairi and Maha bint Mishari Al Saud), a Syrian actress (Maha Al-Saleh), and a Saudi physician and activist (Maha AlMuneef) - but none of these establish a coherent family history for 'Al Maha' as a distinct GCC family entity. The research also includes extensive information about the Hindu festival Maha Shivaratri and the Arabian oryx (which is called 'maha' in Arabic), but these are unrelated to family genealogy. Without specific information about the Al Maha family's origins, migration patterns, tribal affiliations, or business activities, no verified family history can be established from the available sources.",
+      "description": "No verified information available about Al Maha as a distinct GCC family entity from the provided research sources.",
+      "originStory": null,
+      "tribalOrigin": null,
+      "modernStatus": null,
+      "folkLegends": [],
+      "nameEtymology": null,
+      "migrationPath": [],
+      "timelineEvents": [],
+      "connections": [],
+      "notableFigures": []
+    }
   }
 ]

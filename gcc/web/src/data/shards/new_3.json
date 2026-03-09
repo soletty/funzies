@@ -13064,5 +13064,264 @@
         }
       ]
     }
+  },
+  {
+    "type": "family",
+    "id": "al_sulaibeekh",
+    "data": {
+      "history": null,
+      "description": null,
+      "originStory": null,
+      "tribalOrigin": null,
+      "modernStatus": null,
+      "folkLegends": [],
+      "nameEtymology": null,
+      "migrationPath": [],
+      "timelineEvents": [],
+      "connections": [],
+      "notableFigures": []
+    }
+  },
+  {
+    "type": "family",
+    "id": "al_attiya",
+    "data": {
+      "history": "The Al Attiya family emerged as a prominent Qatari family with deep roots in the Al Sadd district of Doha. The family gained significant visibility in 1969 when Ali bin Hamad Al Attiyah founded Al Sadd Sports Club, which would become Qatar's most successful football club with 64 official championships. The founding was motivated by the family's excellence in football and their desire to create their own club rather than join existing ones. The family consulted with Jassim bin Hamad Al Thani, who was the minister of Youth and Sports at the time, receiving approval to establish the club. In the club's initial year, Hamad bin Mubarak Al Attiyah served as coach while Ali bin Hamad Al Attiyah oversaw the club's performance and made crucial decisions. The club's initial popularity was attributed in part to its affiliation with the Al Attiyah tribe, described as 'a prominent local tribe.' The family's influence extended beyond sports, with various members holding significant positions in Qatari government and military. Khalid bin Mohammad Al Attiyah represents the family's modern political prominence, having served as Minister of Foreign Affairs from 2013-2016 and Deputy Prime Minister and Minister of State for Defense Affairs from 2016-2024. His father was noted as the founder of the Qatar Armed Forces, indicating the family's long-standing role in Qatar's military establishment.",
+      "description": "Al Attiya is a prominent Qatari family known for founding Al Sadd Sports Club in 1969 and holding significant positions in Qatar's government and military. The family is described as belonging to the Banu Tamim tribe and has maintained influence in sports, politics, and defense sectors.",
+      "originStory": "The Al Attiya family is described as belonging to the Banu Tamim tribe, the same tribe to which the ruling House of Thani belongs. They were established in the Al Sadd district of Doha, where Ali bin Hamad Al Attiyah was born and raised.",
+      "tribalOrigin": "Banu Tamim",
+      "modernStatus": "The Al Attiya family maintains significant influence in Qatari politics and sports. Khalid bin Mohammad Al Attiyah recently served as Deputy Prime Minister and Minister of State for Defense Affairs until November 2024. The family continues to be associated with Al Sadd Sports Club, Qatar's most successful football team.",
+      "folkLegends": [],
+      "nameEtymology": null,
+      "migrationPath": [],
+      "timelineEvents": [
+        {
+          "year": 1969,
+          "title": "Founding of Al Sadd Sports Club",
+          "description": "Ali bin Hamad Al Attiyah and his relatives founded Al Sadd Sports Club on October 21, 1969, after consulting with minister Jassim bin Hamad Al Thani",
+          "location": "Doha, Qatar",
+          "coords": [
+            25.2854,
+            51.531
+          ],
+          "eventType": "founding"
+        }
+      ],
+      "connections": [
+        {
+          "entityId": "house_of_thani",
+          "entityType": "ruling_family",
+          "relationship": "tribal_affiliation",
+          "context": "Both Al Attiya and House of Thani belong to the Banu Tamim tribe"
+        }
+      ],
+      "notableFigures": [
+        {
+          "id": "ali_bin_hamad_al_attiyah",
+          "name": "Ali bin Hamad Al Attiyah",
+          "title": "Founder of Al Sadd Sports Club",
+          "roleDescription": "Founded and oversaw Al Sadd Sports Club, making crucial decisions for the club's development",
+          "bornYear": null,
+          "diedYear": null,
+          "era": "20th century",
+          "biography": "Born and raised in Al Sadd district of Doha, he excelled in football and led his family in founding Al Sadd Sports Club in 1969. He oversaw the club's performance and made crucial decisions during its early years.",
+          "achievements": [
+            "Founded Qatar's most successful sports club"
+          ],
+          "birthPlace": "Al Sadd district, Doha",
+          "birthCoords": [
+            25.2854,
+            51.531
+          ]
+        },
+        {
+          "id": "khalid_bin_mohammad_al_attiyah",
+          "name": "Khalid bin Mohammad Al Attiyah",
+          "title": "Former Deputy Prime Minister and Minister of State for Defense Affairs",
+          "roleDescription": "Served in various high-level government positions including Minister of Foreign Affairs and Deputy Prime Minister",
+          "bornYear": 1967,
+          "diedYear": null,
+          "era": "Contemporary",
+          "biography": "Born March 9, 1967, he started as a fighter pilot before entering law and politics. He served as Minister of Foreign Affairs from 2013-2016 and Deputy Prime Minister until November 2024.",
+          "achievements": [
+            "Minister of Foreign Affairs",
+            "Deputy Prime Minister",
+            "Fighter pilot",
+            "Founded law firm"
+          ],
+          "birthPlace": null,
+          "birthCoords": null
+        },
+        {
+          "id": "hamad_bin_mubarak_al_attiyah",
+          "name": "Hamad bin Mubarak Al Attiyah",
+          "title": "First Coach of Al Sadd Sports Club",
+          "roleDescription": "Coached Al Sadd Sports Club in its initial year of establishment in 1969",
+          "bornYear": null,
+          "diedYear": null,
+          "era": "20th century",
+          "biography": "Member of the Al Attiyah family who served as the first coach of Al Sadd Sports Club during its founding year in 1969.",
+          "achievements": [
+            "First coach of Al Sadd Sports Club"
+          ],
+          "birthPlace": null,
+          "birthCoords": null
+        }
+      ]
+    }
+  },
+  {
+    "type": "family",
+    "id": "al_khelaifi",
+    "data": {
+      "history": null,
+      "description": null,
+      "originStory": null,
+      "tribalOrigin": null,
+      "modernStatus": "The Al Khelaifi family is represented in modern times by Nasser Al-Khelaifi, a prominent Qatari businessman who serves as president of Paris Saint-Germain football club and is backed by Qatar Sports Investments.",
+      "folkLegends": [],
+      "nameEtymology": "Al-Khelaifi is an Arabic language surname meaning 'my successor' according to the research, with alternative Latin transcriptions including Al-Khulaifi.",
+      "migrationPath": [],
+      "timelineEvents": [],
+      "connections": [],
+      "notableFigures": [
+        {
+          "id": "nasser_al_khelaifi",
+          "name": "Nasser Al-Khelaifi",
+          "title": "President of Paris Saint-Germain",
+          "roleDescription": "Qatari businessman and sports executive who has served as PSG president since the Qatar Sports Investments takeover in 2011",
+          "bornYear": 1973,
+          "diedYear": null,
+          "era": "21st century",
+          "biography": "Nasser Al-Khelaifi is a Qatari businessman who became president of Paris Saint-Germain following the club's acquisition by Qatar Sports Investments. He has been involved in legal controversies including the Tayeb Benabderrahmane case and has overseen PSG's transformation into one of the world's wealthiest football clubs.",
+          "achievements": [
+            "PSG President",
+            "Oversaw multiple PSG domestic titles",
+            "Led PSG to first Champions League title in 2025"
+          ],
+          "birthPlace": null,
+          "birthCoords": null
+        }
+      ]
+    }
+  },
+  {
+    "type": "family",
+    "id": "al_siddiqi",
+    "data": {
+      "history": "The Al Siddiqi family traces their lineage to Abu Bakr (c. 573-634 CE), the first Rashidun Caliph after Prophet Muhammad, who was known as 'Al-Siddiq' meaning 'the truthful one.' This title became the foundation for the surname Siddiqi/Siddiqui, which is found across Muslim communities in India, Pakistan, Bangladesh, Saudi Arabia, the Middle East, and North Africa. One prominent branch, the Siddiqi family of Nanauta, established themselves in India during the Mughal era when Muhammad Hashim arrived from Balkh and settled in Nanauta under Shah Jahan's reign, receiving a jagir grant. This family became influential in Islamic scholarship, co-founding major institutions including Darul Uloom Deoband and the All India Muslim Personal Law Board. The name has spread globally through various migration patterns, with notable figures emerging in politics, academia, arts, and religious leadership across different regions. However, genealogical records show some disputed lineage claims, particularly regarding connections to Abu Bakr's descendants, with conflicting records noted by historians.",
+      "description": "Al Siddiqi is a widespread Muslim family name claiming descent from Abu Bakr, the first Caliph, found across South Asia, Middle East, and North Africa. Notable branches include the scholarly Siddiqi family of Nanauta in India who founded major Islamic institutions.",
+      "originStory": "The family name derives from Abu Bakr's title 'Al-Siddiq' (the truthful one), the first Rashidun Caliph (632-634 CE). The Nanauta branch traces to Muhammad Hashim who migrated from Balkh to India during Shah Jahan's reign, though genealogical records show some disputed connections in the claimed lineage to Abu Bakr's descendants.",
+      "tribalOrigin": null,
+      "modernStatus": "The Al Siddiqi name is associated with prominent figures across politics, academia, judiciary, and arts, including Pakistani politicians, Indian Supreme Court justices, international diplomats, and scholars. The Nanauta branch continues to lead major Islamic educational institutions.",
+      "folkLegends": [],
+      "nameEtymology": "Derived from 'Al-Siddiq', the title given to Abu Bakr meaning 'the truthful one' or 'the sincere one', which became the basis for the surname Siddiqi/Siddiqui among his claimed descendants.",
+      "migrationPath": [
+        {
+          "year": 1600,
+          "endYear": 1650,
+          "from": "Balkh",
+          "fromCoords": [
+            36.7581,
+            66.8977
+          ],
+          "to": "Nanauta, India",
+          "toCoords": [
+            29.3668,
+            77.3911
+          ],
+          "description": "Muhammad Hashim migrated from Balkh and settled in Nanauta during Shah Jahan's reign, receiving a jagir grant"
+        }
+      ],
+      "timelineEvents": [
+        {
+          "year": 634,
+          "title": "Death of Abu Bakr",
+          "description": "Death of Abu Bakr Al-Siddiq, the claimed ancestor and source of the Siddiqi name",
+          "location": "Medina",
+          "coords": [
+            24.4686,
+            39.6142
+          ],
+          "eventType": "founding"
+        },
+        {
+          "year": 1866,
+          "title": "Founding of Darul Uloom Deoband",
+          "description": "Muhammad Qasim Nanautawi co-founded this major Islamic institution",
+          "location": "Deoband, India",
+          "coords": [
+            29.6957,
+            77.6706
+          ],
+          "eventType": "founding"
+        }
+      ],
+      "connections": [
+        {
+          "entityId": "abu_bakr",
+          "entityType": "historical_figure",
+          "relationship": "claimed_ancestor",
+          "context": "Abu Bakr Al-Siddiq is considered the common ancestor of Siddiquis, though some genealogical records show disputed connections"
+        }
+      ],
+      "notableFigures": [
+        {
+          "id": "muhammad_qasim_nanautawi",
+          "name": "Muhammad Qasim Nanautawi",
+          "title": "Islamic Scholar and Co-founder",
+          "roleDescription": "Co-founded Darul Uloom Deoband, initiating the Deobandi movement",
+          "bornYear": 1832,
+          "diedYear": 1880,
+          "era": "19th century",
+          "biography": "Major Islamic scholar who co-founded Darul Uloom Deoband where the Deobandi movement began. His descendants continued leading major Islamic institutions for generations.",
+          "achievements": [
+            "Co-founded Darul Uloom Deoband",
+            "Initiated Deobandi movement"
+          ],
+          "birthPlace": "Nanauta, India",
+          "birthCoords": [
+            29.3668,
+            77.3911
+          ]
+        },
+        {
+          "id": "mamluk_ali_nanautawi",
+          "name": "Mamluk Ali Nanautawi",
+          "title": "Islamic Scholar and Educator",
+          "roleDescription": "Taught at Zakir Husain Delhi College and educated major Indian scholars of his era",
+          "bornYear": 1789,
+          "diedYear": 1851,
+          "era": "19th century",
+          "biography": "Prominent educator who taught major Indian scholars including Fazlur Rahman Usmani, Rashid Ahmad Gangohi, and Syed Ahmad Khan. His son became the first principal of Darul Uloom Deoband.",
+          "achievements": [
+            "Educated major Islamic scholars",
+            "Father founded Darul Uloom Deoband"
+          ],
+          "birthPlace": "Nanauta, India",
+          "birthCoords": [
+            29.3668,
+            77.3911
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "type": "family",
+    "id": "al_madfa",
+    "data": {
+      "history": null,
+      "description": null,
+      "originStory": null,
+      "tribalOrigin": null,
+      "modernStatus": null,
+      "folkLegends": [],
+      "nameEtymology": null,
+      "migrationPath": [],
+      "timelineEvents": [],
+      "connections": [],
+      "notableFigures": []
+    }
   }
 ]
