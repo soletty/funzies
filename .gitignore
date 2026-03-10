@@ -1,3 +1,4 @@
+.worktrees/
 node_modules/
 _assembly-build/
 assembly-viewer/dist/
