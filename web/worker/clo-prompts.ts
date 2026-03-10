@@ -1,4 +1,5 @@
-import type { CloProfile, PanelMember, LoanAnalysis, ExtractedPortfolio, ExtractedConstraints, CloPoolSummary, CloComplianceTest, CloConcentration, CloEvent, CloExtractionOverflow } from "../lib/clo/types.js";
+import type { CloProfile, PanelMember, LoanAnalysis, ExtractedPortfolio, ExtractedConstraints, CloPoolSummary, CloComplianceTest, CloConcentration, CloEvent, CloExtractionOverflow, BuyListItem } from "../lib/clo/types.js";
+import { formatBuyList } from "../lib/clo/buy-list.js";
 
 const QUALITY_RULES = `
 ## Quality Rules
@@ -731,7 +732,8 @@ export function formatReportPeriodState(
 export function seniorAnalystSystemPrompt(
   profile: CloProfile,
   portfolioSnapshot: string,
-  reportPeriodContext?: string
+  reportPeriodContext?: string,
+  buyList?: BuyListItem[]
 ): string {
   const constraintsSection = formatConstraints(profile.extractedConstraints, "compact")
     ? `\nEXTRACTED VEHICLE CONSTRAINTS:\n${formatConstraints(profile.extractedConstraints, "compact")}`
@@ -746,6 +748,10 @@ export function seniorAnalystSystemPrompt(
     ? `\nCURRENT REPORT PERIOD DATA (from compliance report extraction):\n${reportPeriodContext}`
     : "";
 
+  const buyListSection = buyList && buyList.length > 0
+    ? `\nBUY LIST (candidate loans under active consideration — reference when discussing trade ideas, portfolio optimization, or credit opportunities):\n${formatBuyList(buyList)}`
+    : "";
+
   return `You are a senior CLO credit analyst with deep expertise in leveraged loan portfolios and CLO vehicle management. You work alongside the portfolio manager to make better, faster decisions.
 
 The CLO's PPM/Listing Particulars and compliance reports are attached as document content in the conversation. Every constraint in the PPM is a hard rule. Reference specific sections when citing constraints.
@@ -756,7 +762,7 @@ ${reportPeriodSection}
 PORTFOLIO PROFILE:
 ${formatProfile(profile)}
 ${portfolioSnapshot ? `\nPORTFOLIO HISTORY:\n${portfolioSnapshot}` : ""}
-
+${buyListSection}
 YOUR JOB:
 A. Compliance-Aware Trade Ideas — before recommending any buy/sell, check against ALL PPM constraints: coverage tests, collateral quality tests, portfolio profile tests, eligibility criteria, concentration limits, WARF/WAS/WAL/diversity, CCC bucket, and reinvestment criteria. Show impact on each.
 B. Portfolio Optimization — identify swaps that improve multiple dimensions. Show before/after impact.
@@ -918,7 +924,8 @@ ${members}`;
 export function creditAnalysisPrompt(
   analysis: Pick<LoanAnalysis, "title" | "analysisType" | "borrowerName" | "sector" | "loanType" | "spreadCoupon" | "rating" | "maturity" | "facilitySize" | "leverage" | "interestCoverage" | "covenantsSummary" | "ebitda" | "revenue" | "companyDescription" | "notes" | "switchBorrowerName" | "switchSector" | "switchLoanType" | "switchSpreadCoupon" | "switchRating" | "switchMaturity" | "switchFacilitySize" | "switchLeverage" | "switchInterestCoverage" | "switchCovenantsSummary" | "switchEbitda" | "switchRevenue" | "switchCompanyDescription" | "switchNotes">,
   profile: CloProfile,
-  reportPeriodContext?: string
+  reportPeriodContext?: string,
+  buyList?: BuyListItem[]
 ): { system: string; user: string } {
   return {
     system: `You are a senior CLO credit analyst. This analysis serves a specific CLO vehicle with specific constraints — every assessment must be grounded in THIS vehicle's PPM, compliance state, and portfolio composition.
@@ -961,7 +968,8 @@ CLO Manager Profile:
 ${formatProfile(profile)}
 ${formatConstraints(profile.extractedConstraints, "full") ? `\nPPM CONSTRAINTS (use for CLO Fit Assessment math):\n${formatConstraints(profile.extractedConstraints, "full")}` : ""}
 ${formatPortfolioState(profile.extractedPortfolio) ? `\nCURRENT PORTFOLIO STATE (use as baseline for impact calculations):\n${formatPortfolioState(profile.extractedPortfolio)}` : ""}
-${reportPeriodContext ? `\nCOMPLIANCE REPORT DATA (extracted from latest compliance report — use for all compliance test numbers, pool metrics, concentration breakdowns, and portfolio composition):\n${reportPeriodContext}` : ""}`,
+${reportPeriodContext ? `\nCOMPLIANCE REPORT DATA (extracted from latest compliance report — use for all compliance test numbers, pool metrics, concentration breakdowns, and portfolio composition):\n${reportPeriodContext}` : ""}
+${buyList && buyList.length > 0 ? `\nBUY LIST CONTEXT (other loans under consideration — compare this loan against alternatives):\n${formatBuyList(buyList)}` : ""}`,
   };
 }
 
@@ -1022,7 +1030,8 @@ export function individualAssessmentsPrompt(
   analysis: string,
   profile: CloProfile,
   history: string,
-  reportPeriodContext?: string
+  reportPeriodContext?: string,
+  buyList?: BuyListItem[]
 ): { system: string; user: string } {
   const historySection = history
     ? `\n\n## Panel History\nPrevious analyses for context on how the panel has evolved:\n${history}`
@@ -1072,7 +1081,8 @@ CLO Manager Profile:
 ${formatProfile(profile)}${historySection}
 ${formatConstraints(profile.extractedConstraints, "full") ? `\nPPM CONSTRAINTS (members must reference these — especially structural/legal expert):\n${formatConstraints(profile.extractedConstraints, "full")}` : ""}
 ${formatPortfolioState(profile.extractedPortfolio) ? `\nCURRENT PORTFOLIO STATE:\n${formatPortfolioState(profile.extractedPortfolio)}` : ""}
-${reportPeriodContext ? `\nCOMPLIANCE REPORT DATA (actual test results, pool metrics, concentrations, events — members MUST reference these numbers):\n${reportPeriodContext}` : ""}`,
+${reportPeriodContext ? `\nCOMPLIANCE REPORT DATA (actual test results, pool metrics, concentrations, events — members MUST reference these numbers):\n${reportPeriodContext}` : ""}
+${buyList && buyList.length > 0 ? `\nBUY LIST CONTEXT:\n${formatBuyList(buyList)}` : ""}`,
   };
 }
 
@@ -1081,7 +1091,8 @@ export function analysisDebatePrompt(
   assessments: string,
   analysis: string,
   profile: CloProfile,
-  reportPeriodContext?: string
+  reportPeriodContext?: string,
+  buyList?: BuyListItem[]
 ): { system: string; user: string } {
   return {
     system: `You are orchestrating a structured credit panel debate with 3 rounds. Panel members challenge each other's assessments with genuine adversarial pressure on the borrower's creditworthiness.
@@ -1142,7 +1153,8 @@ CLO Manager Profile:
 ${formatProfile(profile)}
 ${formatConstraints(profile.extractedConstraints, "full") ? `\nPPM CONSTRAINTS (reference specific provisions in the debate):\n${formatConstraints(profile.extractedConstraints, "full")}` : ""}
 ${formatPortfolioState(profile.extractedPortfolio) ? `\nCURRENT PORTFOLIO STATE:\n${formatPortfolioState(profile.extractedPortfolio)}` : ""}
-${reportPeriodContext ? `\nCOMPLIANCE REPORT DATA (use actual test cushions, WARF, WAS, concentrations when debating portfolio impact):\n${reportPeriodContext}` : ""}`,
+${reportPeriodContext ? `\nCOMPLIANCE REPORT DATA (use actual test cushions, WARF, WAS, concentrations when debating portfolio impact):\n${reportPeriodContext}` : ""}
+${buyList && buyList.length > 0 ? `\nBUY LIST CONTEXT:\n${formatBuyList(buyList)}` : ""}`,
   };
 }
 
@@ -1151,7 +1163,8 @@ export function premortemPrompt(
   debate: string,
   analysis: string,
   profile: CloProfile,
-  reportPeriodContext?: string
+  reportPeriodContext?: string,
+  buyList?: BuyListItem[]
 ): { system: string; user: string } {
   return {
     system: `You are facilitating a structured pre-mortem exercise for a CLO credit analysis panel. Research shows pre-mortems improve decision accuracy by ~30%.
@@ -1212,7 +1225,8 @@ CLO Manager Profile:
 ${formatProfile(profile)}
 ${formatConstraints(profile.extractedConstraints, "compact") ? `\nPPM CONSTRAINTS:\n${formatConstraints(profile.extractedConstraints, "compact")}` : ""}
 ${formatPortfolioState(profile.extractedPortfolio) ? `\nCURRENT PORTFOLIO STATE:\n${formatPortfolioState(profile.extractedPortfolio)}` : ""}
-${reportPeriodContext ? `\nCOMPLIANCE REPORT DATA (actual compliance state — use for CLO-specific vulnerability assessment):\n${reportPeriodContext}` : ""}`,
+${reportPeriodContext ? `\nCOMPLIANCE REPORT DATA (actual compliance state — use for CLO-specific vulnerability assessment):\n${reportPeriodContext}` : ""}
+${buyList && buyList.length > 0 ? `\nBUY LIST CONTEXT:\n${formatBuyList(buyList)}` : ""}`,
   };
 }
 
@@ -1223,7 +1237,8 @@ export function creditMemoPrompt(
   profile: CloProfile,
   title?: string,
   premortem?: string,
-  reportPeriodContext?: string
+  reportPeriodContext?: string,
+  buyList?: BuyListItem[]
 ): { system: string; user: string } {
   return {
     system: `You are a senior credit analyst synthesizing a panel debate into a formal credit memo.
@@ -1296,7 +1311,8 @@ CLO Manager Profile:
 ${formatProfile(profile)}
 ${formatConstraints(profile.extractedConstraints, "full") ? `\nPPM CONSTRAINTS:\n${formatConstraints(profile.extractedConstraints, "full")}` : ""}
 ${formatPortfolioState(profile.extractedPortfolio) ? `\nCURRENT PORTFOLIO STATE (reference for Portfolio Context section):\n${formatPortfolioState(profile.extractedPortfolio)}` : ""}
-${reportPeriodContext ? `\nCOMPLIANCE REPORT DATA (use actual numbers for Portfolio Context — test cushions, pool metrics, concentrations, events):\n${reportPeriodContext}` : ""}`,
+${reportPeriodContext ? `\nCOMPLIANCE REPORT DATA (use actual numbers for Portfolio Context — test cushions, pool metrics, concentrations, events):\n${reportPeriodContext}` : ""}
+${buyList && buyList.length > 0 ? `\nBUY LIST CONTEXT:\n${formatBuyList(buyList)}` : ""}`,
   };
 }
 
@@ -1305,7 +1321,8 @@ export function riskAssessmentPrompt(
   analysis: string,
   profile: CloProfile,
   premortem?: string,
-  reportPeriodContext?: string
+  reportPeriodContext?: string,
+  buyList?: BuyListItem[]
 ): { system: string; user: string } {
   return {
     system: `You are a risk assessment specialist producing a structured risk report for a loan opportunity based on the credit panel debate. Show your math — provide numeric estimates for all constraint checks where possible.
@@ -1372,7 +1389,8 @@ CLO Manager Profile:
 ${formatProfile(profile)}
 ${formatConstraints(profile.extractedConstraints, "full") ? `\nPPM CONSTRAINTS (use for constraint violation checks):\n${formatConstraints(profile.extractedConstraints, "full")}` : ""}
 ${formatPortfolioState(profile.extractedPortfolio) ? `\nCURRENT PORTFOLIO STATE (use as baseline for portfolio impact math):\n${formatPortfolioState(profile.extractedPortfolio)}` : ""}
-${reportPeriodContext ? `\nCOMPLIANCE REPORT DATA (actual compliance state — use for all constraint violation checks and portfolio impact math):\n${reportPeriodContext}` : ""}`,
+${reportPeriodContext ? `\nCOMPLIANCE REPORT DATA (actual compliance state — use for all constraint violation checks and portfolio impact math):\n${reportPeriodContext}` : ""}
+${buyList && buyList.length > 0 ? `\nBUY LIST CONTEXT:\n${formatBuyList(buyList)}` : ""}`,
   };
 }
 
@@ -1383,7 +1401,8 @@ export function recommendationPrompt(
   members: PanelMember[],
   profile: CloProfile,
   premortem?: string,
-  reportPeriodContext?: string
+  reportPeriodContext?: string,
+  buyList?: BuyListItem[]
 ): { system: string; user: string } {
   const constraints = formatConstraints(profile.extractedConstraints, "full");
   const portfolioState = formatPortfolioState(profile.extractedPortfolio);
@@ -1454,7 +1473,8 @@ CLO Manager Profile:
 ${formatProfile(profile)}
 ${constraints ? `\nPPM CONSTRAINTS (use these for compliance impact math):\n${constraints}` : ""}
 ${portfolioState ? `\nCURRENT PORTFOLIO STATE (use these as baseline for impact calculations):\n${portfolioState}` : ""}
-${reportPeriodContext ? `\nCOMPLIANCE REPORT DATA (actual test results and pool metrics — use for PPM Compliance Impact section math):\n${reportPeriodContext}` : ""}`,
+${reportPeriodContext ? `\nCOMPLIANCE REPORT DATA (actual test results and pool metrics — use for PPM Compliance Impact section math):\n${reportPeriodContext}` : ""}
+${buyList && buyList.length > 0 ? `\nBUY LIST CONTEXT:\n${formatBuyList(buyList)}` : ""}`,
   };
 }
 
@@ -1463,7 +1483,8 @@ ${reportPeriodContext ? `\nCOMPLIANCE REPORT DATA (actual test results and pool 
 export function portfolioGapAnalysisPrompt(
   profile: CloProfile,
   recentAnalyses: string,
-  reportPeriodContext?: string
+  reportPeriodContext?: string,
+  buyList?: BuyListItem[]
 ): { system: string; user: string } {
   const portfolioState = formatPortfolioState(profile.extractedPortfolio);
 
@@ -1486,6 +1507,9 @@ Where the portfolio diverges from stated goals — WARF drift, WAL mismatches, s
 ## Constraints
 Factors that limit available options — reference ALL PPM constraints: eligibility criteria, portfolio profile tests, concentration limits, coverage tests, collateral quality tests, reinvestment criteria, hedging limits, and transfer restrictions. Reference specific PPM thresholds and current utilization.
 
+## Buy List Evaluation
+If a buy list is provided, evaluate each buy list loan against the identified gaps. For each buy list loan, assess whether it would help close a gap, which constraints it satisfies or violates, and rank buy list candidates by portfolio fit. Use web search to research buy list companies for recent credit events, rating actions, and sector developments.
+
 ${QUALITY_RULES}`,
     user: `Analyze CLO portfolio gaps:
 
@@ -1494,6 +1518,7 @@ ${formatProfile(profile)}
 ${formatConstraints(profile.extractedConstraints, "full") ? `\nPPM CONSTRAINTS (reference all applicable limits):\n${formatConstraints(profile.extractedConstraints, "full")}` : ""}
 ${portfolioState ? `\nCURRENT PORTFOLIO STATE:\n${portfolioState}` : ""}
 ${reportPeriodContext ? `\nCOMPLIANCE REPORT DATA (actual compliance state — use for gap analysis baseline, test cushions, concentration utilization):\n${reportPeriodContext}` : ""}
+${buyList && buyList.length > 0 ? `\nBUY LIST (candidate loans under consideration — evaluate against identified gaps):\n${formatBuyList(buyList)}` : ""}
 
 Recent Analyses:
 ${recentAnalyses || "No recent analyses."}`,
@@ -1505,7 +1530,8 @@ export function screeningDebatePrompt(
   gapAnalysis: string,
   focusArea: string,
   profile: CloProfile,
-  reportPeriodContext?: string
+  reportPeriodContext?: string,
+  buyList?: BuyListItem[]
 ): { system: string; user: string } {
   const portfolioState = formatPortfolioState(profile.extractedPortfolio);
 
@@ -1516,11 +1542,12 @@ The CLO's PPM/Listing Particulars and compliance reports are attached as documen
 
 The panel should:
 1. React to the gap analysis — do they agree with the identified portfolio gaps?
-2. Propose specific loan characteristics, sectors, or credit themes within the focus area
-3. Challenge each other's proposals on credit quality AND portfolio fit — does adding this type of credit breach any concentration limit, portfolio profile test, or eligibility criterion? Does it help or hurt WARF/WAS/WAL/coverage tests?
-4. Build on promising screening criteria collaboratively
-5. Quantify compliance impact where possible — "adding a CCC credit would push the bucket from 5.2% to ~5.8%, still within the 7.5% limit"
-6. Consider structural constraints — reinvestment criteria (if post-RP), hedging requirements for non-base-currency credits, and eligibility criteria that filter out certain asset types
+2. Ground discussion in SPECIFIC buy list loans as primary context when a buy list is provided. Discuss named loans from the buy list first — their credit quality, portfolio fit, and compliance impact — before suggesting ideas outside the list. Use web search to research companies on the buy list for recent news, rating actions, and credit developments.
+3. Propose specific loan characteristics, sectors, or credit themes within the focus area
+4. Challenge each other's proposals on credit quality AND portfolio fit — does adding this type of credit breach any concentration limit, portfolio profile test, or eligibility criterion? Does it help or hurt WARF/WAS/WAL/coverage tests?
+5. Build on promising screening criteria collaboratively
+6. Quantify compliance impact where possible — "adding a CCC credit would push the bucket from 5.2% to ~5.8%, still within the 7.5% limit"
+7. Consider structural constraints — reinvestment criteria (if post-RP), hedging requirements for non-base-currency credits, and eligibility criteria that filter out certain asset types
 
 Format as a natural discussion with **Speaker:** attribution. 2-3 rounds of exchange. Each member should contribute at least once based on their specialization.
 
@@ -1534,6 +1561,7 @@ ${gapAnalysis}
 ${formatConstraints(profile.extractedConstraints, "full") ? `\nPPM CONSTRAINTS (reference when evaluating proposals):\n${formatConstraints(profile.extractedConstraints, "full")}` : ""}
 ${portfolioState ? `\nCURRENT PORTFOLIO STATE:\n${portfolioState}` : ""}
 ${reportPeriodContext ? `\nCOMPLIANCE REPORT DATA (use actual test cushions and concentrations when evaluating compliance impact of proposals):\n${reportPeriodContext}` : ""}
+${buyList && buyList.length > 0 ? `\nBUY LIST (candidate loans under active consideration — discuss these SPECIFIC loans as primary context):\n${formatBuyList(buyList)}` : ""}
 
 Panel Members:
 ${formatMembers(members)}
@@ -1547,7 +1575,8 @@ export function screeningSynthesisPrompt(
   debate: string,
   gapAnalysis: string,
   profile: CloProfile,
-  reportPeriodContext?: string
+  reportPeriodContext?: string,
+  buyList?: BuyListItem[]
 ): { system: string; user: string } {
   const portfolioState = formatPortfolioState(profile.extractedPortfolio);
 
@@ -1555,6 +1584,8 @@ export function screeningSynthesisPrompt(
     system: `You are synthesizing a credit panel loan screening session into 3-5 structured loan opportunity ideas.
 
 The CLO's PPM/Listing Particulars and compliance reports are attached as document content. Every constraint check must reference the actual current portfolio state and PPM limits.
+
+IMPORTANT: When a buy list is provided, synthesized ideas should primarily come FROM the buy list with actual loan names and metrics. Use the specific obligor names, spreads, ratings, and other data from the buy list items. You may include 1-2 ideas outside the buy list if the debate surfaced compelling opportunities, but the majority of ideas should reference real buy list candidates.
 
 For each idea, output:
 
@@ -1604,6 +1635,7 @@ ${gapAnalysis}
 ${formatConstraints(profile.extractedConstraints, "full") ? `\nPPM CONSTRAINTS (use for constraint checks):\n${formatConstraints(profile.extractedConstraints, "full")}` : ""}
 ${portfolioState ? `\nCURRENT PORTFOLIO STATE:\n${portfolioState}` : ""}
 ${reportPeriodContext ? `\nCOMPLIANCE REPORT DATA (use actual compliance numbers for constraint checks and feasibility scoring):\n${reportPeriodContext}` : ""}
+${buyList && buyList.length > 0 ? `\nBUY LIST (synthesized ideas should primarily come from these candidates):\n${formatBuyList(buyList)}` : ""}
 
 CLO Manager Profile:
 ${formatProfile(profile)}`,

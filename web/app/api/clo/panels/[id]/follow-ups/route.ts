@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth-helpers";
 import { query } from "@/lib/db";
 import { decryptApiKey } from "@/lib/crypto";
 import { verifyPanelAccess } from "@/lib/clo/access";
+import { getBuyListForProfile, formatBuyList } from "@/lib/clo/buy-list";
 import type { PanelMember } from "@/lib/clo/types";
 import { WEB_SEARCH_TOOL, processAnthropicStream } from "@/lib/claude-stream";
 import { getLatestBriefing } from "@/lib/briefing";
@@ -32,7 +33,8 @@ function buildPanelFollowUpPrompt(
     title: string;
     borrower_name: string;
     raw_files: Record<string, string>;
-  }
+  },
+  buyListContext?: string
 ): string {
   const memberProfiles = members
     .map(
@@ -85,7 +87,7 @@ Spread targets: ${profile.spread_targets || "Not specified"}
 Reinvestment period: ${profile.reinvestment_period || "Not specified"}
 Portfolio description: ${profile.portfolio_description || "Not specified"}
 Beliefs & biases: ${profile.beliefs_and_biases || "Not specified"}
-${constraintsSection}
+${constraintsSection}${buyListContext ? `\nBUY LIST CONTEXT:\n${buyListContext}\n` : ""}
 PANEL MEMBERS:
 ${memberProfiles}
 ${analysisSection}
@@ -237,12 +239,15 @@ export async function POST(
     extracted_constraints: {}, documents: [],
   };
 
+  const buyListItems = await getBuyListForProfile(panels[0].profile_id);
+  const buyListCtx = formatBuyList(buyListItems);
+
   const briefing = await getLatestBriefing();
   const briefingSection = briefing
     ? `\n\nMARKET INTELLIGENCE (today's briefing — reference when relevant, do not repeat verbatim):\n${briefing}`
     : "";
   const systemPrompt =
-    buildPanelFollowUpPrompt(question, mode, targetMember, members, profile, analysis) +
+    buildPanelFollowUpPrompt(question, mode, targetMember, members, profile, analysis, buyListCtx || undefined) +
     briefingSection;
 
   const userRows = await query<{ encrypted_api_key: Buffer; api_key_iv: Buffer }>(

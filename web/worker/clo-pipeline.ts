@@ -10,6 +10,7 @@ import {
 } from "../lib/clo/parsers/analysis.js";
 import { getRecentAnalysisSummaries } from "../lib/clo/history.js";
 import { rowToProfile } from "../lib/clo/access.js";
+import { getBuyListForProfile } from "../lib/clo/buy-list.js";
 import type { PanelMember } from "../lib/clo/types.js";
 import { chunkPipelineDocuments, type PipelineDocument } from "../lib/clo/pdf-chunking.js";
 import {
@@ -398,6 +399,9 @@ export async function runAnalysisPipeline(
   // Fetch compliance report data for richer context in all pipeline phases
   const reportPeriodContext = await getReportPeriodContext(pool, analysisRow.profile_id);
 
+  // Fetch buy list for this profile
+  const buyListItems = await getBuyListForProfile(analysisRow.profile_id);
+
   // Inject daily briefings into the first phase so the AI has current market context
   const [generalBriefing, cloBriefing] = await Promise.all([
     getLatestBriefing(pool),
@@ -413,7 +417,7 @@ export async function runAnalysisPipeline(
   // Phase 1: Credit Analysis
   if (!rawFiles["credit-analysis.md"]) {
     await callbacks.updatePhase("credit-analysis");
-    const prompt = creditAnalysisPrompt(analysis, profile, reportPeriodContext || undefined);
+    const prompt = creditAnalysisPrompt(analysis, profile, reportPeriodContext || undefined, buyListItems);
     const result = await callClaude(client, prompt.system + briefingSection, prompt.user, 8192, undefined, allDocuments, [WEB_SEARCH_TOOL]);
     rawFiles["credit-analysis.md"] = result;
     await callbacks.updateRawFiles(rawFiles);
@@ -468,7 +472,8 @@ export async function runAnalysisPipeline(
       rawFiles["credit-analysis.md"],
       profile,
       history,
-      reportPeriodContext || undefined
+      reportPeriodContext || undefined,
+      buyListItems
     );
     const result = await callClaude(client, prompt.system, prompt.user, 8192, undefined, allDocuments, [WEB_SEARCH_TOOL]);
     rawFiles["individual-assessments.md"] = result;
@@ -485,7 +490,8 @@ export async function runAnalysisPipeline(
       rawFiles["individual-assessments.md"],
       rawFiles["credit-analysis.md"],
       profile,
-      reportPeriodContext || undefined
+      reportPeriodContext || undefined,
+      buyListItems
     );
     const result = await callClaude(client, prompt.system, prompt.user, 16384, undefined, allDocuments, [WEB_SEARCH_TOOL]);
     rawFiles["debate.md"] = result;
@@ -502,7 +508,8 @@ export async function runAnalysisPipeline(
       rawFiles["debate.md"],
       rawFiles["credit-analysis.md"],
       profile,
-      reportPeriodContext || undefined
+      reportPeriodContext || undefined,
+      buyListItems
     );
     const result = await callClaude(client, prompt.system, prompt.user, 8192, undefined, allDocuments, [WEB_SEARCH_TOOL]);
     rawFiles["premortem.md"] = result;
@@ -521,7 +528,8 @@ export async function runAnalysisPipeline(
       profile,
       analysis.title,
       rawFiles["premortem.md"],
-      reportPeriodContext || undefined
+      reportPeriodContext || undefined,
+      buyListItems
     );
     const result = await callClaude(client, prompt.system, prompt.user, 8192, undefined, allDocuments);
     rawFiles["memo.md"] = result;
@@ -538,7 +546,8 @@ export async function runAnalysisPipeline(
       rawFiles["credit-analysis.md"],
       profile,
       rawFiles["premortem.md"],
-      reportPeriodContext || undefined
+      reportPeriodContext || undefined,
+      buyListItems
     );
     const result = await callClaude(client, prompt.system, prompt.user, 8192, undefined, allDocuments);
     rawFiles["risk-assessment.md"] = result;
@@ -557,7 +566,8 @@ export async function runAnalysisPipeline(
       allMembers,
       profile,
       rawFiles["premortem.md"],
-      reportPeriodContext || undefined
+      reportPeriodContext || undefined,
+      buyListItems
     );
     const result = await callClaude(client, prompt.system, prompt.user, 8192, undefined, allDocuments);
     rawFiles["recommendation.md"] = result;
@@ -611,6 +621,9 @@ export async function runScreeningPipeline(
   // Fetch compliance report data for richer context
   const reportPeriodContext = await getReportPeriodContext(pool, screeningRow.profile_id);
 
+  // Fetch buy list for this profile
+  const buyListItems = await getBuyListForProfile(screeningRow.profile_id);
+
   // Re-derive parsed data from existing raw files if missing (handles partial failure resume)
   if (rawFiles["gap-analysis.md"] && !parsedData.gapAnalysis) {
     parsedData.gapAnalysis = rawFiles["gap-analysis.md"];
@@ -624,7 +637,7 @@ export async function runScreeningPipeline(
   if (!rawFiles["gap-analysis.md"]) {
     await callbacks.updatePhase("gap-analysis");
     const recentAnalyses = await getRecentAnalysisSummaries(pool, screeningRow.panel_id);
-    const prompt = portfolioGapAnalysisPrompt(profile, recentAnalyses, reportPeriodContext || undefined);
+    const prompt = portfolioGapAnalysisPrompt(profile, recentAnalyses, reportPeriodContext || undefined, buyListItems);
     const result = await callClaude(client, prompt.system, prompt.user, 8192, undefined, profileDocuments, [WEB_SEARCH_TOOL]);
     rawFiles["gap-analysis.md"] = result;
     await callbacks.updateRawFiles(rawFiles);
@@ -640,7 +653,8 @@ export async function runScreeningPipeline(
       rawFiles["gap-analysis.md"],
       focusArea,
       profile,
-      reportPeriodContext || undefined
+      reportPeriodContext || undefined,
+      buyListItems
     );
     const result = await callClaude(client, prompt.system, prompt.user, 16384, undefined, profileDocuments, [WEB_SEARCH_TOOL]);
     rawFiles["screening-debate.md"] = result;
@@ -654,7 +668,8 @@ export async function runScreeningPipeline(
       rawFiles["screening-debate.md"],
       rawFiles["gap-analysis.md"],
       profile,
-      reportPeriodContext || undefined
+      reportPeriodContext || undefined,
+      buyListItems
     );
     const result = await callClaude(client, prompt.system, prompt.user, 8192, undefined, profileDocuments, [WEB_SEARCH_TOOL]);
     rawFiles["screening-synthesis.md"] = result;

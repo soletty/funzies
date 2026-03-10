@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth-helpers";
 import { query } from "@/lib/db";
 import { decryptApiKey } from "@/lib/crypto";
 import { getUserBriefingDigest } from "@/lib/briefing";
+import { getBuyListForUser, formatBuyList } from "@/lib/clo/buy-list";
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -52,7 +53,13 @@ export async function GET() {
       .filter(Boolean)
       .join("\n");
 
-    const result = await getUserBriefingDigest(user.id, "clo", apiKey, profileContext);
+    const buyListItems = await getBuyListForUser(user.id);
+    const buyListContext = formatBuyList(buyListItems);
+    const fullProfileContext = buyListContext
+      ? `${profileContext}\n\nBUY LIST (candidate loans under consideration):\n${buyListContext}\n\nHighlight any briefing items relevant to the buy list companies, sectors, or credit themes.`
+      : profileContext;
+
+    const result = await getUserBriefingDigest(user.id, "clo", apiKey, fullProfileContext);
     return NextResponse.json(result);
   } catch (err) {
     console.error("[clo/briefing] Error generating briefing:", err);

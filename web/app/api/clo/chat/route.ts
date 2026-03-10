@@ -5,6 +5,7 @@ import { decryptApiKey } from "@/lib/crypto";
 import { getProfileForUser, getProfileWithDocuments, getPanelForUser, rowToProfile, getDealForProfile, getLatestReportPeriod, getReportPeriodData, getEvents, getOverflow } from "@/lib/clo/access";
 import { seniorAnalystSystemPrompt, formatReportPeriodState } from "@/worker/clo-prompts";
 import { getPortfolioSnapshot, getRecentAnalysisBriefs } from "@/lib/clo/history";
+import { getBuyListForProfile } from "@/lib/clo/buy-list";
 import { WEB_SEARCH_TOOL, processAnthropicStream } from "@/lib/claude-stream";
 import { getLatestBriefing } from "@/lib/briefing";
 import { fitDocumentsToPageLimit } from "@/lib/clo/pdf-chunking";
@@ -89,6 +90,9 @@ export async function POST(request: NextRequest) {
   // Convert raw DB row to CloProfile type
   const cloProfile = rowToProfile(profile as unknown as Record<string, unknown>);
 
+  // Fetch buy list for this profile
+  const buyListItems = await getBuyListForProfile(cloProfile.id);
+
   // Fetch new extraction data for richer context
   const deal = await getDealForProfile(cloProfile.id);
   let reportPeriodContext = "";
@@ -111,7 +115,7 @@ export async function POST(request: NextRequest) {
     ? `\n\nRECENT ANALYSIS CONCLUSIONS (reference when the user asks about specific credits):\n${analysisBriefs}`
     : "";
   const systemPrompt =
-    seniorAnalystSystemPrompt(cloProfile, portfolioSnapshot, reportPeriodContext || undefined) + analysisSection + briefingSection;
+    seniorAnalystSystemPrompt(cloProfile, portfolioSnapshot, reportPeriodContext || undefined, buyListItems) + analysisSection + briefingSection;
 
   // Only fetch heavy document data on the first turn of a conversation
   // to avoid pulling 20MB+ from the DB on every subsequent message.
