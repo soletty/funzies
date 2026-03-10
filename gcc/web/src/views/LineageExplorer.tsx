@@ -749,7 +749,7 @@ export default function LineageExplorer({ onSelectEntity }: Props) {
               className="inline-block px-1.5 py-0.5 rounded mr-1 text-[10px]"
               style={{ background: 'rgba(196, 100, 58, 0.2)', color: '#C4643A' }}
             >
-              {tooltip.node.nodeType.replace('_', ' ')}
+              {(tooltip.node.nodeType || 'unknown').replace('_', ' ')}
             </span>
             {tooltip.node.lineage && <span>{tooltip.node.lineage}</span>}
           </div>
@@ -804,7 +804,7 @@ export default function LineageExplorer({ onSelectEntity }: Props) {
                     className="inline-block px-1 py-0.5 rounded text-[9px] font-medium shrink-0"
                     style={{ background: 'rgba(196, 100, 58, 0.15)', color: '#C4643A' }}
                   >
-                    {r.nodeType.replace('_', ' ')}
+                    {(r.nodeType || 'unknown').replace('_', ' ')}
                   </span>
                   <span className="truncate text-text">{r.name}</span>
                 </button>

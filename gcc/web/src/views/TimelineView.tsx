@@ -7,488 +7,330 @@ interface TimelineViewProps {
   onSelectEntity?: (type: string, id: string) => void;
 }
 
-const EVENT_TYPE_COLORS: Record<string, string> = {
-  political: '#2C3E50',
-  military: '#C0392B',
-  coup: '#C0392B',
-  palace_coup: '#C0392B',
-  political_coup: '#C0392B',
-  coup_attempt: '#C0392B',
-  battle: '#C0392B',
-  tribal_battle: '#C0392B',
-  military_conflict: '#C0392B',
-  military_campaign: '#C0392B',
-  military_conquest: '#C0392B',
-  military_victory: '#C0392B',
-  military_defeat: '#C0392B',
-  military_action: '#C0392B',
-  military_occupation: '#C0392B',
-  military_alliance: '#C0392B',
-  conflict: '#C0392B',
-  civil_war: '#C0392B',
-  war: '#C0392B',
-  conquest: '#C0392B',
-  rebellion: '#C0392B',
-  insurrection: '#C0392B',
-  resistance: '#C0392B',
-  assassination: '#C0392B',
-  treaty: '#C4643A',
-  diplomatic_treaty: '#C4643A',
-  diplomatic: '#C4643A',
-  diplomatic_visit: '#C4643A',
-  diplomatic_mission: '#C4643A',
-  diplomatic_appointment: '#C4643A',
-  political_agreement: '#C4643A',
-  founding: '#1ABC9C',
-  political_founding: '#1ABC9C',
-  administrative_founding: '#1ABC9C',
-  institutional_founding: '#1ABC9C',
-  organization_founding: '#1ABC9C',
-  federation: '#1ABC9C',
-  independence: '#1ABC9C',
-  establishment: '#1ABC9C',
-  discovery: '#8E44AD',
-  creative_work: '#8E44AD',
-  educational: '#8E44AD',
-  cultural: '#8E44AD',
-  religious: '#8E44AD',
-  religious_reform: '#8E44AD',
+const CATEGORY_MAP: Record<string, { label: string; color: string }> = {
+  political: { label: 'Political', color: '#2C3E50' },
+  military: { label: 'Military', color: '#C0392B' },
+  treaty: { label: 'Diplomatic', color: '#C4643A' },
+  founding: { label: 'Founding', color: '#1ABC9C' },
+  discovery: { label: 'Cultural', color: '#8E44AD' },
+  migration: { label: 'Migration', color: '#D4876A' },
+  other: { label: 'Other', color: '#7f8c8d' },
 };
 
-const EVENT_TYPE_CATEGORIES: Record<string, string> = {
-  political: 'Political',
-  military: 'Military',
-  treaty: 'Treaty / Diplomatic',
-  founding: 'Founding',
-  discovery: 'Discovery / Cultural',
-  other: 'Other',
-};
+const MILITARY_TYPES = new Set([
+  'military', 'coup', 'palace_coup', 'political_coup', 'coup_attempt',
+  'battle', 'tribal_battle', 'military_conflict', 'military_campaign',
+  'military_conquest', 'military_victory', 'military_defeat', 'military_action',
+  'military_occupation', 'military_alliance', 'conflict', 'civil_war', 'war',
+  'conquest', 'rebellion', 'insurrection', 'resistance', 'assassination',
+]);
 
-const CATEGORY_COLORS: Record<string, string> = {
-  political: '#2C3E50',
-  military: '#C0392B',
-  treaty: '#C4643A',
-  founding: '#1ABC9C',
-  discovery: '#8E44AD',
-  other: '#7f8c8d',
-};
+const TREATY_TYPES = new Set([
+  'treaty', 'diplomatic_treaty', 'diplomatic', 'diplomatic_visit',
+  'diplomatic_mission', 'diplomatic_appointment', 'political_agreement',
+]);
 
-function getEventColor(eventType: string | null): string {
-  if (!eventType) return '#7f8c8d';
-  return EVENT_TYPE_COLORS[eventType] ?? '#7f8c8d';
-}
+const FOUNDING_TYPES = new Set([
+  'founding', 'political_founding', 'administrative_founding',
+  'institutional_founding', 'organization_founding', 'federation',
+  'independence', 'establishment',
+]);
 
-function getEventCategory(eventType: string | null): string {
+const CULTURAL_TYPES = new Set([
+  'discovery', 'creative_work', 'educational', 'cultural', 'religious', 'religious_reform',
+]);
+
+function getCategory(eventType: string | null): string {
   if (!eventType) return 'other';
-  if (EVENT_TYPE_COLORS[eventType] === '#2C3E50') return 'political';
-  if (EVENT_TYPE_COLORS[eventType] === '#C0392B') return 'military';
-  if (EVENT_TYPE_COLORS[eventType] === '#C4643A') return 'treaty';
-  if (EVENT_TYPE_COLORS[eventType] === '#1ABC9C') return 'founding';
-  if (EVENT_TYPE_COLORS[eventType] === '#8E44AD') return 'discovery';
+  if (eventType === 'political') return 'political';
+  if (eventType === 'migration') return 'migration';
+  if (MILITARY_TYPES.has(eventType)) return 'military';
+  if (TREATY_TYPES.has(eventType)) return 'treaty';
+  if (FOUNDING_TYPES.has(eventType)) return 'founding';
+  if (CULTURAL_TYPES.has(eventType)) return 'discovery';
   return 'other';
 }
 
-const MIN_YEAR = 1500;
-const MAX_YEAR = 2026;
-const ZOOM_LEVELS = [6, 9, 12, 18, 24, 36];
+function getColor(eventType: string | null): string {
+  return CATEGORY_MAP[getCategory(eventType)]?.color ?? '#7f8c8d';
+}
 
-function yearToX(year: number, pixelsPerYear: number): number {
-  return (year - MIN_YEAR) * pixelsPerYear;
+function parseYear(y: unknown): number | null {
+  if (typeof y === 'number') return y;
+  if (typeof y === 'string') {
+    const n = parseInt(y, 10);
+    return isNaN(n) ? null : n;
+  }
+  return null;
 }
 
 export default function TimelineView({ onSelectEntity }: TimelineViewProps) {
   const data = timelineData as TimelineData;
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const [expandedEventId, setExpandedEventId] = useState<string | null>(null);
-  const [zoomIndex, setZoomIndex] = useState(2);
+  const listRef = useRef<HTMLDivElement>(null);
+  const [selectedEvent, setSelectedEvent] = useState<string | null>(null);
   const [activeFilters, setActiveFilters] = useState<Set<string>>(
-    new Set(Object.keys(EVENT_TYPE_CATEGORIES))
+    new Set(Object.keys(CATEGORY_MAP))
   );
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeEra, setActiveEra] = useState<string | null>(null);
+  const eraRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
-  const pixelsPerYear = ZOOM_LEVELS[zoomIndex];
-  const totalWidth = (MAX_YEAR - MIN_YEAR) * pixelsPerYear;
+  // Filter events that have valid years
+  const allEvents = useMemo(() => {
+    return data.events
+      .map(e => ({ ...e, parsedYear: parseYear(e.year) }))
+      .filter((e): e is typeof e & { parsedYear: number } => e.parsedYear !== null)
+      .sort((a, b) => a.parsedYear - b.parsedYear);
+  }, [data.events]);
 
   const filteredEvents = useMemo(() => {
-    return data.events.filter((event) => {
-      const year = typeof event.year === 'number' ? event.year : parseInt(String(event.year), 10);
-      if (isNaN(year) || year < MIN_YEAR) return false;
-      const category = getEventCategory(event.eventType);
-      return activeFilters.has(category);
+    return allEvents.filter(e => {
+      const cat = getCategory(e.eventType);
+      if (!activeFilters.has(cat)) return false;
+      if (activeEra) {
+        const era = data.eras.find(er => er.id === activeEra);
+        if (era && (e.parsedYear < era.startYear || e.parsedYear > era.endYear)) return false;
+      }
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const matchTitle = e.title?.toLowerCase().includes(q);
+        const matchDesc = e.description?.toLowerCase().includes(q);
+        const matchParticipant = e.participants.some(p => p.entityId.replace(/_/g, ' ').toLowerCase().includes(q));
+        if (!matchTitle && !matchDesc && !matchParticipant) return false;
+      }
+      return true;
     });
-  }, [data.events, activeFilters]);
+  }, [allEvents, activeFilters, activeEra, searchQuery, data.eras]);
 
-  const sortedEvents = useMemo(() => {
-    return [...filteredEvents].sort((a, b) => {
-      const ya = typeof a.year === 'number' ? a.year : parseInt(String(a.year), 10);
-      const yb = typeof b.year === 'number' ? b.year : parseInt(String(b.year), 10);
-      return ya - yb;
-    });
+  // Group events by decade
+  const decades = useMemo(() => {
+    const groups = new Map<number, typeof filteredEvents>();
+    for (const event of filteredEvents) {
+      const decade = Math.floor(event.parsedYear / 10) * 10;
+      if (!groups.has(decade)) groups.set(decade, []);
+      groups.get(decade)!.push(event);
+    }
+    return Array.from(groups.entries()).sort((a, b) => a[0] - b[0]);
   }, [filteredEvents]);
 
-  const yearMarkers = useMemo(() => {
-    const markers: number[] = [];
-    const step = pixelsPerYear >= 18 ? 10 : 25;
-    for (let y = Math.ceil(MIN_YEAR / step) * step; y <= MAX_YEAR; y += step) {
-      markers.push(y);
-    }
-    return markers;
-  }, [pixelsPerYear]);
-
-  const scrollToYear = useCallback(
-    (year: number) => {
-      if (!scrollRef.current) return;
-      const x = yearToX(year, pixelsPerYear);
-      scrollRef.current.scrollTo({ left: x - scrollRef.current.clientWidth / 3, behavior: 'smooth' });
-    },
-    [pixelsPerYear]
-  );
-
-  const handleZoomIn = useCallback(() => {
-    setZoomIndex((i) => Math.min(i + 1, ZOOM_LEVELS.length - 1));
-  }, []);
-
-  const handleZoomOut = useCallback(() => {
-    setZoomIndex((i) => Math.max(i - 1, 0));
-  }, []);
-
   const toggleFilter = useCallback((category: string) => {
-    setActiveFilters((prev) => {
+    setActiveFilters(prev => {
       const next = new Set(prev);
-      if (next.has(category)) {
-        next.delete(category);
-      } else {
-        next.add(category);
-      }
+      if (next.has(category)) next.delete(category);
+      else next.add(category);
       return next;
     });
   }, []);
 
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const handleWheel = (e: WheelEvent) => {
-      if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
-      e.preventDefault();
-      el.scrollLeft += e.deltaY;
-    };
-    el.addEventListener('wheel', handleWheel, { passive: false });
-    return () => el.removeEventListener('wheel', handleWheel);
+  const scrollToEra = useCallback((eraId: string) => {
+    setActiveEra(prev => prev === eraId ? null : eraId);
   }, []);
+
+  // Scroll to decade when era filter changes
+  useEffect(() => {
+    if (activeEra && listRef.current) {
+      const era = data.eras.find(e => e.id === activeEra);
+      if (era) {
+        const targetDecade = Math.floor(era.startYear / 10) * 10;
+        const el = eraRefs.current.get(String(targetDecade));
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
+    }
+  }, [activeEra, data.eras]);
 
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)]">
-      {/* Controls bar */}
-      <div className="bg-bg/90 backdrop-blur-sm border-b border-border px-3 sm:px-4 py-2 sm:py-3 flex flex-wrap items-center gap-2 sm:gap-3 z-10">
-        {/* Era jump buttons */}
-        <div className="flex items-center gap-1.5 mr-4">
-          <span className="text-xs font-medium text-text-tertiary uppercase tracking-wider mr-1">Eras</span>
-          {data.eras.map((era) => (
+      {/* Controls */}
+      <div className="bg-bg/95 backdrop-blur-sm border-b border-border px-4 sm:px-6 py-3 sm:py-4 space-y-3 z-10">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h1 className="font-display text-xl sm:text-2xl font-bold text-text">Timeline</h1>
+            <p className="text-text-tertiary text-xs mt-0.5">
+              {filteredEvents.length} of {allEvents.length} events
+            </p>
+          </div>
+
+          {/* Search */}
+          <div className="relative w-48 sm:w-64">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Search events..."
+              className="w-full text-xs bg-bg-subtle border border-border rounded-lg px-3 py-2 text-text
+                         focus:outline-none focus:ring-1 focus:ring-accent placeholder:text-text-tertiary"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-text-tertiary hover:text-text text-xs"
+              >
+                &times;
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Era pills + filter pills on same row */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider mr-1">Era</span>
+          {data.eras.map(era => (
             <button
               key={era.id}
-              onClick={() => scrollToYear(era.startYear)}
-              className="px-2.5 py-1.5 text-xs font-medium rounded-full transition-all hover:scale-105"
+              onClick={() => scrollToEra(era.id)}
+              className="px-2 py-1 text-[11px] font-medium rounded-md transition-all"
               style={{
-                backgroundColor: era.color + '18',
-                color: era.color,
-                border: `1px solid ${era.color}40`,
+                backgroundColor: activeEra === era.id ? era.color : era.color + '15',
+                color: activeEra === era.id ? 'white' : era.color,
+                border: `1px solid ${activeEra === era.id ? era.color : era.color + '30'}`,
               }}
             >
               {era.label}
             </button>
           ))}
-        </div>
 
-        {/* Divider */}
-        <div className="w-px h-6 bg-border" />
+          <div className="w-px h-5 bg-border mx-1" />
 
-        {/* Event type filters */}
-        <div className="flex items-center gap-1.5">
-          <span className="text-xs font-medium text-text-tertiary uppercase tracking-wider mr-1">Types</span>
-          {Object.entries(EVENT_TYPE_CATEGORIES).map(([key, label]) => (
+          <span className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider mr-1">Type</span>
+          {Object.entries(CATEGORY_MAP).map(([key, { label, color }]) => (
             <button
               key={key}
               onClick={() => toggleFilter(key)}
-              className="px-2.5 py-1.5 text-xs font-medium rounded-full transition-all"
+              className="px-2 py-1 text-[11px] font-medium rounded-md transition-all"
               style={{
-                backgroundColor: activeFilters.has(key) ? CATEGORY_COLORS[key] : 'transparent',
-                color: activeFilters.has(key) ? 'white' : CATEGORY_COLORS[key],
-                border: `1px solid ${CATEGORY_COLORS[key]}60`,
-                opacity: activeFilters.has(key) ? 1 : 0.5,
+                backgroundColor: activeFilters.has(key) ? color : 'transparent',
+                color: activeFilters.has(key) ? 'white' : color,
+                border: `1px solid ${color}50`,
+                opacity: activeFilters.has(key) ? 1 : 0.4,
               }}
             >
               {label}
             </button>
           ))}
         </div>
-
-        {/* Divider */}
-        <div className="w-px h-6 bg-border" />
-
-        {/* Zoom controls */}
-        <div className="flex items-center gap-1">
-          <button
-            onClick={handleZoomOut}
-            disabled={zoomIndex === 0}
-            className="w-9 h-9 flex items-center justify-center rounded-full border border-border text-text-secondary hover:border-border-strong disabled:opacity-30 transition-colors"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <line x1="5" y1="12" x2="19" y2="12" />
-            </svg>
-          </button>
-          <span className="text-xs text-text-tertiary w-8 text-center">{pixelsPerYear}px</span>
-          <button
-            onClick={handleZoomIn}
-            disabled={zoomIndex === ZOOM_LEVELS.length - 1}
-            className="w-9 h-9 flex items-center justify-center rounded-full border border-border text-text-secondary hover:border-border-strong disabled:opacity-30 transition-colors"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <line x1="12" y1="5" x2="12" y2="19" />
-              <line x1="5" y1="12" x2="19" y2="12" />
-            </svg>
-          </button>
-        </div>
-
-        {/* Event count */}
-        <span className="text-xs text-text-tertiary ml-auto">
-          {sortedEvents.length} events
-        </span>
       </div>
 
-      {/* Scrollable timeline area */}
-      <div
-        ref={scrollRef}
-        className="flex-1 overflow-x-auto overflow-y-hidden relative"
-        style={{ scrollSnapType: 'x proximity' }}
-      >
-        <div className="relative" style={{ width: totalWidth + 200, minHeight: '100%' }}>
-          {/* Era bands at top */}
-          <div className="sticky top-0 z-20 bg-bg/95 backdrop-blur-sm border-b border-border">
-            <div className="relative h-16">
-              {data.eras.map((era, i) => {
-                const left = yearToX(Math.max(era.startYear, MIN_YEAR), pixelsPerYear);
-                const right = yearToX(Math.min(era.endYear, MAX_YEAR), pixelsPerYear);
-                const width = right - left;
-                return (
-                  <div
-                    key={era.id}
-                    className="absolute flex items-center px-2 rounded-sm overflow-hidden cursor-pointer transition-opacity hover:opacity-90"
-                    style={{
-                      left: left + 60,
-                      width,
-                      top: (i % 3) * 20 + 2,
-                      height: 18,
-                      backgroundColor: era.color + '25',
-                      borderLeft: `3px solid ${era.color}`,
-                      scrollSnapAlign: 'start',
-                    }}
-                    onClick={() => scrollToYear(era.startYear)}
-                  >
-                    <span
-                      className="text-[10px] font-medium truncate whitespace-nowrap"
-                      style={{ color: era.color }}
-                    >
-                      {era.label} ({era.startYear}&#8211;{era.endYear})
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+      {/* Vertical scrolling timeline */}
+      <div ref={listRef} className="flex-1 overflow-y-auto overflow-x-hidden">
+        <div className="max-w-3xl mx-auto px-4 sm:px-8 py-6 sm:py-10 relative">
+          {/* Central vertical line */}
+          <div className="absolute left-[27px] sm:left-[35px] top-0 bottom-0 w-px bg-border" />
 
-          {/* Timeline axis and content */}
-          <div className="relative" style={{ paddingTop: 20 }}>
-            {/* Central axis line */}
+          {decades.map(([decade, events]) => (
             <div
-              className="absolute left-[60px] right-0"
-              style={{
-                top: 280,
-                height: 3,
-                background: 'linear-gradient(to right, #C4643A, #D4876A, #C4643A)',
-                borderRadius: 2,
-              }}
-            />
-
-            {/* Decorative endpoints */}
-            <div
-              className="absolute rounded-full"
-              style={{
-                left: 54,
-                top: 275,
-                width: 12,
-                height: 12,
-                backgroundColor: '#C4643A',
-                border: '2px solid #A84E2E',
-              }}
-            />
-            <div
-              className="absolute rounded-full"
-              style={{
-                left: totalWidth + 60,
-                top: 275,
-                width: 12,
-                height: 12,
-                backgroundColor: '#C4643A',
-                border: '2px solid #A84E2E',
-              }}
-            />
-
-            {/* Year markers */}
-            {yearMarkers.map((year) => {
-              const x = yearToX(year, pixelsPerYear) + 60;
-              return (
-                <div key={year} className="absolute" style={{ left: x }}>
-                  {/* Marker dot */}
-                  <div
-                    className="absolute rounded-full"
-                    style={{
-                      left: -4,
-                      top: 277,
-                      width: 8,
-                      height: 8,
-                      backgroundColor: '#C4643A',
-                    }}
-                  />
-                  {/* Year label */}
-                  <span
-                    className="absolute text-[10px] text-accent-hover font-medium"
-                    style={{ left: -16, top: 292, width: 40, textAlign: 'center' }}
-                  >
-                    {year}
-                  </span>
+              key={decade}
+              ref={el => { if (el) eraRefs.current.set(String(decade), el); }}
+            >
+              {/* Decade marker */}
+              <div className="relative flex items-center mb-4 mt-6 first:mt-0">
+                <div
+                  className="relative z-10 w-[18px] h-[18px] sm:w-[22px] sm:h-[22px] rounded-full border-2 border-accent bg-bg flex items-center justify-center flex-shrink-0"
+                  style={{ marginLeft: '18px', marginRight: 0 }}
+                >
+                  <div className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-accent" />
                 </div>
-              );
-            })}
+                <span className="ml-3 font-display text-base sm:text-lg font-bold text-text">
+                  {decade}s
+                </span>
+                <span className="ml-2 text-xs text-text-tertiary">
+                  {events.length} event{events.length !== 1 ? 's' : ''}
+                </span>
+              </div>
 
-            {/* Event cards */}
-            {sortedEvents.map((event, index) => {
-              const year = typeof event.year === 'number'
-                ? event.year
-                : parseInt(String(event.year), 10);
-              const x = yearToX(year, pixelsPerYear) + 60;
-              const isAbove = index % 2 === 0;
-              const color = getEventColor(event.eventType);
-              const isExpanded = expandedEventId === event.id;
-
-              return (
-                <EventCard
+              {/* Events in this decade */}
+              {events.map(event => (
+                <TimelineEvent
                   key={event.id}
                   event={event}
-                  x={x}
-                  isAbove={isAbove}
-                  color={color}
-                  isExpanded={isExpanded}
-                  onToggle={() =>
-                    setExpandedEventId(isExpanded ? null : event.id)
-                  }
+                  year={event.parsedYear}
+                  isSelected={selectedEvent === event.id}
+                  onSelect={() => setSelectedEvent(selectedEvent === event.id ? null : event.id)}
                   onSelectEntity={onSelectEntity}
                 />
-              );
-            })}
+              ))}
+            </div>
+          ))}
 
-            {/* Bottom padding */}
-            <div style={{ height: 340 }} />
-          </div>
+          {filteredEvents.length === 0 && (
+            <div className="text-center py-20 text-text-tertiary">
+              <p className="text-lg font-display">No events match your filters</p>
+              <p className="text-sm mt-1">Try adjusting your search or filter criteria</p>
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
 }
 
-interface EventCardProps {
+interface TimelineEventProps {
   event: HistoricalEvent;
-  x: number;
-  isAbove: boolean;
-  color: string;
-  isExpanded: boolean;
-  onToggle: () => void;
+  year: number;
+  isSelected: boolean;
+  onSelect: () => void;
   onSelectEntity?: (type: string, id: string) => void;
 }
 
-function EventCard({
-  event,
-  x,
-  isAbove,
-  color,
-  isExpanded,
-  onToggle,
-  onSelectEntity,
-}: EventCardProps) {
-  const year = typeof event.year === 'number'
-    ? event.year
-    : parseInt(String(event.year), 10);
-  const category = getEventCategory(event.eventType);
-  const categoryLabel = EVENT_TYPE_CATEGORIES[category] ?? 'Other';
+function TimelineEvent({ event, year, isSelected, onSelect, onSelectEntity }: TimelineEventProps) {
+  const color = getColor(event.eventType);
+  const cat = getCategory(event.eventType);
+  const catInfo = CATEGORY_MAP[cat];
 
   return (
-    <div
-      className="absolute"
-      style={{
-        left: x - 80,
-        top: isAbove ? 20 : 310,
-        width: 160,
-        zIndex: isExpanded ? 30 : 10,
-      }}
-    >
-      {/* Connector line from card to axis */}
+    <div className="relative pl-[52px] sm:pl-[62px] pb-3 group">
+      {/* Dot on the line */}
       <div
-        className="absolute left-[80px] w-px"
-        style={{
-          backgroundColor: color + '40',
-          top: isAbove ? '100%' : undefined,
-          bottom: isAbove ? undefined : '100%',
-          height: isAbove ? 280 - 240 : 20,
-        }}
+        className="absolute left-[24px] sm:left-[32px] top-[10px] w-[7px] h-[7px] rounded-full z-10 ring-2 ring-bg transition-transform group-hover:scale-125"
+        style={{ backgroundColor: color }}
       />
 
       {/* Card */}
       <motion.div
-        layout
-        onClick={onToggle}
-        className="relative bg-white rounded-lg cursor-pointer overflow-hidden"
+        onClick={onSelect}
+        className="rounded-lg cursor-pointer overflow-hidden transition-shadow"
         style={{
           borderLeft: `3px solid ${color}`,
-          boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
+          backgroundColor: isSelected ? 'var(--color-bg-raised)' : 'var(--color-bg)',
+          boxShadow: isSelected
+            ? `0 2px 12px rgba(0,0,0,0.08), inset 0 0 0 1px ${color}20`
+            : '0 1px 3px rgba(0,0,0,0.04)',
         }}
-        whileHover={{
-          y: isAbove ? -2 : 2,
-          boxShadow: `0 4px 16px rgba(0,0,0,0.1), 0 0 0 1px ${color}20`,
-        }}
-        transition={{ duration: 0.2 }}
+        whileHover={{ x: 2 }}
+        transition={{ duration: 0.15 }}
       >
-        <div className="p-2.5">
-          {/* Title */}
-          <h3
-            className="font-display text-sm font-semibold leading-tight text-text"
-            style={{ lineHeight: '1.2' }}
-          >
-            {event.title}
-          </h3>
-
-          {/* Year badge + type pill */}
-          <div className="flex items-center gap-1.5 mt-1.5">
+        <div className="px-3 py-2.5 sm:px-4 sm:py-3">
+          {/* Top row: year + category */}
+          <div className="flex items-center gap-2 mb-1">
             <span
-              className="text-[10px] font-bold px-1.5 py-0.5 rounded"
-              style={{ backgroundColor: color + '15', color }}
+              className="text-[11px] font-bold tabular-nums"
+              style={{ color }}
             >
-              {year}
+              {year}{event.endYear ? `–${event.endYear}` : ''}
             </span>
             <span
-              className="text-[9px] font-medium px-1.5 py-0.5 rounded-full"
+              className="text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded"
               style={{ backgroundColor: color + '12', color: color + 'cc' }}
             >
-              {categoryLabel}
+              {catInfo.label}
             </span>
           </div>
 
-          {/* Description (truncated) */}
-          {event.description && !isExpanded && (
-            <p className="text-[11px] text-text-secondary mt-1.5 leading-snug line-clamp-2">
+          {/* Title */}
+          <h3 className="font-display text-sm sm:text-[15px] font-semibold text-text leading-snug">
+            {event.title}
+          </h3>
+
+          {/* Description preview */}
+          {event.description && !isSelected && (
+            <p className="text-xs text-text-secondary mt-1 leading-relaxed line-clamp-2">
               {event.description}
             </p>
           )}
 
-          {/* Participants count */}
-          {event.participants.length > 0 && !isExpanded && (
+          {/* Participant count hint */}
+          {event.participants.length > 0 && !isSelected && (
             <span className="text-[10px] text-text-tertiary mt-1 inline-block">
               {event.participants.length} participant{event.participants.length !== 1 ? 's' : ''}
             </span>
@@ -497,27 +339,27 @@ function EventCard({
 
         {/* Expanded content */}
         <AnimatePresence>
-          {isExpanded && (
+          {isSelected && (
             <motion.div
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: 'auto', opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.25 }}
+              transition={{ duration: 0.2 }}
               className="overflow-hidden"
             >
-              <div className="px-2.5 pb-2.5 border-t border-border pt-2">
+              <div className="px-3 pb-3 sm:px-4 sm:pb-4 border-t border-border/50 pt-2.5 space-y-2.5">
                 {/* Full description */}
                 {event.description && (
-                  <p className="text-[11px] text-text-secondary leading-relaxed mb-2">
+                  <p className="text-xs text-text-secondary leading-relaxed">
                     {event.description}
                   </p>
                 )}
 
-                {/* Significance quote */}
+                {/* Significance */}
                 {event.significance && (
                   <blockquote
-                    className="text-[11px] italic text-text-tertiary border-l-2 pl-2 mb-2"
-                    style={{ borderColor: color + '40' }}
+                    className="text-xs italic text-text-tertiary border-l-2 pl-3"
+                    style={{ borderColor: color + '50' }}
                   >
                     {event.significance}
                   </blockquote>
@@ -525,31 +367,33 @@ function EventCard({
 
                 {/* Outcome */}
                 {event.outcome && (
-                  <p className="text-[11px] text-text-secondary mb-2">
-                    <span className="font-semibold">Outcome:</span> {event.outcome}
+                  <p className="text-xs text-text-secondary">
+                    <span className="font-semibold text-text">Outcome: </span>
+                    {event.outcome}
                   </p>
                 )}
 
                 {/* Participants */}
                 {event.participants.length > 0 && (
-                  <div className="mt-1.5">
+                  <div>
                     <span className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider">
                       Participants
                     </span>
-                    <div className="flex flex-wrap gap-1 mt-1">
+                    <div className="flex flex-wrap gap-1.5 mt-1.5">
                       {event.participants.map((p, i) => (
                         <button
                           key={i}
-                          onClick={(e) => {
+                          onClick={e => {
                             e.stopPropagation();
                             onSelectEntity?.(p.entityType, p.entityId);
                           }}
-                          className="text-[10px] px-1.5 py-0.5 rounded bg-bg-subtle text-text-secondary hover:bg-bg transition-colors"
+                          className="text-[11px] px-2 py-1 rounded-md bg-bg-subtle text-text-secondary
+                                     hover:bg-accent hover:text-white transition-colors"
                           title={p.role ?? undefined}
                         >
                           {p.entityId.replace(/_/g, ' ')}
                           {p.role && (
-                            <span className="text-text-tertiary ml-0.5">({p.role})</span>
+                            <span className="opacity-60 ml-1">({p.role})</span>
                           )}
                         </button>
                       ))}
