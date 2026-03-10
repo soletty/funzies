@@ -143,7 +143,7 @@ async function callClaude(
       model,
       max_tokens: maxTokens,
       messages: [{ role: "user", content }],
-      system: systemPrompt,
+      system: [{ type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } }],
     });
 
     return response.content

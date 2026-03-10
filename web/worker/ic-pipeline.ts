@@ -84,7 +84,7 @@ async function callClaudeSingle(
       model,
       max_tokens: maxTokens,
       messages: [{ role: "user", content }],
-      system: systemPrompt,
+      system: [{ type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } }],
       ...(tools && tools.length > 0 ? { tools } : {}),
     } as Anthropic.MessageCreateParams) as Anthropic.Message;
 

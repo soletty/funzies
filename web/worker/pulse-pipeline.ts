@@ -46,7 +46,7 @@ async function callClaude(
       model: "claude-sonnet-4-20250514",
       max_tokens: maxTokens,
       messages: [{ role: "user", content: userMessage }],
-      system: systemPrompt,
+      system: [{ type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } }],
     });
 
     return response.content
