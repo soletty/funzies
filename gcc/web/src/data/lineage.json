@@ -3751,17 +3751,6 @@
       "size": 9
     },
     {
-      "id": "nonoo_family",
-      "name": "Nonoo Family",
-      "type": "family",
-      "nodeType": "family",
-      "lineage": null,
-      "isRuling": false,
-      "rulesOver": null,
-      "familyType": null,
-      "size": 7
-    },
-    {
       "id": "rouben",
       "name": "Rouben",
       "type": "family",
@@ -3793,17 +3782,6 @@
       "rulesOver": null,
       "familyType": null,
       "size": 13
-    },
-    {
-      "id": "zilkha_family",
-      "name": "Zilkha Family",
-      "type": "family",
-      "nodeType": "family",
-      "lineage": null,
-      "isRuling": false,
-      "rulesOver": null,
-      "familyType": null,
-      "size": 8
     },
     {
       "id": "hankab",
@@ -5027,28 +5005,6 @@
       "size": 6
     },
     {
-      "id": "house_of_al_falahi",
-      "name": "House of Al Falahi",
-      "type": "family",
-      "nodeType": "family",
-      "lineage": null,
-      "isRuling": false,
-      "rulesOver": null,
-      "familyType": null,
-      "size": 6
-    },
-    {
-      "id": "house_of_al_falasi",
-      "name": "House of Al Falasi",
-      "type": "family",
-      "nodeType": "family",
-      "lineage": null,
-      "isRuling": false,
-      "rulesOver": null,
-      "familyType": null,
-      "size": 6
-    },
-    {
       "id": "al_muhannadi",
       "name": "Al Muhannadi",
       "type": "family",
@@ -5080,17 +5036,6 @@
       "rulesOver": null,
       "familyType": null,
       "size": 3
-    },
-    {
-      "id": "al_bu_said_dynasty",
-      "name": "Al Bu Said dynasty",
-      "type": "family",
-      "nodeType": "family",
-      "lineage": null,
-      "isRuling": false,
-      "rulesOver": null,
-      "familyType": null,
-      "size": 6
     },
     {
       "id": "al_faiz",
@@ -5992,7 +5937,7 @@
       "isRuling": false,
       "rulesOver": null,
       "familyType": null,
-      "size": 5
+      "size": 7
     },
     {
       "id": "al_sadr",
@@ -6597,7 +6542,7 @@
       "isRuling": false,
       "rulesOver": null,
       "familyType": null,
-      "size": 5
+      "size": 7
     },
     {
       "id": "al_falahi",
@@ -6608,7 +6553,7 @@
       "isRuling": false,
       "rulesOver": null,
       "familyType": null,
-      "size": 4
+      "size": 6
     },
     {
       "id": "al_jassim",
@@ -7455,7 +7400,7 @@
       "isRuling": false,
       "rulesOver": null,
       "familyType": "tribal_leader",
-      "size": 1
+      "size": 3
     },
     {
       "id": "al_anezi",
@@ -7719,7 +7664,7 @@
       "isRuling": false,
       "rulesOver": null,
       "familyType": "merchant",
-      "size": 1
+      "size": 2
     },
     {
       "id": "somnai",
@@ -8302,7 +8247,7 @@
       "isRuling": false,
       "rulesOver": null,
       "familyType": "mixed",
-      "size": 1
+      "size": 3
     },
     {
       "id": "bin_ham",
@@ -8313,7 +8258,7 @@
       "isRuling": false,
       "rulesOver": null,
       "familyType": "mixed",
-      "size": 1
+      "size": 3
     },
     {
       "id": "al_amiri",
@@ -8368,7 +8313,7 @@
       "isRuling": false,
       "rulesOver": null,
       "familyType": "mixed",
-      "size": 1
+      "size": 2
     },
     {
       "id": "al_makhadhi",
@@ -8434,7 +8379,7 @@
       "isRuling": false,
       "rulesOver": null,
       "familyType": "mixed",
-      "size": 1
+      "size": 4
     },
     {
       "id": "al_shehhi",
@@ -8500,7 +8445,7 @@
       "isRuling": false,
       "rulesOver": null,
       "familyType": "mixed",
-      "size": 1
+      "size": 2
     },
     {
       "id": "al_muhairi",
@@ -9138,7 +9083,7 @@
       "isRuling": false,
       "rulesOver": null,
       "familyType": "merchant",
-      "size": 1
+      "size": 2
     },
     {
       "id": "al_najem",
@@ -9413,7 +9358,7 @@
       "isRuling": false,
       "rulesOver": null,
       "familyType": "merchant",
-      "size": 1
+      "size": 2
     },
     {
       "id": "al_qadhi",
@@ -10194,7 +10139,7 @@
       "isRuling": false,
       "rulesOver": null,
       "familyType": "merchant",
-      "size": 1
+      "size": 3
     },
     {
       "id": "verma",
@@ -13923,7 +13868,7 @@
       "isRuling": false,
       "rulesOver": null,
       "familyType": "merchant",
-      "size": 1
+      "size": 2
     },
     {
       "id": "bukhari",
@@ -14330,7 +14275,7 @@
       "isRuling": false,
       "rulesOver": null,
       "familyType": "merchant",
-      "size": 1
+      "size": 3
     },
     {
       "id": "al_awsi",
@@ -14792,7 +14737,7 @@
       "isRuling": false,
       "rulesOver": null,
       "familyType": "merchant",
-      "size": 1
+      "size": 2
     },
     {
       "id": "emirates_hills_families",
@@ -14902,7 +14847,7 @@
       "isRuling": false,
       "rulesOver": null,
       "familyType": "merchant",
-      "size": 1
+      "size": 2
     },
     {
       "id": "al_shariqi",
@@ -14979,7 +14924,7 @@
       "isRuling": false,
       "rulesOver": null,
       "familyType": "merchant",
-      "size": 1
+      "size": 2
     },
     {
       "id": "al_mazmi",
@@ -14990,7 +14935,7 @@
       "isRuling": false,
       "rulesOver": null,
       "familyType": "merchant",
-      "size": 1
+      "size": 4
     },
     {
       "id": "al_qubaysi",
@@ -15078,7 +15023,7 @@
       "isRuling": false,
       "rulesOver": null,
       "familyType": "merchant",
-      "size": 1
+      "size": 2
     },
     {
       "id": "al_farhan",
@@ -15122,7 +15067,7 @@
       "isRuling": false,
       "rulesOver": null,
       "familyType": "merchant",
-      "size": 1
+      "size": 2
     },
     {
       "id": "al_faresi",
@@ -15243,7 +15188,7 @@
       "isRuling": false,
       "rulesOver": null,
       "familyType": "merchant",
-      "size": 1
+      "size": 2
     },
     {
       "id": "shura",
@@ -15287,7 +15232,7 @@
       "isRuling": false,
       "rulesOver": null,
       "familyType": "merchant",
-      "size": 1
+      "size": 2
     },
     {
       "id": "khouri",
@@ -15298,7 +15243,7 @@
       "isRuling": false,
       "rulesOver": null,
       "familyType": "merchant",
-      "size": 1
+      "size": 2
     },
     {
       "id": "al_yousif",
@@ -15331,7 +15276,7 @@
       "isRuling": false,
       "rulesOver": null,
       "familyType": "merchant",
-      "size": 1
+      "size": 3
     },
     {
       "id": "al_meer",
@@ -15353,7 +15298,7 @@
       "isRuling": false,
       "rulesOver": null,
       "familyType": "merchant",
-      "size": 1
+      "size": 2
     },
     {
       "id": "al_sairafi",
@@ -15375,7 +15320,7 @@
       "isRuling": false,
       "rulesOver": null,
       "familyType": "merchant",
-      "size": 1
+      "size": 2
     },
     {
       "id": "ajami",
@@ -15430,7 +15375,7 @@
       "isRuling": false,
       "rulesOver": null,
       "familyType": "merchant",
-      "size": 1
+      "size": 2
     },
     {
       "id": "safar",
@@ -15441,7 +15386,7 @@
       "isRuling": false,
       "rulesOver": null,
       "familyType": "merchant",
-      "size": 1
+      "size": 2
     },
     {
       "id": "al_khalil",
@@ -15452,7 +15397,7 @@
       "isRuling": false,
       "rulesOver": null,
       "familyType": "merchant",
-      "size": 1
+      "size": 2
     },
     {
       "id": "al_juffairi",
@@ -15463,7 +15408,7 @@
       "isRuling": false,
       "rulesOver": null,
       "familyType": "merchant",
-      "size": 1
+      "size": 2
     },
     {
       "id": "yusuf",
@@ -15474,7 +15419,7 @@
       "isRuling": false,
       "rulesOver": null,
       "familyType": "merchant",
-      "size": 1
+      "size": 3
     },
     {
       "id": "al_kubaisi",
@@ -15485,7 +15430,7 @@
       "isRuling": false,
       "rulesOver": null,
       "familyType": "merchant",
-      "size": 1
+      "size": 4
     },
     {
       "id": "al_sada",
@@ -15507,7 +15452,7 @@
       "isRuling": false,
       "rulesOver": null,
       "familyType": "merchant",
-      "size": 1
+      "size": 3
     },
     {
       "id": "al_sulaibeekh",
@@ -15551,7 +15496,7 @@
       "isRuling": false,
       "rulesOver": null,
       "familyType": "merchant",
-      "size": 1
+      "size": 2
     },
     {
       "id": "al_wadaei",
@@ -15573,7 +15518,7 @@
       "isRuling": false,
       "rulesOver": null,
       "familyType": "merchant",
-      "size": 1
+      "size": 3
     },
     {
       "id": "bin_omran",
@@ -15628,7 +15573,7 @@
       "isRuling": false,
       "rulesOver": null,
       "familyType": "merchant",
-      "size": 1
+      "size": 2
     },
     {
       "id": "bin_lahej",
@@ -15683,7 +15628,7 @@
       "isRuling": false,
       "rulesOver": null,
       "familyType": "merchant",
-      "size": 1
+      "size": 2
     },
     {
       "id": "al_derham",
@@ -15694,7 +15639,7 @@
       "isRuling": false,
       "rulesOver": null,
       "familyType": "merchant",
-      "size": 1
+      "size": 3
     },
     {
       "id": "al_shafi",
@@ -15727,7 +15672,7 @@
       "isRuling": false,
       "rulesOver": null,
       "familyType": "merchant",
-      "size": 1
+      "size": 3
     },
     {
       "id": "al_madfa",
@@ -15771,7 +15716,7 @@
       "isRuling": false,
       "rulesOver": null,
       "familyType": "merchant",
-      "size": 1
+      "size": 2
     },
     {
       "id": "al_shebli",
@@ -15793,7 +15738,7 @@
       "isRuling": false,
       "rulesOver": null,
       "familyType": "merchant",
-      "size": 1
+      "size": 3
     },
     {
       "id": "al_salmi",
@@ -15870,7 +15815,7 @@
       "isRuling": false,
       "rulesOver": null,
       "familyType": "merchant",
-      "size": 1
+      "size": 3
     },
     {
       "id": "al_manji",
@@ -15914,7 +15859,7 @@
       "isRuling": false,
       "rulesOver": null,
       "familyType": "merchant",
-      "size": 1
+      "size": 2
     },
     {
       "id": "al_mahmoudi",
@@ -15991,7 +15936,7 @@
       "isRuling": false,
       "rulesOver": null,
       "familyType": "merchant",
-      "size": 1
+      "size": 2
     },
     {
       "id": "al_asmakh",
@@ -16013,7 +15958,7 @@
       "isRuling": false,
       "rulesOver": null,
       "familyType": "merchant",
-      "size": 1
+      "size": 2
     },
     {
       "id": "al_maha",
@@ -16035,7 +15980,7 @@
       "isRuling": false,
       "rulesOver": null,
       "familyType": "merchant",
-      "size": 1
+      "size": 3
     },
     {
       "id": "sultan",
@@ -16046,7 +15991,7 @@
       "isRuling": false,
       "rulesOver": null,
       "familyType": "merchant",
-      "size": 1
+      "size": 3
     },
     {
       "id": "emke_group_kalyanji",
@@ -16090,7 +16035,7 @@
       "isRuling": false,
       "rulesOver": null,
       "familyType": "merchant",
-      "size": 1
+      "size": 2
     },
     {
       "id": "al_fair",
@@ -16112,7 +16057,7 @@
       "isRuling": false,
       "rulesOver": null,
       "familyType": "merchant",
-      "size": 1
+      "size": 4
     },
     {
       "id": "mohsin_haider_darwish",
@@ -16123,7 +16068,7 @@
       "isRuling": false,
       "rulesOver": null,
       "familyType": "merchant",
-      "size": 1
+      "size": 3
     },
     {
       "id": "al_ameen",
@@ -16134,7 +16079,7 @@
       "isRuling": false,
       "rulesOver": null,
       "familyType": "merchant",
-      "size": 1
+      "size": 2
     },
     {
       "id": "pure_gold",
@@ -16156,7 +16101,7 @@
       "isRuling": false,
       "rulesOver": null,
       "familyType": "merchant",
-      "size": 1
+      "size": 2
     },
     {
       "id": "majid_al_futtaim",
@@ -16167,7 +16112,7 @@
       "isRuling": false,
       "rulesOver": null,
       "familyType": "merchant",
-      "size": 1
+      "size": 4
     },
     {
       "id": "emaar",
@@ -16211,7 +16156,7 @@
       "isRuling": false,
       "rulesOver": null,
       "familyType": "merchant",
-      "size": 1
+      "size": 4
     },
     {
       "id": "alwaleed_bin_talal_al_saud",
@@ -16222,7 +16167,4055 @@
       "isRuling": false,
       "rulesOver": null,
       "familyType": "merchant",
+      "size": 2
+    },
+    {
+      "id": "al_rumayyan",
+      "name": "Al Rumayyan",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
       "size": 1
+    },
+    {
+      "id": "al_jadaan",
+      "name": "Al Jadaan",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 3
+    },
+    {
+      "id": "al_assaf",
+      "name": "Al Assaf",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_kharashi",
+      "name": "Al Kharashi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 2
+    },
+    {
+      "id": "al_hogail",
+      "name": "Al Hogail",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_khudairy",
+      "name": "Al Khudairy",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_shamrani",
+      "name": "Al Shamrani",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 4
+    },
+    {
+      "id": "al_thunaian",
+      "name": "Al Thunaian",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_tuwejri",
+      "name": "Al Tuwejri",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_qasabi",
+      "name": "Al Qasabi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 4
+    },
+    {
+      "id": "al_swaha",
+      "name": "Al Swaha",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_hamdan",
+      "name": "Al Hamdan",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 3
+    },
+    {
+      "id": "al_kharaj",
+      "name": "Al Kharaj",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_mulhim",
+      "name": "Al Mulhim",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_rabeeah",
+      "name": "Al Rabeeah",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_khayat",
+      "name": "Al Khayat",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 2
+    },
+    {
+      "id": "al_mohanna",
+      "name": "Al Mohanna",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_hejailan",
+      "name": "Al Hejailan",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_amro",
+      "name": "Al Amro",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_rawaf",
+      "name": "Al Rawaf",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_munif",
+      "name": "Al Munif",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_shabanah",
+      "name": "Al Shabanah",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 4
+    },
+    {
+      "id": "al_hammad",
+      "name": "Al Hammad",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_ghasham",
+      "name": "Al Ghasham",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_mushawah",
+      "name": "Al Mushawah",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_battal",
+      "name": "Al Battal",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_subaihi",
+      "name": "Al Subaihi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_mohaimeed",
+      "name": "Al Mohaimeed",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 2
+    },
+    {
+      "id": "al_balawi",
+      "name": "Al Balawi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 5
+    },
+    {
+      "id": "al_suwayed",
+      "name": "Al Suwayed",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 2
+    },
+    {
+      "id": "al_mandeel",
+      "name": "Al Mandeel",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_subeai",
+      "name": "Al Subeai",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_mohsen",
+      "name": "Al Mohsen",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 2
+    },
+    {
+      "id": "al_khunaizi",
+      "name": "Al Khunaizi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_ghalib",
+      "name": "Al Ghalib",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_suwaiyed",
+      "name": "Al Suwaiyed",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_madkhali",
+      "name": "Al Madkhali",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_ghobash",
+      "name": "Al Ghobash",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "gargash",
+      "name": "Gargash",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 2
+    },
+    {
+      "id": "al_zeyoudi",
+      "name": "Al Zeyoudi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_jarman",
+      "name": "Al Jarman",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_khoori",
+      "name": "Al Khoori",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 2
+    },
+    {
+      "id": "al_qemzi",
+      "name": "Al Qemzi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_rashedi",
+      "name": "Al Rashedi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_shimmari",
+      "name": "Al Shimmari",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 3
+    },
+    {
+      "id": "al_aryani",
+      "name": "Al Aryani",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_qasemi",
+      "name": "Al Qasemi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 2
+    },
+    {
+      "id": "al_wahedi",
+      "name": "Al Wahedi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_blouki",
+      "name": "Al Blouki",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_sheibani",
+      "name": "Al Sheibani",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_turifi",
+      "name": "Al Turifi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "abdul_rahman",
+      "name": "Abdul Rahman",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_khaleej",
+      "name": "Al Khaleej",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_matar",
+      "name": "Al Matar",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 2
+    },
+    {
+      "id": "al_karam",
+      "name": "Al Karam",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_zahed",
+      "name": "Al Zahed",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_saadoun",
+      "name": "Al Saadoun",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_fadhli",
+      "name": "Al Fadhli",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 3
+    },
+    {
+      "id": "al_huwaila",
+      "name": "Al Huwaila",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_turaiji",
+      "name": "Al Turaiji",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_anzi",
+      "name": "Al Anzi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 2
+    },
+    {
+      "id": "al_sabeeh",
+      "name": "Al Sabeeh",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_mekaimi",
+      "name": "Al Mekaimi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_ramezi",
+      "name": "Al Ramezi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_maawda",
+      "name": "Al Maawda",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_khurainej",
+      "name": "Al Khurainej",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_hashel",
+      "name": "Al Hashel",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_dakheel",
+      "name": "Al Dakheel",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_ateeqi",
+      "name": "Al Ateeqi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 2
+    },
+    {
+      "id": "al_hubail",
+      "name": "Al Hubail",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 2
+    },
+    {
+      "id": "al_khraibut",
+      "name": "Al Khraibut",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_duwailah",
+      "name": "Al Duwailah",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 3
+    },
+    {
+      "id": "al_bloshi",
+      "name": "Al Bloshi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_marafie",
+      "name": "Al Marafie",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 4
+    },
+    {
+      "id": "al_raqem",
+      "name": "Al Raqem",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_hashem",
+      "name": "Al Hashem",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_busairi",
+      "name": "Al Busairi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_duhaim",
+      "name": "Al Duhaim",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_ajlan",
+      "name": "Al Ajlan",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_shayea",
+      "name": "Al Shayea",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_hadban",
+      "name": "Al Hadban",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_khanfour",
+      "name": "Al Khanfour",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_qaed",
+      "name": "Al Qaed",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_dhahrani",
+      "name": "Al Dhahrani",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_saffar",
+      "name": "Al Saffar",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 3
+    },
+    {
+      "id": "al_hamer",
+      "name": "Al Hamer",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 2
+    },
+    {
+      "id": "al_jowder",
+      "name": "Al Jowder",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 2
+    },
+    {
+      "id": "al_amer",
+      "name": "Al Amer",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 3
+    },
+    {
+      "id": "al_delaimy",
+      "name": "Al Delaimy",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_subaiey",
+      "name": "Al Subaiey",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_saati",
+      "name": "Al Saati",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_safran",
+      "name": "Al Safran",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "rajab",
+      "name": "Rajab",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 3
+    },
+    {
+      "id": "radhi",
+      "name": "Radhi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 2
+    },
+    {
+      "id": "al_sindi",
+      "name": "Al Sindi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 2
+    },
+    {
+      "id": "al_jamri",
+      "name": "Al Jamri",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 3
+    },
+    {
+      "id": "al_wefaq",
+      "name": "Al Wefaq",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 2
+    },
+    {
+      "id": "mushaima",
+      "name": "Mushaima",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 3
+    },
+    {
+      "id": "al_sahaf",
+      "name": "Al Sahaf",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_hayki",
+      "name": "Al Hayki",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_shater",
+      "name": "Al Shater",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_borno",
+      "name": "Al Borno",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 3
+    },
+    {
+      "id": "al_tibawi",
+      "name": "Al Tibawi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_ghawi",
+      "name": "Al Ghawi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_tajer",
+      "name": "Al Tajer",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 2
+    },
+    {
+      "id": "al_nabhan",
+      "name": "Al Nabhan",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 4
+    },
+    {
+      "id": "al_majali",
+      "name": "Al Majali",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 3
+    },
+    {
+      "id": "al_ghassra",
+      "name": "Al Ghassra",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_sharif",
+      "name": "Al Sharif",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 3
+    },
+    {
+      "id": "al_wadi",
+      "name": "Al Wadi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_hakim",
+      "name": "Al Hakim",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 5
+    },
+    {
+      "id": "al_tawash",
+      "name": "Al Tawash",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 2
+    },
+    {
+      "id": "al_bukhater",
+      "name": "Al Bukhater",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_hababi",
+      "name": "Al Hababi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_mohandi",
+      "name": "Al Mohandi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_thaqafi",
+      "name": "Al Thaqafi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 3
+    },
+    {
+      "id": "al_uthman",
+      "name": "Al Uthman",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_wazir",
+      "name": "Al Wazir",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 3
+    },
+    {
+      "id": "bin_jassim",
+      "name": "Bin Jassim",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 4
+    },
+    {
+      "id": "bin_khalid",
+      "name": "Bin Khalid",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 3
+    },
+    {
+      "id": "bin_mohammed",
+      "name": "Bin Mohammed",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 4
+    },
+    {
+      "id": "bin_nasser",
+      "name": "Bin Nasser",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 4
+    },
+    {
+      "id": "bin_rashid",
+      "name": "Bin Rashid",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 4
+    },
+    {
+      "id": "bin_saeed",
+      "name": "Bin Saeed",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 2
+    },
+    {
+      "id": "bin_thabit",
+      "name": "Bin Thabit",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "bin_yusuf",
+      "name": "Bin Yusuf",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 3
+    },
+    {
+      "id": "bin_zayed",
+      "name": "Bin Zayed",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 7
+    },
+    {
+      "id": "al_fadala",
+      "name": "Al Fadala",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_ghamlas",
+      "name": "Al Ghamlas",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_waberi",
+      "name": "Al Waberi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "jolo",
+      "name": "Jolo",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "laram",
+      "name": "Laram",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "meshaimam",
+      "name": "Meshaimam",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "nofal",
+      "name": "Nofal",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 2
+    },
+    {
+      "id": "obaid",
+      "name": "Obaid",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 2
+    },
+    {
+      "id": "yaqoub",
+      "name": "Yaqoub",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 2
+    },
+    {
+      "id": "al_yahyai",
+      "name": "Al Yahyai",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_maamari",
+      "name": "Al Maamari",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 4
+    },
+    {
+      "id": "al_hooti",
+      "name": "Al Hooti",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 3
+    },
+    {
+      "id": "al_ruqaishi",
+      "name": "Al Ruqaishi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_sunaidi",
+      "name": "Al Sunaidi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_tauqi",
+      "name": "Al Tauqi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_zubaidi",
+      "name": "Al Zubaidi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 2
+    },
+    {
+      "id": "al_fazari",
+      "name": "Al Fazari",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_manthari",
+      "name": "Al Manthari",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_salmani",
+      "name": "Al Salmani",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_tobi",
+      "name": "Al Tobi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_yarubi",
+      "name": "Al Yarubi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 2
+    },
+    {
+      "id": "al_khanjari",
+      "name": "Al Khanjari",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_shikaili",
+      "name": "Al Shikaili",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_rusheidi",
+      "name": "Al Rusheidi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_maqbali",
+      "name": "Al Maqbali",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_sawafi",
+      "name": "Al Sawafi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 2
+    },
+    {
+      "id": "al_shekaili",
+      "name": "Al Shekaili",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_kharoosi",
+      "name": "Al Kharoosi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_saharty",
+      "name": "Al Saharty",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_hinedi",
+      "name": "Al Hinedi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_jufaili",
+      "name": "Al Jufaili",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_noufali",
+      "name": "Al Noufali",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_quraini",
+      "name": "Al Quraini",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 2
+    },
+    {
+      "id": "al_salti",
+      "name": "Al Salti",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_wahshi",
+      "name": "Al Wahshi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_farisi",
+      "name": "Al Farisi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_hunaini",
+      "name": "Al Hunaini",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_naabi",
+      "name": "Al Naabi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_ojaili",
+      "name": "Al Ojaili",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "political",
+      "size": 1
+    },
+    {
+      "id": "al_huwaish",
+      "name": "Al Huwaish",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_sahlawi",
+      "name": "Al Sahlawi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 2
+    },
+    {
+      "id": "al_bulaihi",
+      "name": "Al Bulaihi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_soliman",
+      "name": "Al Soliman",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 3
+    },
+    {
+      "id": "al_hokail",
+      "name": "Al Hokail",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_othaimeen",
+      "name": "Al Othaimeen",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_gain",
+      "name": "Al Gain",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_twajiri",
+      "name": "Al Twajiri",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_jibreen",
+      "name": "Al Jibreen",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_hudhaif",
+      "name": "Al Hudhaif",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_munajjid",
+      "name": "Al Munajjid",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_jufali",
+      "name": "Al Jufali",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_moajel",
+      "name": "Al Moajel",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_eyaid",
+      "name": "Al Eyaid",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_sedairy",
+      "name": "Al Sedairy",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_hajjar",
+      "name": "Al Hajjar",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_kasab",
+      "name": "Al Kasab",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_mogbel",
+      "name": "Al Mogbel",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_kadi",
+      "name": "Al Kadi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_hathloul",
+      "name": "Al Hathloul",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 3
+    },
+    {
+      "id": "al_kamali",
+      "name": "Al Kamali",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 3
+    },
+    {
+      "id": "al_jabir",
+      "name": "Al Jabir",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 4
+    },
+    {
+      "id": "al_rashoud",
+      "name": "Al Rashoud",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 2
+    },
+    {
+      "id": "al_azemi",
+      "name": "Al Azemi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_meshaan",
+      "name": "Al Meshaan",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_jenaie",
+      "name": "Al Jenaie",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_refai",
+      "name": "Al Refai",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 8
+    },
+    {
+      "id": "al_mahdi",
+      "name": "Al Mahdi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 3
+    },
+    {
+      "id": "al_mazeedi",
+      "name": "Al Mazeedi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 3
+    },
+    {
+      "id": "al_dawoud",
+      "name": "Al Dawoud",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 3
+    },
+    {
+      "id": "al_rabah",
+      "name": "Al Rabah",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_khalas",
+      "name": "Al Khalas",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_mudarris",
+      "name": "Al Mudarris",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 4
+    },
+    {
+      "id": "al_nimr",
+      "name": "Al Nimr",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 3
+    },
+    {
+      "id": "al_haydos",
+      "name": "Al Haydos",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_mohammedi",
+      "name": "Al Mohammedi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 2
+    },
+    {
+      "id": "al_shahwani",
+      "name": "Al Shahwani",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 3
+    },
+    {
+      "id": "al_hashimi",
+      "name": "Al Hashimi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 3
+    },
+    {
+      "id": "al_rumhi",
+      "name": "Al Rumhi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_gharibi",
+      "name": "Al Gharibi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 2
+    },
+    {
+      "id": "al_hakmani",
+      "name": "Al Hakmani",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_wardi",
+      "name": "Al Wardi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 4
+    },
+    {
+      "id": "al_sinawi",
+      "name": "Al Sinawi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 3
+    },
+    {
+      "id": "al_futaisi",
+      "name": "Al Futaisi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_dhuhli",
+      "name": "Al Dhuhli",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 3
+    },
+    {
+      "id": "al_shihi",
+      "name": "Al Shihi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_amoodi",
+      "name": "Al Amoodi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 4
+    },
+    {
+      "id": "al_ruwaitea",
+      "name": "Al Ruwaitea",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_bazie",
+      "name": "Al Bazie",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_owaji",
+      "name": "Al Owaji",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_braidi",
+      "name": "Al Braidi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_ghawar",
+      "name": "Al Ghawar",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_showier",
+      "name": "Al Showier",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_khozama",
+      "name": "Al Khozama",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_jeraisi",
+      "name": "Al Jeraisi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_bassami",
+      "name": "Al Bassami",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_swaiket",
+      "name": "Al Swaiket",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_manie",
+      "name": "Al Manie",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_shehail",
+      "name": "Al Shehail",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_qaisi",
+      "name": "Al Qaisi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 3
+    },
+    {
+      "id": "al_ghuwainem",
+      "name": "Al Ghuwainem",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_qunfudhi",
+      "name": "Al Qunfudhi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_dossari",
+      "name": "Al Dossari",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 3
+    },
+    {
+      "id": "al_shihri",
+      "name": "Al Shihri",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 2
+    },
+    {
+      "id": "al_sahari",
+      "name": "Al Sahari",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_sowailim",
+      "name": "Al Sowailim",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_asmari",
+      "name": "Al Asmari",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_furaih",
+      "name": "Al Furaih",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_sahli",
+      "name": "Al Sahli",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_majnouni",
+      "name": "Al Majnouni",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_mogren",
+      "name": "Al Mogren",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_ruwaished",
+      "name": "Al Ruwaished",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_lahim",
+      "name": "Al Lahim",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_fawaz",
+      "name": "Al Fawaz",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 3
+    },
+    {
+      "id": "al_halabi",
+      "name": "Al Halabi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 4
+    },
+    {
+      "id": "al_dweik",
+      "name": "Al Dweik",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_shammakh",
+      "name": "Al Shammakh",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_hakami",
+      "name": "Al Hakami",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 3
+    },
+    {
+      "id": "al_kholifey",
+      "name": "Al Kholifey",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_gobash",
+      "name": "Al Gobash",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_karama",
+      "name": "Al Karama",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_muhaimat",
+      "name": "Al Muhaimat",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_musharakh",
+      "name": "Al Musharakh",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_dhafra",
+      "name": "Al Dhafra",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_minhali",
+      "name": "Al Minhali",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_midani",
+      "name": "Al Midani",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_sabouni",
+      "name": "Al Sabouni",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 2
+    },
+    {
+      "id": "al_shamari",
+      "name": "Al Shamari",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 2
+    },
+    {
+      "id": "al_marzuki",
+      "name": "Al Marzuki",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_dhahiri",
+      "name": "Al Dhahiri",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_balouchi",
+      "name": "Al Balouchi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_hindasi",
+      "name": "Al Hindasi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_saeedi",
+      "name": "Al Saeedi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 2
+    },
+    {
+      "id": "al_mansoor",
+      "name": "Al Mansoor",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 3
+    },
+    {
+      "id": "al_murad",
+      "name": "Al Murad",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_roken",
+      "name": "Al Roken",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_shurafa",
+      "name": "Al Shurafa",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_mankhool",
+      "name": "Al Mankhool",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_hudaiba",
+      "name": "Al Hudaiba",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_shuweihi",
+      "name": "Al Shuweihi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_muharrami",
+      "name": "Al Muharrami",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_kitbi",
+      "name": "Al Kitbi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 3
+    },
+    {
+      "id": "al_dahmani",
+      "name": "Al Dahmani",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_redha",
+      "name": "Al Redha",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_nafea",
+      "name": "Al Nafea",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_fouad",
+      "name": "Al Fouad",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 3
+    },
+    {
+      "id": "al_khudhair",
+      "name": "Al Khudhair",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_mishaan",
+      "name": "Al Mishaan",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_humoud",
+      "name": "Al Humoud",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 2
+    },
+    {
+      "id": "al_dabbas",
+      "name": "Al Dabbas",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_khuraibet",
+      "name": "Al Khuraibet",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_khadher",
+      "name": "Al Khadher",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 3
+    },
+    {
+      "id": "al_awad",
+      "name": "Al Awad",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 2
+    },
+    {
+      "id": "al_khudher",
+      "name": "Al Khudher",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_besharah",
+      "name": "Al Besharah",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_dhafeeri",
+      "name": "Al Dhafeeri",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_jasem",
+      "name": "Al Jasem",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_mezidi",
+      "name": "Al Mezidi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_shemali",
+      "name": "Al Shemali",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_khashram",
+      "name": "Al Khashram",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 2
+    },
+    {
+      "id": "al_marzouk",
+      "name": "Al Marzouk",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 3
+    },
+    {
+      "id": "al_dulaim",
+      "name": "Al Dulaim",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 3
+    },
+    {
+      "id": "al_khalawi",
+      "name": "Al Khalawi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_shamali",
+      "name": "Al Shamali",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_khamees",
+      "name": "Al Khamees",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_daihani",
+      "name": "Al Daihani",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 2
+    },
+    {
+      "id": "al_khudari",
+      "name": "Al Khudari",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_duwailhi",
+      "name": "Al Duwailhi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_anbaei",
+      "name": "Al Anbaei",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_rifae",
+      "name": "Al Rifae",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_khalfan",
+      "name": "Al Khalfan",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 3
+    },
+    {
+      "id": "al_mahrous",
+      "name": "Al Mahrous",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_dukhan",
+      "name": "Al Dukhan",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_musalam",
+      "name": "Al Musalam",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_mousawi",
+      "name": "Al Mousawi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 5
+    },
+    {
+      "id": "al_sherooqi",
+      "name": "Al Sherooqi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_mirdha",
+      "name": "Al Mirdha",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 3
+    },
+    {
+      "id": "al_hulaibi",
+      "name": "Al Hulaibi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_mutawalli",
+      "name": "Al Mutawalli",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_qudaimi",
+      "name": "Al Qudaimi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "abdulaal",
+      "name": "Abdulaal",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 4
+    },
+    {
+      "id": "abdulhadi",
+      "name": "Abdulhadi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 2
+    },
+    {
+      "id": "abdulsalam",
+      "name": "Abdulsalam",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "agha",
+      "name": "Agha",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 2
+    },
+    {
+      "id": "akhtar",
+      "name": "Akhtar",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 4
+    },
+    {
+      "id": "al_asfoor",
+      "name": "Al Asfoor",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 5
+    },
+    {
+      "id": "al_mohsin",
+      "name": "Al Mohsin",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_talib",
+      "name": "Al Talib",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 2
+    },
+    {
+      "id": "al_umran",
+      "name": "Al Umran",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_wadei",
+      "name": "Al Wadei",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 3
+    },
+    {
+      "id": "al_yaqoub",
+      "name": "Al Yaqoub",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "bouhaji",
+      "name": "Bouhaji",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "bucheeri",
+      "name": "Bucheeri",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "fakhreddine",
+      "name": "Fakhreddine",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "haider",
+      "name": "Haider",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "haji",
+      "name": "Haji",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 3
+    },
+    {
+      "id": "isa",
+      "name": "Isa",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "karam",
+      "name": "Karam",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 4
+    },
+    {
+      "id": "mansoor",
+      "name": "Mansoor",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 2
+    },
+    {
+      "id": "matar",
+      "name": "Matar",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 2
+    },
+    {
+      "id": "mirza",
+      "name": "Mirza",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 4
+    },
+    {
+      "id": "murad",
+      "name": "Murad",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "nabeel",
+      "name": "Nabeel",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "shams",
+      "name": "Shams",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "sharif",
+      "name": "Sharif",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 5
+    },
+    {
+      "id": "suleiman",
+      "name": "Suleiman",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "taher",
+      "name": "Taher",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 3
+    },
+    {
+      "id": "wali",
+      "name": "Wali",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 2
+    },
+    {
+      "id": "yasin",
+      "name": "Yasin",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 4
+    },
+    {
+      "id": "al_misfer",
+      "name": "Al Misfer",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_jolo",
+      "name": "Al Jolo",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_mohd",
+      "name": "Al Mohd",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_obaid",
+      "name": "Al Obaid",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_naama",
+      "name": "Al Naama",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_hajjaj",
+      "name": "Al Hajjaj",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_maadhid",
+      "name": "Al Maadhid",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_hawaaj",
+      "name": "Al Hawaaj",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_jeham",
+      "name": "Al Jeham",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_nuaymi",
+      "name": "Al Nuaymi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 3
+    },
+    {
+      "id": "al_darwishi",
+      "name": "Al Darwishi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_bastakiya",
+      "name": "Al Bastakiya",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_yemeni",
+      "name": "Al Yemeni",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 3
+    },
+    {
+      "id": "al_omani",
+      "name": "Al Omani",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 4
+    },
+    {
+      "id": "al_kuwaiti",
+      "name": "Al Kuwaiti",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 7
+    },
+    {
+      "id": "al_bahraini",
+      "name": "Al Bahraini",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_hijazi",
+      "name": "Al Hijazi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 2
+    },
+    {
+      "id": "al_ahsai",
+      "name": "Al Ahsai",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 3
+    },
+    {
+      "id": "al_qatifi",
+      "name": "Al Qatifi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_hadidi",
+      "name": "Al Hadidi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_shunfari",
+      "name": "Al Shunfari",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_kiyoumi",
+      "name": "Al Kiyoumi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_amry",
+      "name": "Al Amry",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_bimani",
+      "name": "Al Bimani",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_ghaithi",
+      "name": "Al Ghaithi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_hadrami",
+      "name": "Al Hadrami",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 3
+    },
+    {
+      "id": "al_lawatia",
+      "name": "Al Lawatia",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 2
+    },
+    {
+      "id": "al_suleimani",
+      "name": "Al Suleimani",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_yaarubi",
+      "name": "Al Yaarubi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 3
+    },
+    {
+      "id": "al_zidjali",
+      "name": "Al Zidjali",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_abduwani",
+      "name": "Al Abduwani",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_ansi",
+      "name": "Al Ansi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 1
+    },
+    {
+      "id": "al_badwawi",
+      "name": "Al Badwawi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "isRuling": false,
+      "rulesOver": null,
+      "familyType": "merchant",
+      "size": 2
     },
     {
       "id": "abbasid_caliphate",
@@ -16375,6 +20368,14 @@
       "nodeType": "tribe",
       "lineage": null,
       "size": 1
+    },
+    {
+      "id": "al_bu_said_dynasty",
+      "name": "Al Bu Said Dynasty",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "size": 2
     },
     {
       "id": "al_bu_shamis_tribe",
@@ -17097,6 +21098,22 @@
       "size": 1
     },
     {
+      "id": "house_of_al_falahi",
+      "name": "House of Al Falahi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "size": 3
+    },
+    {
+      "id": "house_of_al_falasi",
+      "name": "House of Al Falasi",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "size": 3
+    },
+    {
       "id": "house_of_al_maktoum",
       "name": "House Of Al Maktoum",
       "type": "family",
@@ -17461,6 +21478,14 @@
       "name": "Nizwa Merchants",
       "type": "tribe",
       "nodeType": "tribe",
+      "lineage": null,
+      "size": 1
+    },
+    {
+      "id": "nonoo_family",
+      "name": "Nonoo Family",
+      "type": "family",
+      "nodeType": "family",
       "lineage": null,
       "size": 1
     },
@@ -17839,6 +21864,14 @@
       "nodeType": "tribe",
       "lineage": null,
       "size": 1
+    },
+    {
+      "id": "zilkha_family",
+      "name": "Zilkha Family",
+      "type": "family",
+      "nodeType": "family",
+      "lineage": null,
+      "size": 2
     },
     {
       "id": "zurayid_dynasty",
@@ -25853,12 +29886,8 @@
     }
   ],
   "ancestryChains": {
-    "al_naboodah": [
-      "al_naboodah",
-      "al_bu_shamis"
-    ],
-    "al_maskiry": [
-      "al_maskiry",
+    "al_fardan": [
+      "al_fardan",
       "bani_yas",
       "al_bu_falah",
       "al_bu_falasah",
@@ -25908,16 +29937,13 @@
       "mazari_baloch",
       "qahtani_root"
     ],
-    "al_qahtani": [
-      "al_qahtani",
-      "qahtani_tribe"
+    "al_jubeir": [
+      "al_jubeir",
+      "hudhayl_tribe"
     ],
-    "al_fadl": [
-      "al_fadl",
-      "qahtani_root"
-    ],
-    "al_amru": [
-      "al_amru",
+    "al_ketbi_family": [
+      "al_ketbi_family",
+      "bani_yas_confederation",
       "bani_yas",
       "al_bu_falah",
       "al_bu_falasah",
@@ -25967,19 +29993,237 @@
       "mazari_baloch",
       "qahtani_root"
     ],
-    "al_rawas": [
-      "al_rawas",
-      "azd",
-      "nizwa_merchants",
+    "al_bahar": [
+      "al_bahar",
+      "bani_yas",
+      "al_bu_falah",
+      "al_bu_falasah",
+      "al_bu_hemair",
+      "al_falah",
+      "al_falasah",
+      "al_halami",
+      "al_hameli",
+      "al_hemairi",
+      "al_marri",
+      "al_mashghouni",
+      "al_mazrouei",
+      "al_mehairbi",
+      "al_mehairi",
+      "al_qemzi",
+      "al_qubaisi",
+      "al_remeithi",
+      "al_subousi",
+      "al_suwaidi",
+      "halalmah",
+      "hawamil",
+      "maharibah",
+      "marar",
+      "mazari",
+      "mazrui",
+      "mishagin",
+      "remeithi",
+      "rumaithat",
+      "sabais",
+      "sudan",
+      "sudan_tribe",
+      "qubaisi",
+      "al_bu_muhair",
+      "qubaisat",
+      "adnani_root",
+      "al_araytham",
+      "al_khlawi",
+      "al_kurdi",
+      "al_nasrallah",
+      "al_omar_albu_salih",
+      "al_rumaiyadh",
+      "al_tarayma",
+      "al_yoshaa",
+      "al_murrah",
+      "banu_yam",
+      "mazari_emirati",
+      "mazari_baloch",
+      "qahtani_root"
+    ],
+    "na_im_confederation": [
+      "na_im_confederation",
+      "al_noaimi",
+      "naim",
+      "al_bu_kharaiban",
+      "al_bu_shamis",
+      "al_jabr_naim_qatar",
+      "darawishah",
+      "ramzan_naim_qatar",
+      "adnani_root"
+    ],
+    "khathaam": [
+      "khathaam",
+      "qahtani_root"
+    ],
+    "kanoo": [
+      "kanoo",
+      "bani_utbah",
+      "al-bin-ali",
+      "al-jalahma",
+      "al-khalifa",
+      "al-sabah",
+      "al_jalahma",
+      "al_khalifa",
+      "adnani_root",
+      "anizah",
+      "anizah_tribe",
+      "utub_confederation"
+    ],
+    "al_bu_said_dynasty": [
+      "al_bu_said_dynasty",
+      "azd_tribe"
+    ],
+    "al_serkal": [
+      "al_serkal",
+      "bani_yas",
+      "al_bu_falah",
+      "al_bu_falasah",
+      "al_bu_hemair",
+      "al_falah",
+      "al_falasah",
+      "al_halami",
+      "al_hameli",
+      "al_hemairi",
+      "al_marri",
+      "al_mashghouni",
+      "al_mazrouei",
+      "al_mehairbi",
+      "al_mehairi",
+      "al_qemzi",
+      "al_qubaisi",
+      "al_remeithi",
+      "al_subousi",
+      "al_suwaidi",
+      "halalmah",
+      "hawamil",
+      "maharibah",
+      "marar",
+      "mazari",
+      "mazrui",
+      "mishagin",
+      "remeithi",
+      "rumaithat",
+      "sabais",
+      "sudan",
+      "sudan_tribe",
+      "qubaisi",
+      "al_bu_muhair",
+      "qubaisat",
+      "adnani_root",
+      "al_araytham",
+      "al_khlawi",
+      "al_kurdi",
+      "al_nasrallah",
+      "al_omar_albu_salih",
+      "al_rumaiyadh",
+      "al_tarayma",
+      "al_yoshaa",
+      "al_murrah",
+      "banu_yam",
+      "mazari_emirati",
+      "mazari_baloch",
+      "qahtani_root"
+    ],
+    "jadis": [
+      "jadis",
+      "qahtani_root"
+    ],
+    "bani_hammad": [
+      "bani_hammad",
+      "qahtani_root"
+    ],
+    "al_tayyar": [
+      "al_tayyar",
+      "banu_hashim",
+      "adnani_root"
+    ],
+    "al_sabhan": [
+      "al_sabhan",
+      "anaza",
+      "anaza_tribe",
+      "adnani_root"
+    ],
+    "banu_al_dual": [
+      "banu_al_dual",
+      "qahtani_root"
+    ],
+    "al_ajmi": [
+      "al_ajmi",
+      "ajman_tribe",
+      "qahtani_root"
+    ],
+    "ghurid_dynasty": [
+      "ghurid_dynasty",
+      "kart_dynasty"
+    ],
+    "al_muhaidib": [
+      "al_muhaidib",
+      "tamim_tribe",
+      "tamim",
+      "adnani_root"
+    ],
+    "al_hajri": [
+      "al_hajri",
+      "bani_hajer",
+      "qahtan",
+      "qahtani_root",
+      "himyar",
+      "kahlan",
+      "qahtan_tribe",
+      "dhu_asbah",
+      "dhu_raydan",
+      "dhul_kala",
+      "al_murrah",
       "aws_khazraj",
+      "azd",
       "azd_uman",
+      "bakil",
+      "banu_harith_jabal_amil",
+      "banu_harith_najran",
+      "banu_kathir",
+      "banu_mashruki",
+      "banu_muayiya",
+      "banu_sakasek",
+      "banu_sukun",
+      "banu_yam",
       "bariq",
+      "ghassanids",
+      "hamdan",
+      "hashid",
+      "khuzaa",
+      "kinda",
+      "lakhm",
+      "madhhij",
+      "shammar",
+      "tayy",
+      "ujman",
+      "junb",
+      "rufaida",
+      "sanhan",
       "daws",
       "ghamid",
-      "ghassanids",
       "khuza_a",
       "zahran",
-      "qahtani_root",
+      "abdah_shammar",
+      "al_aslam_shammar",
+      "shammar_al_jarba",
+      "shammar_al_sayeh",
+      "shammar_toga",
+      "sinjarah_shammar",
+      "al_fadl_tayy",
+      "al_ghawth_tayy",
+      "al_jadila_tayy",
+      "al_thaalib_tayy",
+      "banu_hani_tayy",
+      "banu_hur_tayy",
+      "banu_jundub_tayy",
+      "banu_lam_tayy",
+      "banu_nabhan_tayy",
+      "banu_thuwal_tayy",
       "al_jadara",
       "banu_ali_zahran",
       "banu_amr_zahran",
@@ -26040,377 +30284,42 @@
       "mazari_baloch",
       "qahtani_root"
     ],
-    "behbehani": [
-      "behbehani",
-      "ajam_kuwait"
+    "tanukh": [
+      "tanukh",
+      "qahtani_root"
     ],
-    "al_rumaihi": [
-      "al_rumaihi",
-      "bani_tamim",
-      "tamim",
-      "al_buainain",
-      "al_rabbab",
-      "banu_hanzala",
-      "banu_sad_tamim",
-      "banu_tamim_amr",
-      "maadhid",
-      "adnani_root",
-      "al_thani"
-    ],
-    "al_moayyed": [
-      "al_moayyed",
-      "banu_tamim",
-      "tamim",
-      "al_mannai",
-      "adnani_root",
-      "bani_tamim",
-      "al_buainain",
-      "al_rabbab",
-      "banu_hanzala",
-      "banu_sad_tamim",
-      "banu_tamim_amr",
-      "maadhid",
-      "al_thani"
-    ],
-    "al_thani_family": [
-      "al_thani_family",
-      "banu_tamim",
-      "banu_tamim_tribe",
-      "maadhid",
-      "tamim",
-      "al_mannai",
-      "al_thani",
-      "adnani_root",
-      "bani_tamim",
-      "al_buainain",
-      "al_rabbab",
-      "banu_hanzala",
-      "banu_sad_tamim",
-      "banu_tamim_amr"
-    ],
-    "al_qasimi_rak": [
-      "al_qasimi_rak",
-      "qawasim",
-      "qawasim_tribe",
-      "al_qawasim",
+    "adwan": [
+      "adwan",
       "adnani_root"
     ],
-    "mahris": [
-      "mahris",
+    "bani_sakher": [
+      "bani_sakher",
       "qahtani_root"
     ],
-    "al_tayer": [
-      "al_tayer",
-      "bani_yas",
-      "al_bu_falah",
-      "al_bu_falasah",
-      "al_bu_hemair",
-      "al_falah",
-      "al_falasah",
-      "al_halami",
-      "al_hameli",
-      "al_hemairi",
-      "al_marri",
-      "al_mashghouni",
-      "al_mazrouei",
-      "al_mehairbi",
-      "al_mehairi",
-      "al_qemzi",
-      "al_qubaisi",
-      "al_remeithi",
-      "al_subousi",
-      "al_suwaidi",
-      "halalmah",
-      "hawamil",
-      "maharibah",
-      "marar",
-      "mazari",
-      "mazrui",
-      "mishagin",
-      "remeithi",
-      "rumaithat",
-      "sabais",
-      "sudan",
-      "sudan_tribe",
-      "qubaisi",
-      "al_bu_muhair",
-      "qubaisat",
-      "adnani_root",
-      "al_araytham",
-      "al_khlawi",
-      "al_kurdi",
-      "al_nasrallah",
-      "al_omar_albu_salih",
-      "al_rumaiyadh",
-      "al_tarayma",
-      "al_yoshaa",
-      "al_murrah",
-      "banu_yam",
-      "mazari_emirati",
-      "mazari_baloch",
-      "qahtani_root"
-    ],
-    "al_fardan": [
-      "al_fardan",
-      "bani_yas",
-      "al_bu_falah",
-      "al_bu_falasah",
-      "al_bu_hemair",
-      "al_falah",
-      "al_falasah",
-      "al_halami",
-      "al_hameli",
-      "al_hemairi",
-      "al_marri",
-      "al_mashghouni",
-      "al_mazrouei",
-      "al_mehairbi",
-      "al_mehairi",
-      "al_qemzi",
-      "al_qubaisi",
-      "al_remeithi",
-      "al_subousi",
-      "al_suwaidi",
-      "halalmah",
-      "hawamil",
-      "maharibah",
-      "marar",
-      "mazari",
-      "mazrui",
-      "mishagin",
-      "remeithi",
-      "rumaithat",
-      "sabais",
-      "sudan",
-      "sudan_tribe",
-      "qubaisi",
-      "al_bu_muhair",
-      "qubaisat",
-      "adnani_root",
-      "al_araytham",
-      "al_khlawi",
-      "al_kurdi",
-      "al_nasrallah",
-      "al_omar_albu_salih",
-      "al_rumaiyadh",
-      "al_tarayma",
-      "al_yoshaa",
-      "al_murrah",
-      "banu_yam",
-      "mazari_emirati",
-      "mazari_baloch",
-      "qahtani_root"
-    ],
-    "al_marzouq": [
-      "al_marzouq",
-      "al_ghanim",
-      "bani_utub",
-      "bani_utbah",
-      "al-bin-ali",
-      "al-jalahma",
-      "al-khalifa",
-      "al-sabah",
-      "al_jalahma",
-      "al_khalifa",
-      "adnani_root",
-      "anizah",
-      "anizah_tribe",
-      "utub_confederation"
-    ],
-    "al_haramsha_bani_idaid": [
-      "al_haramsha_bani_idaid",
-      "qahtani_root"
-    ],
-    "al_attiyah": [
-      "al_attiyah",
-      "al_thani",
-      "banu_tamim",
-      "tamim",
-      "al_mannai",
-      "adnani_root",
-      "bani_tamim",
-      "al_buainain",
-      "al_rabbab",
-      "banu_hanzala",
-      "banu_sad_tamim",
-      "banu_tamim_amr",
-      "maadhid"
-    ],
-    "banu_khuza_ah": [
-      "banu_khuza_ah",
-      "qahtani_root"
-    ],
-    "al_omaro_bani_uqba": [
-      "al_omaro_bani_uqba",
-      "qahtani_root"
-    ],
-    "al_darmaki": [
-      "al_darmaki",
-      "dhawahir",
-      "bani_saad",
-      "jawabir",
-      "daramikah",
+    "rulers_ras_al_khaimah": [
+      "rulers_ras_al_khaimah",
       "adnani_root"
     ],
-    "banu_kinda": [
-      "banu_kinda",
-      "qahtani_root"
-    ],
-    "al_nahdi": [
-      "al_nahdi",
-      "qudaah"
-    ],
-    "juma_al_majid": [
-      "juma_al_majid",
-      "bani_yas",
-      "al_bu_falah",
-      "al_bu_falasah",
-      "al_bu_hemair",
-      "al_falah",
-      "al_falasah",
-      "al_halami",
-      "al_hameli",
-      "al_hemairi",
-      "al_marri",
-      "al_mashghouni",
-      "al_mazrouei",
-      "al_mehairbi",
-      "al_mehairi",
-      "al_qemzi",
-      "al_qubaisi",
-      "al_remeithi",
-      "al_subousi",
-      "al_suwaidi",
-      "halalmah",
-      "hawamil",
-      "maharibah",
-      "marar",
-      "mazari",
-      "mazrui",
-      "mishagin",
-      "remeithi",
-      "rumaithat",
-      "sabais",
-      "sudan",
-      "sudan_tribe",
-      "qubaisi",
-      "al_bu_muhair",
-      "qubaisat",
-      "adnani_root",
-      "al_araytham",
-      "al_khlawi",
-      "al_kurdi",
-      "al_nasrallah",
-      "al_omar_albu_salih",
-      "al_rumaiyadh",
-      "al_tarayma",
-      "al_yoshaa",
-      "al_murrah",
-      "banu_yam",
-      "mazari_emirati",
-      "mazari_baloch",
-      "qahtani_root"
-    ],
-    "yaarubah": [
-      "yaarubah",
-      "qahtani_root"
-    ],
-    "banu_assad": [
-      "banu_assad",
+    "banu_nuaym": [
+      "banu_nuaym",
       "adnani_root"
     ],
-    "albuflasa_clan": [
-      "albuflasa_clan",
-      "bani_yas",
-      "al_bu_falah",
-      "al_bu_falasah",
-      "al_bu_hemair",
-      "al_falah",
-      "al_falasah",
-      "al_halami",
-      "al_hameli",
-      "al_hemairi",
-      "al_marri",
-      "al_mashghouni",
-      "al_mazrouei",
-      "al_mehairbi",
-      "al_mehairi",
-      "al_qemzi",
-      "al_qubaisi",
-      "al_remeithi",
-      "al_subousi",
-      "al_suwaidi",
-      "halalmah",
-      "hawamil",
-      "maharibah",
-      "marar",
-      "mazari",
-      "mazrui",
-      "mishagin",
-      "remeithi",
-      "rumaithat",
-      "sabais",
-      "sudan",
-      "sudan_tribe",
-      "qubaisi",
-      "al_bu_muhair",
-      "qubaisat",
-      "adnani_root",
-      "al_araytham",
-      "al_khlawi",
-      "al_kurdi",
-      "al_nasrallah",
-      "al_omar_albu_salih",
-      "al_rumaiyadh",
-      "al_tarayma",
-      "al_yoshaa",
-      "al_murrah",
-      "banu_yam",
-      "mazari_emirati",
-      "mazari_baloch",
-      "qahtani_root"
-    ],
-    "al_qarooni": [
-      "al_qarooni",
-      "baharna"
-    ],
-    "al_dhafeer": [
-      "al_dhafeer",
-      "ahl_al_buwait",
-      "ahl_al_sumada",
-      "al_aljanat",
-      "al_askar",
-      "al_jawasim",
-      "al_katheer",
-      "al_maadin",
-      "al_maalem",
-      "al_oraif",
-      "al_said",
-      "al_suwait",
-      "al_thiraan",
-      "bani_hussein",
-      "qahtani_root"
-    ],
-    "jadis": [
-      "jadis",
-      "qahtani_root"
-    ],
-    "naim_confederation": [
-      "naim_confederation",
-      "al_nuaimi",
-      "naim",
-      "naim_tribe",
-      "al_bu_kharaiban",
-      "al_bu_shamis",
-      "al_jabr_naim_qatar",
-      "darawishah",
-      "ramzan_naim_qatar",
-      "al_naimi_qatar",
-      "adnani_root",
-      "ajman_ruling_family"
-    ],
-    "khawatir": [
-      "khawatir",
+    "al_juffali": [
+      "al_juffali",
+      "bani_khalid",
+      "banu_khalid",
+      "al_humaid",
+      "al_janah",
+      "al_musallam",
+      "al_subaih",
+      "al_suhoob",
+      "amayer",
+      "duum",
+      "grusha",
+      "juboor",
+      "mahashir",
+      "nahood",
+      "qahtani_root",
       "adnani_root"
     ],
     "adnan": [
@@ -26533,231 +30442,42 @@
       "mazari_baloch",
       "qahtani_root"
     ],
-    "al_busaidi": [
-      "al_busaidi",
-      "azd_tribe"
+    "al_azzawi": [
+      "al_azzawi",
+      "azd_tribe",
+      "azd",
+      "aws_khazraj",
+      "azd_uman",
+      "bariq",
+      "daws",
+      "ghamid",
+      "ghassanids",
+      "khuza_a",
+      "zahran",
+      "qahtani_root",
+      "al_jadara",
+      "banu_ali_zahran",
+      "banu_amr_zahran",
+      "banu_aws_zahran",
+      "banu_daws",
+      "banu_fahm",
+      "banu_manhib"
     ],
-    "al_rashid": [
-      "al_rashid",
-      "shammar_tribe",
-      "shammar",
-      "abdah_shammar",
-      "al_aslam_shammar",
-      "shammar_al_jarba",
-      "shammar_al_sayeh",
-      "shammar_toga",
-      "sinjarah_shammar",
+    "banu_kinda": [
+      "banu_kinda",
       "qahtani_root"
     ],
-    "al_gaz": [
-      "al_gaz",
-      "al_falasi",
-      "al_maktoum",
-      "bani_yas",
-      "al_bu_falasah",
-      "al_bu_falah",
-      "al_bu_hemair",
-      "al_falah",
-      "al_falasah",
-      "al_halami",
-      "al_hameli",
-      "al_hemairi",
-      "al_marri",
-      "al_mashghouni",
-      "al_mazrouei",
-      "al_mehairbi",
-      "al_mehairi",
-      "al_qemzi",
-      "al_qubaisi",
-      "al_remeithi",
-      "al_subousi",
-      "al_suwaidi",
-      "halalmah",
-      "hawamil",
-      "maharibah",
-      "marar",
-      "mazari",
-      "mazrui",
-      "mishagin",
-      "remeithi",
-      "rumaithat",
-      "sabais",
-      "sudan",
-      "sudan_tribe",
-      "qubaisi",
-      "al_bu_muhair",
-      "qubaisat",
-      "adnani_root",
-      "al_araytham",
-      "al_khlawi",
-      "al_kurdi",
-      "al_nasrallah",
-      "al_omar_albu_salih",
-      "al_rumaiyadh",
-      "al_tarayma",
-      "al_yoshaa",
-      "al_murrah",
-      "banu_yam",
-      "mazari_emirati",
-      "mazari_baloch",
-      "qahtani_root"
-    ],
-    "kamel": [
-      "kamel",
-      "al_bu_nasir",
-      "al_majid",
-      "al_nahyan",
-      "bani_yas",
-      "al_bu_falah",
-      "al_bu_falasah",
-      "al_bu_hemair",
-      "al_falah",
-      "al_falasah",
-      "al_halami",
-      "al_hameli",
-      "al_hemairi",
-      "al_marri",
-      "al_mashghouni",
-      "al_mazrouei",
-      "al_mehairbi",
-      "al_mehairi",
-      "al_qemzi",
-      "al_qubaisi",
-      "al_remeithi",
-      "al_subousi",
-      "al_suwaidi",
-      "halalmah",
-      "hawamil",
-      "maharibah",
-      "marar",
-      "mazari",
-      "mazrui",
-      "mishagin",
-      "remeithi",
-      "rumaithat",
-      "sabais",
-      "sudan",
-      "sudan_tribe",
-      "qubaisi",
-      "al_bu_muhair",
-      "qubaisat",
-      "adnani_root",
-      "al_araytham",
-      "al_khlawi",
-      "al_kurdi",
-      "al_nasrallah",
-      "al_omar_albu_salih",
-      "al_rumaiyadh",
-      "al_tarayma",
-      "al_yoshaa",
-      "al_murrah",
-      "banu_yam",
-      "mazari_emirati",
-      "mazari_baloch",
-      "qahtani_root"
-    ],
-    "sabaeans": [
-      "sabaeans",
-      "qahtani_root"
-    ],
-    "adwan": [
-      "adwan",
-      "adnani_root"
-    ],
-    "rabia": [
-      "rabia",
-      "adnani_root"
-    ],
-    "tasm": [
-      "tasm",
-      "qahtani_root"
-    ],
-    "al_kharusi": [
-      "al_kharusi",
-      "ibadi_movement"
-    ],
-    "al_bastaki": [
-      "al_bastaki",
-      "achomi_people"
-    ],
-    "al_subeaei": [
-      "al_subeaei",
-      "banu_amir",
-      "subay_tribe",
-      "subay",
-      "adnani_root"
+    "al_tajir": [
+      "al_tajir",
+      "al_faiz",
+      "musa_al_kadhim"
     ],
     "ajman": [
       "ajman",
       "qahtani_root"
     ],
-    "al_nafisi": [
-      "al_nafisi",
-      "mutayr_tribe",
-      "mutayr",
-      "mutayr_al_ulwa",
-      "mutayr_bani_abdullah",
-      "mutayr_braih",
-      "adnani_root"
-    ],
-    "al_ghurair": [
-      "al_ghurair",
-      "bani_yas",
-      "al_bu_falah",
-      "al_bu_falasah",
-      "al_bu_hemair",
-      "al_falah",
-      "al_falasah",
-      "al_halami",
-      "al_hameli",
-      "al_hemairi",
-      "al_marri",
-      "al_mashghouni",
-      "al_mazrouei",
-      "al_mehairbi",
-      "al_mehairi",
-      "al_qemzi",
-      "al_qubaisi",
-      "al_remeithi",
-      "al_subousi",
-      "al_suwaidi",
-      "halalmah",
-      "hawamil",
-      "maharibah",
-      "marar",
-      "mazari",
-      "mazrui",
-      "mishagin",
-      "remeithi",
-      "rumaithat",
-      "sabais",
-      "sudan",
-      "sudan_tribe",
-      "qubaisi",
-      "al_bu_muhair",
-      "qubaisat",
-      "adnani_root",
-      "al_araytham",
-      "al_khlawi",
-      "al_kurdi",
-      "al_nasrallah",
-      "al_omar_albu_salih",
-      "al_rumaiyadh",
-      "al_tarayma",
-      "al_yoshaa",
-      "al_murrah",
-      "banu_yam",
-      "mazari_emirati",
-      "mazari_baloch",
-      "qahtani_root"
-    ],
-    "al_tayyar": [
-      "al_tayyar",
-      "banu_hashim",
-      "adnani_root"
-    ],
-    "al_ketbi_family": [
-      "al_ketbi_family",
+    "al_mansoori_family": [
+      "al_mansoori_family",
       "bani_yas_confederation",
       "bani_yas",
       "al_bu_falah",
@@ -26808,29 +30528,59 @@
       "mazari_baloch",
       "qahtani_root"
     ],
-    "banu_uqayl": [
-      "banu_uqayl",
-      "adnani_root"
+    "shahristani": [
+      "shahristani",
+      "musa_al_kadhim"
     ],
-    "kalantarian_family": [
-      "kalantarian_family",
-      "persian_merchants",
-      "safavid_administration"
+    "fakhro": [
+      "fakhro",
+      "banu_tamim",
+      "tamim",
+      "al_mannai",
+      "adnani_root",
+      "bani_tamim",
+      "al_buainain",
+      "al_rabbab",
+      "banu_hanzala",
+      "banu_sad_tamim",
+      "banu_tamim_amr",
+      "maadhid",
+      "al_thani"
     ],
-    "ghurid_dynasty": [
-      "ghurid_dynasty",
-      "kart_dynasty"
-    ],
-    "al_mira": [
-      "al_mira",
+    "lakhmids": [
+      "lakhmids",
       "qahtani_root"
     ],
-    "zilkha_family": [
-      "zilkha_family",
-      "baghdadi_jewish_community"
+    "banu_aws": [
+      "banu_aws",
+      "qahtani_root"
     ],
-    "al_habtoor": [
-      "al_habtoor",
+    "al_nabhani": [
+      "al_nabhani",
+      "azd_tribe"
+    ],
+    "al_zubair": [
+      "al_zubair",
+      "quraysh",
+      "quraysh_tribe",
+      "banu_adi",
+      "banu_asad",
+      "banu_harith_ibn_fihr",
+      "banu_hashim",
+      "banu_jumah",
+      "banu_makhzum",
+      "banu_sahm",
+      "banu_taym",
+      "banu_zuhra",
+      "adnani_root"
+    ],
+    "banu_kinanah": [
+      "banu_kinanah",
+      "adnani_root"
+    ],
+    "al_ameri_family": [
+      "al_ameri_family",
+      "bani_yas_confederation",
       "bani_yas",
       "al_bu_falah",
       "al_bu_falasah",
@@ -26880,11 +30630,6 @@
       "mazari_baloch",
       "qahtani_root"
     ],
-    "al_mohannadi": [
-      "al_mohannadi",
-      "bani_hajer",
-      "qahtani_root"
-    ],
     "sudairi_seven": [
       "sudairi_seven",
       "al_sudairi",
@@ -26893,48 +30638,251 @@
       "sudairi",
       "adnani_root"
     ],
-    "al_farooq": [
-      "al_farooq",
-      "al_ansar"
+    "al_attiyah": [
+      "al_attiyah",
+      "al_thani",
+      "banu_tamim",
+      "tamim",
+      "al_mannai",
+      "adnani_root",
+      "bani_tamim",
+      "al_buainain",
+      "al_rabbab",
+      "banu_hanzala",
+      "banu_sad_tamim",
+      "banu_tamim_amr",
+      "maadhid"
     ],
-    "shahristani": [
-      "shahristani",
-      "musa_al_kadhim"
+    "al_bastaki": [
+      "al_bastaki",
+      "achomi_people"
     ],
-    "qudaa": [
-      "qudaa",
-      "adnani_root"
+    "al_abu_risha": [
+      "al_abu_risha",
+      "dulaim_tribe",
+      "tribe_anizah",
+      "tribe_dulaim"
     ],
-    "bani_kaab": [
-      "bani_kaab",
-      "drisah",
-      "makatim",
-      "misaid",
-      "miyadilah",
-      "miyalisah",
-      "mizahamiyin",
-      "nawaljiyin",
-      "salalat",
-      "sawalim",
-      "shwaihiyin",
-      "yidwah",
-      "zahairat",
+    "al_gosaibi": [
+      "al_gosaibi",
+      "banu_abdul_qais"
+    ],
+    "shihuh": [
+      "shihuh",
+      "bani_ali",
+      "bani_hadiyah",
+      "bani_ham_mazyud",
+      "bani_muhammad",
+      "bani_shatair",
+      "khanabil",
+      "khanazirah",
+      "kumazarah",
+      "mahabib",
+      "maqadilah",
+      "qahtani_root",
+      "habus",
+      "kumzarah"
+    ],
+    "al_zarooni": [
+      "al_zarooni",
+      "al_nahyan",
+      "bani_yas",
+      "al_bu_falah",
+      "al_bu_falasah",
+      "al_bu_hemair",
+      "al_falah",
+      "al_falasah",
+      "al_halami",
+      "al_hameli",
+      "al_hemairi",
+      "al_marri",
+      "al_mashghouni",
+      "al_mazrouei",
+      "al_mehairbi",
+      "al_mehairi",
+      "al_qemzi",
+      "al_qubaisi",
+      "al_remeithi",
+      "al_subousi",
+      "al_suwaidi",
+      "halalmah",
+      "hawamil",
+      "maharibah",
+      "marar",
+      "mazari",
+      "mazrui",
+      "mishagin",
+      "remeithi",
+      "rumaithat",
+      "sabais",
+      "sudan",
+      "sudan_tribe",
+      "qubaisi",
+      "al_bu_muhair",
+      "qubaisat",
+      "adnani_root",
+      "al_araytham",
+      "al_khlawi",
+      "al_kurdi",
+      "al_nasrallah",
+      "al_omar_albu_salih",
+      "al_rumaiyadh",
+      "al_tarayma",
+      "al_yoshaa",
+      "al_murrah",
+      "banu_yam",
+      "mazari_emirati",
+      "mazari_baloch",
       "qahtani_root"
     ],
-    "al_mubarak": [
-      "al_mubarak",
-      "al_sabah",
-      "bani_utbah",
-      "al-bin-ali",
-      "al-jalahma",
-      "al-khalifa",
-      "al-sabah",
-      "al_jalahma",
-      "al_khalifa",
+    "al_thani_family": [
+      "al_thani_family",
+      "banu_tamim",
+      "banu_tamim_tribe",
+      "maadhid",
+      "tamim",
+      "al_mannai",
+      "al_thani",
       "adnani_root",
-      "anizah",
-      "anizah_tribe",
-      "utub_confederation"
+      "bani_tamim",
+      "al_buainain",
+      "al_rabbab",
+      "banu_hanzala",
+      "banu_sad_tamim",
+      "banu_tamim_amr"
+    ],
+    "uyunid_dynasty": [
+      "uyunid_dynasty",
+      "banu_abdul_qays",
+      "adnani_root"
+    ],
+    "mahris": [
+      "mahris",
+      "qahtani_root"
+    ],
+    "ghassanid": [
+      "ghassanid",
+      "qahtani_root"
+    ],
+    "aghlabids": [
+      "aghlabids",
+      "banu_tamim",
+      "tamim",
+      "al_mannai",
+      "adnani_root",
+      "bani_tamim",
+      "al_buainain",
+      "al_rabbab",
+      "banu_hanzala",
+      "banu_sad_tamim",
+      "banu_tamim_amr",
+      "maadhid",
+      "al_thani"
+    ],
+    "al_taweel": [
+      "al_taweel",
+      "otaibi_tribe"
+    ],
+    "banu_toghlib": [
+      "banu_toghlib",
+      "adnani_root"
+    ],
+    "jarrahids": [
+      "jarrahids",
+      "tayy_tribe"
+    ],
+    "al_binali": [
+      "al_binali",
+      "utub",
+      "adnani_root"
+    ],
+    "al_zahrani": [
+      "al_zahrani",
+      "azd_tribe"
+    ],
+    "al_awazim": [
+      "al_awazim",
+      "adnani_root"
+    ],
+    "al_ali_hail": [
+      "al_ali_hail",
+      "shammar_confederation",
+      "shammar",
+      "abdah_shammar",
+      "al_aslam_shammar",
+      "shammar_al_jarba",
+      "shammar_al_sayeh",
+      "shammar_toga",
+      "sinjarah_shammar",
+      "qahtani_root"
+    ],
+    "tasm": [
+      "tasm",
+      "qahtani_root"
+    ],
+    "banu_thaqif": [
+      "banu_thaqif",
+      "adnani_root"
+    ],
+    "al_sager": [
+      "al_sager",
+      "bani_yas",
+      "al_bu_falah",
+      "al_bu_falasah",
+      "al_bu_hemair",
+      "al_falah",
+      "al_falasah",
+      "al_halami",
+      "al_hameli",
+      "al_hemairi",
+      "al_marri",
+      "al_mashghouni",
+      "al_mazrouei",
+      "al_mehairbi",
+      "al_mehairi",
+      "al_qemzi",
+      "al_qubaisi",
+      "al_remeithi",
+      "al_subousi",
+      "al_suwaidi",
+      "halalmah",
+      "hawamil",
+      "maharibah",
+      "marar",
+      "mazari",
+      "mazrui",
+      "mishagin",
+      "remeithi",
+      "rumaithat",
+      "sabais",
+      "sudan",
+      "sudan_tribe",
+      "qubaisi",
+      "al_bu_muhair",
+      "qubaisat",
+      "adnani_root",
+      "al_araytham",
+      "al_khlawi",
+      "al_kurdi",
+      "al_nasrallah",
+      "al_omar_albu_salih",
+      "al_rumaiyadh",
+      "al_tarayma",
+      "al_yoshaa",
+      "al_murrah",
+      "banu_yam",
+      "mazari_emirati",
+      "mazari_baloch",
+      "qahtani_root"
+    ],
+    "al_nafisi": [
+      "al_nafisi",
+      "mutayr_tribe",
+      "mutayr",
+      "mutayr_al_ulwa",
+      "mutayr_bani_abdullah",
+      "mutayr_braih",
+      "adnani_root"
     ],
     "al_futtaim": [
       "al_futtaim",
@@ -26987,103 +30935,17 @@
       "mazari_baloch",
       "qahtani_root"
     ],
-    "banu_hilal": [
-      "banu_hilal",
-      "adnani_root"
+    "abdul_latif_jameel": [
+      "abdul_latif_jameel",
+      "al_saadi_tribe"
     ],
-    "salihids": [
-      "salihids",
-      "qahtani_root"
+    "zilkha_family": [
+      "zilkha_family",
+      "baghdadi_jewish_community"
     ],
-    "al_muqrin": [
-      "al_muqrin",
-      "banu_hanifa",
-      "house_of_saud",
-      "anizzah",
-      "adnani_root",
-      "al_saud",
-      "amarat",
-      "bani_hizzan",
-      "fadan",
-      "hasana",
-      "ruwallah",
-      "sbaa",
-      "wuld_ali"
-    ],
-    "banu_sulaym": [
-      "banu_sulaym",
-      "adnani_root"
-    ],
-    "al_maadheed": [
-      "al_maadheed",
-      "al_thani",
-      "bani_tamim",
-      "al_buainain",
-      "al_rabbab",
-      "banu_hanzala",
-      "banu_sad_tamim",
-      "banu_tamim_amr",
-      "maadhid",
-      "adnani_root"
-    ],
-    "al_ali_tribe": [
-      "al_ali_tribe",
-      "al_mualla",
-      "al_ali",
-      "bani_ali"
-    ],
-    "al_mulla_family": [
-      "al_mulla_family",
-      "banu_tamim_tribe",
-      "tamim",
-      "adnani_root"
-    ],
-    "al_kazim": [
-      "al_kazim",
-      "al_sadr",
-      "prophet_muhammad",
-      "charafeddine_family"
-    ],
-    "banu_abs": [
-      "banu_abs",
-      "adnani_root"
-    ],
-    "al_dowsari": [
-      "al_dowsari",
-      "dawasir_tribe",
-      "al_dosari",
-      "dawasir",
-      "sudairi",
-      "adnani_root"
-    ],
-    "al_katheeri": [
-      "al_katheeri",
-      "banu_qudaa"
-    ],
-    "awamir": [
-      "awamir",
-      "afar_awamir"
-    ],
-    "al_ash_sheikh": [
-      "al_ash_sheikh",
-      "al_tamimi",
-      "al_thani",
-      "banu_tamim",
-      "tamim",
-      "al_mannai",
-      "adnani_root",
-      "bani_tamim",
-      "al_buainain",
-      "al_rabbab",
-      "banu_hanzala",
-      "banu_sad_tamim",
-      "banu_tamim_amr",
-      "maadhid"
-    ],
-    "al_jaberi": [
-      "al_jaberi",
+    "al_falahi": [
+      "al_falahi",
       "bani_yas",
-      "dhawahir",
       "al_bu_falah",
       "al_bu_falasah",
       "al_bu_hemair",
@@ -27118,9 +30980,6 @@
       "al_bu_muhair",
       "qubaisat",
       "adnani_root",
-      "bani_saad",
-      "jawabir",
-      "daramikah",
       "al_araytham",
       "al_khlawi",
       "al_kurdi",
@@ -27135,69 +30994,78 @@
       "mazari_baloch",
       "qahtani_root"
     ],
-    "al_muhannadi": [
-      "al_muhannadi",
-      "bani_hajer",
+    "banu_lahyan": [
+      "banu_lahyan",
       "qahtani_root"
     ],
-    "al_hajri": [
-      "al_hajri",
-      "bani_hajer",
-      "qahtan",
-      "qahtani_root",
-      "himyar",
-      "kahlan",
-      "qahtan_tribe",
-      "dhu_asbah",
-      "dhu_raydan",
-      "dhul_kala",
-      "al_murrah",
-      "aws_khazraj",
+    "al_maawdah": [
+      "al_maawdah",
+      "bani_utbah",
+      "al-bin-ali",
+      "al-jalahma",
+      "al-khalifa",
+      "al-sabah",
+      "al_jalahma",
+      "al_khalifa",
+      "adnani_root",
+      "anizah",
+      "anizah_tribe",
+      "utub_confederation"
+    ],
+    "al_ash_sheikh_family": [
+      "al_ash_sheikh_family",
+      "banu_tamim_tribe",
+      "tamim",
+      "adnani_root"
+    ],
+    "al_moayyed": [
+      "al_moayyed",
+      "banu_tamim",
+      "tamim",
+      "al_mannai",
+      "adnani_root",
+      "bani_tamim",
+      "al_buainain",
+      "al_rabbab",
+      "banu_hanzala",
+      "banu_sad_tamim",
+      "banu_tamim_amr",
+      "maadhid",
+      "al_thani"
+    ],
+    "mudhar": [
+      "mudhar",
+      "adnani_root"
+    ],
+    "banu_murrah": [
+      "banu_murrah",
+      "adnani_root"
+    ],
+    "annazah": [
+      "annazah",
+      "adnani_root"
+    ],
+    "utaybah": [
+      "utaybah",
+      "adnani_root"
+    ],
+    "bani_rasheed": [
+      "bani_rasheed",
+      "adnani_root"
+    ],
+    "al_rawas": [
+      "al_rawas",
       "azd",
+      "nizwa_merchants",
+      "aws_khazraj",
       "azd_uman",
-      "bakil",
-      "banu_harith_jabal_amil",
-      "banu_harith_najran",
-      "banu_kathir",
-      "banu_mashruki",
-      "banu_muayiya",
-      "banu_sakasek",
-      "banu_sukun",
-      "banu_yam",
       "bariq",
-      "ghassanids",
-      "hamdan",
-      "hashid",
-      "khuzaa",
-      "kinda",
-      "lakhm",
-      "madhhij",
-      "shammar",
-      "tayy",
-      "ujman",
-      "junb",
-      "rufaida",
-      "sanhan",
       "daws",
       "ghamid",
+      "ghassanids",
       "khuza_a",
       "zahran",
-      "abdah_shammar",
-      "al_aslam_shammar",
-      "shammar_al_jarba",
-      "shammar_al_sayeh",
-      "shammar_toga",
-      "sinjarah_shammar",
-      "al_fadl_tayy",
-      "al_ghawth_tayy",
-      "al_jadila_tayy",
-      "al_thaalib_tayy",
-      "banu_hani_tayy",
-      "banu_hur_tayy",
-      "banu_jundub_tayy",
-      "banu_lam_tayy",
-      "banu_nabhan_tayy",
-      "banu_thuwal_tayy",
+      "qahtani_root",
       "al_jadara",
       "banu_ali_zahran",
       "banu_amr_zahran",
@@ -27206,17 +31074,65 @@
       "banu_fahm",
       "banu_manhib"
     ],
-    "al_zahrani": [
-      "al_zahrani",
-      "azd_tribe"
+    "al_muqrin": [
+      "al_muqrin",
+      "banu_hanifa",
+      "house_of_saud",
+      "anizzah",
+      "adnani_root",
+      "al_saud",
+      "amarat",
+      "bani_hizzan",
+      "fadan",
+      "hasana",
+      "ruwallah",
+      "sbaa",
+      "wuld_ali"
     ],
-    "saba": [
-      "saba",
+    "banu_lakhm": [
+      "banu_lakhm",
       "qahtani_root"
     ],
-    "al_hammadi_family": [
-      "al_hammadi_family",
-      "bani_yas_tribe",
+    "mutair_ikhwan": [
+      "mutair_ikhwan",
+      "adnani_root"
+    ],
+    "al_musawi": [
+      "al_musawi",
+      "banu_hashim",
+      "adnani_root"
+    ],
+    "ghatafan": [
+      "ghatafan",
+      "adnani_root"
+    ],
+    "cohen_bahrain": [
+      "cohen_bahrain",
+      "bahrain_jewish_community",
+      "kohanim_caste"
+    ],
+    "al_mira": [
+      "al_mira",
+      "qahtani_root"
+    ],
+    "al_kathiri": [
+      "al_kathiri",
+      "qahtani_root"
+    ],
+    "banu_uqayl": [
+      "banu_uqayl",
+      "adnani_root"
+    ],
+    "al_dabbagh": [
+      "al_dabbagh",
+      "hejazi_tribes"
+    ],
+    "al_nuaimi_tribe": [
+      "al_nuaimi_tribe",
+      "al_bu_kharaiban"
+    ],
+    "al_rumaithi": [
+      "al_rumaithi",
       "bani_yas",
       "al_bu_falah",
       "al_bu_falasah",
@@ -27284,15 +31200,13 @@
       "qahtani_root",
       "adnani_root"
     ],
-    "al_sabhan": [
-      "al_sabhan",
-      "anaza",
-      "anaza_tribe",
-      "adnani_root"
+    "behbehani": [
+      "behbehani",
+      "ajam_kuwait"
     ],
-    "al_mansoori_family": [
-      "al_mansoori_family",
-      "bani_yas_confederation",
+    "al_hammadi_family": [
+      "al_hammadi_family",
+      "bani_yas_tribe",
       "bani_yas",
       "al_bu_falah",
       "al_bu_falasah",
@@ -27342,16 +31256,152 @@
       "mazari_baloch",
       "qahtani_root"
     ],
-    "bakr_bin_wail": [
-      "bakr_bin_wail",
-      "adnani_root"
-    ],
-    "banu_kalb": [
-      "banu_kalb",
+    "al_tayer": [
+      "al_tayer",
+      "bani_yas",
+      "al_bu_falah",
+      "al_bu_falasah",
+      "al_bu_hemair",
+      "al_falah",
+      "al_falasah",
+      "al_halami",
+      "al_hameli",
+      "al_hemairi",
+      "al_marri",
+      "al_mashghouni",
+      "al_mazrouei",
+      "al_mehairbi",
+      "al_mehairi",
+      "al_qemzi",
+      "al_qubaisi",
+      "al_remeithi",
+      "al_subousi",
+      "al_suwaidi",
+      "halalmah",
+      "hawamil",
+      "maharibah",
+      "marar",
+      "mazari",
+      "mazrui",
+      "mishagin",
+      "remeithi",
+      "rumaithat",
+      "sabais",
+      "sudan",
+      "sudan_tribe",
+      "qubaisi",
+      "al_bu_muhair",
+      "qubaisat",
+      "adnani_root",
+      "al_araytham",
+      "al_khlawi",
+      "al_kurdi",
+      "al_nasrallah",
+      "al_omar_albu_salih",
+      "al_rumaiyadh",
+      "al_tarayma",
+      "al_yoshaa",
+      "al_murrah",
+      "banu_yam",
+      "mazari_emirati",
+      "mazari_baloch",
       "qahtani_root"
     ],
-    "zoubi": [
-      "zoubi",
+    "al_ghurair": [
+      "al_ghurair",
+      "bani_yas",
+      "al_bu_falah",
+      "al_bu_falasah",
+      "al_bu_hemair",
+      "al_falah",
+      "al_falasah",
+      "al_halami",
+      "al_hameli",
+      "al_hemairi",
+      "al_marri",
+      "al_mashghouni",
+      "al_mazrouei",
+      "al_mehairbi",
+      "al_mehairi",
+      "al_qemzi",
+      "al_qubaisi",
+      "al_remeithi",
+      "al_subousi",
+      "al_suwaidi",
+      "halalmah",
+      "hawamil",
+      "maharibah",
+      "marar",
+      "mazari",
+      "mazrui",
+      "mishagin",
+      "remeithi",
+      "rumaithat",
+      "sabais",
+      "sudan",
+      "sudan_tribe",
+      "qubaisi",
+      "al_bu_muhair",
+      "qubaisat",
+      "adnani_root",
+      "al_araytham",
+      "al_khlawi",
+      "al_kurdi",
+      "al_nasrallah",
+      "al_omar_albu_salih",
+      "al_rumaiyadh",
+      "al_tarayma",
+      "al_yoshaa",
+      "al_murrah",
+      "banu_yam",
+      "mazari_emirati",
+      "mazari_baloch",
+      "qahtani_root"
+    ],
+    "al_farooq": [
+      "al_farooq",
+      "al_ansar"
+    ],
+    "usfurids": [
+      "usfurids",
+      "uqaylids"
+    ],
+    "hadramaut": [
+      "hadramaut",
+      "qahtani_root"
+    ],
+    "qataban": [
+      "qataban",
+      "qahtani_root"
+    ],
+    "qawasem": [
+      "qawasem",
+      "adnani_root"
+    ],
+    "thamalah": [
+      "thamalah",
+      "qahtani_root"
+    ],
+    "al_ansari_family": [
+      "al_ansari_family",
+      "abu_ayyub_al_ansari",
+      "banu_khazraj",
+      "qahtani_root"
+    ],
+    "al_sulaimi": [
+      "al_sulaimi",
+      "adnani_root"
+    ],
+    "al_ali_tribe": [
+      "al_ali_tribe",
+      "al_mualla",
+      "al_ali",
+      "bani_ali"
+    ],
+    "al_mulla_family": [
+      "al_mulla_family",
+      "banu_tamim_tribe",
+      "tamim",
       "adnani_root"
     ],
     "almuhannada": [
@@ -27420,96 +31470,19 @@
       "banu_fahm",
       "banu_manhib"
     ],
-    "al_kathiri": [
-      "al_kathiri",
-      "qahtani_root"
-    ],
-    "al_zayani": [
-      "al_zayani",
-      "utub",
+    "al_zamil": [
+      "al_zamil",
+      "anizah_tribe",
+      "anizah",
       "adnani_root"
     ],
-    "al_hawaj": [
-      "al_hawaj",
-      "banu_khuzaah"
+    "dulafid_dynasty": [
+      "dulafid_dynasty",
+      "banu_ijl"
     ],
-    "al_abu_risha": [
-      "al_abu_risha",
-      "dulaim_tribe",
-      "tribe_anizah",
-      "tribe_dulaim"
-    ],
-    "manaii": [
-      "manaii",
-      "qahtani_root"
-    ],
-    "banu_lahyan": [
-      "banu_lahyan",
-      "qahtani_root"
-    ],
-    "al_ansari_family": [
-      "al_ansari_family",
-      "abu_ayyub_al_ansari",
-      "banu_khazraj",
-      "qahtani_root"
-    ],
-    "bani_rasheed": [
-      "bani_rasheed",
-      "adnani_root"
-    ],
-    "ghassanid": [
-      "ghassanid",
-      "qahtani_root"
-    ],
-    "al_binali": [
-      "al_binali",
-      "utub",
-      "adnani_root"
-    ],
-    "al_tajir": [
-      "al_tajir",
-      "al_faiz",
-      "musa_al_kadhim"
-    ],
-    "banu_tayy": [
-      "banu_tayy",
-      "al_fadhil",
-      "tayy",
-      "al_fadl_tayy",
-      "al_ghawth_tayy",
-      "al_jadila_tayy",
-      "al_thaalib_tayy",
-      "banu_hani_tayy",
-      "banu_hur_tayy",
-      "banu_jundub_tayy",
-      "banu_lam_tayy",
-      "banu_nabhan_tayy",
-      "banu_thuwal_tayy",
-      "qahtani_root"
-    ],
-    "banu_nuaym": [
-      "banu_nuaym",
-      "adnani_root"
-    ],
-    "cohen_bahrain": [
-      "cohen_bahrain",
-      "bahrain_jewish_community",
-      "kohanim_caste"
-    ],
-    "bani_sakher": [
-      "bani_sakher",
-      "qahtani_root"
-    ],
-    "al_huwaitat": [
-      "al_huwaitat",
-      "adnani_root"
-    ],
-    "al_shathri": [
-      "al_shathri",
-      "hawazin_tribe"
-    ],
-    "al_qassab": [
-      "al_qassab",
+    "al_khaled": [
+      "al_khaled",
+      "al_nahyan",
       "bani_yas",
       "al_bu_falah",
       "al_bu_falasah",
@@ -27559,6 +31532,459 @@
       "mazari_baloch",
       "qahtani_root"
     ],
+    "al_khater": [
+      "al_khater",
+      "banu_tamim",
+      "tamim",
+      "al_mannai",
+      "adnani_root",
+      "bani_tamim",
+      "al_buainain",
+      "al_rabbab",
+      "banu_hanzala",
+      "banu_sad_tamim",
+      "banu_tamim_amr",
+      "maadhid",
+      "al_thani"
+    ],
+    "house_of_sabah": [
+      "house_of_sabah",
+      "bani_utbah",
+      "al-bin-ali",
+      "al-jalahma",
+      "al-khalifa",
+      "al-sabah",
+      "al_jalahma",
+      "al_khalifa",
+      "adnani_root",
+      "anizah",
+      "anizah_tribe",
+      "utub_confederation"
+    ],
+    "bakr_bin_wail": [
+      "bakr_bin_wail",
+      "adnani_root"
+    ],
+    "al_marzook": [
+      "al_marzook",
+      "bani_yas",
+      "al_bu_falah",
+      "al_bu_falasah",
+      "al_bu_hemair",
+      "al_falah",
+      "al_falasah",
+      "al_halami",
+      "al_hameli",
+      "al_hemairi",
+      "al_marri",
+      "al_mashghouni",
+      "al_mazrouei",
+      "al_mehairbi",
+      "al_mehairi",
+      "al_qemzi",
+      "al_qubaisi",
+      "al_remeithi",
+      "al_subousi",
+      "al_suwaidi",
+      "halalmah",
+      "hawamil",
+      "maharibah",
+      "marar",
+      "mazari",
+      "mazrui",
+      "mishagin",
+      "remeithi",
+      "rumaithat",
+      "sabais",
+      "sudan",
+      "sudan_tribe",
+      "qubaisi",
+      "al_bu_muhair",
+      "qubaisat",
+      "adnani_root",
+      "al_araytham",
+      "al_khlawi",
+      "al_kurdi",
+      "al_nasrallah",
+      "al_omar_albu_salih",
+      "al_rumaiyadh",
+      "al_tarayma",
+      "al_yoshaa",
+      "al_murrah",
+      "banu_yam",
+      "mazari_emirati",
+      "mazari_baloch",
+      "qahtani_root"
+    ],
+    "al_mohannadi": [
+      "al_mohannadi",
+      "bani_hajer",
+      "qahtani_root"
+    ],
+    "al_zayani": [
+      "al_zayani",
+      "utub",
+      "adnani_root"
+    ],
+    "khedouri": [
+      "khedouri",
+      "zilkha"
+    ],
+    "manaii": [
+      "manaii",
+      "qahtani_root"
+    ],
+    "cohen_scali": [
+      "cohen_scali",
+      "sephardic_merchants"
+    ],
+    "banu_tayy": [
+      "banu_tayy",
+      "al_fadhil",
+      "tayy",
+      "al_fadl_tayy",
+      "al_ghawth_tayy",
+      "al_jadila_tayy",
+      "al_thaalib_tayy",
+      "banu_hani_tayy",
+      "banu_hur_tayy",
+      "banu_jundub_tayy",
+      "banu_lam_tayy",
+      "banu_nabhan_tayy",
+      "banu_thuwal_tayy",
+      "qahtani_root"
+    ],
+    "al_naboodah": [
+      "al_naboodah",
+      "al_bu_shamis"
+    ],
+    "al_mana": [
+      "al_mana",
+      "tamim_tribe",
+      "tamim",
+      "adnani_root"
+    ],
+    "mahamid": [
+      "mahamid",
+      "abu_karaki",
+      "al_abdul_dayem",
+      "al_ahmad",
+      "al_asead",
+      "al_bahri",
+      "al_shaleikh",
+      "alhamamada",
+      "alhasasana",
+      "aljeayisa",
+      "alkhudur",
+      "almadhakir",
+      "almatiei",
+      "almuhabida",
+      "almusaeada",
+      "alrathea",
+      "alrtuei",
+      "alsawalima",
+      "ayal_abdo",
+      "dar_alearabi",
+      "hourani",
+      "kiawan",
+      "qahtani_root"
+    ],
+    "al_ouda": [
+      "al_ouda",
+      "bani_khalid"
+    ],
+    "al_haramsha_bani_idaid": [
+      "al_haramsha_bani_idaid",
+      "qahtani_root"
+    ],
+    "al_sulaim": [
+      "al_sulaim",
+      "subay_tribe"
+    ],
+    "al_sulaiman": [
+      "al_sulaiman",
+      "ajman_tribe",
+      "mahdali_dynasty",
+      "qahtani_root"
+    ],
+    "banu_assad": [
+      "banu_assad",
+      "adnani_root"
+    ],
+    "al_muammar": [
+      "al_muammar",
+      "banu_tamim",
+      "tamim",
+      "al_mannai",
+      "adnani_root",
+      "bani_tamim",
+      "al_buainain",
+      "al_rabbab",
+      "banu_hanzala",
+      "banu_sad_tamim",
+      "banu_tamim_amr",
+      "maadhid",
+      "al_thani"
+    ],
+    "al_fadl": [
+      "al_fadl",
+      "qahtani_root"
+    ],
+    "yaarubah": [
+      "yaarubah",
+      "qahtani_root"
+    ],
+    "house_of_sheikh_saeed_bin_hamad_al_qasimi": [
+      "house_of_sheikh_saeed_bin_hamad_al_qasimi",
+      "al_qasimi_confederation"
+    ],
+    "al_olayan": [
+      "al_olayan",
+      "tamim_tribe",
+      "tamim",
+      "adnani_root"
+    ],
+    "juma_al_majid": [
+      "juma_al_majid",
+      "bani_yas",
+      "al_bu_falah",
+      "al_bu_falasah",
+      "al_bu_hemair",
+      "al_falah",
+      "al_falasah",
+      "al_halami",
+      "al_hameli",
+      "al_hemairi",
+      "al_marri",
+      "al_mashghouni",
+      "al_mazrouei",
+      "al_mehairbi",
+      "al_mehairi",
+      "al_qemzi",
+      "al_qubaisi",
+      "al_remeithi",
+      "al_subousi",
+      "al_suwaidi",
+      "halalmah",
+      "hawamil",
+      "maharibah",
+      "marar",
+      "mazari",
+      "mazrui",
+      "mishagin",
+      "remeithi",
+      "rumaithat",
+      "sabais",
+      "sudan",
+      "sudan_tribe",
+      "qubaisi",
+      "al_bu_muhair",
+      "qubaisat",
+      "adnani_root",
+      "al_araytham",
+      "al_khlawi",
+      "al_kurdi",
+      "al_nasrallah",
+      "al_omar_albu_salih",
+      "al_rumaiyadh",
+      "al_tarayma",
+      "al_yoshaa",
+      "al_murrah",
+      "banu_yam",
+      "mazari_emirati",
+      "mazari_baloch",
+      "qahtani_root"
+    ],
+    "al_omaro_bani_uqba": [
+      "al_omaro_bani_uqba",
+      "qahtani_root"
+    ],
+    "banu_saad": [
+      "banu_saad",
+      "adnani_root"
+    ],
+    "khawlaniyah_al_qahtaniyah_harb": [
+      "khawlaniyah_al_qahtaniyah_harb",
+      "qahtani_root"
+    ],
+    "al_marzouq": [
+      "al_marzouq",
+      "al_ghanim",
+      "bani_utub",
+      "bani_utbah",
+      "al-bin-ali",
+      "al-jalahma",
+      "al-khalifa",
+      "al-sabah",
+      "al_jalahma",
+      "al_khalifa",
+      "adnani_root",
+      "anizah",
+      "anizah_tribe",
+      "utub_confederation"
+    ],
+    "banu_abs": [
+      "banu_abs",
+      "adnani_root"
+    ],
+    "al_hawaj": [
+      "al_hawaj",
+      "banu_khuzaah"
+    ],
+    "banu_lahb": [
+      "banu_lahb",
+      "qahtani_root"
+    ],
+    "al_faisal": [
+      "al_faisal",
+      "al_saud",
+      "banu_hanifa",
+      "anizzah",
+      "adnani_root",
+      "house_of_saud",
+      "amarat",
+      "bani_hizzan",
+      "fadan",
+      "hasana",
+      "ruwallah",
+      "sbaa",
+      "wuld_ali"
+    ],
+    "al_jaberi": [
+      "al_jaberi",
+      "bani_yas",
+      "dhawahir",
+      "al_bu_falah",
+      "al_bu_falasah",
+      "al_bu_hemair",
+      "al_falah",
+      "al_falasah",
+      "al_halami",
+      "al_hameli",
+      "al_hemairi",
+      "al_marri",
+      "al_mashghouni",
+      "al_mazrouei",
+      "al_mehairbi",
+      "al_mehairi",
+      "al_qemzi",
+      "al_qubaisi",
+      "al_remeithi",
+      "al_subousi",
+      "al_suwaidi",
+      "halalmah",
+      "hawamil",
+      "maharibah",
+      "marar",
+      "mazari",
+      "mazrui",
+      "mishagin",
+      "remeithi",
+      "rumaithat",
+      "sabais",
+      "sudan",
+      "sudan_tribe",
+      "qubaisi",
+      "al_bu_muhair",
+      "qubaisat",
+      "adnani_root",
+      "bani_saad",
+      "jawabir",
+      "daramikah",
+      "al_araytham",
+      "al_khlawi",
+      "al_kurdi",
+      "al_nasrallah",
+      "al_omar_albu_salih",
+      "al_rumaiyadh",
+      "al_tarayma",
+      "al_yoshaa",
+      "al_murrah",
+      "banu_yam",
+      "mazari_emirati",
+      "mazari_baloch",
+      "qahtani_root"
+    ],
+    "al_qarooni": [
+      "al_qarooni",
+      "baharna"
+    ],
+    "al_saif": [
+      "al_saif",
+      "subai_tribe"
+    ],
+    "awamir": [
+      "awamir",
+      "afar_awamir"
+    ],
+    "al_huwaitat": [
+      "al_huwaitat",
+      "adnani_root"
+    ],
+    "al_shathri": [
+      "al_shathri",
+      "hawazin_tribe"
+    ],
+    "al_kharusi": [
+      "al_kharusi",
+      "ibadi_movement"
+    ],
+    "anazzah": [
+      "anazzah",
+      "adnani_root"
+    ],
+    "shaiqiyah": [
+      "shaiqiyah",
+      "adnani_root"
+    ],
+    "al_zadjali": [
+      "al_zadjali",
+      "jadgal_people"
+    ],
+    "sabaeans": [
+      "sabaeans",
+      "qahtani_root"
+    ],
+    "al_kharafi": [
+      "al_kharafi",
+      "utub_confederation",
+      "utub_tribe",
+      "utub",
+      "adnani_root"
+    ],
+    "banu_hilal": [
+      "banu_hilal",
+      "adnani_root"
+    ],
+    "al_dhaheri_family": [
+      "al_dhaheri_family",
+      "dhawahir_tribe",
+      "dhawahir",
+      "bani_saad",
+      "jawabir",
+      "daramikah",
+      "adnani_root"
+    ],
+    "al_rajhi": [
+      "al_rajhi",
+      "aniza",
+      "aniza_tribe"
+    ],
+    "al_busaidi": [
+      "al_busaidi",
+      "azd_tribe"
+    ],
+    "al_rostamani": [
+      "al_rostamani",
+      "dubai_merchants",
+      "persian_fars"
+    ],
+    "al_kazim": [
+      "al_kazim",
+      "al_sadr",
+      "prophet_muhammad",
+      "charafeddine_family"
+    ],
     "banu_hina": [
       "banu_hina",
       "adi_hilal",
@@ -27570,9 +31996,129 @@
       "zughba_hilal",
       "adnani_root"
     ],
-    "sudan_al_suwaidi": [
-      "sudan_al_suwaidi",
+    "al_muqbil": [
+      "al_muqbil",
+      "banu_tamim",
+      "al_mannai",
+      "bani_tamim",
+      "al_buainain",
+      "al_rabbab",
+      "banu_hanzala",
+      "banu_sad_tamim",
+      "banu_tamim_amr",
+      "maadhid",
+      "adnani_root",
+      "al_thani"
+    ],
+    "al_dhafeer": [
+      "al_dhafeer",
+      "ahl_al_buwait",
+      "ahl_al_sumada",
+      "al_aljanat",
+      "al_askar",
+      "al_jawasim",
+      "al_katheer",
+      "al_maadin",
+      "al_maalem",
+      "al_oraif",
+      "al_said",
+      "al_suwait",
+      "al_thiraan",
+      "bani_hussein",
       "qahtani_root"
+    ],
+    "banu_judham": [
+      "banu_judham",
+      "qahtani_root"
+    ],
+    "al_hashar": [
+      "al_hashar",
+      "al_maktoum",
+      "al_bu_falasah",
+      "bani_yas",
+      "al_bu_falah",
+      "al_bu_hemair",
+      "al_falah",
+      "al_falasah",
+      "al_halami",
+      "al_hameli",
+      "al_hemairi",
+      "al_marri",
+      "al_mashghouni",
+      "al_mazrouei",
+      "al_mehairbi",
+      "al_mehairi",
+      "al_qemzi",
+      "al_qubaisi",
+      "al_remeithi",
+      "al_subousi",
+      "al_suwaidi",
+      "halalmah",
+      "hawamil",
+      "maharibah",
+      "marar",
+      "mazari",
+      "mazrui",
+      "mishagin",
+      "remeithi",
+      "rumaithat",
+      "sabais",
+      "sudan",
+      "sudan_tribe",
+      "qubaisi",
+      "al_bu_muhair",
+      "qubaisat",
+      "adnani_root",
+      "al_araytham",
+      "al_khlawi",
+      "al_kurdi",
+      "al_nasrallah",
+      "al_omar_albu_salih",
+      "al_rumaiyadh",
+      "al_tarayma",
+      "al_yoshaa",
+      "al_murrah",
+      "banu_yam",
+      "mazari_emirati",
+      "mazari_baloch",
+      "qahtani_root"
+    ],
+    "rabia": [
+      "rabia",
+      "adnani_root"
+    ],
+    "banu_sulaym": [
+      "banu_sulaym",
+      "adnani_root"
+    ],
+    "banu_kalb": [
+      "banu_kalb",
+      "qahtani_root"
+    ],
+    "al_bu_said": [
+      "al_bu_said",
+      "azd_tribe",
+      "azd",
+      "qahtani_root",
+      "aws_khazraj",
+      "azd_uman",
+      "bariq",
+      "daws",
+      "ghamid",
+      "ghassanids",
+      "khuza_a",
+      "zahran",
+      "al_jadara",
+      "banu_ali_zahran",
+      "banu_amr_zahran",
+      "banu_aws_zahran",
+      "banu_daws",
+      "banu_fahm",
+      "banu_manhib"
+    ],
+    "zoubi": [
+      "zoubi",
+      "adnani_root"
     ],
     "al_wazzan": [
       "al_wazzan",
@@ -27588,6 +32134,280 @@
       "banu_tamim_amr",
       "maadhid",
       "al_thani"
+    ],
+    "al_rashid": [
+      "al_rashid",
+      "shammar_tribe",
+      "shammar",
+      "abdah_shammar",
+      "al_aslam_shammar",
+      "shammar_al_jarba",
+      "shammar_al_sayeh",
+      "shammar_toga",
+      "sinjarah_shammar",
+      "qahtani_root"
+    ],
+    "hawazin": [
+      "hawazin",
+      "adnani_root"
+    ],
+    "al_baharna": [
+      "al_baharna",
+      "abd_al_qays",
+      "rabia_tribe",
+      "adnani_root"
+    ],
+    "bani_abbad": [
+      "bani_abbad",
+      "adnani_root"
+    ],
+    "albuflasa_clan": [
+      "albuflasa_clan",
+      "bani_yas",
+      "al_bu_falah",
+      "al_bu_falasah",
+      "al_bu_hemair",
+      "al_falah",
+      "al_falasah",
+      "al_halami",
+      "al_hameli",
+      "al_hemairi",
+      "al_marri",
+      "al_mashghouni",
+      "al_mazrouei",
+      "al_mehairbi",
+      "al_mehairi",
+      "al_qemzi",
+      "al_qubaisi",
+      "al_remeithi",
+      "al_subousi",
+      "al_suwaidi",
+      "halalmah",
+      "hawamil",
+      "maharibah",
+      "marar",
+      "mazari",
+      "mazrui",
+      "mishagin",
+      "remeithi",
+      "rumaithat",
+      "sabais",
+      "sudan",
+      "sudan_tribe",
+      "qubaisi",
+      "al_bu_muhair",
+      "qubaisat",
+      "adnani_root",
+      "al_araytham",
+      "al_khlawi",
+      "al_kurdi",
+      "al_nasrallah",
+      "al_omar_albu_salih",
+      "al_rumaiyadh",
+      "al_tarayma",
+      "al_yoshaa",
+      "al_murrah",
+      "banu_yam",
+      "mazari_emirati",
+      "mazari_baloch",
+      "qahtani_root"
+    ],
+    "jawad": [
+      "jawad",
+      "arab_merchant_tribes"
+    ],
+    "naim_confederation": [
+      "naim_confederation",
+      "al_nuaimi",
+      "naim",
+      "naim_tribe",
+      "al_bu_kharaiban",
+      "al_bu_shamis",
+      "al_jabr_naim_qatar",
+      "darawishah",
+      "ramzan_naim_qatar",
+      "al_naimi_qatar",
+      "adnani_root",
+      "ajman_ruling_family"
+    ],
+    "al_jarba": [
+      "al_jarba",
+      "shammar",
+      "shammar_tribe",
+      "tayy",
+      "tayy_tribe",
+      "abdah_shammar",
+      "al_aslam_shammar",
+      "shammar_al_jarba",
+      "shammar_al_sayeh",
+      "shammar_toga",
+      "sinjarah_shammar",
+      "qahtani_root",
+      "al_fadl_tayy",
+      "al_ghawth_tayy",
+      "al_jadila_tayy",
+      "al_thaalib_tayy",
+      "banu_hani_tayy",
+      "banu_hur_tayy",
+      "banu_jundub_tayy",
+      "banu_lam_tayy",
+      "banu_nabhan_tayy",
+      "banu_thuwal_tayy"
+    ],
+    "house_of_al_falasi": [
+      "house_of_al_falasi",
+      "bani_yas",
+      "al_bu_falah",
+      "al_bu_falasah",
+      "al_bu_hemair",
+      "al_falah",
+      "al_falasah",
+      "al_halami",
+      "al_hameli",
+      "al_hemairi",
+      "al_marri",
+      "al_mashghouni",
+      "al_mazrouei",
+      "al_mehairbi",
+      "al_mehairi",
+      "al_qemzi",
+      "al_qubaisi",
+      "al_remeithi",
+      "al_subousi",
+      "al_suwaidi",
+      "halalmah",
+      "hawamil",
+      "maharibah",
+      "marar",
+      "mazari",
+      "mazrui",
+      "mishagin",
+      "remeithi",
+      "rumaithat",
+      "sabais",
+      "sudan",
+      "sudan_tribe",
+      "qubaisi",
+      "al_bu_muhair",
+      "qubaisat",
+      "adnani_root",
+      "al_araytham",
+      "al_khlawi",
+      "al_kurdi",
+      "al_nasrallah",
+      "al_omar_albu_salih",
+      "al_rumaiyadh",
+      "al_tarayma",
+      "al_yoshaa",
+      "al_murrah",
+      "banu_yam",
+      "mazari_emirati",
+      "mazari_baloch",
+      "qahtani_root"
+    ],
+    "banu_ghassan": [
+      "banu_ghassan",
+      "qahtani_root"
+    ],
+    "al_sayegh": [
+      "al_sayegh",
+      "baharna"
+    ],
+    "al_shanfari": [
+      "al_shanfari",
+      "tribe_shanfar"
+    ],
+    "al_dossary": [
+      "al_dossary",
+      "dawasir_tribe",
+      "al_dosari",
+      "dawasir",
+      "sudairi",
+      "adnani_root"
+    ],
+    "al_urayir": [
+      "al_urayir",
+      "bani_khalid",
+      "banu_khalid",
+      "al_humaid",
+      "al_janah",
+      "al_musallam",
+      "al_subaih",
+      "al_suhoob",
+      "amayer",
+      "duum",
+      "grusha",
+      "juboor",
+      "mahashir",
+      "nahood",
+      "qahtani_root",
+      "adnani_root"
+    ],
+    "saba": [
+      "saba",
+      "qahtani_root"
+    ],
+    "bani_qitab": [
+      "bani_qitab",
+      "northern_bani_qitab",
+      "southern_bani_qitab",
+      "qahtani_root"
+    ],
+    "house_of_al_falahi": [
+      "house_of_al_falahi",
+      "bani_yas",
+      "al_bu_falah",
+      "al_bu_falasah",
+      "al_bu_hemair",
+      "al_falah",
+      "al_falasah",
+      "al_halami",
+      "al_hameli",
+      "al_hemairi",
+      "al_marri",
+      "al_mashghouni",
+      "al_mazrouei",
+      "al_mehairbi",
+      "al_mehairi",
+      "al_qemzi",
+      "al_qubaisi",
+      "al_remeithi",
+      "al_subousi",
+      "al_suwaidi",
+      "halalmah",
+      "hawamil",
+      "maharibah",
+      "marar",
+      "mazari",
+      "mazrui",
+      "mishagin",
+      "remeithi",
+      "rumaithat",
+      "sabais",
+      "sudan",
+      "sudan_tribe",
+      "qubaisi",
+      "al_bu_muhair",
+      "qubaisat",
+      "adnani_root",
+      "al_araytham",
+      "al_khlawi",
+      "al_kurdi",
+      "al_nasrallah",
+      "al_omar_albu_salih",
+      "al_rumaiyadh",
+      "al_tarayma",
+      "al_yoshaa",
+      "al_murrah",
+      "banu_yam",
+      "mazari_emirati",
+      "mazari_baloch",
+      "qahtani_root"
+    ],
+    "kalantarian_family": [
+      "kalantarian_family",
+      "persian_merchants",
+      "safavid_administration"
     ],
     "al_suwaidi_family": [
       "al_suwaidi_family",
@@ -27641,23 +32461,9 @@
       "mazari_baloch",
       "qahtani_root"
     ],
-    "house_of_sabah": [
-      "house_of_sabah",
-      "bani_utbah",
-      "al-bin-ali",
-      "al-jalahma",
-      "al-khalifa",
-      "al-sabah",
-      "al_jalahma",
-      "al_khalifa",
-      "adnani_root",
-      "anizah",
-      "anizah_tribe",
-      "utub_confederation"
-    ],
-    "al_ameri_family": [
-      "al_ameri_family",
-      "bani_yas_confederation",
+    "bani_hafiz_family": [
+      "bani_hafiz_family",
+      "bani_yas_tribe",
       "bani_yas",
       "al_bu_falah",
       "al_bu_falasah",
@@ -27707,8 +32513,29 @@
       "mazari_baloch",
       "qahtani_root"
     ],
-    "al_saadi": [
-      "al_saadi",
+    "kunud": [
+      "kunud",
+      "qahtani_root"
+    ],
+    "abida": [
+      "abida",
+      "qahtani_root"
+    ],
+    "al_rumaihi": [
+      "al_rumaihi",
+      "bani_tamim",
+      "tamim",
+      "al_buainain",
+      "al_rabbab",
+      "banu_hanzala",
+      "banu_sad_tamim",
+      "banu_tamim_amr",
+      "maadhid",
+      "adnani_root",
+      "al_thani"
+    ],
+    "al_qassab": [
+      "al_qassab",
       "bani_yas",
       "al_bu_falah",
       "al_bu_falasah",
@@ -27757,14 +32584,6 @@
       "mazari_emirati",
       "mazari_baloch",
       "qahtani_root"
-    ],
-    "al_taweel": [
-      "al_taweel",
-      "otaibi_tribe"
-    ],
-    "qawasem": [
-      "qawasem",
-      "adnani_root"
     ],
     "al_harthi": [
       "al_harthi",
@@ -27772,20 +32591,36 @@
       "hirth_tribe",
       "qahtani_root"
     ],
+    "bani_kaab": [
+      "bani_kaab",
+      "drisah",
+      "makatim",
+      "misaid",
+      "miyadilah",
+      "miyalisah",
+      "mizahamiyin",
+      "nawaljiyin",
+      "salalat",
+      "sawalim",
+      "shwaihiyin",
+      "yidwah",
+      "zahairat",
+      "qahtani_root"
+    ],
     "al_thawawida": [
       "al_thawawida",
       "bani_khalid"
     ],
-    "al_awazim": [
-      "al_awazim",
+    "qudaa": [
+      "qudaa",
       "adnani_root"
     ],
-    "thamalah": [
-      "thamalah",
+    "jubur": [
+      "jubur",
       "qahtani_root"
     ],
-    "al_fahim": [
-      "al_fahim",
+    "al_shamsi_family": [
+      "al_shamsi_family",
       "bani_yas",
       "al_bu_falah",
       "al_bu_falasah",
@@ -27835,280 +32670,9 @@
       "mazari_baloch",
       "qahtani_root"
     ],
-    "al_falahi": [
-      "al_falahi",
-      "bani_yas",
-      "al_bu_falah",
-      "al_bu_falasah",
-      "al_bu_hemair",
-      "al_falah",
-      "al_falasah",
-      "al_halami",
-      "al_hameli",
-      "al_hemairi",
-      "al_marri",
-      "al_mashghouni",
-      "al_mazrouei",
-      "al_mehairbi",
-      "al_mehairi",
-      "al_qemzi",
-      "al_qubaisi",
-      "al_remeithi",
-      "al_subousi",
-      "al_suwaidi",
-      "halalmah",
-      "hawamil",
-      "maharibah",
-      "marar",
-      "mazari",
-      "mazrui",
-      "mishagin",
-      "remeithi",
-      "rumaithat",
-      "sabais",
-      "sudan",
-      "sudan_tribe",
-      "qubaisi",
-      "al_bu_muhair",
-      "qubaisat",
-      "adnani_root",
-      "al_araytham",
-      "al_khlawi",
-      "al_kurdi",
-      "al_nasrallah",
-      "al_omar_albu_salih",
-      "al_rumaiyadh",
-      "al_tarayma",
-      "al_yoshaa",
-      "al_murrah",
-      "banu_yam",
-      "mazari_emirati",
-      "mazari_baloch",
-      "qahtani_root"
-    ],
-    "usfurids": [
-      "usfurids",
-      "uqaylids"
-    ],
-    "al_shanfari": [
-      "al_shanfari",
-      "tribe_shanfar"
-    ],
-    "al_dabbagh": [
-      "al_dabbagh",
-      "hejazi_tribes"
-    ],
-    "lakhmids": [
-      "lakhmids",
-      "qahtani_root"
-    ],
-    "khedouri": [
-      "khedouri",
-      "zilkha"
-    ],
-    "al_muhaidib": [
-      "al_muhaidib",
-      "tamim_tribe",
-      "tamim",
-      "adnani_root"
-    ],
-    "banu_lahb": [
-      "banu_lahb",
-      "qahtani_root"
-    ],
-    "mahamid": [
-      "mahamid",
-      "abu_karaki",
-      "al_abdul_dayem",
-      "al_ahmad",
-      "al_asead",
-      "al_bahri",
-      "al_shaleikh",
-      "alhamamada",
-      "alhasasana",
-      "aljeayisa",
-      "alkhudur",
-      "almadhakir",
-      "almatiei",
-      "almuhabida",
-      "almusaeada",
-      "alrathea",
-      "alrtuei",
-      "alsawalima",
-      "ayal_abdo",
-      "dar_alearabi",
-      "hourani",
-      "kiawan",
-      "qahtani_root"
-    ],
-    "al_marzook": [
-      "al_marzook",
-      "bani_yas",
-      "al_bu_falah",
-      "al_bu_falasah",
-      "al_bu_hemair",
-      "al_falah",
-      "al_falasah",
-      "al_halami",
-      "al_hameli",
-      "al_hemairi",
-      "al_marri",
-      "al_mashghouni",
-      "al_mazrouei",
-      "al_mehairbi",
-      "al_mehairi",
-      "al_qemzi",
-      "al_qubaisi",
-      "al_remeithi",
-      "al_subousi",
-      "al_suwaidi",
-      "halalmah",
-      "hawamil",
-      "maharibah",
-      "marar",
-      "mazari",
-      "mazrui",
-      "mishagin",
-      "remeithi",
-      "rumaithat",
-      "sabais",
-      "sudan",
-      "sudan_tribe",
-      "qubaisi",
-      "al_bu_muhair",
-      "qubaisat",
-      "adnani_root",
-      "al_araytham",
-      "al_khlawi",
-      "al_kurdi",
-      "al_nasrallah",
-      "al_omar_albu_salih",
-      "al_rumaiyadh",
-      "al_tarayma",
-      "al_yoshaa",
-      "al_murrah",
-      "banu_yam",
-      "mazari_emirati",
-      "mazari_baloch",
-      "qahtani_root"
-    ],
-    "dulafid_dynasty": [
-      "dulafid_dynasty",
-      "banu_ijl"
-    ],
-    "kunud": [
-      "kunud",
-      "qahtani_root"
-    ],
-    "al_juffali": [
-      "al_juffali",
-      "bani_khalid",
-      "banu_khalid",
-      "al_humaid",
-      "al_janah",
-      "al_musallam",
-      "al_subaih",
-      "al_suhoob",
-      "amayer",
-      "duum",
-      "grusha",
-      "juboor",
-      "mahashir",
-      "nahood",
-      "qahtani_root",
-      "adnani_root"
-    ],
-    "al_nuaimi_tribe": [
-      "al_nuaimi_tribe",
-      "al_bu_kharaiban"
-    ],
-    "na_im_confederation": [
-      "na_im_confederation",
-      "al_noaimi",
-      "naim",
-      "al_bu_kharaiban",
-      "al_bu_shamis",
-      "al_jabr_naim_qatar",
-      "darawishah",
-      "ramzan_naim_qatar",
-      "adnani_root"
-    ],
-    "tanukh": [
-      "tanukh",
-      "qahtani_root"
-    ],
-    "al_bahar": [
-      "al_bahar",
-      "bani_yas",
-      "al_bu_falah",
-      "al_bu_falasah",
-      "al_bu_hemair",
-      "al_falah",
-      "al_falasah",
-      "al_halami",
-      "al_hameli",
-      "al_hemairi",
-      "al_marri",
-      "al_mashghouni",
-      "al_mazrouei",
-      "al_mehairbi",
-      "al_mehairi",
-      "al_qemzi",
-      "al_qubaisi",
-      "al_remeithi",
-      "al_subousi",
-      "al_suwaidi",
-      "halalmah",
-      "hawamil",
-      "maharibah",
-      "marar",
-      "mazari",
-      "mazrui",
-      "mishagin",
-      "remeithi",
-      "rumaithat",
-      "sabais",
-      "sudan",
-      "sudan_tribe",
-      "qubaisi",
-      "al_bu_muhair",
-      "qubaisat",
-      "adnani_root",
-      "al_araytham",
-      "al_khlawi",
-      "al_kurdi",
-      "al_nasrallah",
-      "al_omar_albu_salih",
-      "al_rumaiyadh",
-      "al_tarayma",
-      "al_yoshaa",
-      "al_murrah",
-      "banu_yam",
-      "mazari_emirati",
-      "mazari_baloch",
-      "qahtani_root"
-    ],
-    "abdul_latif_jameel": [
-      "abdul_latif_jameel",
-      "al_saadi_tribe"
-    ],
-    "al_kharafi": [
-      "al_kharafi",
-      "utub_confederation",
-      "utub_tribe",
-      "utub",
-      "adnani_root"
-    ],
-    "annazah": [
-      "annazah",
-      "adnani_root"
-    ],
-    "aghlabids": [
-      "aghlabids",
-      "banu_tamim",
-      "tamim",
-      "al_mannai",
-      "adnani_root",
+    "al_maadheed": [
+      "al_maadheed",
+      "al_thani",
       "bani_tamim",
       "al_buainain",
       "al_rabbab",
@@ -28116,15 +32680,49 @@
       "banu_sad_tamim",
       "banu_tamim_amr",
       "maadhid",
-      "al_thani"
-    ],
-    "al_musawi": [
-      "al_musawi",
-      "banu_hashim",
       "adnani_root"
     ],
-    "al_sager": [
-      "al_sager",
+    "lakhmid": [
+      "lakhmid",
+      "qahtani_root"
+    ],
+    "al_muhadib": [
+      "al_muhadib",
+      "najdi_merchants"
+    ],
+    "amir_ibn_sasaa": [
+      "amir_ibn_sasaa",
+      "adnani_root"
+    ],
+    "al_hamoud_al_nuaimi": [
+      "al_hamoud_al_nuaimi",
+      "nuaimi_tribe"
+    ],
+    "salihids": [
+      "salihids",
+      "qahtani_root"
+    ],
+    "cohen_maghari": [
+      "cohen_maghari",
+      "iraqi_jewish_community"
+    ],
+    "al_dowsari": [
+      "al_dowsari",
+      "dawasir_tribe",
+      "al_dosari",
+      "dawasir",
+      "sudairi",
+      "adnani_root"
+    ],
+    "al_subeaei": [
+      "al_subeaei",
+      "banu_amir",
+      "subay_tribe",
+      "subay",
+      "adnani_root"
+    ],
+    "al_amru": [
+      "al_amru",
       "bani_yas",
       "al_bu_falah",
       "al_bu_falasah",
@@ -28188,28 +32786,64 @@
       "adnani_root",
       "al_thani"
     ],
-    "mudhar": [
-      "mudhar",
-      "adnani_root"
-    ],
-    "qataban": [
-      "qataban",
+    "banu_mustaliq": [
+      "banu_mustaliq",
       "qahtani_root"
     ],
-    "al_zubair": [
-      "al_zubair",
-      "quraysh",
-      "quraysh_tribe",
-      "banu_adi",
-      "banu_asad",
-      "banu_harith_ibn_fihr",
-      "banu_hashim",
-      "banu_jumah",
-      "banu_makhzum",
-      "banu_sahm",
-      "banu_taym",
-      "banu_zuhra",
+    "al_qasimi_rak": [
+      "al_qasimi_rak",
+      "qawasim",
+      "qawasim_tribe",
+      "al_qawasim",
       "adnani_root"
+    ],
+    "al_katheeri": [
+      "al_katheeri",
+      "banu_qudaa"
+    ],
+    "bin_ali": [
+      "bin_ali",
+      "al_maadeed",
+      "bani_sulaim",
+      "utub",
+      "adnani_root"
+    ],
+    "al_darmaki": [
+      "al_darmaki",
+      "dhawahir",
+      "bani_saad",
+      "jawabir",
+      "daramikah",
+      "adnani_root"
+    ],
+    "al_ash_sheikh": [
+      "al_ash_sheikh",
+      "al_tamimi",
+      "al_thani",
+      "banu_tamim",
+      "tamim",
+      "al_mannai",
+      "adnani_root",
+      "bani_tamim",
+      "al_buainain",
+      "al_rabbab",
+      "banu_hanzala",
+      "banu_sad_tamim",
+      "banu_tamim_amr",
+      "maadhid"
+    ],
+    "khawatir": [
+      "khawatir",
+      "adnani_root"
+    ],
+    "al_muhannadi": [
+      "al_muhannadi",
+      "bani_hajer",
+      "qahtani_root"
+    ],
+    "bani_hamida": [
+      "bani_hamida",
+      "qahtani_root"
     ],
     "al_kuwari": [
       "al_kuwari",
@@ -28217,89 +32851,12 @@
       "tamim_tribe",
       "adnani_root"
     ],
-    "al_dossary": [
-      "al_dossary",
-      "dawasir_tribe",
-      "al_dosari",
-      "dawasir",
-      "sudairi",
-      "adnani_root"
-    ],
-    "al_ajmi": [
-      "al_ajmi",
-      "ajman_tribe",
-      "qahtani_root"
-    ],
-    "uyunid_dynasty": [
-      "uyunid_dynasty",
-      "banu_abdul_qays",
-      "adnani_root"
-    ],
-    "banu_saad": [
-      "banu_saad",
-      "adnani_root"
-    ],
-    "ghatafan": [
-      "ghatafan",
-      "adnani_root"
-    ],
-    "hamdanid_dynasty": [
-      "hamdanid_dynasty",
-      "banu_taghlib",
-      "zurayid_dynasty",
-      "adnani_root"
-    ],
-    "kanoo": [
-      "kanoo",
-      "bani_utbah",
-      "al-bin-ali",
-      "al-jalahma",
-      "al-khalifa",
-      "al-sabah",
-      "al_jalahma",
-      "al_khalifa",
-      "adnani_root",
-      "anizah",
-      "anizah_tribe",
-      "utub_confederation"
-    ],
-    "banu_lakhm": [
-      "banu_lakhm",
-      "qahtani_root"
-    ],
-    "al_ouda": [
-      "al_ouda",
-      "bani_khalid"
-    ],
-    "bani_hamida": [
-      "bani_hamida",
-      "qahtani_root"
-    ],
-    "al_maawdah": [
-      "al_maawdah",
-      "bani_utbah",
-      "al-bin-ali",
-      "al-jalahma",
-      "al-khalifa",
-      "al-sabah",
-      "al_jalahma",
-      "al_khalifa",
-      "adnani_root",
-      "anizah",
-      "anizah_tribe",
-      "utub_confederation"
-    ],
-    "bani_qitab": [
-      "bani_qitab",
-      "northern_bani_qitab",
-      "southern_bani_qitab",
-      "qahtani_root"
-    ],
-    "al_hashar": [
-      "al_hashar",
+    "al_gaz": [
+      "al_gaz",
+      "al_falasi",
       "al_maktoum",
-      "al_bu_falasah",
       "bani_yas",
+      "al_bu_falasah",
       "al_bu_falah",
       "al_bu_hemair",
       "al_falah",
@@ -28347,412 +32904,20 @@
       "mazari_baloch",
       "qahtani_root"
     ],
-    "al_serkal": [
-      "al_serkal",
-      "bani_yas",
-      "al_bu_falah",
-      "al_bu_falasah",
-      "al_bu_hemair",
-      "al_falah",
-      "al_falasah",
-      "al_halami",
-      "al_hameli",
-      "al_hemairi",
-      "al_marri",
-      "al_mashghouni",
-      "al_mazrouei",
-      "al_mehairbi",
-      "al_mehairi",
-      "al_qemzi",
-      "al_qubaisi",
-      "al_remeithi",
-      "al_subousi",
-      "al_suwaidi",
-      "halalmah",
-      "hawamil",
-      "maharibah",
-      "marar",
-      "mazari",
-      "mazrui",
-      "mishagin",
-      "remeithi",
-      "rumaithat",
-      "sabais",
-      "sudan",
-      "sudan_tribe",
-      "qubaisi",
-      "al_bu_muhair",
-      "qubaisat",
+    "al_mubarak": [
+      "al_mubarak",
+      "al_sabah",
+      "bani_utbah",
+      "al-bin-ali",
+      "al-jalahma",
+      "al-khalifa",
+      "al-sabah",
+      "al_jalahma",
+      "al_khalifa",
       "adnani_root",
-      "al_araytham",
-      "al_khlawi",
-      "al_kurdi",
-      "al_nasrallah",
-      "al_omar_albu_salih",
-      "al_rumaiyadh",
-      "al_tarayma",
-      "al_yoshaa",
-      "al_murrah",
-      "banu_yam",
-      "mazari_emirati",
-      "mazari_baloch",
-      "qahtani_root"
-    ],
-    "al_sayegh": [
-      "al_sayegh",
-      "baharna"
-    ],
-    "al_misnad": [
-      "al_misnad",
-      "banu_tamim",
-      "tamim",
-      "al_mannai",
-      "adnani_root",
-      "bani_tamim",
-      "al_buainain",
-      "al_rabbab",
-      "banu_hanzala",
-      "banu_sad_tamim",
-      "banu_tamim_amr",
-      "maadhid",
-      "al_thani"
-    ],
-    "house_of_sheikh_saeed_bin_hamad_al_qasimi": [
-      "house_of_sheikh_saeed_bin_hamad_al_qasimi",
-      "al_qasimi_confederation"
-    ],
-    "al_bu_said_dynasty": [
-      "al_bu_said_dynasty",
-      "azd_tribe"
-    ],
-    "al_muammar": [
-      "al_muammar",
-      "banu_tamim",
-      "tamim",
-      "al_mannai",
-      "adnani_root",
-      "bani_tamim",
-      "al_buainain",
-      "al_rabbab",
-      "banu_hanzala",
-      "banu_sad_tamim",
-      "banu_tamim_amr",
-      "maadhid",
-      "al_thani"
-    ],
-    "al_zuhayk": [
-      "al_zuhayk",
-      "musa_al_kadhim"
-    ],
-    "al_khaled": [
-      "al_khaled",
-      "al_nahyan",
-      "bani_yas",
-      "al_bu_falah",
-      "al_bu_falasah",
-      "al_bu_hemair",
-      "al_falah",
-      "al_falasah",
-      "al_halami",
-      "al_hameli",
-      "al_hemairi",
-      "al_marri",
-      "al_mashghouni",
-      "al_mazrouei",
-      "al_mehairbi",
-      "al_mehairi",
-      "al_qemzi",
-      "al_qubaisi",
-      "al_remeithi",
-      "al_subousi",
-      "al_suwaidi",
-      "halalmah",
-      "hawamil",
-      "maharibah",
-      "marar",
-      "mazari",
-      "mazrui",
-      "mishagin",
-      "remeithi",
-      "rumaithat",
-      "sabais",
-      "sudan",
-      "sudan_tribe",
-      "qubaisi",
-      "al_bu_muhair",
-      "qubaisat",
-      "adnani_root",
-      "al_araytham",
-      "al_khlawi",
-      "al_kurdi",
-      "al_nasrallah",
-      "al_omar_albu_salih",
-      "al_rumaiyadh",
-      "al_tarayma",
-      "al_yoshaa",
-      "al_murrah",
-      "banu_yam",
-      "mazari_emirati",
-      "mazari_baloch",
-      "qahtani_root"
-    ],
-    "al_mana": [
-      "al_mana",
-      "tamim_tribe",
-      "tamim",
-      "adnani_root"
-    ],
-    "al_jarba": [
-      "al_jarba",
-      "shammar",
-      "shammar_tribe",
-      "tayy",
-      "tayy_tribe",
-      "abdah_shammar",
-      "al_aslam_shammar",
-      "shammar_al_jarba",
-      "shammar_al_sayeh",
-      "shammar_toga",
-      "sinjarah_shammar",
-      "qahtani_root",
-      "al_fadl_tayy",
-      "al_ghawth_tayy",
-      "al_jadila_tayy",
-      "al_thaalib_tayy",
-      "banu_hani_tayy",
-      "banu_hur_tayy",
-      "banu_jundub_tayy",
-      "banu_lam_tayy",
-      "banu_nabhan_tayy",
-      "banu_thuwal_tayy"
-    ],
-    "al_rostamani": [
-      "al_rostamani",
-      "dubai_merchants",
-      "persian_fars"
-    ],
-    "al_bu_said": [
-      "al_bu_said",
-      "azd_tribe",
-      "azd",
-      "qahtani_root",
-      "aws_khazraj",
-      "azd_uman",
-      "bariq",
-      "daws",
-      "ghamid",
-      "ghassanids",
-      "khuza_a",
-      "zahran",
-      "al_jadara",
-      "banu_ali_zahran",
-      "banu_amr_zahran",
-      "banu_aws_zahran",
-      "banu_daws",
-      "banu_fahm",
-      "banu_manhib"
-    ],
-    "al_zarooni": [
-      "al_zarooni",
-      "al_nahyan",
-      "bani_yas",
-      "al_bu_falah",
-      "al_bu_falasah",
-      "al_bu_hemair",
-      "al_falah",
-      "al_falasah",
-      "al_halami",
-      "al_hameli",
-      "al_hemairi",
-      "al_marri",
-      "al_mashghouni",
-      "al_mazrouei",
-      "al_mehairbi",
-      "al_mehairi",
-      "al_qemzi",
-      "al_qubaisi",
-      "al_remeithi",
-      "al_subousi",
-      "al_suwaidi",
-      "halalmah",
-      "hawamil",
-      "maharibah",
-      "marar",
-      "mazari",
-      "mazrui",
-      "mishagin",
-      "remeithi",
-      "rumaithat",
-      "sabais",
-      "sudan",
-      "sudan_tribe",
-      "qubaisi",
-      "al_bu_muhair",
-      "qubaisat",
-      "adnani_root",
-      "al_araytham",
-      "al_khlawi",
-      "al_kurdi",
-      "al_nasrallah",
-      "al_omar_albu_salih",
-      "al_rumaiyadh",
-      "al_tarayma",
-      "al_yoshaa",
-      "al_murrah",
-      "banu_yam",
-      "mazari_emirati",
-      "mazari_baloch",
-      "qahtani_root"
-    ],
-    "al_zamil": [
-      "al_zamil",
-      "anizah_tribe",
       "anizah",
-      "adnani_root"
-    ],
-    "banu_murrah": [
-      "banu_murrah",
-      "adnani_root"
-    ],
-    "khathaam": [
-      "khathaam",
-      "qahtani_root"
-    ],
-    "al_dhaheri_family": [
-      "al_dhaheri_family",
-      "dhawahir_tribe",
-      "dhawahir",
-      "bani_saad",
-      "jawabir",
-      "daramikah",
-      "adnani_root"
-    ],
-    "al_baharna": [
-      "al_baharna",
-      "abd_al_qays",
-      "rabia_tribe",
-      "adnani_root"
-    ],
-    "al_olayan": [
-      "al_olayan",
-      "tamim_tribe",
-      "tamim",
-      "adnani_root"
-    ],
-    "al_ash_sheikh_family": [
-      "al_ash_sheikh_family",
-      "banu_tamim_tribe",
-      "tamim",
-      "adnani_root"
-    ],
-    "banu_judham": [
-      "banu_judham",
-      "qahtani_root"
-    ],
-    "banu_ghassan": [
-      "banu_ghassan",
-      "qahtani_root"
-    ],
-    "amir_ibn_sasaa": [
-      "amir_ibn_sasaa",
-      "adnani_root"
-    ],
-    "banu_aws": [
-      "banu_aws",
-      "qahtani_root"
-    ],
-    "abida": [
-      "abida",
-      "qahtani_root"
-    ],
-    "al_sulaiman": [
-      "al_sulaiman",
-      "ajman_tribe",
-      "mahdali_dynasty",
-      "qahtani_root"
-    ],
-    "lakhmid": [
-      "lakhmid",
-      "qahtani_root"
-    ],
-    "al_shamsi_family": [
-      "al_shamsi_family",
-      "bani_yas",
-      "al_bu_falah",
-      "al_bu_falasah",
-      "al_bu_hemair",
-      "al_falah",
-      "al_falasah",
-      "al_halami",
-      "al_hameli",
-      "al_hemairi",
-      "al_marri",
-      "al_mashghouni",
-      "al_mazrouei",
-      "al_mehairbi",
-      "al_mehairi",
-      "al_qemzi",
-      "al_qubaisi",
-      "al_remeithi",
-      "al_subousi",
-      "al_suwaidi",
-      "halalmah",
-      "hawamil",
-      "maharibah",
-      "marar",
-      "mazari",
-      "mazrui",
-      "mishagin",
-      "remeithi",
-      "rumaithat",
-      "sabais",
-      "sudan",
-      "sudan_tribe",
-      "qubaisi",
-      "al_bu_muhair",
-      "qubaisat",
-      "adnani_root",
-      "al_araytham",
-      "al_khlawi",
-      "al_kurdi",
-      "al_nasrallah",
-      "al_omar_albu_salih",
-      "al_rumaiyadh",
-      "al_tarayma",
-      "al_yoshaa",
-      "al_murrah",
-      "banu_yam",
-      "mazari_emirati",
-      "mazari_baloch",
-      "qahtani_root"
-    ],
-    "jubur": [
-      "jubur",
-      "qahtani_root"
-    ],
-    "cohen_scali": [
-      "cohen_scali",
-      "sephardic_merchants"
-    ],
-    "al_zadjali": [
-      "al_zadjali",
-      "jadgal_people"
-    ],
-    "khawlaniyah_al_qahtaniyah_harb": [
-      "khawlaniyah_al_qahtaniyah_harb",
-      "qahtani_root"
-    ],
-    "banu_kinanah": [
-      "banu_kinanah",
-      "adnani_root"
-    ],
-    "banu_al_dual": [
-      "banu_al_dual",
-      "qahtani_root"
-    ],
-    "hadramaut": [
-      "hadramaut",
-      "qahtani_root"
+      "anizah_tribe",
+      "utub_confederation"
     ],
     "al_owais": [
       "al_owais",
@@ -28805,135 +32970,8 @@
       "mazari_baloch",
       "qahtani_root"
     ],
-    "bani_hammad": [
-      "bani_hammad",
-      "qahtani_root"
-    ],
-    "house_of_al_falasi": [
-      "house_of_al_falasi",
-      "bani_yas",
-      "al_bu_falah",
-      "al_bu_falasah",
-      "al_bu_hemair",
-      "al_falah",
-      "al_falasah",
-      "al_halami",
-      "al_hameli",
-      "al_hemairi",
-      "al_marri",
-      "al_mashghouni",
-      "al_mazrouei",
-      "al_mehairbi",
-      "al_mehairi",
-      "al_qemzi",
-      "al_qubaisi",
-      "al_remeithi",
-      "al_subousi",
-      "al_suwaidi",
-      "halalmah",
-      "hawamil",
-      "maharibah",
-      "marar",
-      "mazari",
-      "mazrui",
-      "mishagin",
-      "remeithi",
-      "rumaithat",
-      "sabais",
-      "sudan",
-      "sudan_tribe",
-      "qubaisi",
-      "al_bu_muhair",
-      "qubaisat",
-      "adnani_root",
-      "al_araytham",
-      "al_khlawi",
-      "al_kurdi",
-      "al_nasrallah",
-      "al_omar_albu_salih",
-      "al_rumaiyadh",
-      "al_tarayma",
-      "al_yoshaa",
-      "al_murrah",
-      "banu_yam",
-      "mazari_emirati",
-      "mazari_baloch",
-      "qahtani_root"
-    ],
-    "house_of_al_falahi": [
-      "house_of_al_falahi",
-      "bani_yas",
-      "al_bu_falah",
-      "al_bu_falasah",
-      "al_bu_hemair",
-      "al_falah",
-      "al_falasah",
-      "al_halami",
-      "al_hameli",
-      "al_hemairi",
-      "al_marri",
-      "al_mashghouni",
-      "al_mazrouei",
-      "al_mehairbi",
-      "al_mehairi",
-      "al_qemzi",
-      "al_qubaisi",
-      "al_remeithi",
-      "al_subousi",
-      "al_suwaidi",
-      "halalmah",
-      "hawamil",
-      "maharibah",
-      "marar",
-      "mazari",
-      "mazrui",
-      "mishagin",
-      "remeithi",
-      "rumaithat",
-      "sabais",
-      "sudan",
-      "sudan_tribe",
-      "qubaisi",
-      "al_bu_muhair",
-      "qubaisat",
-      "adnani_root",
-      "al_araytham",
-      "al_khlawi",
-      "al_kurdi",
-      "al_nasrallah",
-      "al_omar_albu_salih",
-      "al_rumaiyadh",
-      "al_tarayma",
-      "al_yoshaa",
-      "al_murrah",
-      "banu_yam",
-      "mazari_emirati",
-      "mazari_baloch",
-      "qahtani_root"
-    ],
-    "al_turki_family": [
-      "al_turki_family",
-      "al_sudairi_tribe",
-      "najdi_confederation"
-    ],
-    "al_hamoud_al_nuaimi": [
-      "al_hamoud_al_nuaimi",
-      "nuaimi_tribe"
-    ],
-    "bani_abbad": [
-      "bani_abbad",
-      "adnani_root"
-    ],
-    "al_nabhani": [
-      "al_nabhani",
-      "azd_tribe"
-    ],
-    "al_sulaim": [
-      "al_sulaim",
-      "subay_tribe"
-    ],
-    "fakhro": [
-      "fakhro",
+    "al_misnad": [
+      "al_misnad",
       "banu_tamim",
       "tamim",
       "al_mannai",
@@ -28946,6 +32984,193 @@
       "banu_tamim_amr",
       "maadhid",
       "al_thani"
+    ],
+    "al_qahtani": [
+      "al_qahtani",
+      "qahtani_tribe"
+    ],
+    "hamdanid_dynasty": [
+      "hamdanid_dynasty",
+      "banu_taghlib",
+      "zurayid_dynasty",
+      "adnani_root"
+    ],
+    "al_turki_family": [
+      "al_turki_family",
+      "al_sudairi_tribe",
+      "najdi_confederation"
+    ],
+    "kamel": [
+      "kamel",
+      "al_bu_nasir",
+      "al_majid",
+      "al_nahyan",
+      "bani_yas",
+      "al_bu_falah",
+      "al_bu_falasah",
+      "al_bu_hemair",
+      "al_falah",
+      "al_falasah",
+      "al_halami",
+      "al_hameli",
+      "al_hemairi",
+      "al_marri",
+      "al_mashghouni",
+      "al_mazrouei",
+      "al_mehairbi",
+      "al_mehairi",
+      "al_qemzi",
+      "al_qubaisi",
+      "al_remeithi",
+      "al_subousi",
+      "al_suwaidi",
+      "halalmah",
+      "hawamil",
+      "maharibah",
+      "marar",
+      "mazari",
+      "mazrui",
+      "mishagin",
+      "remeithi",
+      "rumaithat",
+      "sabais",
+      "sudan",
+      "sudan_tribe",
+      "qubaisi",
+      "al_bu_muhair",
+      "qubaisat",
+      "adnani_root",
+      "al_araytham",
+      "al_khlawi",
+      "al_kurdi",
+      "al_nasrallah",
+      "al_omar_albu_salih",
+      "al_rumaiyadh",
+      "al_tarayma",
+      "al_yoshaa",
+      "al_murrah",
+      "banu_yam",
+      "mazari_emirati",
+      "mazari_baloch",
+      "qahtani_root"
+    ],
+    "banu_khuza_ah": [
+      "banu_khuza_ah",
+      "qahtani_root"
+    ],
+    "al_saadi": [
+      "al_saadi",
+      "bani_yas",
+      "al_bu_falah",
+      "al_bu_falasah",
+      "al_bu_hemair",
+      "al_falah",
+      "al_falasah",
+      "al_halami",
+      "al_hameli",
+      "al_hemairi",
+      "al_marri",
+      "al_mashghouni",
+      "al_mazrouei",
+      "al_mehairbi",
+      "al_mehairi",
+      "al_qemzi",
+      "al_qubaisi",
+      "al_remeithi",
+      "al_subousi",
+      "al_suwaidi",
+      "halalmah",
+      "hawamil",
+      "maharibah",
+      "marar",
+      "mazari",
+      "mazrui",
+      "mishagin",
+      "remeithi",
+      "rumaithat",
+      "sabais",
+      "sudan",
+      "sudan_tribe",
+      "qubaisi",
+      "al_bu_muhair",
+      "qubaisat",
+      "adnani_root",
+      "al_araytham",
+      "al_khlawi",
+      "al_kurdi",
+      "al_nasrallah",
+      "al_omar_albu_salih",
+      "al_rumaiyadh",
+      "al_tarayma",
+      "al_yoshaa",
+      "al_murrah",
+      "banu_yam",
+      "mazari_emirati",
+      "mazari_baloch",
+      "qahtani_root"
+    ],
+    "al_habtoor": [
+      "al_habtoor",
+      "bani_yas",
+      "al_bu_falah",
+      "al_bu_falasah",
+      "al_bu_hemair",
+      "al_falah",
+      "al_falasah",
+      "al_halami",
+      "al_hameli",
+      "al_hemairi",
+      "al_marri",
+      "al_mashghouni",
+      "al_mazrouei",
+      "al_mehairbi",
+      "al_mehairi",
+      "al_qemzi",
+      "al_qubaisi",
+      "al_remeithi",
+      "al_subousi",
+      "al_suwaidi",
+      "halalmah",
+      "hawamil",
+      "maharibah",
+      "marar",
+      "mazari",
+      "mazrui",
+      "mishagin",
+      "remeithi",
+      "rumaithat",
+      "sabais",
+      "sudan",
+      "sudan_tribe",
+      "qubaisi",
+      "al_bu_muhair",
+      "qubaisat",
+      "adnani_root",
+      "al_araytham",
+      "al_khlawi",
+      "al_kurdi",
+      "al_nasrallah",
+      "al_omar_albu_salih",
+      "al_rumaiyadh",
+      "al_tarayma",
+      "al_yoshaa",
+      "al_murrah",
+      "banu_yam",
+      "mazari_emirati",
+      "mazari_baloch",
+      "qahtani_root"
+    ],
+    "sudan_al_suwaidi": [
+      "sudan_al_suwaidi",
+      "qahtani_root"
+    ],
+    "al_zuhayk": [
+      "al_zuhayk",
+      "musa_al_kadhim"
+    ],
+    "bin_laden": [
+      "bin_laden",
+      "kindah_tribe"
     ],
     "manasir": [
       "manasir",
@@ -28968,72 +33193,8 @@
       "adnani_root",
       "qahtani_root"
     ],
-    "al_faisal": [
-      "al_faisal",
-      "al_saud",
-      "banu_hanifa",
-      "anizzah",
-      "adnani_root",
-      "house_of_saud",
-      "amarat",
-      "bani_hizzan",
-      "fadan",
-      "hasana",
-      "ruwallah",
-      "sbaa",
-      "wuld_ali"
-    ],
-    "jawad": [
-      "jawad",
-      "arab_merchant_tribes"
-    ],
-    "al_azzawi": [
-      "al_azzawi",
-      "azd_tribe",
-      "azd",
-      "aws_khazraj",
-      "azd_uman",
-      "bariq",
-      "daws",
-      "ghamid",
-      "ghassanids",
-      "khuza_a",
-      "zahran",
-      "qahtani_root",
-      "al_jadara",
-      "banu_ali_zahran",
-      "banu_amr_zahran",
-      "banu_aws_zahran",
-      "banu_daws",
-      "banu_fahm",
-      "banu_manhib"
-    ],
-    "shaiqiyah": [
-      "shaiqiyah",
-      "adnani_root"
-    ],
-    "anazzah": [
-      "anazzah",
-      "adnani_root"
-    ],
-    "banu_thaqif": [
-      "banu_thaqif",
-      "adnani_root"
-    ],
-    "jarrahids": [
-      "jarrahids",
-      "tayy_tribe"
-    ],
-    "banu_toghlib": [
-      "banu_toghlib",
-      "adnani_root"
-    ],
-    "bin_laden": [
-      "bin_laden",
-      "kindah_tribe"
-    ],
-    "al_rumaithi": [
-      "al_rumaithi",
+    "al_fahim": [
+      "al_fahim",
       "bani_yas",
       "al_bu_falah",
       "al_bu_falasah",
@@ -29083,51 +33244,8 @@
       "mazari_baloch",
       "qahtani_root"
     ],
-    "al_muhadib": [
-      "al_muhadib",
-      "najdi_merchants"
-    ],
-    "rulers_ras_al_khaimah": [
-      "rulers_ras_al_khaimah",
-      "adnani_root"
-    ],
-    "al_saif": [
-      "al_saif",
-      "subai_tribe"
-    ],
-    "al_jubeir": [
-      "al_jubeir",
-      "hudhayl_tribe"
-    ],
-    "banu_mustaliq": [
-      "banu_mustaliq",
-      "qahtani_root"
-    ],
-    "al_gosaibi": [
-      "al_gosaibi",
-      "banu_abdul_qais"
-    ],
-    "al_urayir": [
-      "al_urayir",
-      "bani_khalid",
-      "banu_khalid",
-      "al_humaid",
-      "al_janah",
-      "al_musallam",
-      "al_subaih",
-      "al_suhoob",
-      "amayer",
-      "duum",
-      "grusha",
-      "juboor",
-      "mahashir",
-      "nahood",
-      "qahtani_root",
-      "adnani_root"
-    ],
-    "bani_hafiz_family": [
-      "bani_hafiz_family",
-      "bani_yas_tribe",
+    "al_maskiry": [
+      "al_maskiry",
       "bani_yas",
       "al_bu_falah",
       "al_bu_falasah",
@@ -29177,94 +33295,9 @@
       "mazari_baloch",
       "qahtani_root"
     ],
-    "hawazin": [
-      "hawazin",
-      "adnani_root"
-    ],
-    "cohen_maghari": [
-      "cohen_maghari",
-      "iraqi_jewish_community"
-    ],
-    "mutair_ikhwan": [
-      "mutair_ikhwan",
-      "adnani_root"
-    ],
-    "al_khater": [
-      "al_khater",
-      "banu_tamim",
-      "tamim",
-      "al_mannai",
-      "adnani_root",
-      "bani_tamim",
-      "al_buainain",
-      "al_rabbab",
-      "banu_hanzala",
-      "banu_sad_tamim",
-      "banu_tamim_amr",
-      "maadhid",
-      "al_thani"
-    ],
-    "utaybah": [
-      "utaybah",
-      "adnani_root"
-    ],
-    "al_ali_hail": [
-      "al_ali_hail",
-      "shammar_confederation",
-      "shammar",
-      "abdah_shammar",
-      "al_aslam_shammar",
-      "shammar_al_jarba",
-      "shammar_al_sayeh",
-      "shammar_toga",
-      "sinjarah_shammar",
-      "qahtani_root"
-    ],
-    "al_muqbil": [
-      "al_muqbil",
-      "banu_tamim",
-      "al_mannai",
-      "bani_tamim",
-      "al_buainain",
-      "al_rabbab",
-      "banu_hanzala",
-      "banu_sad_tamim",
-      "banu_tamim_amr",
-      "maadhid",
-      "adnani_root",
-      "al_thani"
-    ],
-    "bin_ali": [
-      "bin_ali",
-      "al_maadeed",
-      "bani_sulaim",
-      "utub",
-      "adnani_root"
-    ],
-    "al_rajhi": [
-      "al_rajhi",
-      "aniza",
-      "aniza_tribe"
-    ],
-    "al_sulaimi": [
-      "al_sulaimi",
-      "adnani_root"
-    ],
-    "shihuh": [
-      "shihuh",
-      "bani_ali",
-      "bani_hadiyah",
-      "bani_ham_mazyud",
-      "bani_muhammad",
-      "bani_shatair",
-      "khanabil",
-      "khanazirah",
-      "kumazarah",
-      "mahabib",
-      "maqadilah",
-      "qahtani_root",
-      "habus",
-      "kumzarah"
+    "al_nahdi": [
+      "al_nahdi",
+      "qudaah"
     ]
   },
   "clusters": {

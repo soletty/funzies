@@ -164,7 +164,7 @@ function AppContent() {
 
 export default function App() {
   return (
-    <BrowserRouter basename="/gcc">
+    <BrowserRouter basename="/gcc/">
       <AppContent />
     </BrowserRouter>
   );
