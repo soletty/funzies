@@ -2,10 +2,27 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth-helpers";
 import { query } from "@/lib/db";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const user = await getCurrentUser();
   if (!user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const sidebar = request.nextUrl.searchParams.get("sidebar") === "true";
+
+  if (sidebar) {
+    const assemblies = await query(
+      `SELECT * FROM (
+        SELECT a.id, a.slug, a.topic_input, a.status, a.created_at
+        FROM assemblies a WHERE a.user_id = $1
+        UNION ALL
+        SELECT a.id, a.slug, a.topic_input, a.status, a.created_at
+        FROM assembly_shares s JOIN assemblies a ON s.assembly_id = a.id
+        WHERE s.user_id = $1
+      ) sub ORDER BY created_at DESC LIMIT 20`,
+      [user.id]
+    );
+    return NextResponse.json(assemblies);
   }
 
   const assemblies = await query(
