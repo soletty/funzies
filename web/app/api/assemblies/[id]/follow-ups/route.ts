@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth-helpers";
 import { query } from "@/lib/db";
-import { decryptApiKey } from "@/lib/crypto";
+import { getApiKeyForUser, claimTrialInteraction } from "@/lib/trial";
 import { buildPrompt, FollowUpRequest, TopicFiles } from "@/lib/follow-up-prompts";
 import { extractInsight } from "@/lib/insight-extraction";
 import { getAssemblyAccess } from "@/lib/assembly-access";
@@ -88,16 +88,31 @@ export async function POST(
     return NextResponse.json({ error: "Could not build prompt" }, { status: 400 });
   }
 
-  const userRows = await query<{ encrypted_api_key: Buffer; api_key_iv: Buffer }>(
-    "SELECT encrypted_api_key, api_key_iv FROM users WHERE id = $1",
-    [user.id]
+  // Check trial interaction limits
+  const assemblyMeta = await query<{ is_free_trial: boolean }>(
+    "SELECT is_free_trial FROM assemblies WHERE id = $1",
+    [assemblyId]
   );
-
-  if (!userRows.length || !userRows[0].encrypted_api_key) {
-    return NextResponse.json({ error: "No API key configured" }, { status: 400 });
+  if (assemblyMeta.length && assemblyMeta[0].is_free_trial) {
+    const result = await claimTrialInteraction(assemblyId);
+    if (!result) {
+      return NextResponse.json(
+        { error: "Free trial interaction limit reached. Add your API key to continue." },
+        { status: 403 }
+      );
+    }
   }
 
-  const apiKey = decryptApiKey(userRows[0].encrypted_api_key, userRows[0].api_key_iv);
+  let apiKey: string;
+  try {
+    const resolved = await getApiKeyForUser(user.id);
+    apiKey = resolved.apiKey;
+  } catch {
+    return NextResponse.json(
+      { error: "Please add your API key to continue." },
+      { status: 403 }
+    );
+  }
 
   const anthropicResponse = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
