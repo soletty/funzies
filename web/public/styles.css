@@ -3570,8 +3570,9 @@ details > .details-content {
 
 .nav-history-item {
   display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 0.4rem;
   padding: 0.4rem 0.65rem;
   margin: 1px 0;
   text-decoration: none;
@@ -3596,6 +3597,8 @@ details > .details-content {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
 }
 
 .nav-history-item.active .nav-history-title {
@@ -3606,6 +3609,8 @@ details > .details-content {
 .nav-history-date {
   font-size: 0.65rem;
   color: var(--color-text-muted);
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .nav-history-empty {
