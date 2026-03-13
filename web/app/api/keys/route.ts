@@ -33,18 +33,28 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const rows = await query<{ api_key_prefix: string; api_key_valid: boolean }>(
-    `SELECT api_key_prefix, api_key_valid FROM users WHERE id = $1`,
+  const rows = await query<{
+    api_key_prefix: string | null;
+    api_key_valid: boolean | null;
+    free_trial_used: boolean;
+  }>(
+    "SELECT api_key_prefix, api_key_valid, free_trial_used FROM users WHERE id = $1",
     [user.id]
   );
 
-  if (!rows.length || !rows[0].api_key_prefix) {
-    return NextResponse.json({ error: "No API key stored" }, { status: 404 });
+  if (!rows.length) {
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 
+  const row = rows[0];
+  const hasApiKey = !!row.api_key_prefix;
+
   return NextResponse.json({
-    prefix: rows[0].api_key_prefix,
-    valid: rows[0].api_key_valid,
+    prefix: row.api_key_prefix,
+    valid: row.api_key_valid,
+    hasApiKey,
+    freeTrialAvailable: !hasApiKey && !row.free_trial_used,
+    freeTrialUsed: row.free_trial_used,
   });
 }
 
