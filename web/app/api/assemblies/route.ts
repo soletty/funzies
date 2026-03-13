@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth-helpers";
 import { query } from "@/lib/db";
+import { getApiKeyForUser, claimFreeTrial } from "@/lib/trial";
 
 export async function GET(request: NextRequest) {
   const user = await getCurrentUser();
@@ -47,6 +48,26 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Topic is required" }, { status: 400 });
   }
 
+  let isTrialAssembly = false;
+  try {
+    const { isTrial } = await getApiKeyForUser(user.id);
+    isTrialAssembly = isTrial;
+    if (isTrial) {
+      const claimed = await claimFreeTrial(user.id);
+      if (!claimed) {
+        return NextResponse.json(
+          { error: "Free trial already used. Please add your API key to continue." },
+          { status: 403 }
+        );
+      }
+    }
+  } catch {
+    return NextResponse.json(
+      { error: "Please add your API key to create assemblies." },
+      { status: 403 }
+    );
+  }
+
   const slug = generateSlug(topicInput);
   const githubRepoOwner = body.githubRepoOwner || null;
   const githubRepoName = body.githubRepoName || null;
@@ -54,10 +75,10 @@ export async function POST(request: NextRequest) {
   const initialStatus = body.hasFiles ? "uploading" : "queued";
 
   const rows = await query<{ id: string; slug: string }>(
-    `INSERT INTO assemblies (id, user_id, slug, topic_input, status, github_repo_owner, github_repo_name, github_repo_branch)
-     VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7)
+    `INSERT INTO assemblies (id, user_id, slug, topic_input, status, github_repo_owner, github_repo_name, github_repo_branch, is_free_trial)
+     VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8)
      RETURNING id, slug`,
-    [user.id, slug, topicInput, initialStatus, githubRepoOwner, githubRepoName, githubRepoBranch]
+    [user.id, slug, topicInput, initialStatus, githubRepoOwner, githubRepoName, githubRepoBranch, isTrialAssembly]
   );
 
   return NextResponse.json(rows[0], { status: 201 });
