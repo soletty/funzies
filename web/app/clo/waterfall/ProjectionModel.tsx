@@ -13,9 +13,12 @@ import type {
 import {
   runProjection,
   validateInputs,
+  addQuarters,
   type ProjectionInputs,
   type ProjectionResult,
+  type LoanInput,
 } from "@/lib/clo/projection";
+import { mapToRatingBucket, DEFAULT_RATES_BY_RATING, RATING_BUCKETS, type RatingBucket } from "@/lib/clo/rating-mapping";
 import SuggestAssumptions from "./SuggestAssumptions";
 
 interface Props {
@@ -69,8 +72,8 @@ const MODEL_ASSUMPTIONS = [
     detail: "All portfolio assets are assumed to be floating-rate (base rate + WAC spread). Fixed-rate collateral is not modeled separately.",
   },
   {
-    label: "Loan maturities from portfolio",
-    detail: "Scheduled loan maturities use the current portfolio's maturity dates. Loans that default before maturity are not double-counted (maturity amounts are capped at remaining par).",
+    label: "Per-loan default model",
+    detail: "Each loan is modeled individually with a rating-based annual default rate. Defaults reduce a loan's expected surviving par each quarter. At maturity, only the surviving portion exits the pool.",
   },
   {
     label: "Constant assumption rates",
@@ -233,7 +236,7 @@ export default function ProjectionModel({
   const unmappedOc = ocTriggers.filter((oc) => oc.rank === 0);
   const unmappedIc = icTriggers.filter((ic) => ic.rank === 0);
 
-  const [cdrPct, setCdrPct] = useState(2);
+  const [defaultRates, setDefaultRates] = useState<Record<string, number>>({ ...DEFAULT_RATES_BY_RATING });
   const [cprPct, setCprPct] = useState(15);
   const [recoveryPct, setRecoveryPct] = useState(60);
   const [recoveryLagMonths, setRecoveryLagMonths] = useState(12);
@@ -242,12 +245,44 @@ export default function ProjectionModel({
   const [seniorFeePct, setSeniorFeePct] = useState(0.45);
   const [showCashFlows, setShowCashFlows] = useState(false);
 
+  const loanInputs: LoanInput[] = useMemo(() => {
+    const fallbackMaturity = maturityDate ?? addQuarters(new Date().toISOString().slice(0, 10), 40);
+    return holdings
+      .filter((h) => h.parBalance && h.parBalance > 0 && !h.isDefaulted)
+      .map((h) => ({
+        parBalance: h.parBalance!,
+        maturityDate: h.maturityDate ?? fallbackMaturity,
+        ratingBucket: mapToRatingBucket(h.moodysRating ?? null, h.spRating ?? null, h.fitchRating ?? null, h.compositeRating ?? null),
+        spreadBps: h.spreadBps ?? (poolSummary?.wacSpread ? (poolSummary.wacSpread < 20 ? poolSummary.wacSpread * 100 : poolSummary.wacSpread) : 0),
+      }));
+  }, [holdings, maturityDate, poolSummary]);
+
+  const ratingDistribution = useMemo(() => {
+    const dist: Record<string, { count: number; par: number }> = {};
+    for (const bucket of RATING_BUCKETS) {
+      dist[bucket] = { count: 0, par: 0 };
+    }
+    for (const loan of loanInputs) {
+      const b = loan.ratingBucket as RatingBucket;
+      if (dist[b]) {
+        dist[b].count++;
+        dist[b].par += loan.parBalance;
+      }
+    }
+    return dist;
+  }, [loanInputs]);
+
+  const weightedAvgCdr = useMemo(() => {
+    const totalPar = loanInputs.reduce((s, l) => s + l.parBalance, 0);
+    if (totalPar === 0) return 0;
+    return loanInputs.reduce((s, l) => s + l.parBalance * (defaultRates[l.ratingBucket] ?? 0), 0) / totalPar;
+  }, [loanInputs, defaultRates]);
+
   const inputs: ProjectionInputs = useMemo(
     () => ({
       initialPar: poolSummary?.totalPar ?? 0,
       wacSpreadBps: (() => {
         const was = poolSummary?.wacSpread ?? 0;
-        // Extraction may return spread as percentage (e.g. 3.85) or bps (e.g. 385)
         return was < 20 ? was * 100 : was;
       })(),
       baseRatePct,
@@ -258,18 +293,16 @@ export default function ProjectionModel({
       reinvestmentPeriodEnd,
       maturityDate,
       currentDate: new Date().toISOString().slice(0, 10),
-      cdrPct,
+      loans: loanInputs,
+      defaultRatesByRating: defaultRates,
       cprPct,
       recoveryPct,
       recoveryLagMonths,
       reinvestmentSpreadBps,
-      maturitySchedule: holdings
-        .filter((h) => h.maturityDate && h.parBalance)
-        .map((h) => ({ parBalance: h.parBalance!, maturityDate: h.maturityDate! })),
     }),
     [
       poolSummary, baseRatePct, seniorFeePct, trancheInputs, ocTriggers, icTriggers,
-      maturityDate, reinvestmentPeriodEnd, cdrPct, cprPct, recoveryPct, recoveryLagMonths, reinvestmentSpreadBps, holdings,
+      maturityDate, reinvestmentPeriodEnd, loanInputs, defaultRates, cprPct, recoveryPct, recoveryLagMonths, reinvestmentSpreadBps,
     ]
   );
 
@@ -286,7 +319,11 @@ export default function ProjectionModel({
     recoveryLagMonths: number;
     reinvestmentSpreadBps: number;
   }) => {
-    setCdrPct(assumptions.cdrPct);
+    const uniform: Record<string, number> = {};
+    for (const bucket of RATING_BUCKETS) {
+      uniform[bucket] = assumptions.cdrPct;
+    }
+    setDefaultRates(uniform);
     setCprPct(assumptions.cprPct);
     setRecoveryPct(assumptions.recoveryPct);
     setRecoveryLagMonths(assumptions.recoveryLagMonths);
@@ -371,13 +408,20 @@ export default function ProjectionModel({
             gap: "1.25rem",
           }}
         >
-          <SliderInput label="CDR (Annual Default Rate)" value={cdrPct} onChange={setCdrPct} min={0} max={10} step={0.25} suffix="%" />
           <SliderInput label="CPR (Annual Prepay Rate)" value={cprPct} onChange={setCprPct} min={0} max={30} step={0.5} suffix="%" />
           <SliderInput label="Recovery Rate" value={recoveryPct} onChange={setRecoveryPct} min={0} max={80} step={1} suffix="%" />
           <SliderInput label="Recovery Lag" value={recoveryLagMonths} onChange={setRecoveryLagMonths} min={0} max={24} step={1} suffix=" mo" />
           <SliderInput label="Reinvestment Spread" value={reinvestmentSpreadBps} onChange={setReinvestmentSpreadBps} min={0} max={500} step={10} suffix=" bps" />
           <SliderInput label="Base Rate (SOFR)" value={baseRatePct} onChange={setBaseRatePct} min={0} max={8} step={0.25} suffix="%" />
           <SliderInput label="Senior Fee Rate" value={seniorFeePct} onChange={setSeniorFeePct} min={0} max={1} step={0.05} suffix="%" />
+        </div>
+        <div style={{ marginTop: "1rem" }}>
+          <DefaultRatePanel
+            defaultRates={defaultRates}
+            onChange={setDefaultRates}
+            ratingDistribution={ratingDistribution}
+            weightedAvgCdr={weightedAvgCdr}
+          />
         </div>
       </div>
 
@@ -815,6 +859,135 @@ function ModelAssumptions() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DefaultRatePanel({
+  defaultRates,
+  onChange,
+  ratingDistribution,
+  weightedAvgCdr,
+}: {
+  defaultRates: Record<string, number>;
+  onChange: (rates: Record<string, number>) => void;
+  ratingDistribution: Record<string, { count: number; par: number }>;
+  weightedAvgCdr: number;
+}) {
+  const [open, setOpen] = useState(true);
+  const [uniformInput, setUniformInput] = useState("");
+
+  const applyUniform = () => {
+    const val = parseFloat(uniformInput);
+    if (!isNaN(val) && val >= 0) {
+      const rates: Record<string, number> = {};
+      for (const bucket of RATING_BUCKETS) rates[bucket] = val;
+      onChange(rates);
+      setUniformInput("");
+    }
+  };
+
+  const totalPar = Object.values(ratingDistribution).reduce((s, d) => s + d.par, 0);
+
+  return (
+    <div
+      style={{
+        border: "1px solid var(--color-border-light)",
+        borderRadius: "var(--radius-sm)",
+        background: "var(--color-surface)",
+      }}
+    >
+      <button
+        onClick={() => setOpen(!open)}
+        style={{
+          width: "100%",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          padding: "0.6rem 0.8rem",
+          background: "none",
+          border: "none",
+          cursor: "pointer",
+          fontSize: "0.75rem",
+          color: "var(--color-text-secondary)",
+          textAlign: "left",
+          fontFamily: "var(--font-body)",
+        }}
+      >
+        <span>
+          <span style={{ fontSize: "0.65rem", marginRight: "0.3rem" }}>{open ? "\u25BE" : "\u25B8"}</span>
+          Default Rates by Rating
+        </span>
+        <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.72rem", color: "var(--color-text-muted)" }}>
+          Wtd Avg: {weightedAvgCdr.toFixed(2)}%
+        </span>
+      </button>
+
+      {open && (
+        <div style={{ padding: "0 0.8rem 0.8rem" }}>
+          <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", marginBottom: "0.75rem", paddingBottom: "0.5rem", borderBottom: "1px solid var(--color-border-light)" }}>
+            <label style={{ fontSize: "0.7rem", color: "var(--color-text-muted)" }}>Set all to:</label>
+            <input
+              type="number"
+              value={uniformInput}
+              onChange={(e) => setUniformInput(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && applyUniform()}
+              placeholder="%"
+              style={{
+                width: "4rem",
+                padding: "0.25rem 0.4rem",
+                fontSize: "0.75rem",
+                fontFamily: "var(--font-mono)",
+                border: "1px solid var(--color-border-light)",
+                borderRadius: "var(--radius-sm)",
+                background: "var(--color-bg)",
+              }}
+            />
+            <button
+              onClick={applyUniform}
+              style={{
+                padding: "0.25rem 0.5rem",
+                fontSize: "0.7rem",
+                background: "var(--color-surface-alt)",
+                border: "1px solid var(--color-border-light)",
+                borderRadius: "var(--radius-sm)",
+                cursor: "pointer",
+                fontFamily: "var(--font-body)",
+              }}
+            >
+              Apply
+            </button>
+          </div>
+
+          {RATING_BUCKETS.filter((b) => ratingDistribution[b]?.par > 0 || b === "NR").map((bucket) => {
+            const dist = ratingDistribution[bucket];
+            const parPct = totalPar > 0 ? (dist.par / totalPar) * 100 : 0;
+            return (
+              <div key={bucket} style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.3rem 0" }}>
+                <div style={{ width: "2.5rem", fontSize: "0.72rem", fontWeight: 600, fontFamily: "var(--font-mono)", color: "var(--color-text-secondary)" }}>
+                  {bucket}
+                </div>
+                <div style={{ width: "4rem", fontSize: "0.65rem", color: "var(--color-text-muted)", fontFamily: "var(--font-mono)" }}>
+                  {dist.count > 0 ? `${dist.count} \u00B7 ${parPct.toFixed(0)}%` : "\u2014"}
+                </div>
+                <input
+                  type="range"
+                  className="wf-slider"
+                  min={0}
+                  max={20}
+                  step={0.1}
+                  value={defaultRates[bucket] ?? 0}
+                  onChange={(e) => onChange({ ...defaultRates, [bucket]: parseFloat(e.target.value) })}
+                  style={{ flex: 1 }}
+                />
+                <span style={{ width: "3rem", textAlign: "right", fontSize: "0.72rem", fontFamily: "var(--font-mono)", fontVariantNumeric: "tabular-nums" }}>
+                  {(defaultRates[bucket] ?? 0).toFixed(1)}%
+                </span>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
