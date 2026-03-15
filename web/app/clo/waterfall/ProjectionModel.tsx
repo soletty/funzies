@@ -65,7 +65,7 @@ const MODEL_ASSUMPTIONS = [
   },
   {
     label: "Reinvestment",
-    detail: "During the reinvestment period, maturity + prepayment + recovery proceeds are reinvested into a synthetic loan each quarter. The synthetic loan uses the portfolio's modal rating bucket, the reinvestment spread, and a 5-year maturity from purchase date.",
+    detail: "During the reinvestment period, maturity + prepayment + recovery proceeds are reinvested into a synthetic loan each quarter. The synthetic loan uses the configured reinvestment rating (default: portfolio average), spread, and maturity tenor from purchase date.",
   },
   {
     label: "Per-loan interest",
@@ -249,6 +249,8 @@ export default function ProjectionModel({
   const [recoveryPct, setRecoveryPct] = useState(60);
   const [recoveryLagMonths, setRecoveryLagMonths] = useState(12);
   const [reinvestmentSpreadBps, setReinvestmentSpreadBps] = useState(350);
+  const [reinvestmentTenorYears, setReinvestmentTenorYears] = useState(5);
+  const [reinvestmentRating, setReinvestmentRating] = useState<string>("auto");
   const [baseRatePct, setBaseRatePct] = useState(4.5);
   const [seniorFeePct, setSeniorFeePct] = useState(0.45);
   const [showCashFlows, setShowCashFlows] = useState(false);
@@ -307,10 +309,13 @@ export default function ProjectionModel({
       recoveryPct,
       recoveryLagMonths,
       reinvestmentSpreadBps,
+      reinvestmentTenorQuarters: reinvestmentTenorYears * 4,
+      reinvestmentRating: reinvestmentRating === "auto" ? null : reinvestmentRating,
     }),
     [
       poolSummary, baseRatePct, seniorFeePct, trancheInputs, ocTriggers, icTriggers,
-      maturityDate, reinvestmentPeriodEnd, loanInputs, defaultRates, cprPct, recoveryPct, recoveryLagMonths, reinvestmentSpreadBps,
+      maturityDate, reinvestmentPeriodEnd, loanInputs, defaultRates, cprPct, recoveryPct, recoveryLagMonths,
+      reinvestmentSpreadBps, reinvestmentTenorYears, reinvestmentRating,
     ]
   );
 
@@ -420,6 +425,16 @@ export default function ProjectionModel({
           <SliderInput label="Recovery Rate" value={recoveryPct} onChange={setRecoveryPct} min={0} max={80} step={1} suffix="%" />
           <SliderInput label="Recovery Lag" value={recoveryLagMonths} onChange={setRecoveryLagMonths} min={0} max={24} step={1} suffix=" mo" />
           <SliderInput label="Reinvestment Spread" value={reinvestmentSpreadBps} onChange={setReinvestmentSpreadBps} min={0} max={500} step={10} suffix=" bps" />
+          <SliderInput label="Reinvestment Tenor" value={reinvestmentTenorYears} onChange={setReinvestmentTenorYears} min={1} max={10} step={1} suffix=" yr" />
+          <SelectInput
+            label="Reinvestment Rating"
+            value={reinvestmentRating}
+            onChange={setReinvestmentRating}
+            options={[
+              { value: "auto", label: "Portfolio Avg" },
+              ...RATING_BUCKETS.map((b) => ({ value: b, label: b })),
+            ]}
+          />
           <SliderInput label="Base Rate (SOFR)" value={baseRatePct} onChange={setBaseRatePct} min={0} max={8} step={0.25} suffix="%" />
           <SliderInput label="Senior Fee Rate" value={seniorFeePct} onChange={setSeniorFeePct} min={0} max={1} step={0.05} suffix="%" />
         </div>
@@ -801,6 +816,46 @@ function SliderInput({
         value={value}
         onChange={(e) => onChange(parseFloat(e.target.value))}
       />
+    </div>
+  );
+}
+
+function SelectInput({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: { value: string; label: string }[];
+}) {
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "0.4rem" }}>
+        <label style={{ fontSize: "0.72rem", color: "var(--color-text-muted)", fontWeight: 500 }}>{label}</label>
+      </div>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        style={{
+          width: "100%",
+          padding: "0.35rem 0.5rem",
+          fontSize: "0.82rem",
+          fontFamily: "var(--font-mono)",
+          fontWeight: 600,
+          border: "1px solid var(--color-border-light)",
+          borderRadius: "var(--radius-sm)",
+          background: "var(--color-surface)",
+          color: "var(--color-text)",
+          cursor: "pointer",
+        }}
+      >
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>{o.label}</option>
+        ))}
+      </select>
     </div>
   );
 }

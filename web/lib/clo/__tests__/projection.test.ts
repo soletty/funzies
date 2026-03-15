@@ -50,6 +50,8 @@ function makeInputs(overrides: Partial<ProjectionInputs> = {}): ProjectionInputs
     recoveryPct: 60,
     recoveryLagMonths: 12,
     reinvestmentSpreadBps: 350,
+    reinvestmentTenorQuarters: 20,
+    reinvestmentRating: null,
     ...overrides,
   };
 }

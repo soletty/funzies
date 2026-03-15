@@ -32,6 +32,8 @@ export interface ProjectionInputs {
   recoveryPct: number;
   recoveryLagMonths: number;
   reinvestmentSpreadBps: number;
+  reinvestmentTenorQuarters: number;
+  reinvestmentRating: string | null; // null = use portfolio modal
 }
 
 export interface PeriodResult {
@@ -108,7 +110,8 @@ export function runProjection(inputs: ProjectionInputs): ProjectionResult {
     initialPar, wacSpreadBps, baseRatePct, seniorFeePct,
     tranches, ocTriggers, icTriggers,
     reinvestmentPeriodEnd, maturityDate, currentDate,
-    loans, defaultRatesByRating, cprPct, recoveryPct, recoveryLagMonths, reinvestmentSpreadBps,
+    loans, defaultRatesByRating, cprPct, recoveryPct, recoveryLagMonths,
+    reinvestmentSpreadBps, reinvestmentTenorQuarters, reinvestmentRating: reinvestmentRatingOverride,
   } = inputs;
 
   const totalQuarters = maturityDate ? Math.max(1, quartersBetween(currentDate, maturityDate)) : 40;
@@ -142,8 +145,8 @@ export function runProjection(inputs: ProjectionInputs): ProjectionResult {
 
   const hasLoans = loanStates.length > 0;
 
-  // Compute portfolio's par-weighted modal rating bucket for reinvestment
-  const reinvestmentRating = (() => {
+  // Reinvestment rating: user override or portfolio's par-weighted modal bucket
+  const reinvestmentRating = reinvestmentRatingOverride ?? (() => {
     const parByRating: Record<string, number> = {};
     for (const l of loans) {
       parByRating[l.ratingBucket] = (parByRating[l.ratingBucket] ?? 0) + l.parBalance;
@@ -281,7 +284,7 @@ export function runProjection(inputs: ProjectionInputs): ProjectionResult {
           survivingPar: reinvestment,
           ratingBucket: reinvestmentRating,
           spreadBps: reinvestmentSpreadBps,
-          maturityQuarter: Math.min(q + 20, totalQuarters), // 5-year tenor (20 quarters)
+          maturityQuarter: Math.min(q + reinvestmentTenorQuarters, totalQuarters),
         });
       }
     }
