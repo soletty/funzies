@@ -110,12 +110,14 @@ async function bulkUpsertContracts(
     cpvDivisions.push(c.codeCPV ? c.codeCPV.slice(0, 2) : null);
     procedures.push(c.procedure || null);
     amounts.push(c.montant ?? null);
-    durations.push(typeof c.dureeMois === "number" ? c.dureeMois : null);
+    const dur = typeof c.dureeMois === "number" && c.dureeMois <= 1200 ? c.dureeMois : null;
+    durations.push(dur);
     notifDates.push(c.dateNotification || null);
     pubDates.push(c.datePublicationDonnees || null);
     locCodes.push(c.lieuExecution?.code || c.lieuExecution_code || null);
     locNames.push(c.lieuExecution?.nom || c.lieuExecution_nom || null);
-    bids.push(typeof c.offresRecues === "number" ? c.offresRecues : null);
+    const bidCount = typeof c.offresRecues === "number" && c.offresRecues <= 10000 ? c.offresRecues : null;
+    bids.push(bidCount);
     formPrices.push(c.formePrix || null);
   }
 
@@ -409,12 +411,13 @@ async function processBatch(
         : [];
       const firstTit = modTitulaires[0];
 
+      const modDur = typeof mod.dureeMois === "number" && mod.dureeMois <= 1200 ? mod.dureeMois : null;
       modRows.push({
         contractUid: uid,
         object: mod.objetModification || null,
         amount: mod.montant ?? null,
-        duration: typeof mod.dureeMois === "number" ? mod.dureeMois : null,
-        vendorId: firstTit?.id || null,
+        duration: modDur,
+        vendorId: firstTit?.id ? String(firstTit.id) : null,
         vendorName: firstTit?.denominationSociale || null,
         pubDate: mod.datePublicationDonneesModification || null,
         hash: sourceHash(uid, mod),
