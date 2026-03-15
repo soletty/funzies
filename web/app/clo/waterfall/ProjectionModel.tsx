@@ -961,7 +961,7 @@ function DefaultRatePanel({
             </button>
           </div>
 
-          {RATING_BUCKETS.filter((b) => ratingDistribution[b]?.par > 0 || b === "NR").map((bucket) => {
+          {RATING_BUCKETS.filter((b) => ratingDistribution[b]?.par > 0).map((bucket) => {
             const dist = ratingDistribution[bucket];
             const parPct = totalPar > 0 ? (dist.par / totalPar) * 100 : 0;
             return (
