@@ -45,7 +45,8 @@ function sourceHash(contractUid: string, mod: DecpModification): string {
 }
 
 function extractBuyerId(c: DecpContract): string | null {
-  return c.acheteur?.id || c["acheteur.id"] || null;
+  const id = c.acheteur?.id || c["acheteur.id"] || null;
+  return id ? String(id) : null;
 }
 
 function extractBuyerName(c: DecpContract): string | null {
@@ -384,12 +385,13 @@ async function processBatch(
     // Collect vendor links and vendor data
     for (const tit of extractTitulaires(c)) {
       if (!tit.id) continue;
-      vendorLinks.push({ uid, vendorId: tit.id, vendorName: tit.denominationSociale || null });
+      const vendorId = String(tit.id);
+      vendorLinks.push({ uid, vendorId, vendorName: tit.denominationSociale || null });
 
       const idType = tit.typeIdentifiant || null;
-      const siret = idType === "SIRET" ? tit.id : null;
+      const siret = idType === "SIRET" ? vendorId : null;
       const siren = siret ? siret.slice(0, 9) : null;
-      vendorMap.set(tit.id, { idType, name: tit.denominationSociale || null, siret, siren, pubDate });
+      vendorMap.set(vendorId, { idType, name: tit.denominationSociale || null, siret, siren, pubDate });
     }
 
     // Collect buyer data
