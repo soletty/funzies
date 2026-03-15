@@ -50,7 +50,7 @@ function extractBuyerId(c: DecpContract): string | null {
 }
 
 function extractBuyerName(c: DecpContract): string | null {
-  return c.acheteur?.nom || null;
+  return str(c.acheteur?.nom);
 }
 
 function extractTitulaires(c: DecpContract): DecpTitulaire[] {
@@ -69,10 +69,38 @@ function extractModifications(c: DecpContract): DecpModification[] {
   });
 }
 
+function str(v: unknown): string | null {
+  if (v == null || v === "") return null;
+  return String(v);
+}
+
+function num(v: unknown): number | null {
+  if (v == null) return null;
+  const n = typeof v === "number" ? v : Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+function safeInt(v: unknown, max: number): number | null {
+  const n = num(v);
+  if (n == null || n > max || n < 0 || !Number.isInteger(n)) return null;
+  return n;
+}
+
+// Validate date-like strings — reject garbage that would crash PostgreSQL's ::date cast
+function safeDate(v: unknown): string | null {
+  const s = str(v);
+  if (!s) return null;
+  // Must look like YYYY-MM-DD (possibly with time after)
+  if (!/^\d{4}-\d{2}/.test(s)) return null;
+  const year = parseInt(s.slice(0, 4), 10);
+  if (year < 1990 || year > 2099) return null;
+  return s;
+}
+
 function contractUid(c: DecpContract): string {
-  if (c.uid) return c.uid;
+  if (c.uid) return String(c.uid);
   const buyerId = extractBuyerId(c);
-  return buyerId ? `${buyerId}${c.id}` : c.id;
+  return buyerId ? `${buyerId}${c.id}` : String(c.id);
 }
 
 // Bulk upsert contracts using UNNEST
@@ -101,24 +129,23 @@ async function bulkUpsertContracts(
   for (const c of contracts) {
     if (!c.id) continue;
     uids.push(contractUid(c));
-    marketIds.push(c.id);
+    marketIds.push(String(c.id));
     buyerSirets.push(extractBuyerId(c));
     buyerNames.push(extractBuyerName(c));
-    natures.push(c.nature || null);
-    objects.push(c.objet || null);
-    cpvCodes.push(c.codeCPV || null);
-    cpvDivisions.push(c.codeCPV ? c.codeCPV.slice(0, 2) : null);
-    procedures.push(c.procedure || null);
-    amounts.push(c.montant ?? null);
-    const dur = typeof c.dureeMois === "number" && c.dureeMois <= 1200 ? c.dureeMois : null;
-    durations.push(dur);
-    notifDates.push(c.dateNotification || null);
-    pubDates.push(c.datePublicationDonnees || null);
-    locCodes.push(c.lieuExecution?.code || c.lieuExecution_code || null);
-    locNames.push(c.lieuExecution?.nom || c.lieuExecution_nom || null);
-    const bidCount = typeof c.offresRecues === "number" && c.offresRecues <= 10000 ? c.offresRecues : null;
-    bids.push(bidCount);
-    formPrices.push(c.formePrix || null);
+    natures.push(str(c.nature));
+    objects.push(str(c.objet));
+    const cpv = str(c.codeCPV);
+    cpvCodes.push(cpv);
+    cpvDivisions.push(cpv ? cpv.slice(0, 2) : null);
+    procedures.push(str(c.procedure));
+    amounts.push(num(c.montant));
+    durations.push(safeInt(c.dureeMois, 1200));
+    notifDates.push(safeDate(c.dateNotification));
+    pubDates.push(safeDate(c.datePublicationDonnees));
+    locCodes.push(str(c.lieuExecution?.code || c.lieuExecution_code));
+    locNames.push(str(c.lieuExecution?.nom || c.lieuExecution_nom));
+    bids.push(safeInt(c.offresRecues, 10000));
+    formPrices.push(str(c.formePrix));
   }
 
   if (uids.length === 0) return 0;
@@ -382,23 +409,22 @@ async function processBatch(
 
     const uid = contractUid(c);
     const buyerId = extractBuyerId(c);
-    const pubDate = c.datePublicationDonnees || null;
 
     // Collect vendor links and vendor data
     for (const tit of extractTitulaires(c)) {
       if (!tit.id) continue;
       const vendorId = String(tit.id);
-      vendorLinks.push({ uid, vendorId, vendorName: tit.denominationSociale || null });
+      vendorLinks.push({ uid, vendorId, vendorName: str(tit.denominationSociale) });
 
-      const idType = tit.typeIdentifiant || null;
+      const idType = str(tit.typeIdentifiant);
       const siret = idType === "SIRET" ? vendorId : null;
       const siren = siret ? siret.slice(0, 9) : null;
-      vendorMap.set(vendorId, { idType, name: tit.denominationSociale || null, siret, siren, pubDate });
+      vendorMap.set(vendorId, { idType, name: str(tit.denominationSociale), siret, siren, pubDate: safeDate(c.datePublicationDonnees) });
     }
 
     // Collect buyer data
     if (buyerId) {
-      buyerMap.set(buyerId, { name: extractBuyerName(c), pubDate });
+      buyerMap.set(buyerId, { name: extractBuyerName(c), pubDate: safeDate(c.datePublicationDonnees) });
     }
 
     // Collect modifications
@@ -411,15 +437,14 @@ async function processBatch(
         : [];
       const firstTit = modTitulaires[0];
 
-      const modDur = typeof mod.dureeMois === "number" && mod.dureeMois <= 1200 ? mod.dureeMois : null;
       modRows.push({
         contractUid: uid,
-        object: mod.objetModification || null,
-        amount: mod.montant ?? null,
-        duration: modDur,
+        object: str(mod.objetModification),
+        amount: num(mod.montant),
+        duration: safeInt(mod.dureeMois, 1200),
         vendorId: firstTit?.id ? String(firstTit.id) : null,
-        vendorName: firstTit?.denominationSociale || null,
-        pubDate: mod.datePublicationDonneesModification || null,
+        vendorName: str(firstTit?.denominationSociale),
+        pubDate: safeDate(mod.datePublicationDonneesModification),
         hash: sourceHash(uid, mod),
       });
     }
