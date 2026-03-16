@@ -28,6 +28,7 @@ function makeInputs(overrides: Partial<ProjectionInputs> = {}): ProjectionInputs
     wacSpreadBps: 375,
     baseRatePct: 4.5,
     seniorFeePct: 0.45,
+    subFeePct: 0.50,
     tranches: [
       { className: "A", currentBalance: 65_000_000, spreadBps: 140, seniorityRank: 1, isFloating: true, isIncomeNote: false },
       { className: "B", currentBalance: 15_000_000, spreadBps: 250, seniorityRank: 2, isFloating: true, isIncomeNote: false },
