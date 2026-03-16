@@ -264,7 +264,11 @@ export default function WaterfallVisualization({
           background: "var(--color-surface)",
         }}
       >
-        No waterfall execution data available for this period.
+        <p style={{ marginBottom: "0.4rem", fontWeight: 500 }}>No payment waterfall found in this report</p>
+        <p style={{ fontSize: "0.8rem" }}>
+          The trustee report doesn&apos;t include a step-by-step priority-of-payments breakdown.
+          Tranche payments and the projection model below are still available.
+        </p>
       </div>
     );
   }
