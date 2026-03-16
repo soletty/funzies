@@ -2,6 +2,9 @@ import { Pool, PoolClient, QueryResultRow } from "pg";
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
+  // Disable parallel workers to avoid "No space left on device" shared memory errors
+  // on constrained Railway instances. Queries are fast enough single-threaded.
+  options: "-c max_parallel_workers_per_gather=0",
 });
 
 export async function query<T extends QueryResultRow = QueryResultRow>(

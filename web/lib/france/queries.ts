@@ -11,7 +11,10 @@ import {
 } from "./types";
 
 // Sanity filters for known data quality issues in DECP source
-const SANE_AMOUNT = "amount_ht < 10000000000"; // no single contract > 10B€
+// Sentinels cluster at 999,999,999 and 9,999,999,999. Real contracts top out at ~500M€.
+// Framework agreements list max ceilings (not actual spend) but keeping them at < 1B captures
+// realistic totals (~300B€/year, matching known French procurement volume).
+const SANE_AMOUNT = "amount_ht > 0 AND amount_ht < 999999999"; // 0 < amount < ~1B€
 const SANE_DATE = "notification_date >= '2010-01-01' AND notification_date <= '2030-12-31'";
 const SANE_BIDS = "bids_received < 1000";
 

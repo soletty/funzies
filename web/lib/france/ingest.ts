@@ -677,7 +677,7 @@ export async function ingestAllYears(
     FROM (
       SELECT cv.vendor_id,
              COUNT(DISTINCT cv.contract_uid) AS cnt,
-             COALESCE(SUM(CASE WHEN c.amount_ht < 10000000000 THEN c.amount_ht END), 0) AS total
+             COALESCE(SUM(CASE WHEN c.amount_ht > 0 AND c.amount_ht < 999999999 THEN c.amount_ht END), 0) AS total
       FROM france_contract_vendors cv
       JOIN france_contracts c ON c.uid = cv.contract_uid
       GROUP BY cv.vendor_id
@@ -692,7 +692,7 @@ export async function ingestAllYears(
     FROM (
       SELECT buyer_siret,
              COUNT(*) AS cnt,
-             COALESCE(SUM(CASE WHEN amount_ht < 10000000000 THEN amount_ht END), 0) AS total
+             COALESCE(SUM(CASE WHEN amount_ht > 0 AND amount_ht < 999999999 THEN amount_ht END), 0) AS total
       FROM france_contracts
       GROUP BY buyer_siret
     ) sub
