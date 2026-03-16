@@ -4,6 +4,7 @@ import {
   getLowestCompetitionBuyers,
   getTopNoCompetitionSpenders,
   getWorstAmendmentInflations,
+  getSectorCompetition,
 } from "@/lib/france/queries";
 import { formatEuro } from "@/lib/france/format";
 
@@ -21,12 +22,13 @@ export default async function FranceFlagsPage({
   const showNoComp = Math.min(parseInt(params.nocomp ?? "10", 10) || 10, 200);
   const showInflation = Math.min(parseInt(params.inflation ?? "10", 10) || 10, 200);
 
-  const [stats, lowestCompetition, topNoComp, worstInflations] =
+  const [stats, lowestCompetition, topNoComp, worstInflations, sectors] =
     await Promise.all([
       getFlagStats(),
       getLowestCompetitionBuyers(showComp),
       getTopNoCompetitionSpenders(showNoComp),
       getWorstAmendmentInflations(showInflation),
+      getSectorCompetition(),
     ]);
 
   function moreUrl(key: string, current: number): string {
@@ -67,6 +69,52 @@ export default async function FranceFlagsPage({
           <div className="fr-stat-sub">of all contracts</div>
         </div>
       </div>
+
+      <section className="fr-section">
+        <h2 className="fr-section-title">Competition by Sector</h2>
+        <p className="fr-text-muted">CPV divisions ranked by single-bid rate weighted by spend</p>
+        <div className="fr-table-wrap">
+          <table className="fr-table">
+            <thead>
+              <tr>
+                <th>Sector</th>
+                <th className="fr-table-right">Contracts w/ Bids</th>
+                <th className="fr-table-right">Single Bid %</th>
+                <th className="fr-table-right">Avg Bids</th>
+                <th className="fr-table-right">No-Comp %</th>
+                <th className="fr-table-right">Total Spend</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sectors.map((s) => (
+                <tr key={s.cpvDivision}>
+                  <td>
+                    <Link href={`/france/contracts?cpv=${s.cpvDivision}`}>
+                      <span className="fr-sector-code">{s.cpvDivision}</span>{" "}
+                      {s.label}
+                    </Link>
+                  </td>
+                  <td className="fr-table-right fr-table-num">
+                    {s.contractsWithBids.toLocaleString()}
+                  </td>
+                  <td className={`fr-table-right fr-table-num ${s.singleBidPct >= 50 ? "fr-table-danger" : ""}`}>
+                    {s.singleBidPct.toFixed(1)}%
+                  </td>
+                  <td className="fr-table-right fr-table-num">
+                    {s.avgBids.toFixed(1)}
+                  </td>
+                  <td className={`fr-table-right fr-table-num ${s.noCompPct >= 10 ? "fr-table-danger" : ""}`}>
+                    {s.noCompPct.toFixed(1)}%
+                  </td>
+                  <td className="fr-table-right fr-table-num">
+                    {formatEuro(s.totalSpend)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
 
       <section className="fr-section">
         <h2 className="fr-section-title">Lowest Competition Buyers</h2>

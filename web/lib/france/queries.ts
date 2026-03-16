@@ -11,10 +11,56 @@ import {
   InflatedContract,
   NoCompBuyer,
   ProcedureBreakdown,
+  SectorCompetition,
   SpendByYear,
   TopEntity,
   VendorFlags,
 } from "./types";
+
+const CPV_LABELS: Record<string, string> = {
+  "03": "Agriculture & farming",
+  "09": "Petroleum & fuel",
+  "14": "Mining & minerals",
+  "15": "Food & beverages",
+  "18": "Clothing & textiles",
+  "22": "Printed matter",
+  "24": "Chemical products",
+  "30": "Office & computing",
+  "31": "Electrical machinery",
+  "32": "Radio & telecom",
+  "33": "Medical equipment",
+  "34": "Transport equipment",
+  "35": "Security & defence",
+  "37": "Musical & sporting",
+  "38": "Lab & scientific",
+  "39": "Furniture & furnishings",
+  "42": "Industrial machinery",
+  "43": "Mining machinery",
+  "44": "Construction materials",
+  "45": "Construction work",
+  "48": "Software packages",
+  "50": "Repair & maintenance",
+  "51": "Installation services",
+  "55": "Hotel & restaurant",
+  "60": "Transport services",
+  "63": "Transport support",
+  "64": "Postal & telecom services",
+  "65": "Utilities",
+  "66": "Financial & insurance",
+  "70": "Real estate",
+  "71": "Architecture & engineering",
+  "72": "IT services",
+  "73": "R&D services",
+  "75": "Administration & defence",
+  "76": "Oil & gas services",
+  "77": "Agriculture & forestry services",
+  "79": "Business services",
+  "80": "Education & training",
+  "85": "Health & social",
+  "90": "Sewage & waste",
+  "92": "Recreation & culture",
+  "98": "Other community services",
+};
 
 // Sanity filters for known data quality issues in DECP source
 // Sentinels cluster at 999,999,999 and 9,999,999,999. Real contracts top out at ~500M€.
@@ -57,6 +103,7 @@ export function warmCache(): Promise<void> {
     getTopNoCompetitionSpenders(10),
     getWorstAmendmentInflations(10),
     getCompetitionByYear(),
+    getSectorCompetition(),
   ]).catch(() => { warmed = false; }); // retry on next call if DB wasn't ready
   return Promise.resolve();
 }
@@ -683,6 +730,53 @@ export function getCompetitionByYear(): Promise<
     total_amount: Number(r.total_amount),
     contract_count: Number(r.contract_count),
     avg_bids: Number(r.avg_bids),
+  }));
+  });
+}
+
+// --- Sector competition ---
+
+export function getSectorCompetition(): Promise<SectorCompetition[]> {
+  return cached("sector_competition", async () => {
+  const rows = await query<{
+    cpv_division: string;
+    contracts_with_bids: string;
+    single_bid_pct: string;
+    avg_bids: string;
+    total_spend: string;
+    no_comp_pct: string;
+  }>(`
+    SELECT
+      c.cpv_division,
+      COUNT(*) FILTER (WHERE c.bids_received > 0 AND ${SANE_BIDS})::text AS contracts_with_bids,
+      ROUND(
+        COUNT(*) FILTER (WHERE c.bids_received = 1)::numeric /
+        NULLIF(COUNT(*) FILTER (WHERE c.bids_received > 0 AND ${SANE_BIDS}), 0) * 100, 1
+      )::text AS single_bid_pct,
+      ROUND(COALESCE(AVG(NULLIF(c.bids_received, 0)) FILTER (WHERE ${SANE_BIDS}), 0), 1)::text AS avg_bids,
+      COALESCE(SUM(CASE WHEN ${SANE_AMOUNT} THEN c.amount_ht END), 0)::text AS total_spend,
+      ROUND(
+        COUNT(*) FILTER (WHERE ${NO_COMP_FILTER})::numeric /
+        NULLIF(COUNT(*), 0) * 100, 1
+      )::text AS no_comp_pct
+    FROM france_contracts c
+    WHERE c.cpv_division IS NOT NULL AND c.cpv_division <> ''
+    GROUP BY c.cpv_division
+    HAVING COUNT(*) FILTER (WHERE c.bids_received > 0 AND ${SANE_BIDS}) >= 50
+    ORDER BY
+      (COUNT(*) FILTER (WHERE c.bids_received = 1)::numeric /
+       NULLIF(COUNT(*) FILTER (WHERE c.bids_received > 0 AND ${SANE_BIDS}), 0))
+      * LN(GREATEST(COALESCE(SUM(CASE WHEN ${SANE_AMOUNT} THEN c.amount_ht END), 0), 1))
+      DESC NULLS LAST
+  `);
+  return rows.map((r) => ({
+    cpvDivision: r.cpv_division,
+    label: CPV_LABELS[r.cpv_division] ?? `CPV ${r.cpv_division}`,
+    contractsWithBids: Number(r.contracts_with_bids),
+    singleBidPct: Number(r.single_bid_pct),
+    avgBids: Number(r.avg_bids),
+    totalSpend: Number(r.total_spend),
+    noCompPct: Number(r.no_comp_pct),
   }));
   });
 }

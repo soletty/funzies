@@ -203,3 +203,13 @@ export interface VendorFlags {
   topBuyerName: string;
   noCompetitionAwards: number;
 }
+
+export interface SectorCompetition {
+  cpvDivision: string;
+  label: string;
+  contractsWithBids: number;
+  singleBidPct: number;
+  avgBids: number;
+  totalSpend: number;
+  noCompPct: number;
+}
