@@ -40,6 +40,10 @@ export default async function FranceLayout({
             <span className="fr-nav-icon">&#9679;</span>
             Analytics
           </Link>
+          <Link href="/france/findings" className="fr-nav-link">
+            <span className="fr-nav-icon">&#9998;</span>
+            Findings So Far
+          </Link>
         </nav>
 
         <div className="fr-sidebar-footer">

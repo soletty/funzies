@@ -275,20 +275,7 @@ function PortfolioMetricsSection({ metrics }: { metrics: PortfolioMetric[] }) {
   );
 }
 
-function CccBucketSection({ ccc, pctCccAndBelow }: { ccc?: ExtractedPortfolio["cccBucket"]; pctCccAndBelow?: number | null }) {
-  // If we have pool summary CCC data but no legacy ccc bucket
-  if (pctCccAndBelow != null && !ccc) {
-    return (
-      <section className="ic-section">
-        <h2>CCC Bucket</h2>
-        <div style={{ display: "flex", alignItems: "baseline", gap: "0.5rem" }}>
-          <span style={{ fontSize: "1.2rem", fontWeight: 700 }}>{pctCccAndBelow.toFixed(1)}%</span>
-          <span style={{ fontSize: "0.85rem", color: "var(--color-text-muted)" }}>of portfolio</span>
-        </div>
-      </section>
-    );
-  }
-
+function CccBucketSection({ ccc }: { ccc?: ExtractedPortfolio["cccBucket"] }) {
   if (!ccc) return null;
   const pct = ccc.limit > 0 ? (ccc.current / ccc.limit) * 100 : 0;
   const color = pct < 70
@@ -360,7 +347,7 @@ function NewConcentrationsSection({ concentrations }: { concentrations: CloConce
                   <div style={{
                     height: "100%",
                     width: `${Math.min(item.actualPct ?? 0, 100)}%`,
-                    background: item.isPassing === false
+                    background: item.isPassing === false || (item.actualPct != null && item.limitPct != null && item.actualPct > item.limitPct)
                       ? "var(--color-error, #ef4444)"
                       : "var(--color-success, #22c55e)",
                     borderRadius: "3px",
@@ -860,11 +847,11 @@ export default async function CLODashboard() {
         <>
           <TestComplianceSection newTests={periodData!.complianceTests} />
           {periodData!.poolSummary && <PoolMetricsSection poolSummary={periodData!.poolSummary} />}
-          <CccBucketSection pctCccAndBelow={periodData!.poolSummary?.pctCccAndBelow} />
+
           <NewConcentrationsSection concentrations={periodData!.concentrations} />
           <AccountBalancesSection balances={accountBalances} />
           <EventsSection events={events} />
-          {newHoldings.length > 0 ? (
+          {newHoldings.length > 0 && !periodData!.concentrations?.some(c => c.concentrationType === "SINGLE_OBLIGOR") ? (
             <NewHoldingsPreview holdings={newHoldings} />
           ) : portfolio?.holdings && portfolio.holdings.length > 0 ? (
             <HoldingsPreview holdings={portfolio.holdings} />
