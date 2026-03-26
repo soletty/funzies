@@ -1,0 +1,281 @@
+# Autonomous Revenue-Generating AI Agent
+
+**Date:** 2026-03-26
+**Status:** Approved
+
+## Overview
+
+An autonomous AI agent that runs on Railway, powered by Claude Code in headless mode, that continuously ideates, builds, ships, and monetizes digital products while growing a Twitter/X presence from zero. The agent operates with maximum autonomy, self-improves over time, and communicates with its owner via Telegram.
+
+## Goals
+
+1. **Generate revenue** (primary) — build and sell digital products autonomously
+2. **Grow Twitter/X presence** (secondary) — build an audience from zero followers
+3. **Continuously self-improve** — evolve its own strategy, prompts, and code
+
+## Architecture
+
+### System Layers
+
+```
+┌─────────────────────────────────────────────────────┐
+│  ORCHESTRATOR (Railway — always-on Node process)     │
+│  Loop: run cycle → report → sleep 30min → repeat    │
+│  Maintains state in JSON files                       │
+└──────────────┬──────────────────┬────────────────────┘
+               │                  │
+    ┌──────────▼──────┐  ┌───────▼────────┐
+    │  CLAUDE CODE    │  │  INTEGRATIONS  │
+    │  CLI headless   │  │                │
+    │  mode on the    │  │  - Stripe API  │
+    │  Railway server │  │  - Twitter/X   │
+    │  Full autonomy: │  │  - Railway API │
+    │  files, git,    │  │  - Telegram    │
+    │  bash, subagents│  │  - GitHub      │
+    └─────────────────┘  └────────────────┘
+               │
+    ┌──────────▼──────────────────┐
+    │  STATE STORE (JSON files)   │
+    │  - Current projects         │
+    │  - Revenue tracking         │
+    │  - Ideas backlog            │
+    │  - Activity log             │
+    │  - Budget spent             │
+    └─────────────────────────────┘
+```
+
+### Loop Design
+
+Event-driven, not clock-driven. Each cycle:
+
+1. Run ASSESS → DECIDE → execute chosen phase → REPORT
+2. Send Telegram update
+3. Wait 30 minutes
+4. Repeat
+
+No concurrency. One phase at a time. If a phase takes 45 minutes, it finishes naturally, then the 30-minute cooldown starts.
+
+## Phases
+
+### ASSESS (2-3 min, every cycle)
+
+Reads current state and external APIs to build context:
+- `STATE.json` — projects, revenue, active tasks
+- Railway status — are all services up?
+- Stripe — any new payments since last cycle?
+- Twitter metrics — follower count, engagement
+- Error log — anything unresolved?
+- Telegram inbox — any messages from owner?
+
+Outputs updated `STATE.json` and priority-ranked list of possible actions.
+
+### DECIDE (1-2 min, every cycle)
+
+Pure reasoning. Claude reads ASSESS output + `STRATEGY.md` + `PLAYBOOK.md` and picks the highest-value action:
+- Something broken? → MAINTAIN (highest priority)
+- Owner sent a message? → Handle it
+- Project mid-build? → BUILD or SHIP
+- No active projects? → IDEATE
+- Project live but no traffic? → PROMOTE
+- 20+ cycles since last EVOLVE? → EVOLVE
+- Revenue stagnating? → REFLECT then EVOLVE
+
+### IDEATE (10-30 min, when needed)
+
+Full research + validation session. Multi-step, may spawn subagents:
+
+1. **Market scan** — web search for trending problems, niches, pain points. Check Twitter, Reddit, indie hacker communities.
+2. **Filter against capabilities** — can I build this with Railway, static sites, APIs? Is there a monetization path? Can I build an MVP in 1-3 cycles?
+3. **Validate against PLAYBOOK.md** — tried something similar? What happened?
+4. **Score and pick** — rank by buildability x revenue potential x speed to ship. Write product spec to `STATE.json`.
+
+### BUILD (15-60 min, multi-session capable)
+
+The heaviest phase. Full Claude Code autonomy:
+
+1. **Scaffold** — create project directory, set up framework, init git branch
+2. **Build MVP** — code the product. Multi-step: write → run → errors → fix → run → iterate. Spawn subagents for parallel work if useful.
+3. **Integrate payments** — Stripe checkout/payment links, webhook handler
+4. **Test** — agent tests its own work end-to-end. Debug loop if tests fail.
+5. **Git commit + push** — triggers Railway deploy
+
+If BUILD can't finish in one cycle, saves progress to `STATE.json` with `"status": "building"` and resume context. Next cycle picks up where it left off.
+
+### SHIP (5-15 min)
+
+1. **Verify deployment** — check Railway deploy succeeded, hit live URL
+2. **Set up monitoring** — health check endpoint, register in `STATE.json`
+3. **Go live** — switch Stripe to live mode, update project status to "live"
+
+If deploy fails → error to Telegram, move to MAINTAIN.
+
+### PROMOTE (10-20 min)
+
+1. **Decide channel and angle** — read `STRATEGY.md`, check what's performed well
+2. **Create content** — tweets, threads, blog posts, Product Hunt drafts
+3. **Post** — via Twitter API
+4. **Engage** — reply to relevant conversations, quote-tweet, follow relevant accounts
+5. **Log** — record what was posted, check engagement metrics next cycle
+
+### MAINTAIN (5-30 min, triggered by errors)
+
+Full Claude Code debug loop: read logs → hypothesize → edit code → test → push → verify. Handle customer support issues or escalate to owner via Telegram.
+
+### REFLECT (10-15 min, periodic)
+
+Performance analysis:
+- Revenue data per project
+- Twitter growth metrics
+- Cost per acquisition
+- Best/worst performing products and content
+- Recommendations: kill a project, double down, pivot
+- Write findings to `PLAYBOOK.md`
+
+### EVOLVE (15-30 min, periodic)
+
+Self-improvement. Can modify:
+- `STRATEGY.md` — new approach, new focus
+- Phase prompts — improve how phases work
+- Orchestrator code — add integrations, fix bugs, refactor
+- `PLAYBOOK.md` — codify learned patterns
+- Create reusable templates from successful projects
+
+Guardrails (cannot modify):
+- Cannot remove Telegram notifications
+- Cannot modify `BRAIN.md` core constraints
+- Cannot exceed spending without owner approval
+- Cannot delete live products without owner approval
+- Must log all self-modifications to `CHANGELOG.md`
+
+## Integrations
+
+| Integration | Purpose | Auth |
+|------------|---------|------|
+| Telegram Bot API | Owner communication, updates, errors, approvals | Bot token (env var) |
+| Twitter/X API v2 | Posting, engagement, metrics | OAuth tokens (env var) |
+| Stripe API | Create products, payment links, check payments | Secret key (env var) |
+| Railway API | Deploy services, check status | API token (env var) |
+| GitHub | Commit, push, trigger deploys | SSH key on Railway server |
+
+## Twitter/X — Cold Start Strategy
+
+The agent starts from 0 followers and must be strategically self-aware about this:
+
+### Phase 1: Exist and Build (weeks 1-2)
+- Pick identity/brand (first EVOLVE decision)
+- Post consistently so profile isn't empty
+- Focus on being interesting, not promotional
+- Follow and genuinely engage with 10-20 indie builders daily
+- Reply with useful, thoughtful takes
+- Build in public — raw numbers, screenshots, honest updates
+
+### Phase 2: Outbound (weeks 2-4)
+- DM builders who might find products useful (not spam)
+- Share products in relevant communities with genuine value
+- Ask owner for introductions and signal boosts via Telegram
+- Contribute to relevant Twitter threads meaningfully
+- Cross-post to Reddit, Hacker News, indie hacker forums
+
+### Phase 3: Flywheel (month 2+)
+- Double down on what content resonates
+- Revenue milestones + "AI building in public" narrative compounds
+- The story itself is interesting and drives engagement
+
+### What NOT to do
+- Don't spam DMs
+- Don't post generic motivational content
+- Don't follow/unfollow game
+- Don't pretend to have traction it doesn't have
+- Don't get the account suspended (rate limit API calls conservatively)
+
+## Repo Structure
+
+```
+autonomous-agent/
+├── agent/
+│   ├── orchestrator.ts           # Main loop: cycle → sleep 30min → repeat
+│   ├── phases/
+│   │   ├── assess.ts             # Reads state, APIs, checks health
+│   │   ├── decide.ts             # Picks next action
+│   │   ├── ideate.ts             # Market research + idea generation
+│   │   ├── build.ts              # Scaffolds and codes products
+│   │   ├── ship.ts               # Deploys, verifies, goes live
+│   │   ├── promote.ts            # Twitter content, engagement
+│   │   ├── maintain.ts           # Bug fixes, error handling
+│   │   ├── reflect.ts            # Performance analysis
+│   │   └── evolve.ts             # Self-improvement
+│   ├── integrations/
+│   │   ├── telegram.ts           # Send/read messages
+│   │   ├── twitter.ts            # Post, engage, read metrics
+│   │   ├── stripe.ts             # Create products, check payments
+│   │   ├── railway.ts            # Deploy, check status
+│   │   └── github.ts             # Commit, push, create repos
+│   ├── state/
+│   │   ├── STATE.json            # Current state (persisted)
+│   │   └── state.ts              # Read/write helpers
+│   └── brain/
+│       ├── BRAIN.md              # Core identity + mission (protected)
+│       ├── STRATEGY.md           # Current approach (agent-editable)
+│       ├── PLAYBOOK.md           # Learned lessons (agent-editable)
+│       └── CHANGELOG.md          # Self-modification log
+├── products/                     # Agent's shipped products live here
+│   └── (created by agent)
+├── Dockerfile                    # For Railway deployment
+└── package.json
+```
+
+## How Phase Files Work
+
+Each phase `.ts` file assembles context and prompts, then launches Claude Code in headless mode. Example:
+
+```ts
+export async function runBuild(state: State) {
+  const prompt = `
+    You are an autonomous product builder.
+    Current project: ${state.currentProject.name}
+    Spec: ${state.currentProject.spec}
+    Progress so far: ${state.currentProject.buildProgress}
+
+    Build this product. You have full filesystem, git, and bash access.
+    When done, commit and push to trigger deploy.
+    If stuck, document where in your response.
+  `;
+
+  const result = await runClaudeCode(prompt);
+  return updateState(state, result);
+}
+```
+
+Claude Code does all real work. TypeScript is orchestration glue.
+
+## Brain Files
+
+### BRAIN.md — Core (protected)
+
+Defines: identity (autonomous AI entrepreneur), mission (revenue → audience → self-improve), owner communication rules, hard constraints (never remove Telegram, never spend without approval, never impersonate, always commit frequently, use env vars for secrets).
+
+Includes social reality context: starting from zero followers, posting into the void is expected, outbound effort required, can ask owner for help.
+
+### STRATEGY.md — Initial (agent-editable)
+
+Cold start strategy: ship something small fast, build in public on Twitter, learn and iterate. Start with digital products ($5-29), target developers/indie hackers, one product at a time. Success metrics: first dollar within 1 week, 100 followers within 2 weeks, 3 products shipped within first month. EVOLVE triggers: after 20 cycles, or $0 revenue for 5 consecutive cycles, or 48+ hours with zero traffic on a live product.
+
+### PLAYBOOK.md — Empty (agent-populated)
+
+Populated through REFLECT and EVOLVE phases. Tracks: what works, what doesn't, templates/patterns, revenue log.
+
+## Infrastructure
+
+- **Compute:** Claude Code Max subscription (owner's account, installed on Railway server)
+- **Hosting:** Railway (orchestrator + all products the agent builds)
+- **Payments:** Stripe
+- **State:** JSON files persisted on Railway volume
+- **Budget:** Free tiers for everything. Agent asks via Telegram before any spend.
+
+## Accounts to Set Up
+
+1. Telegram Bot (via BotFather)
+2. Twitter/X developer account + fresh user account
+3. Stripe account
+4. Railway project (owner already has account with card linked)
+5. GitHub repo for the agent
