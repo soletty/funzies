@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { marked } from "marked";
 import type { PanelMember } from "@/lib/clo/types";
+import AttachmentWidget, { type AttachedFile, type AttachmentWidgetHandle } from "@/components/AttachmentWidget";
 
 type Mode = "analyst" | "ask-panel" | "ask-member" | "debate";
 
@@ -89,6 +90,8 @@ export default function FollowUpChat({
   const [isSearching, setIsSearching] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [files, setFiles] = useState<AttachedFile[]>([]);
+  const attachmentHandleRef = useRef<AttachmentWidgetHandle | null>(null);
   const threadRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const isNearBottomRef = useRef(true);
@@ -137,7 +140,9 @@ export default function FollowUpChat({
     if (!question.trim() || isStreaming) return;
 
     const userMessage = question.trim();
+    const attachedFiles = [...files];
     setQuestion("");
+    setFiles([]);
     setIsStreaming(true);
 
     const updatedMessages: ChatMessage[] = [...messages, { role: "user", content: userMessage }];
@@ -146,18 +151,29 @@ export default function FollowUpChat({
     // Send prior history WITHOUT the current question — the server appends it
     const history = messages.map((m) => ({ role: m.role, content: m.content }));
 
-    const body = {
-      question: userMessage,
-      mode,
-      targetMember: mode === "ask-member" ? selectedMember : undefined,
-      history,
-    };
-
-    const res = await fetch(apiUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
+    let res: Response;
+    if (attachedFiles.length > 0) {
+      const formData = new FormData();
+      formData.append("question", userMessage);
+      formData.append("mode", mode);
+      if (mode === "ask-member") formData.append("targetMember", selectedMember);
+      formData.append("history", JSON.stringify(history));
+      for (const af of attachedFiles) {
+        formData.append("files", af.file);
+      }
+      res = await fetch(apiUrl, { method: "POST", body: formData });
+    } else {
+      res = await fetch(apiUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          question: userMessage,
+          mode,
+          targetMember: mode === "ask-member" ? selectedMember : undefined,
+          history,
+        }),
+      });
+    }
 
     if (!res.ok || !res.body) {
       setMessages((prev) => [...prev, { role: "assistant", content: "Error: Failed to get response" }]);
@@ -341,6 +357,13 @@ export default function FollowUpChat({
           </div>
         )}
 
+        <AttachmentWidget
+          files={files}
+          onChange={setFiles}
+          disabled={isStreaming}
+          hideButton
+          handleRef={(h) => { attachmentHandleRef.current = h; }}
+        />
         <textarea
           ref={textareaRef}
           value={question}
@@ -356,11 +379,23 @@ export default function FollowUpChat({
         />
 
         <div className="chat-input-toolbar">
-          <div className="chat-input-toolbar-left" />
+          <div className="chat-input-toolbar-left">
+            <button
+              type="button"
+              className="chat-input-btn chat-input-btn-attach"
+              onClick={() => attachmentHandleRef.current?.openPicker()}
+              disabled={isStreaming}
+              title="Attach files"
+            >
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M14 8.5l-5.5 5.5a4 4 0 01-5.66-5.66l7.08-7.07a2.67 2.67 0 013.77 3.77L6.6 12.1a1.33 1.33 0 01-1.88-1.88L11 3.94" />
+              </svg>
+            </button>
+          </div>
           <div className="chat-input-toolbar-right">
             <button
               onClick={handleSubmit}
-              disabled={isStreaming || !question.trim()}
+              disabled={isStreaming || (!question.trim() && files.length === 0)}
               className="chat-input-btn chat-input-btn-submit"
             >
               {isStreaming ? "Deliberating..." : "Ask"}

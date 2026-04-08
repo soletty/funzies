@@ -1569,6 +1569,33 @@
   background: var(--color-accent-hover);
 }
 
+.chat-input-btn-attach {
+  background: transparent;
+  color: var(--color-text-muted);
+  padding: 0.35rem 0.5rem;
+  display: flex;
+  align-items: center;
+}
+
+.chat-input-btn-attach:hover:not(:disabled) {
+  color: var(--color-accent);
+}
+
+.chat-message-files {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.4rem;
+}
+
+.chat-message-file-chip {
+  font-size: 0.75rem;
+  opacity: 0.85;
+  background: rgba(255,255,255,0.15);
+  padding: 0.15rem 0.45rem;
+  border-radius: var(--radius-sm);
+}
+
 .chat-input-btn-challenge {
   background: transparent;
   color: #b54a32;

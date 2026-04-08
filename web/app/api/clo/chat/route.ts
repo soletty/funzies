@@ -51,8 +51,21 @@ export async function POST(request: NextRequest) {
 
   const panel = await getPanelForUser(user.id);
 
-  const body = await request.json();
-  const { message, conversationId } = body;
+  const contentType = request.headers.get("content-type") || "";
+  let message: string;
+  let conversationId: string | null = null;
+  let uploadedFiles: File[] = [];
+
+  if (contentType.includes("multipart/form-data")) {
+    const formData = await request.formData();
+    message = formData.get("message") as string;
+    conversationId = formData.get("conversationId") as string | null;
+    uploadedFiles = formData.getAll("files") as File[];
+  } else {
+    const body = await request.json();
+    message = body.message;
+    conversationId = body.conversationId;
+  }
 
   if (!message) {
     return NextResponse.json({ error: "Missing message" }, { status: 400 });
@@ -138,8 +151,38 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  // Add current user message
-  claudeMessages.push({ role: "user", content: message });
+  // Add current user message (with uploaded files if any)
+  if (uploadedFiles.length > 0) {
+    const fileBlocks: Array<Record<string, unknown>> = [];
+    for (const file of uploadedFiles) {
+      const buffer = Buffer.from(await file.arrayBuffer());
+      const base64 = buffer.toString("base64");
+      if (file.type === "application/pdf") {
+        fileBlocks.push({
+          type: "document",
+          source: { type: "base64", media_type: "application/pdf", data: base64 },
+        });
+      } else if (file.type.startsWith("image/")) {
+        fileBlocks.push({
+          type: "image",
+          source: { type: "base64", media_type: file.type, data: base64 },
+        });
+      } else {
+        // Text-based files: decode and send as text
+        const text = buffer.toString("utf-8");
+        fileBlocks.push({
+          type: "text",
+          text: `--- File: ${file.name} ---\n${text}`,
+        });
+      }
+    }
+    claudeMessages.push({
+      role: "user",
+      content: [...fileBlocks, { type: "text", text: message }],
+    });
+  } else {
+    claudeMessages.push({ role: "user", content: message });
+  }
 
   // Inject documents only on the first turn (no prior history) to avoid
   // resending 20MB+ of base64 on every subsequent turn. The system prompt

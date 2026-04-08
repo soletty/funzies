@@ -169,8 +169,28 @@ export async function POST(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const body = await request.json();
-  const { question, mode, targetMember, history } = body;
+  const contentType = request.headers.get("content-type") || "";
+  let question: string;
+  let mode: string;
+  let targetMember: string | undefined;
+  let history: { role: string; content: string }[] | undefined;
+  let uploadedFiles: File[] = [];
+
+  if (contentType.includes("multipart/form-data")) {
+    const formData = await request.formData();
+    question = formData.get("question") as string;
+    mode = formData.get("mode") as string;
+    targetMember = (formData.get("targetMember") as string) || undefined;
+    const historyStr = formData.get("history") as string;
+    history = historyStr ? JSON.parse(historyStr) : undefined;
+    uploadedFiles = formData.getAll("files") as File[];
+  } else {
+    const body = await request.json();
+    question = body.question;
+    mode = body.mode;
+    targetMember = body.targetMember;
+    history = body.history;
+  }
 
   if (!question || !mode) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -250,7 +270,34 @@ export async function POST(
   // Attach documents on every turn — follow-up conversations are short (2-5 turns)
   // and the PM may need to reference specific PPM language that wasn't captured in
   // the extracted constraints. The cost is acceptable for this use case.
-  const builtMessages = buildMessages(history, question);
+  const builtMessages: Array<{ role: "user" | "assistant"; content: string | Array<Record<string, unknown>> }> = buildMessages(history, question);
+
+  // Inject uploaded files into the current (last) user message
+  if (uploadedFiles.length > 0) {
+    const lastIdx = builtMessages.length - 1;
+    const fileBlocks: Array<Record<string, unknown>> = [];
+    for (const file of uploadedFiles) {
+      const buffer = Buffer.from(await file.arrayBuffer());
+      const base64 = buffer.toString("base64");
+      if (file.type === "application/pdf") {
+        fileBlocks.push({
+          type: "document",
+          source: { type: "base64", media_type: "application/pdf", data: base64 },
+        });
+      } else if (file.type.startsWith("image/")) {
+        fileBlocks.push({
+          type: "image",
+          source: { type: "base64", media_type: file.type, data: base64 },
+        });
+      } else {
+        const text = buffer.toString("utf-8");
+        fileBlocks.push({ type: "text", text: `--- File: ${file.name} ---\n${text}` });
+      }
+    }
+    const originalContent = builtMessages[lastIdx].content as string;
+    builtMessages[lastIdx].content = [...fileBlocks, { type: "text", text: originalContent }];
+  }
+
   const cloDocuments = await fitDocumentsToPageLimit(profile.documents || []);
   if (cloDocuments.length > 0 && builtMessages.length > 0) {
     const firstUserIdx = builtMessages.findIndex((m) => m.role === "user");

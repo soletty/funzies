@@ -4,11 +4,13 @@ import { useState, useRef, useEffect, useCallback, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { marked } from "marked";
 import Link from "next/link";
+import AttachmentWidget, { type AttachedFile, type AttachmentWidgetHandle } from "@/components/AttachmentWidget";
 
 interface ChatMessage {
   role: "user" | "assistant";
   content: string;
   timestamp: string;
+  fileNames?: string[];
 }
 
 export default function CLOChatPage() {
@@ -26,6 +28,8 @@ function CLOChatInner() {
   const [isSearching, setIsSearching] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [files, setFiles] = useState<AttachedFile[]>([]);
+  const attachmentHandleRef = useRef<AttachmentWidgetHandle | null>(null);
   const threadRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const isNearBottomRef = useRef(true);
@@ -77,22 +81,38 @@ function CLOChatInner() {
     if (!input.trim() || isStreaming) return;
 
     const userMessage = input.trim();
+    const attachedFiles = [...files];
     setInput("");
+    setFiles([]);
     setIsStreaming(true);
 
     const now = new Date().toISOString();
-    const newUserMsg: ChatMessage = { role: "user", content: userMessage, timestamp: now };
+    const fileNames = attachedFiles.map((f) => f.file.name);
+    const newUserMsg: ChatMessage = {
+      role: "user",
+      content: userMessage,
+      timestamp: now,
+      fileNames: fileNames.length > 0 ? fileNames : undefined,
+    };
     const updatedMessages = [...messages, newUserMsg];
     setMessages(updatedMessages);
 
-    const res = await fetch("/api/clo/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        message: userMessage,
-        conversationId,
-      }),
-    });
+    let res: Response;
+    if (attachedFiles.length > 0) {
+      const formData = new FormData();
+      formData.append("message", userMessage);
+      if (conversationId) formData.append("conversationId", conversationId);
+      for (const af of attachedFiles) {
+        formData.append("files", af.file);
+      }
+      res = await fetch("/api/clo/chat", { method: "POST", body: formData });
+    } else {
+      res = await fetch("/api/clo/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: userMessage, conversationId }),
+      });
+    }
 
     if (!res.ok || !res.body) {
       setMessages((prev) => [
@@ -203,7 +223,16 @@ function CLOChatInner() {
           {messages.map((msg, i) => (
             <div key={i}>
               {msg.role === "user" ? (
-                <div className="chat-message-user">{msg.content}</div>
+                <div className="chat-message-user">
+                  {msg.content}
+                  {msg.fileNames && msg.fileNames.length > 0 && (
+                    <div className="chat-message-files">
+                      {msg.fileNames.map((name, j) => (
+                        <span key={j} className="chat-message-file-chip">📎 {name}</span>
+                      ))}
+                    </div>
+                  )}
+                </div>
               ) : (
                 <div className="chat-message-assistant">
                   <div
@@ -230,6 +259,13 @@ function CLOChatInner() {
       )}
 
       <div className="chat-input-container" style={{ marginTop: "1rem" }}>
+        <AttachmentWidget
+          files={files}
+          onChange={setFiles}
+          disabled={isStreaming}
+          hideButton
+          handleRef={(h) => { attachmentHandleRef.current = h; }}
+        />
         <textarea
           ref={textareaRef}
           value={input}
@@ -241,11 +277,23 @@ function CLOChatInner() {
           disabled={isStreaming}
         />
         <div className="chat-input-toolbar">
-          <div className="chat-input-toolbar-left" />
+          <div className="chat-input-toolbar-left">
+            <button
+              type="button"
+              className="chat-input-btn chat-input-btn-attach"
+              onClick={() => attachmentHandleRef.current?.openPicker()}
+              disabled={isStreaming}
+              title="Attach files"
+            >
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M14 8.5l-5.5 5.5a4 4 0 01-5.66-5.66l7.08-7.07a2.67 2.67 0 013.77 3.77L6.6 12.1a1.33 1.33 0 01-1.88-1.88L11 3.94" />
+              </svg>
+            </button>
+          </div>
           <div className="chat-input-toolbar-right">
             <button
               onClick={handleSubmit}
-              disabled={isStreaming || !input.trim()}
+              disabled={isStreaming || (!input.trim() && files.length === 0)}
               className="chat-input-btn chat-input-btn-submit"
             >
               {isStreaming ? "Thinking..." : "Send"}
