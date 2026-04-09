@@ -20,7 +20,7 @@ export async function fetchAndStoreBriefings(): Promise<{ fetched: string[]; ski
       continue;
     }
 
-    const res = await fetch(`http://89.167.78.232:3000/briefing/${briefType}?id=-1`, {
+    const res = await fetch(`https://daily-brief-production-a744.up.railway.app/briefing/${briefType}?id=-1`, {
       headers: { Authorization: `Bearer ${briefApiKey}` },
     });
     if (!res.ok) {
