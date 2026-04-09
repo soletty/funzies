@@ -191,7 +191,7 @@ function extractPoolMetrics(text: string): Pick<ParsedComplianceSummary, "totalP
 
   return {
     totalPar: findNum([/Adjusted.*Collateral.*Principal[:\s]+([\d,]+)/i, /(?:Aggregate.*Principal|Total Par|Collateral Principal)[:\s]+([\d,]+)/i]),
-    warf: findNum([/(?:WARF|Weighted Average Rating Factor)[:\s]+([\d.]+)/i]),
+    warf: findNum([/(?:WARF|Weighted Average Rating Factor)[:\s]+([\d,.]+)/i]),
     diversityScore: findNum([/(?:Diversity Score)[:\s]+([\d.]+)/i]),
     numberOfAssets: findNum([/(?:Number of Assets|No\.\s*of\s*Assets)[:\s]+(\d+)/i]),
     numberOfObligors: findNum([/(?:Number of Obligors|No\.\s*of\s*Obligors)[:\s]+(\d+)/i]),

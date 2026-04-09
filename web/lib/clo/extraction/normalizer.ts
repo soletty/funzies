@@ -267,11 +267,20 @@ export function normalizeSectionResults(
     const poolMetrics: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(cs)) {
       if (POOL_METRIC_KEYS.has(key)) {
-        poolMetrics[key] = value;
+        // Strip commas from numeric strings (e.g. "2,939" → 2939)
+        if (typeof value === "string") {
+          const cleaned = value.replace(/,/g, "");
+          const num = parseFloat(cleaned);
+          poolMetrics[key] = isNaN(num) ? value : num;
+        } else {
+          poolMetrics[key] = value;
+        }
       }
     }
-    // Derive totalPar from standard CLO fallback fields when missing
-    if (poolMetrics.totalPar == null && poolMetrics.adjustedCollateralPrincipalAmount != null) {
+    // Derive totalPar: prefer Adjusted Collateral Principal Amount (the true
+    // collateral value after haircuts, used as OC test numerator) over the raw
+    // Aggregate Principal Balance.
+    if (poolMetrics.adjustedCollateralPrincipalAmount != null) {
       poolMetrics.totalPar = poolMetrics.adjustedCollateralPrincipalAmount;
     } else if (poolMetrics.totalPar == null && poolMetrics.aggregatePrincipalBalance != null) {
       poolMetrics.totalPar = poolMetrics.aggregatePrincipalBalance;
