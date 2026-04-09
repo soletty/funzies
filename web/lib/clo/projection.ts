@@ -8,6 +8,8 @@ export interface LoanInput {
   spreadBps: number;
 }
 
+export type DefaultDrawFn = (survivingPar: number, hazardRate: number) => number;
+
 export interface ProjectionInputs {
   initialPar: number;
   wacSpreadBps: number;
@@ -124,7 +126,7 @@ function trancheCouponRate(t: ProjectionInputs["tranches"][number], baseRatePct:
     : t.spreadBps / 10000;
 }
 
-export function runProjection(inputs: ProjectionInputs): ProjectionResult {
+export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultDrawFn): ProjectionResult {
   const {
     initialPar, wacSpreadBps, baseRatePct, seniorFeePct, subFeePct,
     trusteeFeeBps, hedgeCostBps, incentiveFeePct, incentiveFeeHurdleIrr,
@@ -226,6 +228,7 @@ export function runProjection(inputs: ProjectionInputs): ProjectionResult {
 
   const rpEndDate = reinvestmentPeriodEnd ? new Date(reinvestmentPeriodEnd) : null;
 
+  const draw: DefaultDrawFn = defaultDrawFn ?? ((par, hz) => par * hz);
   for (let q = 1; q <= totalQuarters; q++) {
     const periodDate = addQuarters(currentDate, q);
     const inRP = rpEndDate ? new Date(periodDate) <= rpEndDate : false;
@@ -247,7 +250,7 @@ export function runProjection(inputs: ProjectionInputs): ProjectionResult {
     if (hasLoans) {
       for (const loan of loanStates) {
         const hazard = quarterlyHazard[loan.ratingBucket] ?? 0;
-        const loanDefaults = loan.survivingPar * hazard;
+        const loanDefaults = draw(loan.survivingPar, hazard);
         loan.survivingPar -= loanDefaults;
         totalDefaults += loanDefaults;
         if (loanDefaults > 0) {
