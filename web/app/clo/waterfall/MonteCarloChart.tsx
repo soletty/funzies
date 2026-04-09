@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ReferenceLine, ResponsiveContainer,
   AreaChart, Area,
@@ -38,6 +38,80 @@ function buildHistogramData(irrs: Float64Array): { bucket: string; mid: number; 
 function formatPct(v: number | null | undefined): string {
   if (v == null) return "\u2014";
   return `${(v * 100).toFixed(1)}%`;
+}
+
+const OC_CLASS_COLORS: Record<string, string> = {
+  "A/B": "#1a5276", "C": "#6c3483", "D": "#1e8449", "E": "#b9770e", "F": "#c0392b",
+};
+
+function OcFailureSection({ result }: { result: MonteCarloResult }) {
+  const [expanded, setExpanded] = useState(false);
+  const peak = result.peakOcFailurePct;
+  const stressLabel = peak < 2 ? "very low" : peak < 10 ? "low" : peak < 25 ? "moderate" : peak < 50 ? "elevated" : "high";
+
+  // Get all OC classes from the first quarter's byClass
+  const ocClasses = Object.keys(result.ocFailureByQuarter[0]?.byClass ?? {});
+
+  return (
+    <div style={{ marginTop: "0.75rem" }}>
+      <button
+        onClick={() => setExpanded(!expanded)}
+        style={{
+          background: "none",
+          border: "none",
+          cursor: "pointer",
+          padding: 0,
+          fontSize: "0.8rem",
+          color: "var(--color-text-secondary)",
+          display: "flex",
+          alignItems: "center",
+          gap: "0.4rem",
+        }}
+      >
+        <span style={{ fontSize: "0.65rem" }}>{expanded ? "▾" : "▸"}</span>
+        OC stress: <strong>{stressLabel}</strong>
+        <span style={{ color: "var(--color-text-muted)" }}>({peak.toFixed(1)}% peak failure rate)</span>
+      </button>
+
+      {expanded && (
+        <div style={{ marginTop: "0.5rem" }}>
+          <ResponsiveContainer width="100%" height={140}>
+            <AreaChart data={result.ocFailureByQuarter} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+              <XAxis
+                dataKey="quarter"
+                tick={{ fontSize: 9 }}
+                tickFormatter={(q) => `Q${q}`}
+                interval={3}
+              />
+              <YAxis
+                tick={{ fontSize: 9 }}
+                tickFormatter={(v) => `${v.toFixed(0)}%`}
+                width={35}
+                domain={[0, "auto"]}
+              />
+              <Tooltip
+                formatter={(value, name) => [`${Number(value).toFixed(1)}%`, String(name)]}
+                labelFormatter={(q) => `Quarter ${q}`}
+              />
+              {ocClasses.map((cls) => (
+                <Area
+                  key={cls}
+                  type="monotone"
+                  dataKey={`byClass.${cls}`}
+                  name={`Class ${cls}`}
+                  stroke={OC_CLASS_COLORS[cls] ?? "#888"}
+                  fill={OC_CLASS_COLORS[cls] ?? "#888"}
+                  fillOpacity={0.15}
+                  strokeWidth={1.5}
+                  isAnimationActive={false}
+                />
+              ))}
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function MonteCarloChart({ result, running, progress }: Props) {
@@ -150,39 +224,9 @@ export default function MonteCarloChart({ result, running, progress }: Props) {
             </BarChart>
           </ResponsiveContainer>
 
-          {/* OC Failure Timeline */}
+          {/* OC Failure — collapsible with per-class breakdown */}
           {result.ocFailureByQuarter.some(q => q.failurePct > 0) && (
-            <>
-              <div style={labelStyle}>OC Test Failure Probability by Quarter</div>
-              <ResponsiveContainer width="100%" height={120}>
-                <AreaChart data={result.ocFailureByQuarter} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-                  <XAxis
-                    dataKey="quarter"
-                    tick={{ fontSize: 9 }}
-                    tickFormatter={(q) => `Q${q}`}
-                    interval={3}
-                  />
-                  <YAxis
-                    tick={{ fontSize: 9 }}
-                    tickFormatter={(v) => `${v.toFixed(0)}%`}
-                    width={35}
-                    domain={[0, "auto"]}
-                  />
-                  <Tooltip
-                    formatter={(value) => [`${Number(value).toFixed(1)}%`, "Failure probability"]}
-                    labelFormatter={(q) => `Quarter ${q}`}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="failurePct"
-                    stroke="#c60"
-                    fill="#c60"
-                    fillOpacity={0.3}
-                    isAnimationActive={false}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </>
+            <OcFailureSection result={result} />
           )}
         </>
       )}

@@ -15,7 +15,8 @@ export interface MonteCarloResult {
   irrs: Float64Array;
   percentiles: MonteCarloPercentiles;
   meanIrr: number;
-  ocFailureByQuarter: { quarter: number; failurePct: number }[];
+  ocFailureByQuarter: { quarter: number; failurePct: number; byClass: Record<string, number> }[];
+  peakOcFailurePct: number;
   medianEquityDistributions: number;
 }
 
@@ -40,7 +41,13 @@ export function runMonteCarlo(
   // Use a quick deterministic run to get the period count
   const calibration = runProjection(inputs);
   const totalQuarters = calibration.periods.length;
-  const ocFailureCounts = new Uint32Array(totalQuarters);
+  // Track OC failures per quarter per class
+  const ocClasses = calibration.periods[0]?.ocTests.map(t => t.className) ?? [];
+  const ocFailureCounts = new Uint32Array(totalQuarters); // any class
+  const ocFailureByClass: Record<string, Uint32Array> = {};
+  for (const cls of ocClasses) {
+    ocFailureByClass[cls] = new Uint32Array(totalQuarters);
+  }
 
   for (let i = 0; i < runCount; i++) {
     const result = runProjection(inputs, bernoulliDraw);
@@ -48,10 +55,18 @@ export function runMonteCarlo(
     irrs[i] = result.equityIrr ?? -1;
     equityDists[i] = result.totalEquityDistributions;
 
-    // Track OC failures per quarter
+    // Track OC failures per quarter per class
     for (let q = 0; q < result.periods.length; q++) {
-      const anyOcFail = result.periods[q].ocTests.some(t => !t.passing);
-      if (anyOcFail) ocFailureCounts[q]++;
+      let anyFail = false;
+      for (const test of result.periods[q].ocTests) {
+        if (!test.passing) {
+          anyFail = true;
+          if (ocFailureByClass[test.className]) {
+            ocFailureByClass[test.className][q]++;
+          }
+        }
+      }
+      if (anyFail) ocFailureCounts[q]++;
     }
 
     if (onProgress && (i + 1) % 500 === 0) {
@@ -77,10 +92,14 @@ export function runMonteCarlo(
     }
   }
 
-  const ocFailureByQuarter = Array.from(ocFailureCounts).map((count, q) => ({
-    quarter: q + 1,
-    failurePct: (count / runCount) * 100,
-  }));
+  const ocFailureByQuarter = Array.from(ocFailureCounts).map((count, q) => {
+    const byClass: Record<string, number> = {};
+    for (const cls of ocClasses) {
+      byClass[cls] = (ocFailureByClass[cls][q] / runCount) * 100;
+    }
+    return { quarter: q + 1, failurePct: (count / runCount) * 100, byClass };
+  });
+  const peakOcFailurePct = Math.max(0, ...ocFailureByQuarter.map(q => q.failurePct));
 
   return {
     runCount,
@@ -94,6 +113,7 @@ export function runMonteCarlo(
     },
     meanIrr: irrCount > 0 ? irrSum / irrCount : 0,
     ocFailureByQuarter,
+    peakOcFailurePct,
     medianEquityDistributions: percentile(sortedDists, 0.50),
   };
 }
