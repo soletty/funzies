@@ -217,8 +217,8 @@ function resolveFees(constraints: ExtractedConstraints, warnings: ResolutionWarn
   let seniorFeePct = 0.15;
   let subFeePct = 0.25;
   let trusteeFeeBps = 2; // typical European CLO trustee fee
-  let incentiveFeePct = 20; // typical 20% of residual above hurdle
-  let incentiveFeeHurdleIrr = 0.12; // typical 12% hurdle
+  let incentiveFeePct = 0; // default off — only applied when explicitly found in PPM
+  let incentiveFeeHurdleIrr = 0; // no hurdle by default
 
   for (const fee of constraints.fees ?? []) {
     const name = fee.name?.toLowerCase() ?? "";
@@ -233,6 +233,15 @@ function resolveFees(constraints: ExtractedConstraints, warnings: ResolutionWarn
       trusteeFeeBps = rate;
     } else if (name.includes("incentive") || name.includes("performance")) {
       incentiveFeePct = rate;
+      // Try to extract IRR hurdle from description/basis (e.g. "Above 12% IRR threshold")
+      const desc = (fee.description ?? fee.basis ?? "").toLowerCase();
+      const hurdleMatch = desc.match(/(\d+(?:\.\d+)?)\s*%/);
+      if (hurdleMatch) {
+        incentiveFeeHurdleIrr = parseFloat(hurdleMatch[1]) / 100;
+      } else if (incentiveFeePct > 0) {
+        // If incentive fee found but no hurdle, use typical 12% European CLO hurdle
+        incentiveFeeHurdleIrr = 0.12;
+      }
     }
   }
 
