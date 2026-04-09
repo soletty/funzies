@@ -31,6 +31,7 @@ const POLL_INTERVAL_MS = 5000;
 // ─── Daily Briefing ──────────────────────────────────────────────────
 const BRIEFING_INTERVAL_MS = 20 * 60 * 60 * 1000; // 20 hours
 let lastBriefingFetch = 0;
+let isFirstBriefingFetch = true;
 
 async function maybeFetchBriefing() {
   if (!process.env.BRIEF_API_KEY) return;
@@ -38,27 +39,41 @@ async function maybeFetchBriefing() {
   if (now - lastBriefingFetch < BRIEFING_INTERVAL_MS) return;
   lastBriefingFetch = now;
 
-  for (const briefType of ["general", "clo"] as const) {
-    const existing = await pool.query(
-      "SELECT id FROM daily_briefings WHERE brief_type = $1 AND fetched_at > now() - interval '20 hours' LIMIT 1",
-      [briefType]
-    );
-    if (existing.rows.length > 0) continue;
+  const forceRefresh = isFirstBriefingFetch;
+  isFirstBriefingFetch = false;
 
-    const res = await fetch(`http://89.167.78.232:3000/briefing/${briefType}?id=-1`, {
+  if (forceRefresh) {
+    console.log("[worker] First run after deployment — forcing briefing refresh");
+  }
+
+  for (const briefType of ["general", "clo"] as const) {
+    if (!forceRefresh) {
+      const existing = await pool.query(
+        "SELECT id FROM daily_briefings WHERE brief_type = $1 AND fetched_at > now() - interval '20 hours' LIMIT 1",
+        [briefType]
+      );
+      if (existing.rows.length > 0) continue;
+    }
+
+    console.log(`[worker] Fetching ${briefType} briefing from external API...`);
+    const res = await fetch(`https://daily-brief-production-a744.up.railway.app/briefing/${briefType}?id=-1`, {
       headers: { Authorization: `Bearer ${process.env.BRIEF_API_KEY}` },
     });
     if (!res.ok) {
-      console.error(`[worker] ${briefType} briefing fetch failed:`, res.status);
+      console.error(`[worker] ${briefType} briefing fetch failed: HTTP ${res.status}`);
       continue;
     }
     const content = await res.text();
+    if (!content.trim()) {
+      console.error(`[worker] ${briefType} briefing fetch returned empty response`);
+      continue;
+    }
 
     await pool.query(
       "INSERT INTO daily_briefings (brief_type, content) VALUES ($1, $2)",
       [briefType, content]
     );
-    console.log(`[worker] Daily ${briefType} briefing fetched and stored`);
+    console.log(`[worker] ${briefType} briefing fetched and stored (${content.length} chars)`);
   }
 }
 
