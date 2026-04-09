@@ -18,6 +18,7 @@ import {
   type ProjectionResult,
   type LoanInput,
 } from "@/lib/clo/projection";
+import type { ResolvedDealData, ResolutionWarning } from "@/lib/clo/resolver-types";
 import { mapToRatingBucket, DEFAULT_RATES_BY_RATING, RATING_BUCKETS, type RatingBucket } from "@/lib/clo/rating-mapping";
 import SuggestAssumptions from "./SuggestAssumptions";
 
@@ -32,6 +33,8 @@ interface Props {
   holdings: CloHolding[];
   panelId: string | null;
   dealContext: Record<string, unknown>;
+  resolved?: ResolvedDealData;
+  resolutionWarnings?: ResolutionWarning[];
 }
 
 function formatPct(val: number): string {
@@ -176,6 +179,66 @@ function buildTranchesFromConstraints(constraints: ExtractedConstraints) {
   });
 }
 
+function buildFromResolved(
+  resolved: ResolvedDealData,
+  userAssumptions: {
+    baseRatePct: number;
+    defaultRates: Record<string, number>;
+    cprPct: number;
+    recoveryPct: number;
+    recoveryLagMonths: number;
+    reinvestmentSpreadBps: number;
+    reinvestmentTenorYears: number;
+    reinvestmentRating: string | null;
+    cccBucketLimitPct: number;
+    cccMarketValuePct: number;
+    deferredInterestCompounds: boolean;
+  },
+): ProjectionInputs {
+  return {
+    initialPar: resolved.poolSummary.totalPar,
+    wacSpreadBps: resolved.poolSummary.wacSpreadBps,
+    baseRatePct: userAssumptions.baseRatePct,
+    seniorFeePct: resolved.fees.seniorFeePct,
+    subFeePct: resolved.fees.subFeePct,
+    tranches: resolved.tranches.map(t => ({
+      className: t.className,
+      currentBalance: t.currentBalance,
+      spreadBps: t.spreadBps,
+      seniorityRank: t.seniorityRank,
+      isFloating: t.isFloating,
+      isIncomeNote: t.isIncomeNote,
+      isDeferrable: t.isDeferrable,
+      isAmortising: t.isAmortising,
+      amortisationPerPeriod: t.amortisationPerPeriod,
+    })),
+    ocTriggers: resolved.ocTriggers.map(t => ({
+      className: t.className,
+      triggerLevel: t.triggerLevel,
+      rank: t.rank,
+    })),
+    icTriggers: resolved.icTriggers.map(t => ({
+      className: t.className,
+      triggerLevel: t.triggerLevel,
+      rank: t.rank,
+    })),
+    maturityDate: resolved.dates.maturity,
+    reinvestmentPeriodEnd: resolved.dates.reinvestmentPeriodEnd,
+    currentDate: resolved.dates.currentDate,
+    loans: resolved.loans,
+    defaultRatesByRating: userAssumptions.defaultRates,
+    cprPct: userAssumptions.cprPct,
+    recoveryPct: userAssumptions.recoveryPct,
+    recoveryLagMonths: userAssumptions.recoveryLagMonths,
+    reinvestmentSpreadBps: userAssumptions.reinvestmentSpreadBps,
+    reinvestmentTenorQuarters: userAssumptions.reinvestmentTenorYears * 4,
+    reinvestmentRating: userAssumptions.reinvestmentRating,
+    cccBucketLimitPct: userAssumptions.cccBucketLimitPct,
+    cccMarketValuePct: userAssumptions.cccMarketValuePct,
+    deferredInterestCompounds: userAssumptions.deferredInterestCompounds,
+  };
+}
+
 export default function ProjectionModel({
   maturityDate,
   reinvestmentPeriodEnd,
@@ -187,6 +250,8 @@ export default function ProjectionModel({
   holdings,
   panelId,
   dealContext,
+  resolved,
+  resolutionWarnings,
 }: Props) {
   const isOcTest = (t: { testType?: string | null; testName?: string | null }) => {
     if (t.testType === "OC_PAR" || t.testType === "OC_MV") return true;
@@ -256,7 +321,7 @@ export default function ProjectionModel({
           return {
             className: t.className,
             currentBalance: snap?.currentBalance ?? t.originalBalance ?? 0,
-            spreadBps: t.spreadBps ?? ppmSpreadByClass.get(t.className) ?? 0,
+            spreadBps: t.spreadBps ?? ppmSpreadByClass.get(normClass(t.className)) ?? 0,
             seniorityRank: t.seniorityRank ?? 99,
             isFloating: t.isFloating ?? true,
             isIncomeNote: t.isIncomeNote ?? t.isSubordinate ?? t.className.toLowerCase().includes("sub") ?? false,
@@ -359,35 +424,53 @@ export default function ProjectionModel({
   }, [loanInputs, defaultRates]);
 
   const inputs: ProjectionInputs = useMemo(
-    () => ({
-      initialPar: poolSummary?.totalPar ?? 0,
-      wacSpreadBps: (() => {
-        const was = poolSummary?.wacSpread ?? 0;
-        return was < 20 ? was * 100 : was;
-      })(),
-      baseRatePct,
-      seniorFeePct,
-      subFeePct,
-      tranches: trancheInputs,
-      ocTriggers,
-      icTriggers,
-      reinvestmentPeriodEnd,
-      maturityDate,
-      currentDate: new Date().toISOString().slice(0, 10),
-      loans: loanInputs,
-      defaultRatesByRating: defaultRates,
-      cprPct,
-      recoveryPct,
-      recoveryLagMonths,
-      reinvestmentSpreadBps,
-      reinvestmentTenorQuarters: reinvestmentTenorYears * 4,
-      reinvestmentRating: reinvestmentRating === "auto" ? null : reinvestmentRating,
-      cccBucketLimitPct,
-      cccMarketValuePct,
-      deferredInterestCompounds: constraints.interestMechanics?.deferredInterestCompounds ?? true,
-    }),
+    () => {
+      if (resolved) {
+        return buildFromResolved(resolved, {
+          baseRatePct,
+          defaultRates: defaultRates,
+          cprPct,
+          recoveryPct,
+          recoveryLagMonths,
+          reinvestmentSpreadBps,
+          reinvestmentTenorYears,
+          reinvestmentRating: reinvestmentRating === "auto" ? null : reinvestmentRating,
+          cccBucketLimitPct,
+          cccMarketValuePct,
+          deferredInterestCompounds: constraints.interestMechanics?.deferredInterestCompounds ?? true,
+        });
+      }
+      // Legacy fallback — existing assembly logic
+      return {
+        initialPar: poolSummary?.totalPar ?? 0,
+        wacSpreadBps: (() => {
+          const was = poolSummary?.wacSpread ?? 0;
+          return was < 20 ? was * 100 : was;
+        })(),
+        baseRatePct,
+        seniorFeePct,
+        subFeePct,
+        tranches: trancheInputs,
+        ocTriggers,
+        icTriggers,
+        reinvestmentPeriodEnd,
+        maturityDate,
+        currentDate: new Date().toISOString().slice(0, 10),
+        loans: loanInputs,
+        defaultRatesByRating: defaultRates,
+        cprPct,
+        recoveryPct,
+        recoveryLagMonths,
+        reinvestmentSpreadBps,
+        reinvestmentTenorQuarters: reinvestmentTenorYears * 4,
+        reinvestmentRating: reinvestmentRating === "auto" ? null : reinvestmentRating,
+        cccBucketLimitPct,
+        cccMarketValuePct,
+        deferredInterestCompounds: constraints.interestMechanics?.deferredInterestCompounds ?? true,
+      };
+    },
     [
-      poolSummary, baseRatePct, seniorFeePct, subFeePct, trancheInputs, ocTriggers, icTriggers,
+      resolved, poolSummary, baseRatePct, seniorFeePct, subFeePct, trancheInputs, ocTriggers, icTriggers,
       maturityDate, reinvestmentPeriodEnd, loanInputs, defaultRates, cprPct, recoveryPct, recoveryLagMonths,
       reinvestmentSpreadBps, reinvestmentTenorYears, reinvestmentRating, cccBucketLimitPct, cccMarketValuePct,
       constraints.interestMechanics?.deferredInterestCompounds,
