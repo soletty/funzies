@@ -9,6 +9,7 @@ interface AnalysisRow {
   title: string;
   status: string;
   current_phase: string | null;
+  analysis_type: string;
 }
 
 export default async function AnalysisLayout({
@@ -31,7 +32,7 @@ export default async function AnalysisLayout({
   }
 
   const rows = await query<AnalysisRow>(
-    "SELECT id, title, status, current_phase FROM clo_analyses WHERE id = $1",
+    "SELECT id, title, status, current_phase, analysis_type FROM clo_analyses WHERE id = $1",
     [id]
   );
 
@@ -44,6 +45,7 @@ export default async function AnalysisLayout({
     redirect(`/clo/analyze/${id}/generating`);
   }
   const isComplete = analysis.status === "complete";
+  const analysisType = analysis.analysis_type;
   const base = `/clo/analyze/${id}`;
 
   const tabs = [
@@ -52,6 +54,7 @@ export default async function AnalysisLayout({
     { label: "Recommendation", href: `${base}/recommendation`, show: isComplete },
     { label: "Debate", href: `${base}/debate`, show: isComplete },
     { label: "Q&A", href: `${base}/follow-ups`, show: isComplete },
+    { label: "Waterfall", href: `${base}/waterfall`, show: isComplete && analysisType === "switch" },
   ];
 
   const visibleTabs = tabs.filter((t) => t.show);
