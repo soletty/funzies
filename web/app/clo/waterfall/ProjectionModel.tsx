@@ -95,6 +95,8 @@ export default function ProjectionModel({
   const [callDate, setCallDate] = useState<string | null>(null);
   const [showTransparency, setShowTransparency] = useState(false);
   const [expandedPeriod, setExpandedPeriod] = useState<number | null>(null);
+  const [activeTab, setActiveTab] = useState<"projection" | "switch">("projection");
+  const [showSwitchAssumptions, setShowSwitchAssumptions] = useState(false);
 
   // Pre-fill fee sliders when resolved data arrives (extraction found real values)
   React.useEffect(() => {
@@ -226,6 +228,32 @@ export default function ProjectionModel({
         </h2>
       </div>
 
+      {/* Tab bar */}
+      <div style={{ display: "flex", gap: 0, marginBottom: "1.5rem", borderBottom: "2px solid var(--color-border-light)" }}>
+        {(["projection", "switch"] as const).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            style={{
+              padding: "0.6rem 1.25rem",
+              fontSize: "0.8rem",
+              fontWeight: activeTab === tab ? 600 : 400,
+              fontFamily: "var(--font-body)",
+              color: activeTab === tab ? "var(--color-text)" : "var(--color-text-muted)",
+              background: "none",
+              border: "none",
+              borderBottom: activeTab === tab ? "2px solid var(--color-accent)" : "2px solid transparent",
+              marginBottom: "-2px",
+              cursor: "pointer",
+              transition: "color 0.15s",
+            }}
+          >
+            {tab === "projection" ? "Projection" : "Switch Simulator"}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === "projection" && (<>
       {/* Validation gate */}
       {validationErrors.length > 0 && (
         <div
@@ -698,6 +726,13 @@ export default function ProjectionModel({
             </table>
           </div>
 
+        </div>
+      )}
+      </>)}
+
+      {activeTab === "switch" && (
+        <div style={{ color: "var(--color-text-muted)", padding: "2rem", textAlign: "center" }}>
+          Switch tab placeholder
         </div>
       )}
     </div>
