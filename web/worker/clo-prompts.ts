@@ -252,7 +252,8 @@ function formatConstraints(constraints: CloProfile["extractedConstraints"], mode
 
   // Section 8: Eligibility Criteria
   if (c.eligibilityCriteria?.length) {
-    lines.push(`\nELIGIBILITY CRITERIA:\n${c.eligibilityCriteria.map((e) => `  - ${e}`).join("\n")}`);
+    const criteria = Array.isArray(c.eligibilityCriteria) ? c.eligibilityCriteria : [String(c.eligibilityCriteria)];
+    lines.push(`\nELIGIBILITY CRITERIA:\n${criteria.map((e: string) => `  - ${e}`).join("\n")}`);
   } else if (c.eligibleCollateral) {
     lines.push(`Eligible Collateral: ${c.eligibleCollateral}`);
   }
