@@ -1,0 +1,58 @@
+"use client";
+
+import React, { useState } from "react";
+import { SliderInput } from "./SliderInput";
+
+export function FeeAssumptions({
+  seniorFeePct, onSeniorFeeChange,
+  subFeePct, onSubFeeChange,
+  trusteeFeeBps, onTrusteeFeeChange,
+  hedgeCostBps, onHedgeCostChange,
+  incentiveFeePct, onIncentiveFeeChange,
+  incentiveFeeHurdleIrr, onHurdleChange,
+  hasResolvedFees,
+}: {
+  seniorFeePct: number; onSeniorFeeChange: (v: number) => void;
+  subFeePct: number; onSubFeeChange: (v: number) => void;
+  trusteeFeeBps: number; onTrusteeFeeChange: (v: number) => void;
+  hedgeCostBps: number; onHedgeCostChange: (v: number) => void;
+  incentiveFeePct: number; onIncentiveFeeChange: (v: number) => void;
+  incentiveFeeHurdleIrr: number; onHurdleChange: (v: number) => void;
+  hasResolvedFees: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div style={{ marginTop: "0.75rem", border: "1px solid var(--color-border-light)", borderRadius: "var(--radius-sm)", background: "var(--color-surface)" }}>
+      <button
+        onClick={() => setOpen(!open)}
+        style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.4rem", padding: "0.5rem 0.8rem", background: "none", border: "none", cursor: "pointer", fontSize: "0.75rem", color: "var(--color-text-muted)", textAlign: "left", fontFamily: "var(--font-body)" }}
+      >
+        <span>
+          <span style={{ fontSize: "0.65rem", marginRight: "0.3rem" }}>{open ? "▾" : "▸"}</span>
+          Fees & Expenses
+        </span>
+        {hasResolvedFees && <span style={{ fontSize: "0.6rem", fontWeight: 600, padding: "0.1rem 0.35rem", borderRadius: "3px", background: "var(--color-high)18", color: "var(--color-high)" }}>FROM PPM</span>}
+        {!hasResolvedFees && (seniorFeePct === 0 && subFeePct === 0) && <span style={{ fontSize: "0.6rem", fontWeight: 600, padding: "0.1rem 0.35rem", borderRadius: "3px", background: "var(--color-warning, #d97706)18", color: "var(--color-warning, #d97706)" }}>NOT SET</span>}
+      </button>
+      {open && (
+        <div style={{ padding: "0 0.8rem 0.8rem" }}>
+          <div style={{ fontSize: "0.68rem", color: "var(--color-text-muted)", marginBottom: "0.75rem", lineHeight: 1.5 }}>
+            {hasResolvedFees
+              ? "Pre-filled from PPM extraction. Adjust if the extracted values look wrong."
+              : "No fees were extracted from the PPM. Set them manually or the model will assume zero fees (overstating equity returns)."
+            }
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "1.25rem" }}>
+            <SliderInput label="Senior Mgmt Fee" value={seniorFeePct} onChange={onSeniorFeeChange} min={0} max={1} step={0.05} suffix="% p.a. on par" hint="Paid quarterly from interest before tranche payments" />
+            <SliderInput label="Sub Mgmt Fee" value={subFeePct} onChange={onSubFeeChange} min={0} max={0.5} step={0.05} suffix="% p.a. on par" hint="Paid quarterly from interest after all tranche payments" />
+            <SliderInput label="Trustee / Admin" value={trusteeFeeBps} onChange={onTrusteeFeeChange} min={0} max={10} step={1} suffix=" bps p.a. on par" hint="Paid first from interest, before management fee" />
+            <SliderInput label="Hedge Cost" value={hedgeCostBps} onChange={onHedgeCostChange} min={0} max={50} step={1} suffix=" bps p.a. on par" hint="Approximation of FX hedge costs, paid from interest before tranche payments" />
+            <SliderInput label="Incentive Fee" value={incentiveFeePct} onChange={onIncentiveFeeChange} min={0} max={30} step={1} suffix="% of residual" hint="Applied each quarter to remaining interest and principal after all other payments" />
+            <SliderInput label="Incentive Hurdle" value={incentiveFeeHurdleIrr} onChange={onHurdleChange} min={0} max={20} step={0.5} suffix="% IRR" hint="Incentive fee only kicks in when cumulative equity return exceeds this annualized rate" />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
