@@ -101,7 +101,6 @@ export default function ProjectionModel({
   const [showTransparency, setShowTransparency] = useState(false);
   const [expandedPeriod, setExpandedPeriod] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<"projection" | "switch">("projection");
-  const [showSwitchAssumptions, setShowSwitchAssumptions] = useState(false);
 
   // Pre-fill fee sliders when resolved data changes (only on first load, not on re-renders
   // that would stomp user edits). Track whether fees have been initialized.
@@ -773,62 +772,69 @@ export default function ProjectionModel({
             buyList={buyList ?? []}
             userAssumptions={userAssumptions}
           />
-          {/* Assumptions — same sliders, collapsed by default */}
-          <div style={{ marginTop: "1.5rem", border: "1px solid var(--color-border-light)", borderRadius: "var(--radius-sm)", background: "var(--color-surface)" }}>
-            <button
-              onClick={() => setShowSwitchAssumptions(!showSwitchAssumptions)}
-              style={{ width: "100%", display: "flex", alignItems: "center", gap: "0.4rem", padding: "0.6rem 0.8rem", background: "none", border: "none", cursor: "pointer", fontSize: "0.8rem", fontWeight: 600, color: "var(--color-text-secondary)", textAlign: "left", fontFamily: "var(--font-body)" }}
-            >
-              <span style={{ fontSize: "0.65rem" }}>{showSwitchAssumptions ? "▾" : "▸"}</span>
+          {/* Assumptions — identical to Projection tab */}
+          <div
+            style={{
+              padding: "1.25rem",
+              background: "var(--color-surface)",
+              border: "1px solid var(--color-border-light)",
+              borderRadius: "var(--radius-sm)",
+              marginTop: "1.5rem",
+            }}
+          >
+            <div style={{ fontSize: "0.72rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--color-text-muted)", marginBottom: "1rem" }}>
               Assumptions
-            </button>
-            {showSwitchAssumptions && (
-              <div style={{ padding: "0 0.8rem 0.8rem" }}>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "1.25rem" }}>
-                  <SliderInput label="CPR (Annual Prepay Rate)" value={cprPct} onChange={setCprPct} min={0} max={30} step={0.5} suffix="%" hint="Constant annual prepayment rate. Higher CPR means faster par decline and earlier principal return." />
-                  <SliderInput label="Recovery Rate" value={recoveryPct} onChange={setRecoveryPct} min={0} max={80} step={1} suffix="%" hint="Percentage of defaulted par recovered as cash after the recovery lag period." />
-                  <SliderInput label="Recovery Lag" value={recoveryLagMonths} onChange={setRecoveryLagMonths} min={0} max={24} step={1} suffix=" mo" hint="Months between a loan default and when recovery cash is received." />
-                  <SliderInput label="Reinvestment Spread" value={reinvestmentSpreadBps} onChange={setReinvestmentSpreadBps} min={0} max={500} step={10} suffix=" bps" hint="Spread (over base rate) earned on newly purchased loans during the reinvestment period." />
-                  <SliderInput label="Reinvestment Tenor" value={reinvestmentTenorYears} onChange={setReinvestmentTenorYears} min={1} max={10} step={1} suffix=" yr" hint="Average maturity of newly reinvested loans, in years from purchase." />
-                  <SliderInput label="Base Rate (EURIBOR)" value={baseRatePct} onChange={setBaseRatePct} min={0} max={8} step={0.25} suffix="%" hint="3-month EURIBOR assumption, held flat for the entire projection. Floored at 0%." />
-                  <SliderInput label="Post-RP Reinvestment" value={postRpReinvestmentPct} onChange={setPostRpReinvestmentPct} min={0} max={100} step={5} suffix="%" hint="Percentage of principal proceeds reinvested after the reinvestment period ends. 0% means all proceeds go to tranche paydown." />
-                  <SliderInput label="CCC Bucket Limit" value={cccBucketLimitPct} onChange={setCccBucketLimitPct} min={0} max={15} step={0.5} suffix="%" hint="CCC-rated par exceeding this % of total par gets haircut to market value in the OC test numerator." />
-                  <SliderInput label="CCC Mkt Value" value={cccMarketValuePct} onChange={setCccMarketValuePct} min={0} max={100} step={5} suffix="%" hint="Market value assumption (as % of par) for CCC excess in the OC haircut calculation." />
-                  <div>
-                    <SelectInput
-                      label="Reinvestment Rating"
-                      value={reinvestmentRating}
-                      onChange={setReinvestmentRating}
-                      options={[
-                        { value: "auto", label: "Portfolio Avg" },
-                        ...RATING_BUCKETS.map((b) => ({ value: b, label: b })),
-                      ]}
-                    />
-                    <div style={{ fontSize: "0.62rem", color: "var(--color-text-muted)", marginTop: "0.3rem", lineHeight: 1.4, opacity: 0.8 }}>
-                      Rating bucket for reinvested loans. &quot;Portfolio Avg&quot; uses the par-weighted modal rating.
-                    </div>
-                  </div>
-                </div>
-                <FeeAssumptions
-                  seniorFeePct={seniorFeePct} onSeniorFeeChange={setSeniorFeePct}
-                  subFeePct={subFeePct} onSubFeeChange={setSubFeePct}
-                  trusteeFeeBps={trusteeFeeBps} onTrusteeFeeChange={setTrusteeFeeBps}
-                  hedgeCostBps={hedgeCostBps} onHedgeCostChange={setHedgeCostBps}
-                  incentiveFeePct={incentiveFeePct} onIncentiveFeeChange={setIncentiveFeePct}
-                  incentiveFeeHurdleIrr={incentiveFeeHurdleIrr} onHurdleChange={setIncentiveFeeHurdleIrr}
-                  hasResolvedFees={!!resolved && (resolved.fees.seniorFeePct > 0 || resolved.fees.subFeePct > 0)}
-                  callDate={callDate} onCallDateChange={setCallDate}
+            </div>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+                gap: "1.25rem",
+              }}
+            >
+              <SliderInput label="CPR (Annual Prepay Rate)" value={cprPct} onChange={setCprPct} min={0} max={30} step={0.5} suffix="%" hint="Constant annual prepayment rate. Higher CPR means faster par decline and earlier principal return." />
+              <SliderInput label="Recovery Rate" value={recoveryPct} onChange={setRecoveryPct} min={0} max={80} step={1} suffix="%" hint="Percentage of defaulted par recovered as cash after the recovery lag period." />
+              <SliderInput label="Recovery Lag" value={recoveryLagMonths} onChange={setRecoveryLagMonths} min={0} max={24} step={1} suffix=" mo" hint="Months between a loan default and when recovery cash is received." />
+              <SliderInput label="Reinvestment Spread" value={reinvestmentSpreadBps} onChange={setReinvestmentSpreadBps} min={0} max={500} step={10} suffix=" bps" hint="Spread (over base rate) earned on newly purchased loans during the reinvestment period." />
+              <SliderInput label="Reinvestment Tenor" value={reinvestmentTenorYears} onChange={setReinvestmentTenorYears} min={1} max={10} step={1} suffix=" yr" hint="Average maturity of newly reinvested loans, in years from purchase." />
+              <SliderInput label="Base Rate (EURIBOR)" value={baseRatePct} onChange={setBaseRatePct} min={0} max={8} step={0.25} suffix="%" hint="3-month EURIBOR assumption, held flat for the entire projection. Floored at 0%." />
+              <SliderInput label="Post-RP Reinvestment" value={postRpReinvestmentPct} onChange={setPostRpReinvestmentPct} min={0} max={100} step={5} suffix="%" hint="Percentage of principal proceeds reinvested after the reinvestment period ends. 0% means all proceeds go to tranche paydown." />
+              <SliderInput label="CCC Bucket Limit" value={cccBucketLimitPct} onChange={setCccBucketLimitPct} min={0} max={15} step={0.5} suffix="%" hint="CCC-rated par exceeding this % of total par gets haircut to market value in the OC test numerator." />
+              <SliderInput label="CCC Mkt Value" value={cccMarketValuePct} onChange={setCccMarketValuePct} min={0} max={100} step={5} suffix="%" hint="Market value assumption (as % of par) for CCC excess in the OC haircut calculation." />
+              <div>
+                <SelectInput
+                  label="Reinvestment Rating"
+                  value={reinvestmentRating}
+                  onChange={setReinvestmentRating}
+                  options={[
+                    { value: "auto", label: "Portfolio Avg" },
+                    ...RATING_BUCKETS.map((b) => ({ value: b, label: b })),
+                  ]}
                 />
-                <div style={{ marginTop: "0.75rem" }}>
-                  <DefaultRatePanel
-                    defaultRates={defaultRates}
-                    onChange={setDefaultRates}
-                    ratingDistribution={ratingDistribution}
-                    weightedAvgCdr={weightedAvgCdr}
-                  />
+                <div style={{ fontSize: "0.62rem", color: "var(--color-text-muted)", marginTop: "0.3rem", lineHeight: 1.4, opacity: 0.8 }}>
+                  Rating bucket for reinvested loans. &quot;Portfolio Avg&quot; uses the par-weighted modal rating.
                 </div>
               </div>
-            )}
+            </div>
+
+            <FeeAssumptions
+              seniorFeePct={seniorFeePct} onSeniorFeeChange={setSeniorFeePct}
+              subFeePct={subFeePct} onSubFeeChange={setSubFeePct}
+              trusteeFeeBps={trusteeFeeBps} onTrusteeFeeChange={setTrusteeFeeBps}
+              hedgeCostBps={hedgeCostBps} onHedgeCostChange={setHedgeCostBps}
+              incentiveFeePct={incentiveFeePct} onIncentiveFeeChange={setIncentiveFeePct}
+              incentiveFeeHurdleIrr={incentiveFeeHurdleIrr} onHurdleChange={setIncentiveFeeHurdleIrr}
+              hasResolvedFees={!!resolved && (resolved.fees.seniorFeePct > 0 || resolved.fees.subFeePct > 0)}
+              callDate={callDate} onCallDateChange={setCallDate}
+            />
+            <div style={{ marginTop: "1rem" }}>
+              <DefaultRatePanel
+                defaultRates={defaultRates}
+                onChange={setDefaultRates}
+                ratingDistribution={ratingDistribution}
+                weightedAvgCdr={weightedAvgCdr}
+              />
+            </div>
           </div>
         </div>
       )}
