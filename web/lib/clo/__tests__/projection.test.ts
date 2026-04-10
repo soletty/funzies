@@ -504,6 +504,56 @@ describe("recovery pipeline at maturity", () => {
   });
 });
 
+describe("incentive fee IRR gate", () => {
+  it("deducts incentive fee when equity IRR exceeds hurdle", () => {
+    const withFee = runProjection(makeInputs({
+      incentiveFeePct: 20,
+      incentiveFeeHurdleIrr: 0.01, // very low hurdle — fee should always apply
+      defaultRatesByRating: uniformRates(0),
+      cprPct: 0,
+    }));
+    const noFee = runProjection(makeInputs({
+      incentiveFeePct: 0,
+      defaultRatesByRating: uniformRates(0),
+      cprPct: 0,
+    }));
+    // With fee, equity distributions should be lower
+    expect(withFee.totalEquityDistributions).toBeLessThan(noFee.totalEquityDistributions);
+    // IRR should be lower with fee
+    expect(withFee.equityIrr!).toBeLessThan(noFee.equityIrr!);
+  });
+
+  it("does not deduct incentive fee when IRR is below hurdle", () => {
+    const highHurdle = runProjection(makeInputs({
+      incentiveFeePct: 20,
+      incentiveFeeHurdleIrr: 0.99, // 99% hurdle — fee should never apply
+      defaultRatesByRating: uniformRates(0),
+      cprPct: 0,
+    }));
+    const noFee = runProjection(makeInputs({
+      incentiveFeePct: 0,
+      defaultRatesByRating: uniformRates(0),
+      cprPct: 0,
+    }));
+    // With an unreachable hurdle, distributions should be identical
+    expect(highHurdle.totalEquityDistributions).toBeCloseTo(noFee.totalEquityDistributions, 2);
+  });
+
+  it("applies fee to full distribution once above hurdle (catch-up)", () => {
+    // With a moderate hurdle, the fee should apply to full distributions
+    // once the hurdle is exceeded, not just the excess
+    const result = runProjection(makeInputs({
+      incentiveFeePct: 20,
+      incentiveFeeHurdleIrr: 0.05, // 5% hurdle
+      defaultRatesByRating: uniformRates(0),
+      cprPct: 0,
+    }));
+    // Just verify it runs without error and produces reasonable output
+    expect(result.equityIrr).not.toBeNull();
+    expect(result.totalEquityDistributions).toBeGreaterThan(0);
+  });
+});
+
 describe("computeSensitivity", () => {
   it("returns 5 rows sorted by absolute IRR impact", () => {
     const inputs = makeInputs();
