@@ -21,6 +21,7 @@ import {
   type LoanInput,
 } from "@/lib/clo/projection";
 import type { ResolvedDealData, ResolutionWarning } from "@/lib/clo/resolver-types";
+import { buildFromResolved } from "@/lib/clo/build-projection-inputs";
 import { DEFAULT_RATES_BY_RATING, RATING_BUCKETS, type RatingBucket } from "@/lib/clo/rating-mapping";
 import SuggestAssumptions from "./SuggestAssumptions";
 import { useMonteCarlo } from "@/lib/clo/useMonteCarlo";
@@ -121,76 +122,6 @@ const ASSUMPTIONS_REGISTER: { domain: string; items: Assumption[] }[] = [
     ],
   },
 ];
-
-function buildFromResolved(
-  resolved: ResolvedDealData,
-  userAssumptions: {
-    baseRatePct: number;
-    defaultRates: Record<string, number>;
-    cprPct: number;
-    recoveryPct: number;
-    recoveryLagMonths: number;
-    reinvestmentSpreadBps: number;
-    reinvestmentTenorYears: number;
-    reinvestmentRating: string | null;
-    cccBucketLimitPct: number;
-    cccMarketValuePct: number;
-    deferredInterestCompounds: boolean;
-    postRpReinvestmentPct: number;
-    hedgeCostBps: number;
-    callDate: string | null;
-  },
-): ProjectionInputs {
-  return {
-    initialPar: resolved.poolSummary.totalPar,
-    wacSpreadBps: resolved.poolSummary.wacSpreadBps,
-    baseRatePct: userAssumptions.baseRatePct,
-    seniorFeePct: resolved.fees.seniorFeePct,
-    subFeePct: resolved.fees.subFeePct,
-    trusteeFeeBps: resolved.fees.trusteeFeeBps,
-    hedgeCostBps: userAssumptions.hedgeCostBps,
-    incentiveFeePct: resolved.fees.incentiveFeePct,
-    incentiveFeeHurdleIrr: resolved.fees.incentiveFeeHurdleIrr,
-    postRpReinvestmentPct: userAssumptions.postRpReinvestmentPct,
-    callDate: userAssumptions.callDate,
-    reinvestmentOcTrigger: resolved.reinvestmentOcTrigger,
-    tranches: resolved.tranches.map(t => ({
-      className: t.className,
-      currentBalance: t.currentBalance,
-      spreadBps: t.spreadBps,
-      seniorityRank: t.seniorityRank,
-      isFloating: t.isFloating,
-      isIncomeNote: t.isIncomeNote,
-      isDeferrable: t.isDeferrable,
-      isAmortising: t.isAmortising,
-      amortisationPerPeriod: t.amortisationPerPeriod,
-    })),
-    ocTriggers: resolved.ocTriggers.map(t => ({
-      className: t.className,
-      triggerLevel: t.triggerLevel,
-      rank: t.rank,
-    })),
-    icTriggers: resolved.icTriggers.map(t => ({
-      className: t.className,
-      triggerLevel: t.triggerLevel,
-      rank: t.rank,
-    })),
-    maturityDate: resolved.dates.maturity,
-    reinvestmentPeriodEnd: resolved.dates.reinvestmentPeriodEnd,
-    currentDate: resolved.dates.currentDate,
-    loans: resolved.loans,
-    defaultRatesByRating: userAssumptions.defaultRates,
-    cprPct: userAssumptions.cprPct,
-    recoveryPct: userAssumptions.recoveryPct,
-    recoveryLagMonths: userAssumptions.recoveryLagMonths,
-    reinvestmentSpreadBps: userAssumptions.reinvestmentSpreadBps,
-    reinvestmentTenorQuarters: userAssumptions.reinvestmentTenorYears * 4,
-    reinvestmentRating: userAssumptions.reinvestmentRating,
-    cccBucketLimitPct: userAssumptions.cccBucketLimitPct,
-    cccMarketValuePct: userAssumptions.cccMarketValuePct,
-    deferredInterestCompounds: userAssumptions.deferredInterestCompounds,
-  };
-}
 
 export default function ProjectionModel({
   maturityDate,
