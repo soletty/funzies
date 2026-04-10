@@ -17,7 +17,7 @@ import { runSectionPpmExtraction } from "../lib/clo/extraction/ppm-extraction.js
 import { runExtraction, runSectionExtraction } from "../lib/clo/extraction/runner.js";
 import { runPortfolioExtraction } from "../lib/clo/extraction/portfolio-extraction.js";
 import { normalizeClassName } from "../lib/clo/api.js";
-import type { CapitalStructureEntry } from "../lib/clo/types.js";
+import type { CapitalStructureEntry } from "../lib/clo/types/index.js";
 import { getApiKeyForUser, resetFreeTrial } from "../lib/trial.js";
 
 if (!process.env.DATABASE_URL) {

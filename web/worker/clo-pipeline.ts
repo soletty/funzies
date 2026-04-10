@@ -11,7 +11,7 @@ import {
 import { getRecentAnalysisSummaries } from "../lib/clo/history.js";
 import { rowToProfile } from "../lib/clo/access.js";
 import { getBuyListForProfile } from "../lib/clo/buy-list.js";
-import type { PanelMember } from "../lib/clo/types.js";
+import type { PanelMember } from "../lib/clo/types/index.js";
 import { chunkPipelineDocuments, type PipelineDocument } from "../lib/clo/pdf-chunking.js";
 import {
   profileAnalysisPrompt,
@@ -30,7 +30,7 @@ import {
   screeningSynthesisPrompt,
   formatReportPeriodState,
 } from "./clo-prompts.js";
-import type { CloPoolSummary, CloComplianceTest, CloConcentration, CloEvent, CloExtractionOverflow } from "../lib/clo/types.js";
+import type { CloPoolSummary, CloComplianceTest, CloConcentration, CloEvent, CloExtractionOverflow } from "../lib/clo/types/index.js";
 const WEB_SEARCH_TOOL = { type: "web_search_20250305", name: "web_search", max_uses: 5 };
 
 async function getLatestBriefing(pool: Pool, briefType = "general"): Promise<string | null> {

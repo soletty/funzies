@@ -6,7 +6,7 @@ import type {
   IndividualCreditAssessment,
   CreditVerdict,
   CreditVoteRecord,
-} from "../types.js";
+} from "../types/index.js";
 
 const VALID_VERDICTS: CreditVerdict[] = ["strong_buy", "buy", "hold", "pass", "strong_pass"];
 

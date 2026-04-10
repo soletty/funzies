@@ -1,4 +1,4 @@
-import type { PanelMember } from "../types.js";
+import type { PanelMember } from "../types/index.js";
 
 const MEMBER_HEADING = /^##\s+Member\s+(\d+):\s*(.+?)\s*\|\s*(.+)$/i;
 const SECTION_HEADING = /^###\s+(.+)$/;

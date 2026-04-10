@@ -1,4 +1,4 @@
-import type { CloProfile, PanelMember, LoanAnalysis, ExtractedPortfolio, ExtractedConstraints, CloPoolSummary, CloComplianceTest, CloConcentration, CloEvent, CloExtractionOverflow, BuyListItem } from "../lib/clo/types.js";
+import type { CloProfile, PanelMember, LoanAnalysis, ExtractedPortfolio, ExtractedConstraints, CloPoolSummary, CloComplianceTest, CloConcentration, CloEvent, CloExtractionOverflow, BuyListItem } from "../lib/clo/types/index.js";
 
 function formatBuyList(items: BuyListItem[]): string {
   if (items.length === 0) return "";
