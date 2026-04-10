@@ -626,26 +626,20 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     const subFeeAmount = beginningPar * (subFeePct / 100) / 4;
     availableInterest -= Math.min(subFeeAmount, availableInterest);
 
-    // PPM Step BB: Incentive management fee — % of residual ABOVE IRR hurdle.
-    // The CM gets incentiveFeePct% (e.g. 20%) only on equity distributions that
-    // exceed the cumulative hurdle return. The hurdle amount at time t =
-    // equityInvestment * ((1 + hurdleIRR)^t - 1), i.e. what equity holders
-    // would have earned at exactly the hurdle IRR.
-    //
-    // Per period: compute pre-fee distribution, check if cumulative distributions
-    // (including this period) exceed the hurdle, take fee only on the excess.
+    // PPM Step BB: Incentive management fee — % of residual when equity IRR > hurdle.
+    // Compute the true IRR of equity cash flows including this period's pre-fee
+    // distribution. If it exceeds the hurdle, the CM takes incentiveFeePct% of the
+    // full distribution (catch-up style, per standard European CLO indentures).
     let incentiveFeeFromInterest = 0;
-    if (incentiveFeePct > 0 && equityInvestment > 0 && availableInterest > 0) {
-      const yearsElapsed = q / 4;
-      const hurdleAmount = incentiveFeeHurdleIrr > 0
-        ? equityInvestment * (Math.pow(1 + incentiveFeeHurdleIrr, yearsElapsed) - 1)
-        : 0;
-      const cumulativeWithThis = totalEquityDistributions + availableInterest;
-      const excessAboveHurdle = Math.max(0, cumulativeWithThis - hurdleAmount);
-      // Only charge against this period's distribution (not prior periods)
-      const feeableThisPeriod = Math.min(excessAboveHurdle, availableInterest);
-      incentiveFeeFromInterest = feeableThisPeriod * (incentiveFeePct / 100);
-      availableInterest -= incentiveFeeFromInterest;
+    if (incentiveFeePct > 0 && availableInterest > 0) {
+      const preFeeIrr = incentiveFeeHurdleIrr > 0
+        ? calculateIrr([...equityCashFlows, availableInterest], 4)
+        : null;
+      const aboveHurdle = incentiveFeeHurdleIrr <= 0 || (preFeeIrr !== null && preFeeIrr > incentiveFeeHurdleIrr);
+      if (aboveHurdle) {
+        incentiveFeeFromInterest = availableInterest * (incentiveFeePct / 100);
+        availableInterest -= incentiveFeeFromInterest;
+      }
     }
 
     const equityFromInterest = availableInterest;
@@ -668,19 +662,18 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
 
     const endingLiabilities = debtTranches.reduce((s, t) => s + trancheBalances[t.className] + deferredBalances[t.className], 0);
 
-    // PPM Step U: Incentive fee from principal proceeds (same hurdle logic)
+    // PPM Step U: Incentive fee from principal proceeds (same IRR-gated logic)
     let incentiveFeeFromPrincipal = 0;
-    if (incentiveFeePct > 0 && equityInvestment > 0 && availablePrincipal > 0) {
-      const yearsElapsed = q / 4;
-      const hurdleAmount = incentiveFeeHurdleIrr > 0
-        ? equityInvestment * (Math.pow(1 + incentiveFeeHurdleIrr, yearsElapsed) - 1)
-        : 0;
-      // Include interest-side equity already counted this period
-      const cumulativeWithThis = totalEquityDistributions + equityFromInterest + availablePrincipal;
-      const excessAboveHurdle = Math.max(0, cumulativeWithThis - hurdleAmount);
-      const feeableThisPeriod = Math.min(excessAboveHurdle, availablePrincipal);
-      incentiveFeeFromPrincipal = feeableThisPeriod * (incentiveFeePct / 100);
-      availablePrincipal -= incentiveFeeFromPrincipal;
+    if (incentiveFeePct > 0 && availablePrincipal > 0) {
+      // Check IRR including both interest and principal equity for this period
+      const preFeeIrr = incentiveFeeHurdleIrr > 0
+        ? calculateIrr([...equityCashFlows, equityFromInterest + availablePrincipal], 4)
+        : null;
+      const aboveHurdle = incentiveFeeHurdleIrr <= 0 || (preFeeIrr !== null && preFeeIrr > incentiveFeeHurdleIrr);
+      if (aboveHurdle) {
+        incentiveFeeFromPrincipal = availablePrincipal * (incentiveFeePct / 100);
+        availablePrincipal -= incentiveFeeFromPrincipal;
+      }
     }
 
     const equityDistribution = equityFromInterest + availablePrincipal;

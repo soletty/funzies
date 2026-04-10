@@ -20,7 +20,7 @@ import {
   type LoanInput,
 } from "@/lib/clo/projection";
 import type { ResolvedDealData, ResolutionWarning } from "@/lib/clo/resolver-types";
-import { buildFromResolved } from "@/lib/clo/build-projection-inputs";
+import { buildFromResolved, EMPTY_RESOLVED } from "@/lib/clo/build-projection-inputs";
 import { DEFAULT_RATES_BY_RATING, RATING_BUCKETS, type RatingBucket } from "@/lib/clo/rating-mapping";
 import SuggestAssumptions from "./SuggestAssumptions";
 import { CLO_DEFAULTS } from "@/lib/clo/defaults";
@@ -130,41 +130,8 @@ export default function ProjectionModel({
 
   const inputs: ProjectionInputs = useMemo(
     () => {
-      if (!resolved) {
-        // Safe default that will fail validation rather than crash
-        return {
-          initialPar: 0,
-          wacSpreadBps: 0,
-          baseRatePct,
-          seniorFeePct,
-          subFeePct,
-          trusteeFeeBps,
-          hedgeCostBps,
-          incentiveFeePct,
-          incentiveFeeHurdleIrr: incentiveFeeHurdleIrr / 100,
-          postRpReinvestmentPct,
-          callDate,
-          reinvestmentOcTrigger: null,
-          tranches: [],
-          ocTriggers: [],
-          icTriggers: [],
-          reinvestmentPeriodEnd: null,
-          maturityDate: null,
-          currentDate: new Date().toISOString().slice(0, 10),
-          loans: [],
-          defaultRatesByRating: defaultRates,
-          cprPct,
-          recoveryPct,
-          recoveryLagMonths,
-          reinvestmentSpreadBps,
-          reinvestmentTenorQuarters: reinvestmentTenorYears * 4,
-          reinvestmentRating: null,
-          cccBucketLimitPct,
-          cccMarketValuePct,
-          deferredInterestCompounds: true,
-        };
-      }
-      return buildFromResolved(resolved, {
+      const resolvedData = resolved ?? EMPTY_RESOLVED;
+      return buildFromResolved(resolvedData, {
         baseRatePct,
         defaultRates: defaultRates,
         cprPct,

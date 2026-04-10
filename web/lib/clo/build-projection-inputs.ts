@@ -2,6 +2,21 @@ import type { ResolvedDealData } from "./resolver-types";
 import type { ProjectionInputs } from "./projection";
 import { CLO_DEFAULTS } from "./defaults";
 
+// Empty resolved data — used when no deal data has been loaded yet.
+// Produces a ProjectionInputs that will fail validation (initialPar = 0)
+// but won't crash. This eliminates the need for a separate safe-default
+// code path in the UI component.
+export const EMPTY_RESOLVED: ResolvedDealData = {
+  tranches: [],
+  poolSummary: { totalPar: 0, wacSpreadBps: 0, warf: 0, walYears: 0, diversityScore: 0, numberOfObligors: 0 },
+  ocTriggers: [],
+  icTriggers: [],
+  reinvestmentOcTrigger: null,
+  dates: { maturity: "", reinvestmentPeriodEnd: null, nonCallPeriodEnd: null, firstPaymentDate: null, currentDate: new Date().toISOString().slice(0, 10) },
+  fees: { seniorFeePct: 0, subFeePct: 0, trusteeFeeBps: 0, incentiveFeePct: 0, incentiveFeeHurdleIrr: 0 },
+  loans: [],
+};
+
 export interface UserAssumptions {
   baseRatePct: number;
   defaultRates: Record<string, number>;
