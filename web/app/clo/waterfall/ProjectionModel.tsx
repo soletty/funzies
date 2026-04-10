@@ -78,6 +78,7 @@ export default function ProjectionModel({
     if (urlTab !== "switch") return null;
     return {
       sellName: searchParams.get("sell"),
+      buyName: searchParams.get("buyName"),
       buySpread: searchParams.get("buySpread"),
       buyRating: searchParams.get("buyRating"),
       buyMaturity: searchParams.get("buyMaturity"),

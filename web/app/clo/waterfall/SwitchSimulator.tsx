@@ -11,6 +11,7 @@ import { formatAmount, formatPct } from "./helpers";
 
 interface SwitchPrefill {
   sellName: string | null;
+  buyName: string | null;
   buySpread: string | null;
   buyRating: string | null;
   buyMaturity: string | null;
@@ -169,6 +170,7 @@ export function SwitchSimulator({ resolved, holdings, buyList, userAssumptions, 
         <BuyLoanSelector
           buyList={buyList}
           onSelect={handleBuyListSelect}
+          prefillName={prefill?.buyName}
         />
       )}
       <div style={{ marginBottom: "1.25rem" }}>
@@ -402,13 +404,28 @@ function LoanSelector({
 function BuyLoanSelector({
   buyList,
   onSelect,
+  prefillName,
 }: {
   buyList: BuyListItem[];
   onSelect: (item: BuyListItem) => void;
+  prefillName?: string | null;
 }) {
   const [search, setSearch] = useState("");
-  const [open, setOpen] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [open, setOpen] = useState(!prefillName);
+
+  // Auto-match from prefill name
+  React.useEffect(() => {
+    if (!prefillName || selectedId) return;
+    const match = buyList.find((item) =>
+      item.obligorName.toLowerCase().includes(prefillName.toLowerCase())
+    );
+    if (match) {
+      setSelectedId(match.id);
+      setOpen(false);
+      onSelect(match);
+    }
+  }, [prefillName, buyList]);
 
   const query = search.toLowerCase();
   const filtered = query

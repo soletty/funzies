@@ -56,6 +56,7 @@ export default async function WaterfallPage({
   const params2 = new URLSearchParams();
   params2.set("tab", "switch");
   if (a.borrower_name) params2.set("sell", a.borrower_name);
+  if (a.switch_borrower_name) params2.set("buyName", a.switch_borrower_name);
   if (buySpread) params2.set("buySpread", buySpread);
   if (a.switch_rating) params2.set("buyRating", a.switch_rating);
   if (a.switch_maturity) params2.set("buyMaturity", a.switch_maturity);
