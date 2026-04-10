@@ -36,6 +36,8 @@ import { PeriodTrace } from "./PeriodTrace";
 import { FeeAssumptions } from "./FeeAssumptions";
 import { ModelAssumptions } from "./ModelAssumptions";
 import { DefaultRatePanel } from "./DefaultRatePanel";
+import { SwitchSimulator } from "./SwitchSimulator";
+import { type UserAssumptions } from "@/lib/clo/build-projection-inputs";
 
 interface Props {
   maturityDate: string | null;
@@ -166,6 +168,33 @@ export default function ProjectionModel({
       callDate,
     ]
   );
+
+  const userAssumptions: UserAssumptions = useMemo(() => ({
+    baseRatePct,
+    defaultRates: defaultRates,
+    cprPct,
+    recoveryPct,
+    recoveryLagMonths,
+    reinvestmentSpreadBps,
+    reinvestmentTenorYears,
+    reinvestmentRating: reinvestmentRating === "auto" ? null : reinvestmentRating,
+    cccBucketLimitPct,
+    cccMarketValuePct,
+    deferredInterestCompounds: constraints.interestMechanics?.deferredInterestCompounds ?? true,
+    postRpReinvestmentPct,
+    hedgeCostBps,
+    callDate,
+    seniorFeePct,
+    subFeePct,
+    trusteeFeeBps,
+    incentiveFeePct,
+    incentiveFeeHurdleIrr,
+  }), [
+    baseRatePct, defaultRates, cprPct, recoveryPct, recoveryLagMonths,
+    reinvestmentSpreadBps, reinvestmentTenorYears, reinvestmentRating, cccBucketLimitPct, cccMarketValuePct,
+    constraints.interestMechanics?.deferredInterestCompounds,
+    postRpReinvestmentPct, hedgeCostBps, callDate, seniorFeePct, subFeePct, trusteeFeeBps, incentiveFeePct, incentiveFeeHurdleIrr,
+  ]);
 
   const validationErrors = useMemo(() => validateInputs(inputs), [inputs]);
   const result: ProjectionResult | null = useMemo(
@@ -730,9 +759,52 @@ export default function ProjectionModel({
       )}
       </>)}
 
-      {activeTab === "switch" && (
-        <div style={{ color: "var(--color-text-muted)", padding: "2rem", textAlign: "center" }}>
-          Switch tab placeholder
+      {activeTab === "switch" && resolved && (
+        <div>
+          <SwitchSimulator
+            resolved={resolved}
+            holdings={holdings}
+            buyList={buyList ?? []}
+            userAssumptions={userAssumptions}
+          />
+          {/* Assumptions — same sliders, collapsed by default */}
+          <div style={{ marginTop: "1.5rem", border: "1px solid var(--color-border-light)", borderRadius: "var(--radius-sm)", background: "var(--color-surface)" }}>
+            <button
+              onClick={() => setShowSwitchAssumptions(!showSwitchAssumptions)}
+              style={{ width: "100%", display: "flex", alignItems: "center", gap: "0.4rem", padding: "0.6rem 0.8rem", background: "none", border: "none", cursor: "pointer", fontSize: "0.8rem", fontWeight: 600, color: "var(--color-text-secondary)", textAlign: "left", fontFamily: "var(--font-body)" }}
+            >
+              <span style={{ fontSize: "0.65rem" }}>{showSwitchAssumptions ? "▾" : "▸"}</span>
+              Assumptions
+            </button>
+            {showSwitchAssumptions && (
+              <div style={{ padding: "0 0.8rem 0.8rem" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "1.25rem" }}>
+                  <SliderInput label="CPR" value={cprPct} onChange={setCprPct} min={0} max={30} step={0.5} suffix="%" hint="Constant annual prepayment rate." />
+                  <SliderInput label="Recovery Rate" value={recoveryPct} onChange={setRecoveryPct} min={0} max={80} step={1} suffix="%" hint="Recovery on defaulted par." />
+                  <SliderInput label="Recovery Lag" value={recoveryLagMonths} onChange={setRecoveryLagMonths} min={0} max={24} step={1} suffix=" mo" hint="Months between default and recovery." />
+                  <SliderInput label="Base Rate (EURIBOR)" value={baseRatePct} onChange={setBaseRatePct} min={0} max={8} step={0.25} suffix="%" hint="Held flat. Floored at 0%." />
+                </div>
+                <FeeAssumptions
+                  seniorFeePct={seniorFeePct} onSeniorFeeChange={setSeniorFeePct}
+                  subFeePct={subFeePct} onSubFeeChange={setSubFeePct}
+                  trusteeFeeBps={trusteeFeeBps} onTrusteeFeeChange={setTrusteeFeeBps}
+                  hedgeCostBps={hedgeCostBps} onHedgeCostChange={setHedgeCostBps}
+                  incentiveFeePct={incentiveFeePct} onIncentiveFeeChange={setIncentiveFeePct}
+                  incentiveFeeHurdleIrr={incentiveFeeHurdleIrr} onHurdleChange={setIncentiveFeeHurdleIrr}
+                  hasResolvedFees={!!resolved && (resolved.fees.seniorFeePct > 0 || resolved.fees.subFeePct > 0)}
+                  callDate={callDate} onCallDateChange={setCallDate}
+                />
+                <div style={{ marginTop: "0.75rem" }}>
+                  <DefaultRatePanel
+                    defaultRates={defaultRates}
+                    onChange={setDefaultRates}
+                    ratingDistribution={ratingDistribution}
+                    weightedAvgCdr={weightedAvgCdr}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
