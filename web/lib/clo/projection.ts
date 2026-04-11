@@ -647,34 +647,36 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
           cureAmount = availableInterest;
         }
 
-        const preDiversionInterest = availableInterest;
         let diversion = Math.min(cureAmount, availableInterest);
         availableInterest -= diversion;
         if (availableInterest <= 0.01) diverted = true; // fully consumed → skip junior tranches
 
-        if (inRP && diversion > 0) {
-          // During RP: diverted interest purchases additional collateral to cure the OC breach
-          currentPar += diversion;
-          ocNumerator += diversion; // update so subsequent OC cures at lower ranks see the purchased collateral
-          if (hasLoans) {
-            loanStates.push({
-              survivingPar: diversion,
-              ratingBucket: reinvestmentRating,
-              spreadBps: reinvestmentSpreadBps,
-              maturityQuarter: Math.min(q + reinvestmentTenorQuarters, totalQuarters),
-            });
-          }
-        } else if (diversion > 0) {
-          // Outside RP: divert to pay down senior tranches
-          for (const dt of sortedTranches) {
-            if (dt.isIncomeNote || diversion <= 0) continue;
-            const ddp = Math.min(deferredBalances[dt.className], diversion);
-            deferredBalances[dt.className] -= ddp;
-            diversion -= ddp;
-            const dp = Math.min(trancheBalances[dt.className], diversion);
-            trancheBalances[dt.className] -= dp;
-            principalPaid[dt.className] += ddp + dp;
-            diversion -= dp;
+        if (diversion > 0) {
+          if (inRP && !failingIc) {
+            // During RP with OC-only failure: buy collateral to increase OC numerator
+            currentPar += diversion;
+            ocNumerator += diversion;
+            if (hasLoans) {
+              loanStates.push({
+                survivingPar: diversion,
+                ratingBucket: reinvestmentRating,
+                spreadBps: reinvestmentSpreadBps,
+                maturityQuarter: Math.min(q + reinvestmentTenorQuarters, totalQuarters),
+              });
+            }
+          } else {
+            // Outside RP, or IC failure: pay down senior tranches (reduces OC denominator / IC denominator)
+            let remaining = diversion;
+            for (const dt of sortedTranches) {
+              if (dt.isIncomeNote || remaining <= 0) continue;
+              const ddp = Math.min(deferredBalances[dt.className], remaining);
+              deferredBalances[dt.className] -= ddp;
+              remaining -= ddp;
+              const dp = Math.min(trancheBalances[dt.className], remaining);
+              trancheBalances[dt.className] -= dp;
+              principalPaid[dt.className] += ddp + dp;
+              remaining -= dp;
+            }
           }
         }
       }
