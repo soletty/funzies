@@ -29,12 +29,25 @@ export function PeriodTrace({ period, inputs }: { period: PeriodResult; inputs: 
       {hedgeCost > 0 && <div style={{ ...lineStyle, ...indent }}><span style={{ color: feeColor }}>Hedge Costs ({inputs.hedgeCostBps} bps)</span><span style={{ color: feeColor }}>-{formatAmount(hedgeCost)}</span></div>}
       <div style={{ ...lineStyle, ...indent, fontWeight: 500 }}><span>Available for tranches</span><span>{formatAmount(Math.max(0, availableAfterSenior))}</span></div>
 
-      {period.trancheInterest.map((t) => (
-        <div key={t.className} style={{ ...lineStyle, ...indent }}>
-          <span style={labelStyle}>{t.className} interest{t.paid < t.due ? ` (shortfall: ${formatAmount(t.due - t.paid)})` : ""}</span>
-          <span>{t.paid > 0 ? `-${formatAmount(t.paid)}` : "\u2014"}</span>
-        </div>
-      ))}
+      {period.trancheInterest.map((t) => {
+        // Show Class X amort alongside its interest (both paid from interest waterfall)
+        const principalEntry = period.tranchePrincipal.find((p) => p.className === t.className);
+        const isAmortising = principalEntry && principalEntry.paid > 0 && inputs.tranches.find((tr) => tr.className === t.className)?.isAmortising;
+        return (
+          <React.Fragment key={t.className}>
+            <div style={{ ...lineStyle, ...indent }}>
+              <span style={labelStyle}>{t.className} interest{t.paid < t.due ? ` (shortfall: ${formatAmount(t.due - t.paid)})` : ""}</span>
+              <span>{t.paid > 0 ? `-${formatAmount(t.paid)}` : "\u2014"}</span>
+            </div>
+            {isAmortising && (
+              <div style={{ ...lineStyle, ...indent }}>
+                <span style={labelStyle}>{t.className} amort (from interest)</span>
+                <span>-{formatAmount(principalEntry!.paid)}</span>
+              </div>
+            )}
+          </React.Fragment>
+        );
+      })}
 
       {(period.ocTests.length > 0 || period.icTests.length > 0) && (
         <div style={{ ...lineStyle, ...indent, flexWrap: "wrap", gap: "0.4rem" }}>
@@ -60,7 +73,12 @@ export function PeriodTrace({ period, inputs }: { period: PeriodResult; inputs: 
       <div style={lineStyle}><span>Maturities</span><span>{formatAmount(period.scheduledMaturities)}</span></div>
       <div style={lineStyle}><span>Recoveries</span><span>{formatAmount(period.recoveries)}</span></div>
       {period.reinvestment > 0 && <div style={{ ...lineStyle, ...indent }}><span style={{ color: feeColor }}>Reinvested</span><span style={{ color: feeColor }}>-{formatAmount(period.reinvestment)}</span></div>}
-      {period.tranchePrincipal.filter((t) => t.paid > 0).map((t) => (
+      {period.tranchePrincipal.filter((t) => {
+        if (t.paid <= 0) return false;
+        // Skip amortising tranches — their principal is already shown under Interest Waterfall
+        const trancheInput = inputs.tranches.find((tr) => tr.className === t.className);
+        return !trancheInput?.isAmortising;
+      }).map((t) => (
         <div key={t.className} style={{ ...lineStyle, ...indent }}><span style={labelStyle}>{t.className} principal</span><span>-{formatAmount(t.paid)}</span></div>
       ))}
       <div style={dividerStyle} />
