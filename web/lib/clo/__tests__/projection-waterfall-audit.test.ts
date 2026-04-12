@@ -2,64 +2,8 @@ import { describe, it, expect } from "vitest";
 import {
   runProjection,
   addQuarters,
-  ProjectionInputs,
-  LoanInput,
 } from "../projection";
-import { RATING_BUCKETS } from "../rating-mapping";
-import { CLO_DEFAULTS } from "../defaults";
-
-function uniformRates(cdr: number): Record<string, number> {
-  return Object.fromEntries(RATING_BUCKETS.map((b) => [b, cdr]));
-}
-
-function makeInputs(overrides: Partial<ProjectionInputs> = {}): ProjectionInputs {
-  const currentDate = "2026-01-15";
-  const loans: LoanInput[] = Array.from({ length: 10 }, (_, i) => ({
-    parBalance: 10_000_000,
-    maturityDate: addQuarters(currentDate, 12 + i),
-    ratingBucket: "B",
-    spreadBps: 400,
-  }));
-
-  return {
-    initialPar: 100_000_000,
-    wacSpreadBps: 400,
-    baseRatePct: 3.5,
-    baseRateFloorPct: 0,
-    seniorFeePct: 0,
-    subFeePct: 0,
-    trusteeFeeBps: 0,
-    hedgeCostBps: 0,
-    incentiveFeePct: 0,
-    incentiveFeeHurdleIrr: 0,
-    postRpReinvestmentPct: 0,
-    callDate: null,
-    callPricePct: 100,
-    reinvestmentOcTrigger: null,
-    tranches: [
-      { className: "A", currentBalance: 70_000_000, spreadBps: 140, seniorityRank: 1, isFloating: true, isIncomeNote: false, isDeferrable: false },
-      { className: "B", currentBalance: 20_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
-      { className: "Sub", currentBalance: 10_000_000, spreadBps: 0, seniorityRank: 3, isFloating: false, isIncomeNote: true, isDeferrable: false },
-    ],
-    ocTriggers: [],
-    icTriggers: [],
-    reinvestmentPeriodEnd: addQuarters(currentDate, 8),
-    maturityDate: addQuarters(currentDate, 32),
-    currentDate,
-    loans,
-    defaultRatesByRating: uniformRates(2),
-    cprPct: 0,
-    recoveryPct: CLO_DEFAULTS.recoveryPct,
-    recoveryLagMonths: CLO_DEFAULTS.recoveryLagMonths,
-    reinvestmentSpreadBps: CLO_DEFAULTS.reinvestmentSpreadBps,
-    reinvestmentTenorQuarters: CLO_DEFAULTS.reinvestmentTenorYears * 4,
-    reinvestmentRating: null,
-    cccBucketLimitPct: CLO_DEFAULTS.cccBucketLimitPct,
-    cccMarketValuePct: CLO_DEFAULTS.cccMarketValuePct,
-    deferredInterestCompounds: true,
-    ...overrides,
-  };
-}
+import { uniformRates, makeInputs } from "./test-helpers";
 
 // ─── Task 1: OC cure RP behavior — document modeling convention ─────────────
 
@@ -596,5 +540,263 @@ describe("Pending recoveries included in OC numerator (modeling convention)", ()
 
     expect(withRecovery.periods[0].recoveries).toBe(0);
     expect(noRecovery.periods[0].recoveries).toBe(0);
+  });
+});
+
+// ─── Task 10: Absolute-value tests with hand-computed expectations ──────────
+
+describe("Absolute-value verification (hand-computed)", () => {
+  it("Q1 interest collected = par × allInRate / 4", () => {
+    // 100M par, 3.5% base + 4.0% spread = 7.5%, quarterly = 1,875,000
+    const result = runProjection(makeInputs({
+      loans: [{ parBalance: 100_000_000, maturityDate: addQuarters("2026-03-09", 20), ratingBucket: "B", spreadBps: 400 }],
+      defaultRatesByRating: uniformRates(0),
+      cprPct: 0,
+      reinvestmentPeriodEnd: null,
+      ocTriggers: [],
+      icTriggers: [],
+      seniorFeePct: 0,
+      subFeePct: 0,
+      trusteeFeeBps: 0,
+      hedgeCostBps: 0,
+    }));
+
+    expect(result.periods[0].interestCollected).toBeCloseTo(1_875_000, -2);
+  });
+
+  it("Q1 tranche interest due: floating A and floating B at known rates", () => {
+    // A: 70M × (3.5 + 1.4)% / 4 = 857,500
+    // B: 20M × (3.5 + 3.0)% / 4 = 325,000
+    const result = runProjection(makeInputs({
+      loans: [{ parBalance: 100_000_000, maturityDate: addQuarters("2026-03-09", 20), ratingBucket: "B", spreadBps: 400 }],
+      tranches: [
+        { className: "A", currentBalance: 70_000_000, spreadBps: 140, seniorityRank: 1, isFloating: true, isIncomeNote: false, isDeferrable: false },
+        { className: "B", currentBalance: 20_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
+        { className: "Sub", currentBalance: 10_000_000, spreadBps: 0, seniorityRank: 3, isFloating: false, isIncomeNote: true, isDeferrable: false },
+      ],
+      defaultRatesByRating: uniformRates(0),
+      cprPct: 0,
+      reinvestmentPeriodEnd: null,
+      ocTriggers: [],
+      icTriggers: [],
+      seniorFeePct: 0,
+      subFeePct: 0,
+      trusteeFeeBps: 0,
+      hedgeCostBps: 0,
+    }));
+
+    const aDue = result.periods[0].trancheInterest.find((t) => t.className === "A")!.due;
+    const bDue = result.periods[0].trancheInterest.find((t) => t.className === "B")!.due;
+
+    expect(aDue).toBeCloseTo(857_500, -2);
+    expect(bDue).toBeCloseTo(325_000, -2);
+  });
+
+  it("Q1 equity distribution = interest - A coupon - B coupon (no fees, no triggers)", () => {
+    // 1,875,000 - 857,500 - 325,000 = 692,500
+    const result = runProjection(makeInputs({
+      loans: [{ parBalance: 100_000_000, maturityDate: addQuarters("2026-03-09", 20), ratingBucket: "B", spreadBps: 400 }],
+      tranches: [
+        { className: "A", currentBalance: 70_000_000, spreadBps: 140, seniorityRank: 1, isFloating: true, isIncomeNote: false, isDeferrable: false },
+        { className: "B", currentBalance: 20_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
+        { className: "Sub", currentBalance: 10_000_000, spreadBps: 0, seniorityRank: 3, isFloating: false, isIncomeNote: true, isDeferrable: false },
+      ],
+      defaultRatesByRating: uniformRates(0),
+      cprPct: 0,
+      reinvestmentPeriodEnd: null,
+      ocTriggers: [],
+      icTriggers: [],
+      seniorFeePct: 0,
+      subFeePct: 0,
+      trusteeFeeBps: 0,
+      hedgeCostBps: 0,
+    }));
+
+    expect(result.periods[0].equityDistribution).toBeCloseTo(692_500, -2);
+  });
+
+  it("Q1 defaults with 2% CDR: par × quarterlyHazard", () => {
+    // Quarterly hazard = 1 - (1 - 0.02)^0.25 = 0.005038
+    // Defaults = 100M × 0.005038 = 503,778
+    const result = runProjection(makeInputs({
+      loans: [{ parBalance: 100_000_000, maturityDate: addQuarters("2026-03-09", 20), ratingBucket: "B", spreadBps: 400 }],
+      defaultRatesByRating: uniformRates(2),
+      cprPct: 0,
+      reinvestmentPeriodEnd: null,
+      ocTriggers: [],
+      icTriggers: [],
+    }));
+
+    const quarterlyHazard = 1 - Math.pow(1 - 0.02, 0.25);
+    const expectedDefaults = 100_000_000 * quarterlyHazard;
+    expect(result.periods[0].defaults).toBeCloseTo(expectedDefaults, -2);
+  });
+
+  it("Q1 prepayments with 15% CPR: par × quarterlyPrepayRate", () => {
+    // Quarterly rate = 1 - (1 - 0.15)^0.25 = 0.03991
+    // Prepayments = 100M × 0.03991 = 3,991,210
+    const result = runProjection(makeInputs({
+      loans: [{ parBalance: 100_000_000, maturityDate: addQuarters("2026-03-09", 20), ratingBucket: "B", spreadBps: 400 }],
+      defaultRatesByRating: uniformRates(0),
+      cprPct: 15,
+      reinvestmentPeriodEnd: null,
+      ocTriggers: [],
+      icTriggers: [],
+    }));
+
+    const quarterlyPrepay = 1 - Math.pow(1 - 0.15, 0.25);
+    const expectedPrepay = 100_000_000 * quarterlyPrepay;
+    expect(result.periods[0].prepayments).toBeCloseTo(expectedPrepay, -2);
+  });
+
+  it("OC ratios: A = par/A_balance × 100, B = par/(A+B) × 100", () => {
+    // A: 100M / 70M × 100 = 142.857
+    // B: 100M / 90M × 100 = 111.111
+    const result = runProjection(makeInputs({
+      loans: [{ parBalance: 100_000_000, maturityDate: addQuarters("2026-03-09", 20), ratingBucket: "B", spreadBps: 400 }],
+      tranches: [
+        { className: "A", currentBalance: 70_000_000, spreadBps: 140, seniorityRank: 1, isFloating: true, isIncomeNote: false, isDeferrable: false },
+        { className: "B", currentBalance: 20_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
+        { className: "Sub", currentBalance: 10_000_000, spreadBps: 0, seniorityRank: 3, isFloating: false, isIncomeNote: true, isDeferrable: false },
+      ],
+      defaultRatesByRating: uniformRates(0),
+      cprPct: 0,
+      reinvestmentPeriodEnd: null,
+      ocTriggers: [
+        { className: "A", triggerLevel: 120, rank: 1 },
+        { className: "B", triggerLevel: 110, rank: 2 },
+      ],
+      icTriggers: [],
+      seniorFeePct: 0,
+      subFeePct: 0,
+      trusteeFeeBps: 0,
+      hedgeCostBps: 0,
+    }));
+
+    const ocA = result.periods[0].ocTests.find((t) => t.className === "A")!;
+    const ocB = result.periods[0].ocTests.find((t) => t.className === "B")!;
+
+    expect(ocA.actual).toBeCloseTo(142.857, 1);
+    expect(ocA.passing).toBe(true); // 142.86 > 120
+
+    expect(ocB.actual).toBeCloseTo(111.111, 1);
+    expect(ocB.passing).toBe(true); // 111.11 > 110
+  });
+
+  it("IC ratio = (interest - fees) / tranche_interest_due × 100", () => {
+    // Interest = 1,875,000. Senior fee = 100M × 0.5% / 4 = 125,000. After fees = 1,750,000.
+    // A due = 857,500. IC_A = 1,750,000 / 857,500 × 100 = 204.08
+    const result = runProjection(makeInputs({
+      loans: [{ parBalance: 100_000_000, maturityDate: addQuarters("2026-03-09", 20), ratingBucket: "B", spreadBps: 400 }],
+      tranches: [
+        { className: "A", currentBalance: 70_000_000, spreadBps: 140, seniorityRank: 1, isFloating: true, isIncomeNote: false, isDeferrable: false },
+        { className: "B", currentBalance: 20_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
+        { className: "Sub", currentBalance: 10_000_000, spreadBps: 0, seniorityRank: 3, isFloating: false, isIncomeNote: true, isDeferrable: false },
+      ],
+      defaultRatesByRating: uniformRates(0),
+      cprPct: 0,
+      reinvestmentPeriodEnd: null,
+      seniorFeePct: 0.5,
+      subFeePct: 0,
+      trusteeFeeBps: 0,
+      hedgeCostBps: 0,
+      ocTriggers: [],
+      icTriggers: [
+        { className: "A", triggerLevel: 100, rank: 1 },
+        { className: "B", triggerLevel: 100, rank: 2 },
+      ],
+    }));
+
+    const icA = result.periods[0].icTests.find((t) => t.className === "A")!;
+    // IC_A = (1,875,000 - 125,000) / 857,500 × 100 = 204.08
+    expect(icA.actual).toBeCloseTo(204.08, 0);
+    expect(icA.passing).toBe(true);
+
+    // IC_B = (1,875,000 - 125,000) / (857,500 + 325,000) × 100 = 1,750,000 / 1,182,500 × 100 = 148.01
+    const icB = result.periods[0].icTests.find((t) => t.className === "B")!;
+    expect(icB.actual).toBeCloseTo(148.01, 0);
+    expect(icB.passing).toBe(true);
+  });
+
+  it("fixed tranche coupon ignores base rate: balance × spreadBps/10000 / 4", () => {
+    // Fixed A at 500bps: 80M × 500/10000 / 4 = 80M × 0.05 / 4 = 1,000,000
+    const result = runProjection(makeInputs({
+      loans: [{ parBalance: 100_000_000, maturityDate: addQuarters("2026-03-09", 20), ratingBucket: "B", spreadBps: 400 }],
+      tranches: [
+        { className: "A", currentBalance: 80_000_000, spreadBps: 500, seniorityRank: 1, isFloating: false, isIncomeNote: false, isDeferrable: false },
+        { className: "Sub", currentBalance: 20_000_000, spreadBps: 0, seniorityRank: 2, isFloating: false, isIncomeNote: true, isDeferrable: false },
+      ],
+      defaultRatesByRating: uniformRates(0),
+      cprPct: 0,
+      reinvestmentPeriodEnd: null,
+      ocTriggers: [],
+      icTriggers: [],
+      seniorFeePct: 0,
+      subFeePct: 0,
+      trusteeFeeBps: 0,
+      hedgeCostBps: 0,
+    }));
+
+    const aDue = result.periods[0].trancheInterest.find((t) => t.className === "A")!.due;
+    expect(aDue).toBeCloseTo(1_000_000, -2);
+  });
+
+  it("CCC haircut formula: excess × (1 - MV%)", () => {
+    // 30M CCC out of 100M par. Limit = 7.5% → threshold = 7.5M.
+    // Excess = 30M - 7.5M = 22.5M. Haircut = 22.5M × (1 - 0.70) = 6,750,000.
+    // OC numerator = 100M - 6.75M = 93.25M. A denom = 70M. Ratio = 133.21.
+    const result = runProjection(makeInputs({
+      loans: [
+        { parBalance: 30_000_000, maturityDate: addQuarters("2026-03-09", 20), ratingBucket: "CCC", spreadBps: 400 },
+        { parBalance: 70_000_000, maturityDate: addQuarters("2026-03-09", 20), ratingBucket: "B", spreadBps: 400 },
+      ],
+      tranches: [
+        { className: "A", currentBalance: 70_000_000, spreadBps: 140, seniorityRank: 1, isFloating: true, isIncomeNote: false, isDeferrable: false },
+        { className: "Sub", currentBalance: 30_000_000, spreadBps: 0, seniorityRank: 2, isFloating: false, isIncomeNote: true, isDeferrable: false },
+      ],
+      defaultRatesByRating: uniformRates(0),
+      cprPct: 0,
+      reinvestmentPeriodEnd: null,
+      cccBucketLimitPct: 7.5,
+      cccMarketValuePct: 70,
+      ocTriggers: [{ className: "A", triggerLevel: 100, rank: 1 }],
+      icTriggers: [],
+      seniorFeePct: 0,
+      subFeePct: 0,
+      trusteeFeeBps: 0,
+      hedgeCostBps: 0,
+    }));
+
+    const ocA = result.periods[0].ocTests.find((t) => t.className === "A")!;
+    // (100M - 6.75M) / 70M × 100 = 133.21
+    expect(ocA.actual).toBeCloseTo(133.21, 0);
+  });
+
+  it("fee deduction: trustee + hedge + senior all subtracted from interest before tranches", () => {
+    // Interest = 1,875,000
+    // Trustee = 100M × 100bps / 4 = 250,000
+    // Hedge = 100M × 50bps / 4 = 125,000
+    // Senior = 100M × 0.5% / 4 = 125,000
+    // Available after fees = 1,875,000 - 250,000 - 125,000 - 125,000 = 1,375,000
+    // A due = 857,500, B due = 325,000. Equity = 1,375,000 - 857,500 - 325,000 = 192,500
+    const result = runProjection(makeInputs({
+      loans: [{ parBalance: 100_000_000, maturityDate: addQuarters("2026-03-09", 20), ratingBucket: "B", spreadBps: 400 }],
+      tranches: [
+        { className: "A", currentBalance: 70_000_000, spreadBps: 140, seniorityRank: 1, isFloating: true, isIncomeNote: false, isDeferrable: false },
+        { className: "B", currentBalance: 20_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
+        { className: "Sub", currentBalance: 10_000_000, spreadBps: 0, seniorityRank: 3, isFloating: false, isIncomeNote: true, isDeferrable: false },
+      ],
+      defaultRatesByRating: uniformRates(0),
+      cprPct: 0,
+      reinvestmentPeriodEnd: null,
+      trusteeFeeBps: 100,
+      hedgeCostBps: 50,
+      seniorFeePct: 0.5,
+      subFeePct: 0,
+      ocTriggers: [],
+      icTriggers: [],
+    }));
+
+    expect(result.periods[0].equityDistribution).toBeCloseTo(192_500, -2);
   });
 });
