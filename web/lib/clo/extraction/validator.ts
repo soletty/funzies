@@ -387,16 +387,16 @@ export function validateCapStructure(
       const diff = Math.abs(reportBalance - ppmAmount);
       const pctDiff = (diff / ppmAmount) * 100;
 
-      // Only flag if balance is higher than PPM (indicates reset upward) or significantly different
-      if (pctDiff > 5) {
-        const isHigher = reportBalance > ppmAmount;
+      // Only flag if balance is higher than PPM (indicates reset or data error).
+      // Lower balance is normal — tranches amortize and pay down over time.
+      if (pctDiff > 5 && reportBalance > ppmAmount) {
         checks.push({
           name: `cap_structure_balance_${normName}`,
           status: "warn",
           expected: ppmAmount,
           actual: reportBalance,
           discrepancy: Math.round(pctDiff * 100) / 100,
-          message: `${ppmEntry.class}: compliance report balance (${reportBalance.toLocaleString()}) is ${isHigher ? "higher" : "lower"} than PPM original amount (${ppmAmount.toLocaleString()}) by ${pctDiff.toFixed(1)}%.${isHigher ? " This likely indicates a tranche reset — compliance report reflects current structure." : " Normal amortization or paydown."}`,
+          message: `${ppmEntry.class}: compliance report balance (${reportBalance.toLocaleString()}) is higher than PPM original amount (${ppmAmount.toLocaleString()}) by ${pctDiff.toFixed(1)}%. This likely indicates a tranche reset — compliance report reflects current structure.`,
         });
       }
     }
