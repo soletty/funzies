@@ -15,64 +15,8 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { runProjection, addQuarters, ProjectionInputs, LoanInput } from "../projection";
-import { RATING_BUCKETS } from "../rating-mapping";
-import { CLO_DEFAULTS } from "../defaults";
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-function uniformRates(cdr: number): Record<string, number> {
-  return Object.fromEntries(RATING_BUCKETS.map((b) => [b, cdr]));
-}
-
-function makeInputs(overrides: Partial<ProjectionInputs> = {}): ProjectionInputs {
-  const currentDate = "2026-01-15";
-  const loans: LoanInput[] = Array.from({ length: 10 }, (_, i) => ({
-    parBalance: 10_000_000,
-    maturityDate: addQuarters(currentDate, 12 + i),
-    ratingBucket: "B",
-    spreadBps: 400,
-  }));
-
-  return {
-    initialPar: 100_000_000,
-    wacSpreadBps: 400,
-    baseRatePct: 3.5,
-    baseRateFloorPct: 0,
-    seniorFeePct: 0,
-    subFeePct: 0,
-    trusteeFeeBps: 0,
-    hedgeCostBps: 0,
-    incentiveFeePct: 0,
-    incentiveFeeHurdleIrr: 0,
-    postRpReinvestmentPct: 0,
-    callDate: null,
-    callPricePct: 100,
-    reinvestmentOcTrigger: null,
-    tranches: [
-      { className: "A", currentBalance: 70_000_000, spreadBps: 140, seniorityRank: 1, isFloating: true, isIncomeNote: false, isDeferrable: false },
-      { className: "B", currentBalance: 20_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
-      { className: "Sub", currentBalance: 10_000_000, spreadBps: 0, seniorityRank: 3, isFloating: false, isIncomeNote: true, isDeferrable: false },
-    ],
-    ocTriggers: [],
-    icTriggers: [],
-    reinvestmentPeriodEnd: addQuarters(currentDate, 8),
-    maturityDate: addQuarters(currentDate, 32),
-    currentDate,
-    loans,
-    defaultRatesByRating: uniformRates(2),
-    cprPct: 0,
-    recoveryPct: CLO_DEFAULTS.recoveryPct,
-    recoveryLagMonths: CLO_DEFAULTS.recoveryLagMonths,
-    reinvestmentSpreadBps: CLO_DEFAULTS.reinvestmentSpreadBps,
-    reinvestmentTenorQuarters: CLO_DEFAULTS.reinvestmentTenorYears * 4,
-    reinvestmentRating: null,
-    cccBucketLimitPct: CLO_DEFAULTS.cccBucketLimitPct,
-    cccMarketValuePct: CLO_DEFAULTS.cccMarketValuePct,
-    deferredInterestCompounds: true,
-    ...overrides,
-  };
-}
+import { runProjection, addQuarters } from "../projection";
+import { uniformRates, makeInputs } from "./test-helpers";
 
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -860,6 +804,24 @@ describe("H. Fee interactions", () => {
   it("H3: incentive fee with OC cure — cure reduces equity, may push IRR below hurdle", () => {
     // Interaction: OC cure diverts interest → less equity → lower IRR → may not reach hurdle → no fee
     const withCure = makeInputs({
+      currentDate: "2026-01-15",
+      maturityDate: addQuarters("2026-01-15", 32),
+      wacSpreadBps: 400,
+      baseRatePct: 3.5,
+      baseRateFloorPct: 0,
+      seniorFeePct: 0,
+      subFeePct: 0,
+      loans: Array.from({ length: 10 }, (_, i) => ({
+        parBalance: 10_000_000,
+        maturityDate: addQuarters("2026-01-15", 12 + i),
+        ratingBucket: "B" as const,
+        spreadBps: 400,
+      })),
+      tranches: [
+        { className: "A", currentBalance: 70_000_000, spreadBps: 140, seniorityRank: 1, isFloating: true, isIncomeNote: false, isDeferrable: false },
+        { className: "B", currentBalance: 20_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
+        { className: "Sub", currentBalance: 10_000_000, spreadBps: 0, seniorityRank: 3, isFloating: false, isIncomeNote: true, isDeferrable: false },
+      ],
       reinvestmentPeriodEnd: "2026-01-01",
       defaultRatesByRating: uniformRates(5),
       cprPct: 0,

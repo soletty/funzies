@@ -109,7 +109,29 @@ describe("Incentive fee three-regime behavior", () => {
   });
 
   it("Regime 2: full fee leaves IRR well above hurdle → take full feePct of residual", () => {
+    const oldDefaults = {
+      currentDate: "2026-01-15",
+      maturityDate: addQuarters("2026-01-15", 32),
+      wacSpreadBps: 400,
+      baseRatePct: 3.5,
+      baseRateFloorPct: 0,
+      seniorFeePct: 0,
+      subFeePct: 0,
+      loans: Array.from({ length: 10 }, (_, i) => ({
+        parBalance: 10_000_000,
+        maturityDate: addQuarters("2026-01-15", 12 + i),
+        ratingBucket: "B" as const,
+        spreadBps: 400,
+      })),
+      tranches: [
+        { className: "A", currentBalance: 70_000_000, spreadBps: 140, seniorityRank: 1, isFloating: true, isIncomeNote: false, isDeferrable: false },
+        { className: "B", currentBalance: 20_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
+        { className: "Sub", currentBalance: 10_000_000, spreadBps: 0, seniorityRank: 3, isFloating: false, isIncomeNote: true, isDeferrable: false },
+      ],
+    };
+
     const withFee = runProjection(makeInputs({
+      ...oldDefaults,
       incentiveFeePct: 20,
       incentiveFeeHurdleIrr: 0.001,
       defaultRatesByRating: uniformRates(0),
@@ -120,6 +142,7 @@ describe("Incentive fee three-regime behavior", () => {
     }));
 
     const noFee = runProjection(makeInputs({
+      ...oldDefaults,
       incentiveFeePct: 0,
       defaultRatesByRating: uniformRates(0),
       cprPct: 0,
