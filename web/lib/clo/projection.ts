@@ -66,6 +66,7 @@ export interface ProjectionInputs {
   unpricedDefaultedPar?: number; // par of defaulted holdings without market price (model applies recoveryPct)
   preExistingDefaultOcValue?: number; // recovery value for OC numerator (agency rate — typically higher than market)
   impliedOcAdjustment?: number; // derived residual between trustee's Adjusted CPA and identified components
+  quartersSinceReport?: number; // quarters between compliance report and projection start (adjusts default recovery timing)
   ddtlDrawPercent?: number; // % of DDTL par actually funded on draw (default 100)
 }
 
@@ -153,7 +154,7 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     loans, defaultRatesByRating, cprPct, recoveryPct, recoveryLagMonths,
     reinvestmentSpreadBps, reinvestmentTenorQuarters, reinvestmentRating: reinvestmentRatingOverride,
     cccBucketLimitPct, cccMarketValuePct, deferredInterestCompounds,
-    initialPrincipalCash = 0, preExistingDefaultedPar = 0, preExistingDefaultRecovery = 0, unpricedDefaultedPar = 0, preExistingDefaultOcValue = 0, impliedOcAdjustment = 0,
+    initialPrincipalCash = 0, preExistingDefaultedPar = 0, preExistingDefaultRecovery = 0, unpricedDefaultedPar = 0, preExistingDefaultOcValue = 0, impliedOcAdjustment = 0, quartersSinceReport = 0,
     ddtlDrawPercent = 100,
   } = inputs;
 
@@ -256,10 +257,14 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
 
   // Seed recovery from pre-existing defaults (loans already defaulted before projection start).
   // Priced holdings: use market-price recovery. Unpriced holdings: use model recoveryPct.
+  // Timing adjustment: if the compliance report is N quarters old, the default happened at least
+  // N quarters ago, so the recovery is N quarters closer. Uses reportDate as proxy for default
+  // date since exact default dates are rarely available in compliance reports.
   if (preExistingDefaultedPar > 0) {
     const totalRecovery = preExistingDefaultRecovery + unpricedDefaultedPar * (recoveryPct / 100);
     if (totalRecovery > 0) {
-      recoveryPipeline.push({ quarter: 1 + recoveryLagQ, amount: totalRecovery });
+      const adjustedRecoveryQ = Math.max(1, 1 + recoveryLagQ - quartersSinceReport);
+      recoveryPipeline.push({ quarter: adjustedRecoveryQ, amount: totalRecovery });
     }
   }
 
@@ -556,7 +561,7 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     let ocNumerator = endingPar + remainingPrelim + pendingRecoveryValue + ocDefaultBoost - impliedOcAdjustment - currentDdtlUnfundedPar;
     if (hasLoans && cccBucketLimitPct > 0) {
       const cccPar = loanStates
-        .filter((l) => l.ratingBucket === "CCC" && l.survivingPar > 0)
+        .filter((l) => !l.isDelayedDraw && l.ratingBucket === "CCC" && l.survivingPar > 0)
         .reduce((s, l) => s + l.survivingPar, 0);
       const cccLimitAbs = endingPar * (cccBucketLimitPct / 100);
       const cccExcess = Math.max(0, cccPar - cccLimitAbs);
@@ -825,7 +830,7 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     }
 
     // Refresh endingPar after any RP OC diversion may have purchased collateral
-    if (hasLoans) endingPar = loanStates.reduce((s, l) => s + l.survivingPar, 0);
+    if (hasLoans) endingPar = loanStates.filter(l => !l.isDelayedDraw).reduce((s, l) => s + l.survivingPar, 0);
     else endingPar = currentPar;
 
     // PPM Step W: Subordinated management fee — paid after all debt tranches
