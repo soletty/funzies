@@ -6,7 +6,10 @@ import { CLO_DEFAULTS } from "./defaults";
 
 function addQuartersForResolver(dateIso: string, quarters: number): string {
   const d = new Date(dateIso);
+  const origDay = d.getUTCDate();
   d.setUTCMonth(d.getUTCMonth() + quarters * 3);
+  // Clamp to last day of target month if day rolled forward (e.g. Jan 31 + 3mo → Apr 30)
+  if (d.getUTCDate() !== origDay) d.setUTCDate(0);
   return d.toISOString().slice(0, 10);
 }
 
@@ -48,7 +51,8 @@ function parseAmount(s: string | undefined | null): number {
 }
 
 function isOcTest(t: { testType?: string | null; testName?: string | null }): boolean {
-  if (t.testType === "OC_PAR" || t.testType === "OC_MV") return true;
+  const tt = (t.testType ?? "").toLowerCase();
+  if (tt === "oc_par" || tt === "oc_mv" || tt === "overcollateralization" || tt.startsWith("oc")) return true;
   const name = (t.testName ?? "").toLowerCase();
   return name.includes("overcollateral") || name.includes("par value") || (name.includes("oc") && name.includes("ratio"));
 }
@@ -158,7 +162,7 @@ function resolveTranches(
         return {
           className: t.className,
           currentBalance: snap?.endingBalance ?? snap?.currentBalance ?? t.originalBalance ?? ppmBalanceByClass.get(key) ?? 0,
-          originalBalance: t.originalBalance ?? ppmBalanceByClass.get(key) ?? 0,
+          originalBalance: ppmBalanceByClass.get(key) ?? t.originalBalance ?? 0,
           spreadBps,
           seniorityRank: t.seniorityRank ?? 99,
           isFloating: t.isFloating ?? true,
@@ -403,6 +407,14 @@ function resolveFees(constraints: ExtractedConstraints, warnings: ResolutionWarn
         warnings.push({ field: "fees.incentiveFeeHurdleIrr", message: `Incentive fee present (${incentiveFeePct}%) but no hurdle rate found — assuming 12% IRR hurdle. This directly affects equity IRR calculation. Set manually if different.`, severity: "error", resolvedFrom: "not extracted → defaulted to 12%" });
       }
     }
+  }
+
+  // Warn if trustee fee is 0 but the PPM mentions one — "per agreement" means we couldn't extract the rate
+  if (trusteeFeeBps === 0 && (constraints.fees ?? []).some(f => {
+    const n = (f.name ?? "").toLowerCase();
+    return n.includes("trustee") || n.includes("admin");
+  })) {
+    warnings.push({ field: "fees.trusteeFeeBps", message: "Trustee/admin fee found in PPM but rate is 'per agreement' — set manually from the compliance report fee schedule (typically 1-5 bps).", severity: "warn" });
   }
 
   return { seniorFeePct, subFeePct, trusteeFeeBps, incentiveFeePct, incentiveFeeHurdleIrr };

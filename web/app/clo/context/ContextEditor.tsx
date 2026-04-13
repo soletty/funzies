@@ -29,6 +29,8 @@ import type {
   CloTranche,
   CloTrancheSnapshot,
   CloHolding,
+  CloAccountBalance,
+  CloParValueAdjustment,
 } from "@/lib/clo/types";
 import { resolveWaterfallInputs } from "@/lib/clo/resolver";
 import type { ResolvedDealData, ResolutionWarning } from "@/lib/clo/resolver-types";
@@ -63,7 +65,9 @@ interface ContextEditorProps {
   tranches?: CloTranche[];
   trancheSnapshots?: CloTrancheSnapshot[];
   holdings?: CloHolding[];
-  dealDates?: { maturity?: string | null; reinvestmentPeriodEnd?: string | null };
+  accountBalances?: CloAccountBalance[];
+  parValueAdjustments?: CloParValueAdjustment[];
+  dealDates?: { maturity?: string | null; reinvestmentPeriodEnd?: string | null; reportDate?: string | null };
 }
 
 // ---------------------------------------------------------------------------
@@ -244,6 +248,8 @@ export default function ContextEditor({
   tranches,
   trancheSnapshots,
   holdings,
+  accountBalances,
+  parValueAdjustments,
   dealDates,
 }: ContextEditorProps) {
   const [constraints, setConstraints] = useState<ExtractedConstraints>(initialConstraints);
@@ -261,12 +267,12 @@ export default function ContextEditor({
       trancheSnapshots ?? [],
       holdings ?? [],
       dealDates,
-      [], // account balances not available in context editor
-      [], // par value adjustments not available in context editor
+      accountBalances ?? [],
+      parValueAdjustments ?? [],
     );
     setResolved(r);
     setResolutionWarnings(w);
-  }, [constraints, complianceData, tranches, trancheSnapshots, holdings, dealDates]);
+  }, [constraints, complianceData, tranches, trancheSnapshots, holdings, accountBalances, parValueAdjustments, dealDates]);
 
   const [constraintsDirty, setConstraintsDirty] = useState(false);
   const [profileDirty, setProfileDirty] = useState(false);

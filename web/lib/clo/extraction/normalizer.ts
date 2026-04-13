@@ -95,6 +95,13 @@ function deduplicateComplianceTests(
   // Filter out junk entries (text in numeric fields, no useful data)
   const valid = tests.filter((t) => {
     if (!t.testName) return false;
+    // Skip Default/Deferring Detail rows — these are per-asset default information,
+    // not coverage tests. They get misclassified when the extraction parses the
+    // Default and Deferring Detail section as compliance test entries.
+    const name = (t.testName ?? "").toLowerCase();
+    if (!name.includes("oc") && !name.includes("ic") && !name.includes("coverage") &&
+        !name.includes("overcollateral") && !name.includes("par value") && !name.includes("par ratio") &&
+        !name.includes("interest") && !name.includes("reinvestment")) return false;
     // Skip entries where actualValue is actually a string description
     if (t.actualValue != null && typeof t.actualValue !== "number") return false;
     if (t.triggerLevel != null && typeof t.triggerLevel !== "number") return false;
@@ -372,6 +379,31 @@ export function normalizeSectionResults(
         }
         return row;
       });
+    }
+  }
+
+  // 4b. Cross-reference: mark holdings as defaulted if they appear in par value adjustments
+  // as DEFAULTED_HAIRCUT entries. The LLM may miss the isDefaulted flag on the asset schedule
+  // but the par value adjustments explicitly list defaulted obligations.
+  if (parValueAdjustments.length > 0 && holdings.length > 0) {
+    const defaultedDescriptions = parValueAdjustments
+      .filter((a) => {
+        const adjType = ((a.adjustment_type ?? a.adjustmentType) as string ?? "").toUpperCase();
+        return adjType.includes("DEFAULT");
+      })
+      .map((a) => ((a.description ?? a.obligor_name ?? "") as string).toLowerCase())
+      .filter((d) => d.length > 5); // minimum 6 chars to avoid false positives on short names
+
+    if (defaultedDescriptions.length > 0) {
+      for (const h of holdings) {
+        if (h.is_defaulted) continue;
+        const obligor = ((h.obligor_name ?? "") as string).toLowerCase();
+        // Only match if the obligor name is long enough and appears IN the description
+        // (not the reverse — a short description matching inside a long obligor name is too loose)
+        if (obligor.length >= 6 && defaultedDescriptions.some((d) => d.includes(obligor))) {
+          h.is_defaulted = true;
+        }
+      }
     }
   }
 
