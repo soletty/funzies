@@ -56,6 +56,14 @@ export function makeInputs(overrides: Partial<ProjectionInputs> = {}): Projectio
     callDate: null,
     callPricePct: 100,
     reinvestmentOcTrigger: null,
+    initialPrincipalCash: 0,
+    preExistingDefaultedPar: 0,
+    preExistingDefaultRecovery: 0,
+    unpricedDefaultedPar: 0,
+    preExistingDefaultOcValue: 0,
+    impliedOcAdjustment: 0,
+    ddtlUnfundedPar: 0,
+    ddtlDrawPercent: 100,
     ...overrides,
   };
 }

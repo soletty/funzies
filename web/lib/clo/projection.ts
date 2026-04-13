@@ -66,6 +66,8 @@ export interface ProjectionInputs {
   unpricedDefaultedPar?: number; // par of defaulted holdings without market price (model applies recoveryPct)
   preExistingDefaultOcValue?: number; // recovery value for OC numerator (agency rate — typically higher than market)
   impliedOcAdjustment?: number; // derived residual between trustee's Adjusted CPA and identified components
+  ddtlUnfundedPar?: number; // unfunded DDTL commitments to deduct from OC numerator
+  ddtlDrawPercent?: number; // % of DDTL par actually funded on draw (default 100)
 }
 
 export interface PeriodResult {
@@ -153,6 +155,7 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     reinvestmentSpreadBps, reinvestmentTenorQuarters, reinvestmentRating: reinvestmentRatingOverride,
     cccBucketLimitPct, cccMarketValuePct, deferredInterestCompounds,
     initialPrincipalCash = 0, preExistingDefaultedPar = 0, preExistingDefaultRecovery = 0, unpricedDefaultedPar = 0, preExistingDefaultOcValue = 0, impliedOcAdjustment = 0,
+    ddtlUnfundedPar = 0, ddtlDrawPercent = 100,
   } = inputs;
 
   const maturityQuarters = maturityDate ? Math.max(1, quartersBetween(currentDate, maturityDate)) : CLO_DEFAULTS.defaultMaxTenorYears * 4;
@@ -178,6 +181,11 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     maturityQuarter: number;
     ratingBucket: string;
     spreadBps: number;
+    isFixedRate?: boolean;
+    fixedCouponPct?: number;
+    isDelayedDraw?: boolean;
+    ddtlSpreadBps?: number;
+    drawQuarter?: number;
   }
 
   const loanStates: LoanState[] = loans.map((l) => ({
@@ -188,7 +196,19 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     maturityQuarter: Math.max(1, quartersBetween(currentDate, l.maturityDate)),
     ratingBucket: l.ratingBucket,
     spreadBps: l.spreadBps,
+    isFixedRate: l.isFixedRate,
+    fixedCouponPct: l.fixedCouponPct,
+    isDelayedDraw: l.isDelayedDraw,
+    ddtlSpreadBps: l.ddtlSpreadBps,
+    drawQuarter: l.drawQuarter,
   }));
+
+  // Remove never_draw DDTLs (drawQuarter <= 0) — they never fund and shouldn't appear in the portfolio
+  for (let i = loanStates.length - 1; i >= 0; i--) {
+    if (loanStates[i].isDelayedDraw && (loanStates[i].drawQuarter ?? 0) <= 0) {
+      loanStates.splice(i, 1);
+    }
+  }
 
   const hasLoans = loanStates.length > 0;
   // Average loan size — used to chunk reinvestment into realistic individual loans for Monte Carlo
@@ -277,13 +297,29 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
       : currentPar;
     const beginningLiabilities = debtTranches.reduce((s, t) => s + trancheBalances[t.className] + deferredBalances[t.className], 0);
 
-    // Save per-loan beginning par for interest calc
-    const loanBeginningPar = hasLoans ? loanStates.map((l) => l.survivingPar) : [];
+    // Save per-loan beginning par for interest calc (captured before draw so DDTLs show 0)
+    let loanBeginningPar = hasLoans ? loanStates.map((l) => l.survivingPar) : [];
+
+    // ── 1b. DDTL draw event ────────────────────────────────────────
+    if (hasLoans) {
+      for (const loan of loanStates) {
+        if (!loan.isDelayedDraw) continue;
+        if (q === loan.drawQuarter) {
+          const fundedPar = loan.survivingPar * (ddtlDrawPercent / 100);
+          loan.survivingPar = fundedPar;
+          loan.spreadBps = loan.ddtlSpreadBps ?? 0;
+          loan.isDelayedDraw = false;
+        }
+      }
+      // Recapture after draw so newly-funded DDTLs use their funded par for interest
+      loanBeginningPar = loanStates.map((l) => l.survivingPar);
+    }
 
     // ── 2. Per-loan maturities (before defaults — maturing loans pay at par) ──
     let totalMaturities = 0;
     if (hasLoans) {
       for (const loan of loanStates) {
+        if (loan.isDelayedDraw) continue;
         if (q === loan.maturityQuarter) {
           totalMaturities += loan.survivingPar;
           loan.survivingPar = 0;
@@ -298,6 +334,7 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     if (hasLoans) {
       for (const loan of loanStates) {
         if (loan.survivingPar <= 0) continue;
+        if (loan.isDelayedDraw) continue;
         const hazard = quarterlyHazard[loan.ratingBucket] ?? 0;
         const loanDefaults = draw(loan.survivingPar, hazard);
         loan.survivingPar -= loanDefaults;
@@ -317,6 +354,7 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     if (hasLoans) {
       for (const loan of loanStates) {
         if (loan.survivingPar > 0) {
+          if (loan.isDelayedDraw) continue;
           const prepay = loan.survivingPar * qPrepayRate;
           loan.survivingPar -= prepay;
           totalPrepayments += prepay;
@@ -362,8 +400,13 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
       interestCollected = 0;
       for (let i = 0; i < loanStates.length; i++) {
         const loan = loanStates[i];
+        if (loan.isDelayedDraw) continue;
         const loanBegPar = loanBeginningPar[i];
-        interestCollected += loanBegPar * (flooredBaseRate + loan.spreadBps / 100) / 100 / 4;
+        if (loan.isFixedRate) {
+          interestCollected += loanBegPar * (loan.fixedCouponPct ?? 0) / 100 / 4;
+        } else {
+          interestCollected += loanBegPar * (flooredBaseRate + loan.spreadBps / 100) / 100 / 4;
+        }
       }
       // Q1: initial principal cash earns interest at money market rate (~ESTR) for the quarter.
       // This cash sits in accounts before being reinvested or paid down.
@@ -403,11 +446,11 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
         let remaining = reinvestment;
         while (remaining > 0) {
           const par = Math.min(avgLoanSize, remaining);
-          loanStates.push({ survivingPar: par, ratingBucket: reinvestmentRating, spreadBps: reinvestmentSpreadBps, maturityQuarter: matQ });
+          loanStates.push({ survivingPar: par, ratingBucket: reinvestmentRating, spreadBps: reinvestmentSpreadBps, maturityQuarter: matQ, isFixedRate: false, isDelayedDraw: false });
           remaining -= par;
         }
       } else {
-        loanStates.push({ survivingPar: reinvestment, ratingBucket: reinvestmentRating, spreadBps: reinvestmentSpreadBps, maturityQuarter: matQ });
+        loanStates.push({ survivingPar: reinvestment, ratingBucket: reinvestmentRating, spreadBps: reinvestmentSpreadBps, maturityQuarter: matQ, isFixedRate: false, isDelayedDraw: false });
       }
     }
 
@@ -504,7 +547,10 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     const ocDefaultBoost = (preExistingDefaultOcValue > 0 && preExistingRecoveryStillPending)
       ? Math.max(0, preExistingDefaultOcValue - preExistingCashRecovery)
       : 0;
-    let ocNumerator = endingPar + remainingPrelim + pendingRecoveryValue + ocDefaultBoost - impliedOcAdjustment;
+    const currentDdtlUnfundedPar = hasLoans
+      ? loanStates.filter(l => l.isDelayedDraw).reduce((s, l) => s + l.survivingPar, 0)
+      : 0;
+    let ocNumerator = endingPar + remainingPrelim + pendingRecoveryValue + ocDefaultBoost - impliedOcAdjustment - currentDdtlUnfundedPar;
     if (hasLoans && cccBucketLimitPct > 0) {
       const cccPar = loanStates
         .filter((l) => l.ratingBucket === "CCC" && l.survivingPar > 0)
@@ -727,6 +773,8 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
                 ratingBucket: reinvestmentRating,
                 spreadBps: reinvestmentSpreadBps,
                 maturityQuarter: q + reinvestmentTenorQuarters,
+                isFixedRate: false,
+                isDelayedDraw: false,
               });
             }
           } else {
@@ -767,6 +815,8 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
           ratingBucket: reinvestmentRating,
           spreadBps: reinvestmentSpreadBps,
           maturityQuarter: q + reinvestmentTenorQuarters,
+          isFixedRate: false,
+          isDelayedDraw: false,
         });
       }
     }
