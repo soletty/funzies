@@ -22,6 +22,7 @@ export const EMPTY_RESOLVED: ResolvedDealData = {
   unpricedDefaultedPar: 0,
   preExistingDefaultOcValue: 0,
   impliedOcAdjustment: 0,
+  quartersSinceReport: 0,
   ddtlUnfundedPar: 0,
   deferredInterestCompounds: true,
   baseRateFloorPct: null,
@@ -157,6 +158,7 @@ export function buildFromResolved(
     unpricedDefaultedPar: resolved.unpricedDefaultedPar,
     preExistingDefaultOcValue: resolved.preExistingDefaultOcValue,
     impliedOcAdjustment: resolved.impliedOcAdjustment,
+    quartersSinceReport: resolved.quartersSinceReport,
     ddtlDrawPercent: userAssumptions.ddtlDrawPercent,
   };
 }

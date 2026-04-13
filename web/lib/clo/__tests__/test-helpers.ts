@@ -62,6 +62,7 @@ export function makeInputs(overrides: Partial<ProjectionInputs> = {}): Projectio
     unpricedDefaultedPar: 0,
     preExistingDefaultOcValue: 0,
     impliedOcAdjustment: 0,
+    quartersSinceReport: 0,
     ddtlDrawPercent: 100,
     ...overrides,
   };

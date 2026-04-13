@@ -506,7 +506,7 @@ export async function runExtraction(
         await batchInsert("clo_tranche_snapshots", [{ tranche_id: existing[0].id, ...filteredLegacy }]);
 
         // Enrich the tranche record with balance and spread from the snapshot
-        const bal = snapshot.data.current_balance ?? snapshot.data.beginning_balance;
+        const bal = snapshot.data.ending_balance ?? snapshot.data.current_balance ?? snapshot.data.beginning_balance;
         const spreadLegacy = snapshot.data.spread;
         const legacyClauses: string[] = [];
         const legacyValues: unknown[] = [];
@@ -516,10 +516,10 @@ export async function runExtraction(
           legacyValues.push(bal);
         }
         if (spreadLegacy != null && typeof spreadLegacy === "number") {
-          const spreadBpsLegacy = spreadLegacy > 0 && spreadLegacy < 20
+          const spreadBpsLegacy = spreadLegacy > 0 && spreadLegacy < 5
             ? Math.round(spreadLegacy * 100)
             : spreadLegacy;
-          legacyClauses.push(`spread_bps = COALESCE(spread_bps, $${li++})`);
+          legacyClauses.push(`spread_bps = $${li++}`);
           legacyValues.push(spreadBpsLegacy);
         }
         if (legacyClauses.length > 0) {
@@ -1037,7 +1037,7 @@ export async function runSectionExtraction(
       await batchInsert("clo_tranche_snapshots", [{ tranche_id: existing[0].id, ...filteredData }]);
 
       // Enrich the tranche record with balance and spread from the snapshot
-      const bal = snapshot.data.current_balance ?? snapshot.data.beginning_balance;
+      const bal = snapshot.data.ending_balance ?? snapshot.data.current_balance ?? snapshot.data.beginning_balance;
       const spreadFromReport = snapshot.data.spread;
       const enrichClauses: string[] = [];
       const enrichValues: unknown[] = [];
@@ -1046,7 +1046,7 @@ export async function runSectionExtraction(
         enrichClauses.push(`original_balance = $${ei++}`);
         enrichValues.push(bal);
       }
-      // Set spread_bps from compliance report if PPM didn't set it
+      // Set spread_bps from compliance report — always overwrite (compliance is more current)
       if (spreadFromReport != null && typeof spreadFromReport === "number") {
         // Guard: if AI returned percentage (e.g., 1.45) instead of bps (145), convert.
         // Threshold at 5: spreads below 5 are almost certainly percentages (e.g. 1.45% = 145bps).
@@ -1055,7 +1055,7 @@ export async function runSectionExtraction(
         const spreadBps = spreadFromReport > 0 && spreadFromReport < 5
           ? Math.round(spreadFromReport * 100)
           : spreadFromReport;
-        enrichClauses.push(`spread_bps = COALESCE(spread_bps, $${ei++})`);
+        enrichClauses.push(`spread_bps = $${ei++}`);
         enrichValues.push(spreadBps);
       }
       if (enrichClauses.length > 0) {

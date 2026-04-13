@@ -49,6 +49,8 @@ export interface CapitalStructureEntry {
   minDenomination144a?: string;
   isSubordinated?: boolean;
   clearing?: string;
+  amortisationPerPeriod?: string;
+  amortStartDate?: string;
 }
 
 export interface DealSizing {
@@ -58,7 +60,6 @@ export interface DealSizing {
   totalDealSize?: string;
   equityPctOfDeal?: string;
   cleanUpCallThresholdPct?: string;
-  classXAmortisation?: string;
 }
 
 export interface CoverageTestEntry {

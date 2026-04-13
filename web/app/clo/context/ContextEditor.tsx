@@ -261,6 +261,7 @@ export default function ContextEditor({
       trancheSnapshots ?? [],
       holdings ?? [],
       dealDates,
+      [], // account balances not available in context editor
     );
     setResolved(r);
     setResolutionWarnings(w);

@@ -418,7 +418,7 @@ export function resolveWaterfallInputs(
   dbTranches: CloTranche[],
   trancheSnapshots: CloTrancheSnapshot[],
   holdings: CloHolding[],
-  dealDates?: { maturity?: string | null; reinvestmentPeriodEnd?: string | null },
+  dealDates?: { maturity?: string | null; reinvestmentPeriodEnd?: string | null; reportDate?: string | null },
   accountBalances?: CloAccountBalance[],
 ): { resolved: ResolvedDealData; warnings: ResolutionWarning[] } {
   const warnings: ResolutionWarning[] = [];
@@ -498,6 +498,18 @@ export function resolveWaterfallInputs(
     firstPaymentDate: constraints.keyDates?.firstPaymentDate ?? null,
     currentDate,
   };
+
+  // Quarters between compliance report date and projection start.
+  // Used to adjust recovery timing for pre-existing defaults — if the report flagged
+  // a loan as defaulted N quarters ago, the recovery is N quarters closer than a fresh default.
+  const reportDate = dealDates?.reportDate ?? null;
+  let quartersSinceReport = 0;
+  if (reportDate) {
+    const reportD = new Date(reportDate);
+    const currentD = new Date(currentDate);
+    const monthsDiff = (currentD.getFullYear() - reportD.getFullYear()) * 12 + (currentD.getMonth() - reportD.getMonth());
+    quartersSinceReport = Math.max(0, Math.floor(monthsDiff / 3));
+  }
 
   // --- Fees ---
   const fees = resolveFees(constraints, warnings);
@@ -688,7 +700,7 @@ export function resolveWaterfallInputs(
   }
 
   return {
-    resolved: { tranches, poolSummary, ocTriggers, icTriggers, reinvestmentOcTrigger, dates, fees, loans, principalAccountCash, preExistingDefaultedPar, preExistingDefaultRecovery, unpricedDefaultedPar, preExistingDefaultOcValue, impliedOcAdjustment, ddtlUnfundedPar, deferredInterestCompounds, baseRateFloorPct },
+    resolved: { tranches, poolSummary, ocTriggers, icTriggers, reinvestmentOcTrigger, dates, fees, loans, principalAccountCash, preExistingDefaultedPar, preExistingDefaultRecovery, unpricedDefaultedPar, preExistingDefaultOcValue, impliedOcAdjustment, quartersSinceReport, ddtlUnfundedPar, deferredInterestCompounds, baseRateFloorPct },
     warnings,
   };
 }

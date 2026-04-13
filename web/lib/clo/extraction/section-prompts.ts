@@ -307,8 +307,12 @@ PPM CAPITAL STRUCTURE FORMAT:
 - Parse the multi-line text blocks carefully — do not expect a clean tabular structure.
 - Spreads in PPMs are written as "per cent." not "%" (e.g., "1.50 per cent." = 150 bps).
 
-Also extract deal sizing: targetParAmount, totalRatedNotes, totalSubordinatedNotes, totalDealSize, equityPctOfDeal, classXAmortisation.
-classXAmortisation: the per-payment-date principal amortisation amount for Class X Notes (e.g., "550000" for €550,000). Found in the definitions section as "Class X Principal Amortisation Amount" — extract the fixed amount per payment date, NOT the formula.
+Also extract deal sizing: targetParAmount, totalRatedNotes, totalSubordinatedNotes, totalDealSize, equityPctOfDeal.
+
+PER-TRANCHE AMORTISATION:
+For any tranche with a scheduled principal amortisation (most commonly Class X, but possible for others), extract two per-tranche fields:
+- amortisationPerPeriod: the fixed per-payment-date principal amortisation amount as a string (e.g., "550000" for €550,000). Found in definitions as "[Class] Principal Amortisation Amount." Extract the fixed amount, NOT the formula.
+- amortStartDate: when amortisation begins (e.g., "second payment date", an ISO date, or omit if it starts immediately).
 
 ${COMMON_RULES}`,
     user: `Extract the capital structure from the following markdown text.`,

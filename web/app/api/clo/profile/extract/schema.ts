@@ -22,6 +22,8 @@ const capitalStructureEntry = z.object({
   minDenomination144a: z.string().optional(),
   isSubordinated: z.boolean().optional(),
   clearing: z.string().optional(),
+  amortisationPerPeriod: z.string().optional(),
+  amortStartDate: z.string().optional(),
 }).passthrough();
 
 export const extractedConstraintsSchema = z.object({
@@ -58,7 +60,6 @@ export const extractedConstraintsSchema = z.object({
     totalDealSize: z.string().optional(),
     equityPctOfDeal: z.string().optional(),
     cleanUpCallThresholdPct: z.string().optional(),
-    classXAmortisation: z.string().optional(),
   }).passthrough().optional(),
 
   coverageTestEntries: z.array(z.object({

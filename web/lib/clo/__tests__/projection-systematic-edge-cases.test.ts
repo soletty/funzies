@@ -613,7 +613,7 @@ describe("F. Class X edge cases", () => {
     const result = runProjection(inputs);
     const xQ1 = result.periods[0].tranchePrincipal.find((t) => t.className === "X")!;
 
-    // amortisationPerPeriod=null → fallback: currentBalance / defaultClassXAmortPeriods = 2M / 5 = 400K
+    // amortisationPerPeriod=null → fallback: currentBalance / defaultScheduledAmortPeriods = 2M / 5 = 400K
     // NOT "pay full balance" — null triggers the default schedule.
     expect(xQ1.paid).toBeCloseTo(400_000, -2);
     expect(xQ1.endBalance).toBeCloseTo(1_600_000, -2);
@@ -1274,5 +1274,232 @@ describe("M. Conservation laws", () => {
   it("M8: last period has endingPar = 0", () => {
     const lastPeriod = realisticResult.periods[realisticResult.periods.length - 1];
     expect(lastPeriod.endingPar).toBeCloseTo(0, 0);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// N. INITIAL PRINCIPAL CASH & PRE-EXISTING DEFAULTS
+// New inputs: initialPrincipalCash, preExistingDefaultedPar
+// ═══════════════════════════════════════════════════════════════════════════════
+
+describe("N. Initial principal cash and pre-existing defaults", () => {
+  it("N1: initialPrincipalCash flows through Q1 waterfall and boosts OC numerator", () => {
+    const withCash = makeInputs({
+      reinvestmentPeriodEnd: "2026-01-01",
+      defaultRatesByRating: uniformRates(0),
+      cprPct: 0,
+      recoveryPct: 0,
+      initialPrincipalCash: 4_400_000,
+      ocTriggers: [{ className: "A", triggerLevel: 120, rank: 1 }],
+      icTriggers: [],
+    });
+
+    const noCash = makeInputs({
+      reinvestmentPeriodEnd: "2026-01-01",
+      defaultRatesByRating: uniformRates(0),
+      cprPct: 0,
+      recoveryPct: 0,
+      initialPrincipalCash: 0,
+      ocTriggers: [{ className: "A", triggerLevel: 120, rank: 1 }],
+      icTriggers: [],
+    });
+
+    const cashResult = runProjection(withCash);
+    const noCashResult = runProjection(noCash);
+
+    // OC numerator includes remainingPrelim which now has the 4.4M cash.
+    // OC ratio should be higher with cash.
+    const cashOc = cashResult.periods[0].ocTests.find((t) => t.className === "A")!;
+    const noCashOc = noCashResult.periods[0].ocTests.find((t) => t.className === "A")!;
+    expect(cashOc.actual).toBeGreaterThan(noCashOc.actual);
+
+    // The 4.4M flows to senior tranche paydown (A has 70M, absorbs all the cash).
+    // Equity from interest is the same, but total tranche principal paid is higher.
+    const cashPrincipal = cashResult.periods[0].tranchePrincipal.reduce((s, t) => s + t.paid, 0);
+    const noCashPrincipal = noCashResult.periods[0].tranchePrincipal.reduce((s, t) => s + t.paid, 0);
+    expect(cashPrincipal).toBeGreaterThan(noCashPrincipal);
+  });
+
+  it("N2: initialPrincipalCash during RP gets reinvested into new loans", () => {
+    const withCash = makeInputs({
+      reinvestmentPeriodEnd: addQuarters("2026-01-15", 20),
+      defaultRatesByRating: uniformRates(0),
+      cprPct: 0,
+      recoveryPct: 0,
+      initialPrincipalCash: 5_000_000,
+    });
+
+    const noCash = makeInputs({
+      reinvestmentPeriodEnd: addQuarters("2026-01-15", 20),
+      defaultRatesByRating: uniformRates(0),
+      cprPct: 0,
+      recoveryPct: 0,
+      initialPrincipalCash: 0,
+    });
+
+    const cashResult = runProjection(withCash);
+    const noCashResult = runProjection(noCash);
+
+    // During RP, the cash is reinvested → endingPar should be higher by ~5M
+    expect(cashResult.periods[0].endingPar).toBeGreaterThan(
+      noCashResult.periods[0].endingPar + 4_000_000
+    );
+
+    // The reinvested cash earns interest in subsequent periods
+    expect(cashResult.periods[1].interestCollected).toBeGreaterThan(
+      noCashResult.periods[1].interestCollected
+    );
+  });
+
+  it("N3: preExistingDefaultedPar generates recovery after lag", () => {
+    const inputs = makeInputs({
+      reinvestmentPeriodEnd: "2026-01-01",
+      defaultRatesByRating: uniformRates(0),
+      cprPct: 0,
+      recoveryPct: 60,
+      recoveryLagMonths: 12, // 4 quarters
+      preExistingDefaultedPar: 1_500_000,
+      unpricedDefaultedPar: 1_500_000, // no market price → engine applies recoveryPct
+    });
+
+    const result = runProjection(inputs);
+
+    // Q1-Q4: no recovery yet (4 quarter lag)
+    for (let i = 0; i < 4; i++) {
+      expect(result.periods[i].recoveries).toBe(0);
+    }
+
+    // Q5: recovery arrives = 1.5M * 60% = 900K
+    expect(result.periods[4].recoveries).toBeCloseTo(900_000, -2);
+  });
+
+  it("N4: preExistingDefaultedPar with zero recovery produces nothing", () => {
+    const inputs = makeInputs({
+      reinvestmentPeriodEnd: "2026-01-01",
+      defaultRatesByRating: uniformRates(0),
+      cprPct: 0,
+      recoveryPct: 0,
+      preExistingDefaultedPar: 1_500_000,
+      unpricedDefaultedPar: 1_500_000,
+    });
+
+    const result = runProjection(inputs);
+    const totalRecoveries = result.periods.reduce((s, p) => s + p.recoveries, 0);
+    expect(totalRecoveries).toBe(0);
+  });
+
+  it("N5: both features together — cash boosts Q1, recovery arrives later", () => {
+    const inputs = makeInputs({
+      reinvestmentPeriodEnd: "2026-01-01",
+      defaultRatesByRating: uniformRates(0),
+      cprPct: 0,
+      recoveryPct: 60,
+      recoveryLagMonths: 6, // 2 quarters
+      initialPrincipalCash: 4_000_000,
+      preExistingDefaultedPar: 2_000_000,
+      unpricedDefaultedPar: 2_000_000,
+    });
+
+    const baseline = makeInputs({
+      reinvestmentPeriodEnd: "2026-01-01",
+      defaultRatesByRating: uniformRates(0),
+      cprPct: 0,
+      recoveryPct: 60,
+      recoveryLagMonths: 6,
+      initialPrincipalCash: 0,
+      preExistingDefaultedPar: 0,
+      unpricedDefaultedPar: 0,
+    });
+
+    const result = runProjection(inputs);
+    const baseResult = runProjection(baseline);
+
+    // Q1 principal paydown higher (cash goes to senior tranche), Q3 has recovery
+    const q1Principal = result.periods[0].tranchePrincipal.reduce((s, t) => s + t.paid, 0);
+    const baseQ1Principal = baseResult.periods[0].tranchePrincipal.reduce((s, t) => s + t.paid, 0);
+    expect(q1Principal).toBeGreaterThan(baseQ1Principal);
+    expect(result.periods[2].recoveries).toBeCloseTo(1_200_000, -2);
+    expect(result.totalEquityDistributions).toBeGreaterThan(
+      baseResult.totalEquityDistributions
+    );
+  });
+
+  it("N6: mixed priced and unpriced defaults — both contribute to recovery", () => {
+    // 2M total defaulted: 1M priced at 30% (recovery = 300K), 1M unpriced (model rate 60% = 600K)
+    const inputs = makeInputs({
+      reinvestmentPeriodEnd: "2026-01-01",
+      defaultRatesByRating: uniformRates(0),
+      cprPct: 0,
+      recoveryPct: 60,
+      recoveryLagMonths: 6, // 2 quarters
+      preExistingDefaultedPar: 2_000_000,
+      preExistingDefaultRecovery: 300_000, // 1M priced at 30%
+      unpricedDefaultedPar: 1_000_000, // 1M unpriced → engine applies 60%
+    });
+
+    const result = runProjection(inputs);
+
+    // Q3: total recovery = 300K (priced) + 1M × 60% (unpriced) = 900K
+    expect(result.periods[2].recoveries).toBeCloseTo(900_000, -2);
+  });
+
+  it("N7: quartersSinceReport adjusts recovery timing — arrives earlier for stale reports", () => {
+    // 12-month recovery lag (4 quarters), report is 2 quarters old.
+    // Adjusted arrival = max(1, 1 + 4 - 2) = Q3 instead of Q5.
+    const staleReport = makeInputs({
+      reinvestmentPeriodEnd: "2026-01-01",
+      defaultRatesByRating: uniformRates(0),
+      cprPct: 0,
+      recoveryPct: 60,
+      recoveryLagMonths: 12, // 4 quarters
+      preExistingDefaultedPar: 1_500_000,
+      unpricedDefaultedPar: 1_500_000,
+      quartersSinceReport: 2,
+    });
+
+    const freshReport = makeInputs({
+      reinvestmentPeriodEnd: "2026-01-01",
+      defaultRatesByRating: uniformRates(0),
+      cprPct: 0,
+      recoveryPct: 60,
+      recoveryLagMonths: 12,
+      preExistingDefaultedPar: 1_500_000,
+      unpricedDefaultedPar: 1_500_000,
+      quartersSinceReport: 0,
+    });
+
+    const staleResult = runProjection(staleReport);
+    const freshResult = runProjection(freshReport);
+
+    // Stale: recovery at Q3 (1 + 4 - 2 = 3)
+    expect(staleResult.periods[2].recoveries).toBeCloseTo(900_000, -2);
+    expect(staleResult.periods[0].recoveries).toBe(0);
+    expect(staleResult.periods[1].recoveries).toBe(0);
+
+    // Fresh: recovery at Q5 (1 + 4 - 0 = 5)
+    expect(freshResult.periods[4].recoveries).toBeCloseTo(900_000, -2);
+    for (let i = 0; i < 4; i++) {
+      expect(freshResult.periods[i].recoveries).toBe(0);
+    }
+  });
+
+  it("N8: quartersSinceReport exceeds recoveryLag — recovery arrives Q1", () => {
+    // Report is 6 quarters old, lag is 4 quarters. Default happened long ago.
+    // Adjusted arrival = max(1, 1 + 4 - 6) = max(1, -1) = Q1.
+    const inputs = makeInputs({
+      reinvestmentPeriodEnd: "2026-01-01",
+      defaultRatesByRating: uniformRates(0),
+      cprPct: 0,
+      recoveryPct: 60,
+      recoveryLagMonths: 12,
+      preExistingDefaultedPar: 1_000_000,
+      unpricedDefaultedPar: 1_000_000,
+      quartersSinceReport: 6,
+    });
+
+    const result = runProjection(inputs);
+
+    // Recovery arrives immediately in Q1
+    expect(result.periods[0].recoveries).toBeCloseTo(600_000, -2);
   });
 });

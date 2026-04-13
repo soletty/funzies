@@ -343,6 +343,8 @@ export const ppmCapitalStructureSchema = z.object({
     deferrable: z.boolean().optional(),
     maturityDate: z.string().optional(),
     isSubordinated: z.boolean().optional(),
+    amortisationPerPeriod: z.string().optional(),
+    amortStartDate: z.string().optional(),
   }).passthrough()).optional(),
   dealSizing: z.object({
     targetParAmount: z.string().optional(),
@@ -350,7 +352,6 @@ export const ppmCapitalStructureSchema = z.object({
     totalSubordinatedNotes: z.string().optional(),
     totalDealSize: z.string().optional(),
     equityPctOfDeal: z.string().optional(),
-    classXAmortisation: z.string().optional(),
   }).passthrough().optional(),
 }).passthrough();
 

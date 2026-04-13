@@ -65,7 +65,8 @@ export default async function WaterfallPage() {
     tranches,
     trancheSnapshots,
     holdings,
-    { maturity: maturityDate, reinvestmentPeriodEnd },
+    { maturity: maturityDate, reinvestmentPeriodEnd, reportDate: reportPeriod?.reportDate ?? null },
+    accountBalances,
   );
 
   // Build deal context for AI features

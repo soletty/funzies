@@ -21,7 +21,8 @@ function toDbRow(obj: Record<string, unknown>, extraFields?: Record<string, unkn
 type TrancheSnapshot = { className: string; data: Record<string, unknown> };
 
 /** Merge tranche snapshots from compliance_summary and waterfall by className.
- *  Compliance has current_balance/coupon_rate; waterfall has beginning/ending/interest/principal. */
+ *  Compliance has current_balance/coupon_rate; waterfall has beginning/ending/interest/principal.
+ *  Waterfall ending_balance overrides compliance current_balance (post-payment is more precise). */
 function mergeTrancheSnapshots(
   compliance: TrancheSnapshot[],
   waterfall: TrancheSnapshot[],
@@ -44,6 +45,10 @@ function mergeTrancheSnapshots(
         if (v != null && existing.data[k] == null) {
           existing.data[k] = v;
         }
+      }
+      // Waterfall ending_balance is the post-payment balance — override current_balance
+      if (ts.data.ending_balance != null) {
+        existing.data.current_balance = ts.data.ending_balance;
       }
     } else {
       byName.set(key, { className: ts.className, data: { ...ts.data } });

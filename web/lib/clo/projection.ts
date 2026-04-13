@@ -548,10 +548,11 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
       .reduce((s, r) => s + r.amount, 0);
     // OC numerator: if pre-existing defaults have an agency recovery value (for OC purposes)
     // that exceeds the cash recovery, add the difference while the recovery is still pending.
-    // The boost disappears when the pre-existing recovery arrives (at quarter 1 + recoveryLagQ),
+    // The boost disappears when the pre-existing recovery arrives (adjusted for report staleness),
     // NOT when any arbitrary recovery is pending (which would keep the boost alive indefinitely).
     const preExistingCashRecovery = preExistingDefaultRecovery + unpricedDefaultedPar * (recoveryPct / 100);
-    const preExistingRecoveryStillPending = preExistingDefaultedPar > 0 && !isMaturity && q < 1 + recoveryLagQ;
+    const adjustedArrivalQ = Math.max(1, 1 + recoveryLagQ - quartersSinceReport);
+    const preExistingRecoveryStillPending = preExistingDefaultedPar > 0 && !isMaturity && q < adjustedArrivalQ;
     const ocDefaultBoost = (preExistingDefaultOcValue > 0 && preExistingRecoveryStillPending)
       ? Math.max(0, preExistingDefaultOcValue - preExistingCashRecovery)
       : 0;
