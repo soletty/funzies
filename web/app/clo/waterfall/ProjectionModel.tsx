@@ -113,6 +113,9 @@ export default function ProjectionModel({
   const [postRpReinvestmentPct, setPostRpReinvestmentPct] = useState<number>(CLO_DEFAULTS.postRpReinvestmentPct);
   const [callDate, setCallDate] = useState<string | null>(null);
   const [callPricePct, setCallPricePct] = useState<number>(100);
+  const [ddtlDrawAssumption, setDdtlDrawAssumption] = useState<'draw_at_deadline' | 'never_draw' | 'custom_quarter'>('draw_at_deadline');
+  const [ddtlDrawQuarter, setDdtlDrawQuarter] = useState<number>(CLO_DEFAULTS.ddtlDrawQuarter);
+  const [ddtlDrawPercent, setDdtlDrawPercent] = useState<number>(CLO_DEFAULTS.ddtlDrawPercent);
   const [showTransparency, setShowTransparency] = useState(false);
   const [expandedPeriod, setExpandedPeriod] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<"projection" | "switch">(urlTab === "switch" ? "switch" : "projection");
@@ -155,6 +158,22 @@ export default function ProjectionModel({
     return loanInputs.reduce((s, l) => s + l.parBalance * (defaultRates[l.ratingBucket] ?? 0), 0) / totalPar;
   }, [loanInputs, defaultRates]);
 
+  const portfolioInfo = useMemo(() => {
+    const loans = resolved?.loans ?? [];
+    const fixedRateLoans = loans.filter(l => l.isFixedRate);
+    const ddtlLoans = loans.filter(l => l.isDelayedDraw);
+    const totalPar = loans.reduce((s, l) => s + l.parBalance, 0);
+    return {
+      fixedRateCount: fixedRateLoans.length,
+      fixedRatePar: fixedRateLoans.reduce((s, l) => s + l.parBalance, 0),
+      fixedRatePct: totalPar > 0 ? fixedRateLoans.reduce((s, l) => s + l.parBalance, 0) / totalPar * 100 : 0,
+      ddtlCount: ddtlLoans.length,
+      ddtlPar: ddtlLoans.reduce((s, l) => s + l.parBalance, 0),
+      hasDdtls: ddtlLoans.length > 0,
+      hasFixedRate: fixedRateLoans.length > 0,
+    };
+  }, [resolved?.loans]);
+
   const inputs: ProjectionInputs = useMemo(
     () => {
       const resolvedData = resolved ?? EMPTY_RESOLVED;
@@ -180,6 +199,9 @@ export default function ProjectionModel({
         trusteeFeeBps,
         incentiveFeePct,
         incentiveFeeHurdleIrr,
+        ddtlDrawAssumption,
+        ddtlDrawQuarter,
+        ddtlDrawPercent,
       });
     },
     [
@@ -187,7 +209,7 @@ export default function ProjectionModel({
       reinvestmentSpreadBps, reinvestmentTenorYears, reinvestmentRating, cccBucketLimitPct, cccMarketValuePct,
       resolved?.deferredInterestCompounds,
       seniorFeePct, subFeePct, trusteeFeeBps, hedgeCostBps, incentiveFeePct, incentiveFeeHurdleIrr, postRpReinvestmentPct,
-      callDate, callPricePct,
+      callDate, callPricePct, ddtlDrawAssumption, ddtlDrawQuarter, ddtlDrawPercent,
     ]
   );
 
@@ -213,11 +235,15 @@ export default function ProjectionModel({
     trusteeFeeBps,
     incentiveFeePct,
     incentiveFeeHurdleIrr,
+    ddtlDrawAssumption,
+    ddtlDrawQuarter,
+    ddtlDrawPercent,
   }), [
     baseRatePct, baseRateFloorPct, defaultRates, cprPct, recoveryPct, recoveryLagMonths,
     reinvestmentSpreadBps, reinvestmentTenorYears, reinvestmentRating, cccBucketLimitPct, cccMarketValuePct,
     resolved?.deferredInterestCompounds,
     postRpReinvestmentPct, hedgeCostBps, callDate, callPricePct, seniorFeePct, subFeePct, trusteeFeeBps, incentiveFeePct, incentiveFeeHurdleIrr,
+    ddtlDrawAssumption, ddtlDrawQuarter, ddtlDrawPercent,
   ]);
 
   const validationErrors = useMemo(() => validateInputs(inputs), [inputs]);
@@ -406,6 +432,10 @@ export default function ProjectionModel({
           hasResolvedFees={!!resolved && (resolved.fees.seniorFeePct > 0 || resolved.fees.subFeePct > 0)}
           callDate={callDate} onCallDateChange={setCallDate}
           callPricePct={callPricePct} onCallPriceChange={setCallPricePct}
+          portfolioInfo={portfolioInfo}
+          ddtlDrawAssumption={ddtlDrawAssumption} onDdtlDrawAssumptionChange={setDdtlDrawAssumption}
+          ddtlDrawQuarter={ddtlDrawQuarter} onDdtlDrawQuarterChange={setDdtlDrawQuarter}
+          ddtlDrawPercent={ddtlDrawPercent} onDdtlDrawPercentChange={setDdtlDrawPercent}
         />
         <div style={{ marginTop: "1rem" }}>
           <DefaultRatePanel
@@ -484,7 +514,7 @@ export default function ProjectionModel({
                 }}
               />
               <div style={{ fontSize: "0.7rem", fontWeight: 500, color: "rgba(255,255,255,0.7)", marginBottom: "0.35rem", textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                Equity IRR <span style={{ fontSize: "0.55rem", fontWeight: 400, letterSpacing: "0.02em", opacity: 0.7 }}>(model estimate)</span>
+                Projected Forward IRR <span style={{ fontSize: "0.55rem", fontWeight: 400, letterSpacing: "0.02em", opacity: 0.7 }}>(from current date)</span>
               </div>
               <div
                 style={{
@@ -840,6 +870,10 @@ export default function ProjectionModel({
               hasResolvedFees={!!resolved && (resolved.fees.seniorFeePct > 0 || resolved.fees.subFeePct > 0)}
               callDate={callDate} onCallDateChange={setCallDate}
               callPricePct={callPricePct} onCallPriceChange={setCallPricePct}
+              portfolioInfo={portfolioInfo}
+              ddtlDrawAssumption={ddtlDrawAssumption} onDdtlDrawAssumptionChange={setDdtlDrawAssumption}
+              ddtlDrawQuarter={ddtlDrawQuarter} onDdtlDrawQuarterChange={setDdtlDrawQuarter}
+              ddtlDrawPercent={ddtlDrawPercent} onDdtlDrawPercentChange={setDdtlDrawPercent}
             />
             <div style={{ marginTop: "1rem" }}>
               <DefaultRatePanel

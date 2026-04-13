@@ -29,6 +29,7 @@ const ASSUMPTIONS_REGISTER: { domain: string; items: Assumption[] }[] = [
       { label: "EURIBOR floored at 0%", detail: "The model floors the base rate at 0% for both collateral interest and tranche coupons. Most European CLOs have this floor, but the exact floor level may vary by deal.", impact: "low" },
       { label: "No day count conventions", detail: "Interest accrues as simple quarterly fractions (annual rate / 4). Real deals use specific day count conventions (Actual/360, 30/360) that produce slightly different amounts.", impact: "low" },
       { label: "No EURIBOR fixing lag", detail: "The model uses the input rate immediately. Real deals reference EURIBOR fixings from 2 business days prior to the interest period start.", impact: "low" },
+      { label: "Fixed-rate bonds accrue quarterly", detail: "All fixed-rate positions accrue interest as annual coupon / 4, regardless of actual payment frequency. Some bonds pay semi-annually — annual income is correct but intra-year timing may differ slightly.", impact: "low" },
     ],
   },
   {
@@ -57,6 +58,7 @@ const ASSUMPTIONS_REGISTER: { domain: string; items: Assumption[] }[] = [
       { label: "No frequency switch", detail: "Some deals switch from quarterly to semi-annual payments after a trigger event. The model is hardcoded to quarterly periods.", impact: "low" },
       { label: "Quarterly periodicity", detail: "Cash flows are modeled in quarterly periods with beginning-of-period accrual. Real deals accrue daily and pay on specific calendar dates with business day adjustments.", impact: "low" },
       { label: "No discount obligation haircut", detail: "Assets purchased below 85% of par should be carried at purchase price in OC calculations. The model only applies CCC excess haircuts.", impact: "low" },
+      { label: "DDTL draw is a single event", detail: "Unfunded DDTLs draw fully (or at the user-specified percentage) in a single quarter. Real DDTLs may draw in tranches over time. Commitment fees on unfunded amounts are not modeled.", impact: "low" },
     ],
   },
 ];
