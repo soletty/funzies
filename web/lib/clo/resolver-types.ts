@@ -13,6 +13,13 @@ export interface ResolvedDealData {
   dates: ResolvedDates;
   fees: ResolvedFees;
   loans: ResolvedLoan[];
+  principalAccountCash: number; // uninvested cash in principal accounts (counts toward OC numerator)
+  preExistingDefaultedPar: number; // par of defaulted loans excluded from loan list
+  preExistingDefaultRecovery: number; // market-price recovery for priced defaulted holdings
+  unpricedDefaultedPar: number; // par of defaulted holdings without market price (engine applies recoveryPct)
+  preExistingDefaultOcValue: number; // recovery value for OC numerator (agency rate — typically higher than market)
+  impliedOcAdjustment: number; // derived residual between trustee's Adjusted CPA and identified components (likely unfunded revolvers, but may include other adjustments)
+  ddtlUnfundedPar: number; // total DDTL commitment par (for dynamic OC deduction in projection)
   deferredInterestCompounds: boolean; // whether PIK'd interest itself earns interest in subsequent periods
   baseRateFloorPct: number | null; // extracted reference rate floor (null = not extracted, use default)
 }
@@ -35,7 +42,8 @@ export interface ResolvedTranche {
 }
 
 export interface ResolvedPool {
-  totalPar: number;
+  totalPar: number; // Adjusted Collateral Principal Amount (OC numerator) or aggregate par
+  totalPrincipalBalance: number; // sum of loan principal balances (interest-generating base)
   wacSpreadBps: number;
   warf: number;
   walYears: number;
@@ -73,6 +81,11 @@ export interface ResolvedLoan {
   ratingBucket: string;
   spreadBps: number;
   obligorName?: string;
+  isFixedRate?: boolean;       // true = flat coupon, no EURIBOR sensitivity
+  fixedCouponPct?: number;     // e.g. 8.0 for 8%. Only meaningful when isFixedRate=true
+  isDelayedDraw?: boolean;     // true = unfunded commitment, no interest until drawn
+  ddtlSpreadBps?: number;      // spread from parent facility, applied at draw
+  drawQuarter?: number;        // quarter in which the DDTL converts to funded
 }
 
 export type WarningSeverity = "info" | "warn" | "error";

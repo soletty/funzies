@@ -8,6 +8,11 @@ export interface LoanInput {
   maturityDate: string;
   ratingBucket: string;
   spreadBps: number;
+  isFixedRate?: boolean;
+  fixedCouponPct?: number;
+  isDelayedDraw?: boolean;
+  ddtlSpreadBps?: number;
+  drawQuarter?: number;
 }
 
 export type DefaultDrawFn = (survivingPar: number, hazardRate: number) => number;
@@ -35,7 +40,7 @@ export interface ProjectionInputs {
     isFloating: boolean;
     isIncomeNote: boolean;
     isDeferrable: boolean;
-    isAmortising?: boolean; // Class X: principal paid from interest waterfall on fixed schedule
+    isAmortising?: boolean; // principal paid from interest waterfall on fixed schedule (e.g. Class X)
     amortisationPerPeriod?: number | null; // fixed amount per quarter (null = pay full remaining balance)
     amortStartDate?: string | null; // date when amort begins (e.g. second payment date). If null or past, amort active immediately.
   }[];
@@ -55,6 +60,12 @@ export interface ProjectionInputs {
   cccBucketLimitPct: number; // CCC excess above this % of par is haircut in OC test
   cccMarketValuePct: number; // market value assumption for CCC excess haircut (% of par)
   deferredInterestCompounds: boolean; // whether PIK'd interest itself earns interest
+  initialPrincipalCash?: number; // uninvested principal in accounts at projection start (flows through waterfall Q1)
+  preExistingDefaultedPar?: number; // par of pre-existing defaulted loans
+  preExistingDefaultRecovery?: number; // market-price recovery for priced defaulted holdings
+  unpricedDefaultedPar?: number; // par of defaulted holdings without market price (model applies recoveryPct)
+  preExistingDefaultOcValue?: number; // recovery value for OC numerator (agency rate — typically higher than market)
+  impliedOcAdjustment?: number; // derived residual between trustee's Adjusted CPA and identified components
 }
 
 export interface PeriodResult {
@@ -141,6 +152,7 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     loans, defaultRatesByRating, cprPct, recoveryPct, recoveryLagMonths,
     reinvestmentSpreadBps, reinvestmentTenorQuarters, reinvestmentRating: reinvestmentRatingOverride,
     cccBucketLimitPct, cccMarketValuePct, deferredInterestCompounds,
+    initialPrincipalCash = 0, preExistingDefaultedPar = 0, preExistingDefaultRecovery = 0, unpricedDefaultedPar = 0, preExistingDefaultOcValue = 0, impliedOcAdjustment = 0,
   } = inputs;
 
   const maturityQuarters = maturityDate ? Math.max(1, quartersBetween(currentDate, maturityDate)) : CLO_DEFAULTS.defaultMaxTenorYears * 4;
@@ -211,7 +223,7 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     trancheBalances[t.className] = t.currentBalance;
     deferredBalances[t.className] = 0;
     if (t.isAmortising) {
-      resolvedAmortPerPeriod[t.className] = t.amortisationPerPeriod ?? (t.currentBalance / CLO_DEFAULTS.defaultClassXAmortPeriods);
+      resolvedAmortPerPeriod[t.className] = t.amortisationPerPeriod ?? (t.currentBalance / CLO_DEFAULTS.defaultScheduledAmortPeriods);
     }
   }
 
@@ -221,7 +233,19 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
   // Recovery pipeline: future cash from defaulted assets
   const recoveryPipeline: { quarter: number; amount: number }[] = [];
 
-  let currentPar = initialPar;
+  // Seed recovery from pre-existing defaults (loans already defaulted before projection start).
+  // Priced holdings: use market-price recovery. Unpriced holdings: use model recoveryPct.
+  if (preExistingDefaultedPar > 0) {
+    const totalRecovery = preExistingDefaultRecovery + unpricedDefaultedPar * (recoveryPct / 100);
+    if (totalRecovery > 0) {
+      recoveryPipeline.push({ quarter: 1 + recoveryLagQ, amount: totalRecovery });
+    }
+  }
+
+  // When loans are provided, use their total as the starting par (not the Adjusted CPA
+  // which includes cash, haircuts, and other OC adjustments that are modeled separately).
+  const loanTotal = hasLoans ? loanStates.reduce((s, l) => s + l.survivingPar, 0) : 0;
+  let currentPar = hasLoans ? loanTotal : initialPar;
   const periods: PeriodResult[] = [];
   const equityCashFlows: number[] = [];
 
@@ -229,7 +253,10 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
   let totalEquityDistributions = 0;
 
   const totalDebtOutstanding = debtTranches.reduce((s, t) => s + t.currentBalance, 0);
-  const equityInvestment = Math.max(0, initialPar - totalDebtOutstanding);
+  // Equity investment = total assets - total debt. Assets = loan principal + uninvested cash.
+  // In aggregate mode (no loans), initialPar is the best estimate of total collateral value.
+  const totalAssets = hasLoans ? loanTotal + initialPrincipalCash : initialPar;
+  const equityInvestment = Math.max(0, totalAssets - totalDebtOutstanding);
   equityCashFlows.push(-equityInvestment);
 
   for (const t of sortedTranches) {
@@ -338,6 +365,13 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
         const loanBegPar = loanBeginningPar[i];
         interestCollected += loanBegPar * (flooredBaseRate + loan.spreadBps / 100) / 100 / 4;
       }
+      // Q1: initial principal cash earns interest at money market rate (~ESTR) for the quarter.
+      // This cash sits in accounts before being reinvested or paid down.
+      if (q === 1 && initialPrincipalCash > 0) {
+        // Cash in principal accounts earns MMF/ESTR yield, not EURIBOR. Using the floored
+        // base rate as a proxy — ESTR tracks ~10-15bps below 3M EURIBOR, immaterial here.
+        interestCollected += initialPrincipalCash * flooredBaseRate / 100 / 4;
+      }
     } else {
       const allInRate = (flooredBaseRate + wacSpreadBps / 100) / 100;
       interestCollected = beginningPar * allInRate / 4;
@@ -347,8 +381,15 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     // No reinvestment on the final period (call or maturity) — the deal is winding down.
     let reinvestment = 0;
     const principalProceeds = prepayments + scheduledMaturities + recoveries;
+    // Q1: initial principal cash (uninvested proceeds already in accounts) treated as
+    // additional principal proceeds — reinvested during RP, flows to paydown outside RP.
+    // Policy: during RP, cash IS reinvested (manager has discretion to deploy).
+    // Post-RP, cash goes to paydown only — the indenture restricts reinvestment to new
+    // principal proceeds from the portfolio, not pre-existing account balances.
+    const q1Cash = (q === 1) ? initialPrincipalCash : 0;
+    const totalPrincipalAvailable = principalProceeds + q1Cash;
     if (!isMaturity && inRP) {
-      reinvestment = principalProceeds;
+      reinvestment = totalPrincipalAvailable;
     } else if (!isMaturity && postRpReinvestmentPct > 0 && principalProceeds > 0) {
       // Post-RP limited reinvestment (credit improved/risk sales, unscheduled principal)
       reinvestment = principalProceeds * (postRpReinvestmentPct / 100);
@@ -407,7 +448,7 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     }
 
     const liquidationProceeds = isMaturity ? endingPar * (callDate ? callPricePct / 100 : 1) : 0;
-    let prelimPrincipal = prepayments + scheduledMaturities + recoveries - reinvestment + liquidationProceeds;
+    let prelimPrincipal = prepayments + scheduledMaturities + recoveries + q1Cash - reinvestment + liquidationProceeds;
     if (prelimPrincipal < 0) prelimPrincipal = 0;
     if (isMaturity) {
       if (hasLoans) {
@@ -454,7 +495,16 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     const pendingRecoveryValue = isMaturity ? 0 : recoveryPipeline
       .filter((r) => r.quarter > q)
       .reduce((s, r) => s + r.amount, 0);
-    let ocNumerator = endingPar + remainingPrelim + pendingRecoveryValue;
+    // OC numerator: if pre-existing defaults have an agency recovery value (for OC purposes)
+    // that exceeds the cash recovery, add the difference while the recovery is still pending.
+    // The boost disappears when the pre-existing recovery arrives (at quarter 1 + recoveryLagQ),
+    // NOT when any arbitrary recovery is pending (which would keep the boost alive indefinitely).
+    const preExistingCashRecovery = preExistingDefaultRecovery + unpricedDefaultedPar * (recoveryPct / 100);
+    const preExistingRecoveryStillPending = preExistingDefaultedPar > 0 && !isMaturity && q < 1 + recoveryLagQ;
+    const ocDefaultBoost = (preExistingDefaultOcValue > 0 && preExistingRecoveryStillPending)
+      ? Math.max(0, preExistingDefaultOcValue - preExistingCashRecovery)
+      : 0;
+    let ocNumerator = endingPar + remainingPrelim + pendingRecoveryValue + ocDefaultBoost - impliedOcAdjustment;
     if (hasLoans && cccBucketLimitPct > 0) {
       const cccPar = loanStates
         .filter((l) => l.ratingBucket === "CCC" && l.survivingPar > 0)
@@ -504,22 +554,10 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
         .map((ic) => ic.rank)
     );
 
-    // Reinvestment OC Test (PPM Step V): during RP only, if Class F OC < trigger,
-    // 50% of remaining interest (after all tranche payments) diverted to buy collateral or pay down notes
-    let reinvOcFailing = false;
-    if (inRP && reinvestmentOcTrigger) {
-      const reinvOcDebt = ocEligibleTranches
-        .filter((t) => t.seniorityRank <= reinvestmentOcTrigger.rank)
-        .reduce((s, t) => s + trancheBalances[t.className] + deferredBalances[t.className], 0);
-      const reinvOcActual = reinvOcDebt > 0 ? (ocNumerator / reinvOcDebt) * 100 : 999;
-      reinvOcFailing = reinvOcActual < reinvestmentOcTrigger.triggerLevel;
-    }
-
     // ── 10. Interest waterfall (OC/IC-gated) ─────────────────────
     // Interest DUE uses BOP balances (accrued before paydown).
-    // Simplification: Class X interest is paid sequentially before Class A interest
-    // rather than strictly pro rata (PPM Step G). The amounts are so asymmetric
-    // (~€10K vs ~€2.4M) that this only matters in extreme distress scenarios.
+    // Class X interest is paid sequentially (earlier in the loop). Class X amortisation
+    // and Class A interest are paid pro rata per PPM Step G if there is a shortfall.
     let availableInterest = interestCollected;
     const trancheInterest: PeriodResult["trancheInterest"] = [];
 
@@ -709,8 +747,9 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
       }
     }
 
-    // PPM Step V: Reinvestment OC Test — divert a percentage of remaining interest during RP to buy collateral
-    // Re-check after standard OC cures may have bought collateral (updating ocNumerator)
+    // PPM Step V: Reinvestment OC Test — divert a percentage of remaining interest during RP to buy collateral.
+    // Evaluated after standard OC cures which may have bought collateral (updating ocNumerator).
+    let reinvOcFailing = false;
     if (inRP && reinvestmentOcTrigger && availableInterest > 0) {
       const reinvOcDebt = ocEligibleTranches
         .filter((tr) => tr.seniorityRank <= reinvestmentOcTrigger.rank)

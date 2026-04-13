@@ -28,8 +28,8 @@ export const CLO_DEFAULTS = {
   reinvestmentTenorYears: 5,
   postRpReinvestmentPct: 0,
 
-  // Class X amortisation — if extraction misses the per-period amount, spread balance evenly over this many quarters
-  defaultClassXAmortPeriods: 5,
+  // Scheduled amortisation — if extraction misses the per-period amount, spread balance evenly over this many quarters
+  defaultScheduledAmortPeriods: 5,
 
   // Maturity fallback — if no maturity date can be resolved, assume currentDate + this many years
   defaultMaxTenorYears: 13,
@@ -37,4 +37,8 @@ export const CLO_DEFAULTS = {
   // OC test parameters
   cccBucketLimitPct: 7.5,
   cccMarketValuePct: 70,
+
+  // DDTL draw assumptions
+  ddtlDrawQuarter: 4,
+  ddtlDrawPercent: 100,
 } as const;

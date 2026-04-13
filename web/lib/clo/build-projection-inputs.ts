@@ -9,13 +9,20 @@ import { DEFAULT_RATES_BY_RATING } from "./rating-mapping";
 // code path in the UI component.
 export const EMPTY_RESOLVED: ResolvedDealData = {
   tranches: [],
-  poolSummary: { totalPar: 0, wacSpreadBps: 0, warf: 0, walYears: 0, diversityScore: 0, numberOfObligors: 0 },
+  poolSummary: { totalPar: 0, totalPrincipalBalance: 0, wacSpreadBps: 0, warf: 0, walYears: 0, diversityScore: 0, numberOfObligors: 0 },
   ocTriggers: [],
   icTriggers: [],
   reinvestmentOcTrigger: null,
   dates: { maturity: "", reinvestmentPeriodEnd: null, nonCallPeriodEnd: null, firstPaymentDate: null, currentDate: new Date().toISOString().slice(0, 10) },
   fees: { seniorFeePct: 0, subFeePct: 0, trusteeFeeBps: 0, incentiveFeePct: 0, incentiveFeeHurdleIrr: 0 },
   loans: [],
+  principalAccountCash: 0,
+  preExistingDefaultedPar: 0,
+  preExistingDefaultRecovery: 0,
+  unpricedDefaultedPar: 0,
+  preExistingDefaultOcValue: 0,
+  impliedOcAdjustment: 0,
+  ddtlUnfundedPar: 0,
   deferredInterestCompounds: true,
   baseRateFloorPct: null,
 };
@@ -37,6 +44,9 @@ export interface UserAssumptions {
   hedgeCostBps: number;
   callDate: string | null;
   callPricePct: number; // liquidation price as % of par on call date (100 = par)
+  ddtlDrawAssumption: 'draw_at_deadline' | 'never_draw' | 'custom_quarter';
+  ddtlDrawQuarter: number;
+  ddtlDrawPercent: number;
   // Fee overrides — user can adjust these via sliders.
   // Pre-filled from resolved PPM data, but user has final say.
   seniorFeePct: number;
@@ -63,6 +73,9 @@ export const DEFAULT_ASSUMPTIONS: UserAssumptions = {
   hedgeCostBps: 0,
   callDate: null,
   callPricePct: 100,
+  ddtlDrawAssumption: 'draw_at_deadline' as const,
+  ddtlDrawQuarter: CLO_DEFAULTS.ddtlDrawQuarter,
+  ddtlDrawPercent: CLO_DEFAULTS.ddtlDrawPercent,
   seniorFeePct: CLO_DEFAULTS.seniorFeePct,
   subFeePct: CLO_DEFAULTS.subFeePct,
   trusteeFeeBps: CLO_DEFAULTS.trusteeFeeBps,
@@ -125,5 +138,11 @@ export function buildFromResolved(
     cccBucketLimitPct: userAssumptions.cccBucketLimitPct,
     cccMarketValuePct: userAssumptions.cccMarketValuePct,
     deferredInterestCompounds: userAssumptions.deferredInterestCompounds ?? resolved.deferredInterestCompounds,
+    initialPrincipalCash: resolved.principalAccountCash,
+    preExistingDefaultedPar: resolved.preExistingDefaultedPar,
+    preExistingDefaultRecovery: resolved.preExistingDefaultRecovery,
+    unpricedDefaultedPar: resolved.unpricedDefaultedPar,
+    preExistingDefaultOcValue: resolved.preExistingDefaultOcValue,
+    impliedOcAdjustment: resolved.impliedOcAdjustment,
   };
 }
