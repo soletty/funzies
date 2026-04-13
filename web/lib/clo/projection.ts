@@ -210,16 +210,18 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
   }
 
   const hasLoans = loanStates.length > 0;
-  // Average loan size — used to chunk reinvestment into realistic individual loans for Monte Carlo
-  const avgLoanSize = hasLoans && loans.length > 0
-    ? loans.reduce((s, l) => s + l.parBalance, 0) / loans.length
+  // Average loan size — used to chunk reinvestment into realistic individual loans for Monte Carlo.
+  // Excludes unfunded DDTLs (already spliced for never_draw, still present for draw_at_deadline).
+  const fundedLoans = loanStates.filter(l => !l.isDelayedDraw);
+  const avgLoanSize = fundedLoans.length > 0
+    ? fundedLoans.reduce((s, l) => s + l.survivingPar, 0) / fundedLoans.length
     : 0;
 
-  // Reinvestment rating: user override or portfolio's par-weighted modal bucket
+  // Reinvestment rating: user override or portfolio's par-weighted modal bucket (funded loans only)
   const reinvestmentRating = reinvestmentRatingOverride ?? (() => {
     const parByRating: Record<string, number> = {};
-    for (const l of loans) {
-      parByRating[l.ratingBucket] = (parByRating[l.ratingBucket] ?? 0) + l.parBalance;
+    for (const l of fundedLoans) {
+      parByRating[l.ratingBucket] = (parByRating[l.ratingBucket] ?? 0) + l.survivingPar;
     }
     let best = "NR";
     let bestPar = 0;
@@ -263,7 +265,8 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
 
   // When loans are provided, use their total as the starting par (not the Adjusted CPA
   // which includes cash, haircuts, and other OC adjustments that are modeled separately).
-  const loanTotal = hasLoans ? loanStates.reduce((s, l) => s + l.survivingPar, 0) : 0;
+  // Funded loan total excludes unfunded DDTLs — consistent with beginningPar/endingPar.
+  const loanTotal = hasLoans ? loanStates.filter(l => !l.isDelayedDraw).reduce((s, l) => s + l.survivingPar, 0) : 0;
   let currentPar = hasLoans ? loanTotal : initialPar;
   const periods: PeriodResult[] = [];
   const equityCashFlows: number[] = [];
@@ -453,9 +456,10 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
       }
     }
 
-    // Update currentPar from loan states or fallback
+    // Update currentPar from loan states or fallback.
+    // Excludes unfunded DDTLs — they are not deployed collateral.
     if (hasLoans) {
-      currentPar = loanStates.reduce((s, l) => s + l.survivingPar, 0);
+      currentPar = loanStates.filter(l => !l.isDelayedDraw).reduce((s, l) => s + l.survivingPar, 0);
     } else {
       if (reinvestment > 0) {
         currentPar += reinvestment;
@@ -463,7 +467,7 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     }
 
     let endingPar = hasLoans
-      ? loanStates.reduce((s, l) => s + l.survivingPar, 0)
+      ? loanStates.filter(l => !l.isDelayedDraw).reduce((s, l) => s + l.survivingPar, 0)
       : currentPar;
 
     // ── 8. Preliminary principal paydown ─────────────────────────
