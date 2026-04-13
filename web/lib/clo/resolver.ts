@@ -1,4 +1,4 @@
-import type { ExtractedConstraints, CloPoolSummary, CloComplianceTest, CloTranche, CloTrancheSnapshot, CloHolding } from "./types";
+import type { ExtractedConstraints, CloPoolSummary, CloComplianceTest, CloTranche, CloTrancheSnapshot, CloHolding, CloAccountBalance } from "./types";
 import type { ResolvedDealData, ResolvedTranche, ResolvedPool, ResolvedTrigger, ResolvedReinvestmentOcTrigger, ResolvedDates, ResolvedFees, ResolvedLoan, ResolutionWarning } from "./resolver-types";
 import { parseSpreadToBps, normalizeWacSpread } from "./ingestion-gate";
 import { mapToRatingBucket } from "./rating-mapping";
@@ -59,12 +59,13 @@ function isIcTest(t: { testType?: string | null; testName?: string | null }): bo
   return name.includes("interest coverage") || (name.includes("ic") && name.includes("ratio"));
 }
 
-function dedupTriggers(triggers: { className: string; triggerLevel: number }[], warnings: ResolutionWarning[]): { className: string; triggerLevel: number }[] {
-  const byClass = new Map<string, { className: string; triggerLevel: number }>();
+function dedupTriggers(triggers: { className: string; triggerLevel: number; source: "compliance" | "ppm" }[], warnings: ResolutionWarning[]): { className: string; triggerLevel: number; source: "compliance" | "ppm" }[] {
+  const byClass = new Map<string, { className: string; triggerLevel: number; source: "compliance" | "ppm" }>();
   for (const t of triggers) {
-    const existing = byClass.get(t.className);
+    const key = normClass(t.className);
+    const existing = byClass.get(key);
     if (!existing) {
-      byClass.set(t.className, t);
+      byClass.set(key, t);
     } else if (t.triggerLevel !== existing.triggerLevel) {
       // Keep the higher (more restrictive) trigger but warn about the discrepancy
       warnings.push({
@@ -73,7 +74,7 @@ function dedupTriggers(triggers: { className: string; triggerLevel: number }[], 
         severity: "warn",
       });
       if (t.triggerLevel > existing.triggerLevel) {
-        byClass.set(t.className, t);
+        byClass.set(key, t);
       }
     }
   }
@@ -87,22 +88,18 @@ function resolveTranches(
   warnings: ResolutionWarning[],
 ): ResolvedTranche[] {
   const snapshotByTrancheId = new Map(snapshots.map(s => [s.trancheId, s]));
-  const classXAmort = constraints.dealSizing?.classXAmortisation;
-  const classXAmortPerPeriod = classXAmort ? parseAmount(classXAmort) : null;
-  if (!classXAmortPerPeriod) {
-    warnings.push({ field: "classXAmortisation", message: "Class X amortisation per period not extracted — model will estimate by dividing balance evenly over 5 quarters. Set manually if different.", severity: "warn" });
-  }
 
-  // Compute Class X amort start date: "second Payment Date following Issue Date"
-  // = one quarter after firstPaymentDate
+  // Default amort start: "second Payment Date" = one quarter after firstPaymentDate
   const firstPayment = constraints.keyDates?.firstPaymentDate;
-  const classXAmortStartDate = firstPayment ? addQuartersForResolver(firstPayment, 1) : null;
+  const defaultAmortStartDate = firstPayment ? addQuartersForResolver(firstPayment, 1) : null;
 
-  // Build PPM spread lookup
+  // Build PPM per-tranche lookups
   const ppmSpreadByClass = new Map<string, number>();
   const ppmBalanceByClass = new Map<string, number>();
   const ppmDeferrableByClass = new Map<string, boolean>();
   const ppmSubByClass = new Map<string, boolean>();
+  const ppmAmortByClass = new Map<string, number>();
+  const ppmAmortStartByClass = new Map<string, string>();
 
   for (const e of constraints.capitalStructure ?? []) {
     const key = normClass(e.class);
@@ -111,6 +108,11 @@ function resolveTranches(
     ppmBalanceByClass.set(key, parseAmount(e.principalAmount));
     if (e.deferrable != null) ppmDeferrableByClass.set(key, e.deferrable);
     ppmSubByClass.set(key, e.isSubordinated ?? e.class.toLowerCase().includes("sub"));
+    if (e.amortisationPerPeriod) {
+      const amt = parseAmount(e.amortisationPerPeriod);
+      if (amt > 0) ppmAmortByClass.set(key, amt);
+    }
+    if (e.amortStartDate) ppmAmortStartByClass.set(key, e.amortStartDate);
   }
 
   // If DB tranches exist, use them as the primary source
@@ -120,8 +122,21 @@ function resolveTranches(
       .map(t => {
         const snap = snapshotByTrancheId.get(t.id);
         const key = normClass(t.className);
-        const isClassX = /^(class\s+)?x$/i.test(t.className.trim());
         const isSub = t.isIncomeNote ?? t.isSubordinate ?? ppmSubByClass.get(key) ?? t.className.toLowerCase().includes("sub");
+        const ppmAmort = ppmAmortByClass.get(key) ?? null;
+        // Prefer compliance report's actual principal paid over PPM's contractual schedule.
+        // If snapshot reports 0, keep PPM schedule (one zero-payment period doesn't cancel the schedule).
+        const snapshotAmort = snap?.principalPaid != null && snap.principalPaid > 0 ? snap.principalPaid : null;
+        const amortPerPeriod = snapshotAmort ?? ppmAmort;
+        const hasAmort = amortPerPeriod != null;
+        if (snapshotAmort != null && ppmAmort != null && snapshotAmort !== ppmAmort) {
+          warnings.push({
+            field: `${t.className}.amortisationPerPeriod`,
+            message: `Compliance report principal paid (${snapshotAmort.toLocaleString()}) differs from PPM schedule (${ppmAmort.toLocaleString()}) — using compliance report`,
+            severity: "info",
+            resolvedFrom: "snapshot",
+          });
+        }
 
         let spreadBps = t.spreadBps ?? ppmSpreadByClass.get(key) ?? 0;
         if (spreadBps === 0 && !isSub) {
@@ -142,16 +157,16 @@ function resolveTranches(
 
         return {
           className: t.className,
-          currentBalance: snap?.currentBalance ?? t.originalBalance ?? ppmBalanceByClass.get(key) ?? 0,
+          currentBalance: snap?.endingBalance ?? snap?.currentBalance ?? t.originalBalance ?? ppmBalanceByClass.get(key) ?? 0,
           originalBalance: t.originalBalance ?? ppmBalanceByClass.get(key) ?? 0,
           spreadBps,
           seniorityRank: t.seniorityRank ?? 99,
           isFloating: t.isFloating ?? true,
           isIncomeNote: isSub,
           isDeferrable: t.isDeferrable ?? ppmDeferrableByClass.get(key) ?? false,
-          isAmortising: isClassX,
-          amortisationPerPeriod: isClassX ? (classXAmortPerPeriod ?? null) : null,
-          amortStartDate: isClassX ? classXAmortStartDate : null,
+          isAmortising: hasAmort,
+          amortisationPerPeriod: amortPerPeriod,
+          amortStartDate: hasAmort ? (ppmAmortStartByClass.get(key) ?? defaultAmortStartDate) : null,
           source: snap ? "snapshot" as const : "db_tranche" as const,
         };
       });
@@ -186,7 +201,9 @@ function resolveTranches(
     const isFloating = e.rateType
       ? e.rateType.toLowerCase().includes("float")
       : (e.spread?.toLowerCase().includes("euribor") || e.spread?.toLowerCase().includes("sofr") || false);
-    const isClassX = /^(class\s+)?x$/i.test(e.class.trim());
+    const key = normClass(e.class);
+    const amortPerPeriod = ppmAmortByClass.get(key) ?? null;
+    const hasAmort = amortPerPeriod != null;
     const spreadBps = parseSpreadToBps(e.spreadBps, e.spread) ?? 0;
 
     if (spreadBps === 0 && !isSub) {
@@ -206,12 +223,41 @@ function resolveTranches(
       isFloating,
       isIncomeNote: isSub,
       isDeferrable: e.deferrable ?? false,
-      isAmortising: isClassX,
-      amortisationPerPeriod: isClassX ? (classXAmortPerPeriod ?? null) : null,
-      amortStartDate: isClassX ? classXAmortStartDate : null,
+      isAmortising: hasAmort,
+      amortisationPerPeriod: amortPerPeriod,
+      amortStartDate: hasAmort ? (ppmAmortStartByClass.get(key) ?? defaultAmortStartDate) : null,
       source: "ppm" as const,
     };
   });
+}
+
+/** Per-class merge: use compliance trigger when available, fill gaps from PPM. */
+function mergeTriggersPerClass(
+  fromTests: { className: string; triggerLevel: number; source: "compliance" | "ppm" }[],
+  fromPpm: { className: string; triggerLevel: number; source: "compliance" | "ppm" }[],
+  testType: string,
+  warnings: ResolutionWarning[],
+): { className: string; triggerLevel: number; source: "compliance" | "ppm" }[] {
+  if (fromTests.length === 0) return fromPpm;
+  if (fromPpm.length === 0) return fromTests;
+
+  const testsByClass = new Map(fromTests.map(t => [normClass(t.className), t]));
+  const merged = [...fromTests];
+
+  for (const ppm of fromPpm) {
+    const key = normClass(ppm.className);
+    if (!testsByClass.has(key)) {
+      merged.push(ppm);
+      warnings.push({
+        field: `${testType}Trigger.${ppm.className}`,
+        message: `${testType} trigger for ${ppm.className} not found in compliance report — using PPM value (${ppm.triggerLevel})`,
+        severity: "info",
+        resolvedFrom: "ppm_constraints",
+      });
+    }
+  }
+
+  return merged;
 }
 
 function resolveTriggers(
@@ -236,26 +282,27 @@ function resolveTriggers(
     return maxRank || 99;
   }
 
+  type TriggerEntry = { className: string; triggerLevel: number; source: "compliance" | "ppm" };
+
   // From compliance tests
-  const ocFromTests = complianceTests
+  const ocFromTests: TriggerEntry[] = complianceTests
     .filter(t => isOcTest(t) && t.triggerLevel != null && t.testClass)
-    .map(t => ({ className: t.testClass!, triggerLevel: t.triggerLevel! }));
-  const icFromTests = complianceTests
+    .map(t => ({ className: t.testClass!, triggerLevel: t.triggerLevel!, source: "compliance" as const }));
+  const icFromTests: TriggerEntry[] = complianceTests
     .filter(t => isIcTest(t) && t.triggerLevel != null && t.testClass)
-    .map(t => ({ className: t.testClass!, triggerLevel: t.triggerLevel! }));
+    .map(t => ({ className: t.testClass!, triggerLevel: t.triggerLevel!, source: "compliance" as const }));
 
   // From PPM constraints (fallback)
-  const ocFromPpm = (constraints.coverageTestEntries ?? [])
+  const ocFromPpm: TriggerEntry[] = (constraints.coverageTestEntries ?? [])
     .filter(e => e.class && e.parValueRatio && parseFloat(e.parValueRatio))
-    .map(e => ({ className: e.class!, triggerLevel: parseFloat(e.parValueRatio!) }));
-  const icFromPpm = (constraints.coverageTestEntries ?? [])
+    .map(e => ({ className: e.class!, triggerLevel: parseFloat(e.parValueRatio!), source: "ppm" as const }));
+  const icFromPpm: TriggerEntry[] = (constraints.coverageTestEntries ?? [])
     .filter(e => e.class && e.interestCoverageRatio && parseFloat(e.interestCoverageRatio))
-    .map(e => ({ className: e.class!, triggerLevel: parseFloat(e.interestCoverageRatio!) }));
+    .map(e => ({ className: e.class!, triggerLevel: parseFloat(e.interestCoverageRatio!), source: "ppm" as const }));
 
-  const ocRaw = ocFromTests.length > 0 ? ocFromTests : ocFromPpm;
-  const icRaw = icFromTests.length > 0 ? icFromTests : icFromPpm;
-  const ocSource = ocFromTests.length > 0 ? "compliance" as const : "ppm" as const;
-  const icSource = icFromTests.length > 0 ? "compliance" as const : "ppm" as const;
+  // Per-class merge: prefer compliance trigger for each class, fill gaps from PPM
+  const ocRaw = mergeTriggersPerClass(ocFromTests, ocFromPpm, "OC", warnings);
+  const icRaw = mergeTriggersPerClass(icFromTests, icFromPpm, "IC", warnings);
 
   if (ocRaw.length === 0) {
     warnings.push({ field: "ocTriggers", message: "No OC triggers found in compliance tests or PPM", severity: "warn" });
@@ -278,7 +325,7 @@ function resolveTriggers(
     if (triggerLevel > 200) {
       warnings.push({ field: `ocTrigger.${t.className}`, message: `OC trigger ${triggerLevel}% for ${t.className} seems unusually high`, severity: "warn" });
     }
-    return { className: t.className, triggerLevel, rank: resolveRank(t.className), testType: "OC" as const, source: ocSource };
+    return { className: t.className, triggerLevel, rank: resolveRank(t.className), testType: "OC" as const, source: t.source };
   });
 
   const ic: ResolvedTrigger[] = dedupTriggers(icRaw, warnings).map(t => {
@@ -292,7 +339,7 @@ function resolveTriggers(
     if (triggerLevel > 500) {
       warnings.push({ field: `icTrigger.${t.className}`, message: `IC trigger ${triggerLevel}% for ${t.className} seems unusually high`, severity: "warn" });
     }
-    return { className: t.className, triggerLevel, rank: resolveRank(t.className), testType: "IC" as const, source: icSource };
+    return { className: t.className, triggerLevel, rank: resolveRank(t.className), testType: "IC" as const, source: t.source };
   });
 
   return { oc, ic };
@@ -372,6 +419,7 @@ export function resolveWaterfallInputs(
   trancheSnapshots: CloTrancheSnapshot[],
   holdings: CloHolding[],
   dealDates?: { maturity?: string | null; reinvestmentPeriodEnd?: string | null },
+  accountBalances?: CloAccountBalance[],
 ): { resolved: ResolvedDealData; warnings: ResolutionWarning[] } {
   const warnings: ResolutionWarning[] = [];
 
@@ -412,6 +460,7 @@ export function resolveWaterfallInputs(
 
   const poolSummary: ResolvedPool = {
     totalPar: pool?.totalPar ?? 0,
+    totalPrincipalBalance: pool?.totalPrincipalBalance ?? 0,
     wacSpreadBps,
     warf: pool?.warf ?? 0,
     walYears: pool?.walYears ?? 0,
@@ -498,15 +547,132 @@ export function resolveWaterfallInputs(
 
   // --- Loans ---
   const fallbackMaturity = resolvedMaturity;
-  const loans: ResolvedLoan[] = holdings
-    .filter(h => h.parBalance != null && h.parBalance > 0 && !h.isDefaulted)
-    .map(h => ({
+  const activeHoldings = holdings.filter(h => h.parBalance != null && h.parBalance > 0 && !h.isDefaulted);
+  const nonDdtlHoldings = activeHoldings.filter(h => !h.isDelayedDraw);
+
+  const loans: ResolvedLoan[] = activeHoldings.map(h => {
+    const isFixed = h.isFixedRate === true;
+    const isDdtl = h.isDelayedDraw === true;
+    const ratingBucket = mapToRatingBucket(h.moodysRating ?? null, h.spRating ?? null, h.fitchRating ?? null, h.compositeRating ?? null);
+
+    let fixedCouponPct: number | undefined;
+    if (isFixed) {
+      if (h.allInRate != null) {
+        fixedCouponPct = h.allInRate;
+      } else if (h.spreadBps != null) {
+        fixedCouponPct = h.spreadBps / 100;
+        warnings.push({ field: "fixedCouponPct", message: `Fixed-rate loan "${h.obligorName ?? "unknown"}" has no allInRate — using spreadBps (${h.spreadBps}) as coupon proxy (${fixedCouponPct}%).`, severity: "warn" });
+      } else {
+        fixedCouponPct = wacSpreadBps / 100;
+        warnings.push({ field: "fixedCouponPct", message: `Fixed-rate loan "${h.obligorName ?? "unknown"}" has no allInRate or spreadBps — falling back to WAC spread as coupon (${fixedCouponPct}%).`, severity: "warn" });
+      }
+    }
+
+    let ddtlSpreadBps: number | undefined;
+    if (isDdtl) {
+      const candidates = nonDdtlHoldings.filter(c => c.obligorName != null && c.obligorName === h.obligorName);
+      if (candidates.length > 1) {
+        warnings.push({ field: "ddtlSpreadBps", message: `DDTL "${h.obligorName ?? "unknown"}" matched ${candidates.length} parent facilities — using largest par with closest maturity as tiebreaker.`, severity: "warn" });
+      }
+      if (candidates.length > 0) {
+        const ddtlMaturity = h.maturityDate ?? fallbackMaturity;
+        const parent = [...candidates].sort((a, b) => {
+          const parDiff = (b.parBalance ?? 0) - (a.parBalance ?? 0);
+          if (parDiff !== 0) return parDiff;
+          const aDist = Math.abs(new Date(a.maturityDate ?? fallbackMaturity).getTime() - new Date(ddtlMaturity).getTime());
+          const bDist = Math.abs(new Date(b.maturityDate ?? fallbackMaturity).getTime() - new Date(ddtlMaturity).getTime());
+          return aDist - bDist;
+        })[0];
+        ddtlSpreadBps = parent.spreadBps ?? wacSpreadBps;
+      } else {
+        ddtlSpreadBps = wacSpreadBps;
+        warnings.push({ field: "ddtlSpreadBps", message: `DDTL "${h.obligorName ?? "unknown"}" has no matching parent facility — using WAC spread (${wacSpreadBps} bps).`, severity: "warn" });
+      }
+    }
+
+    return {
       parBalance: h.parBalance!,
       maturityDate: h.maturityDate ?? fallbackMaturity,
-      ratingBucket: mapToRatingBucket(h.moodysRating ?? null, h.spRating ?? null, h.fitchRating ?? null, h.compositeRating ?? null),
-      spreadBps: h.spreadBps ?? wacSpreadBps,
+      ratingBucket,
+      spreadBps: isFixed ? 0 : (isDdtl ? 0 : (h.spreadBps ?? wacSpreadBps)),
       obligorName: h.obligorName ?? undefined,
-    }));
+      isFixedRate: isFixed || undefined,
+      fixedCouponPct,
+      isDelayedDraw: isDdtl || undefined,
+      ddtlSpreadBps,
+    };
+  });
+
+  // --- Pre-existing Defaults ---
+  // Defaulted holdings are excluded from the loan list (no interest income).
+  // For each holding: use market price recovery if available, track unpriced par
+  // separately so the engine can apply its model recoveryPct to the remainder.
+  const defaultedHoldings = holdings.filter(h => h.isDefaulted && h.parBalance != null && h.parBalance > 0);
+  const preExistingDefaultedPar = defaultedHoldings.reduce((s, h) => s + h.parBalance!, 0);
+  let preExistingDefaultRecovery = 0; // market-price-based recovery for priced holdings
+  let unpricedDefaultedPar = 0; // par of holdings without market price (engine applies recoveryPct)
+  for (const h of defaultedHoldings) {
+    if (h.currentPrice != null && h.currentPrice > 0) {
+      // currentPrice in percentage format (e.g. 31.29 = 31.29% of par).
+      // Ambiguity: values in (0, 1) could be 0.5% or 50% — we treat as decimal (50%).
+      // True fix requires normalizing at the extraction layer based on source format.
+      preExistingDefaultRecovery += h.parBalance! * (h.currentPrice >= 1 ? h.currentPrice / 100 : h.currentPrice);
+    } else {
+      unpricedDefaultedPar += h.parBalance!;
+    }
+  }
+  // Agency recovery value for OC numerator — uses rating agency recovery rates when available.
+  // The trustee counts defaulted assets at the agency rate in the OC test (typically higher than market).
+  const preExistingDefaultOcValue = defaultedHoldings.reduce((s, h) => {
+    const agencyRate = h.recoveryRateMoodys ?? h.recoveryRateSp ?? null;
+    if (agencyRate != null && agencyRate > 0) {
+      // Agency rates in percentage format (e.g. 71.5 = 71.5%)
+      return s + h.parBalance! * (agencyRate >= 1 ? agencyRate / 100 : agencyRate);
+    }
+    // No agency rate — fall back to same as cash recovery (market price)
+    if (h.currentPrice != null && h.currentPrice > 0) {
+      return s + h.parBalance! * (h.currentPrice >= 1 ? h.currentPrice / 100 : h.currentPrice);
+    }
+    // No agency rate and no market price — return 0 so engine uses model recoveryPct
+    return s;
+  }, 0);
+
+  // --- Principal Account Cash ---
+  // Uninvested principal sitting in accounts (counts toward OC numerator).
+  // Sum all accounts with type PRINCIPAL or name containing "principal".
+  const principalAccountCash = (accountBalances ?? [])
+    .filter(a => a.balanceAmount != null && a.balanceAmount > 0 &&
+      (a.accountType === "PRINCIPAL" || (a.accountName ?? "").toLowerCase().includes("principal")))
+    .reduce((s, a) => s + a.balanceAmount!, 0);
+
+  // --- Implied OC Adjustment ---
+  // Residual between the trustee's Adjusted CPA and the components we can identify
+  // (principal balance + cash - defaulted haircut). This residual likely reflects unfunded
+  // revolver commitments but may also absorb other trustee adjustments we haven't modeled
+  // (trading gains/losses, discount haircuts, participation excess, rounding).
+  // Sanity-checked: if implausibly large (>5% of par — the typical PPM cap on
+  // Revolving/DD Obligations) or negative, discard and warn.
+  const totalPar = pool?.totalPar ?? 0;
+  const totalPrincipalBalance = pool?.totalPrincipalBalance ?? 0;
+  let impliedOcAdjustment = 0;
+  if (totalPar > 0 && totalPrincipalBalance > 0) {
+    const defaultedHaircut = preExistingDefaultedPar - preExistingDefaultOcValue;
+    const implied = totalPrincipalBalance + principalAccountCash - defaultedHaircut - totalPar;
+    if (implied < 0) {
+      warnings.push({ field: "impliedOcAdjustment", message: `Adjusted CPA reconciliation has negative residual (${Math.round(implied).toLocaleString()}). Unmodeled trustee adjustments may be inflating the Adjusted CPA. OC adjustment set to 0.`, severity: "info" });
+    } else if (implied > totalPar * 0.05) {
+      warnings.push({ field: "impliedOcAdjustment", message: `Derived OC adjustment (${Math.round(implied).toLocaleString()}) is >5% of par — likely includes adjustments beyond unfunded revolvers. Capping at 0.`, severity: "warn" });
+    } else {
+      impliedOcAdjustment = implied;
+    }
+  }
+
+  const ddtlUnfundedPar = loans
+    .filter(l => l.isDelayedDraw)
+    .reduce((s, l) => s + l.parBalance, 0);
+  if (ddtlUnfundedPar > 0 && impliedOcAdjustment > 0) {
+    impliedOcAdjustment = Math.max(0, impliedOcAdjustment - ddtlUnfundedPar);
+  }
 
   // --- Base Rate Floor ---
   // Extracted from interest mechanics section. null = not extracted (use default from CLO_DEFAULTS).
@@ -522,7 +688,7 @@ export function resolveWaterfallInputs(
   }
 
   return {
-    resolved: { tranches, poolSummary, ocTriggers, icTriggers, reinvestmentOcTrigger, dates, fees, loans, deferredInterestCompounds, baseRateFloorPct },
+    resolved: { tranches, poolSummary, ocTriggers, icTriggers, reinvestmentOcTrigger, dates, fees, loans, principalAccountCash, preExistingDefaultedPar, preExistingDefaultRecovery, unpricedDefaultedPar, preExistingDefaultOcValue, impliedOcAdjustment, ddtlUnfundedPar, deferredInterestCompounds, baseRateFloorPct },
     warnings,
   };
 }
