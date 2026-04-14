@@ -342,7 +342,9 @@ export function normalizeSectionResults(
   const ict = sections.interest_coverage_tests;
   if (ict) {
     const tests = ict.tests as Array<Record<string, unknown>> | undefined;
-    if (tests) allTests.push(...tests);
+    // Force testType = "IC" on all tests from the interest_coverage_tests section.
+    // The LLM or table parser may misclassify them with OC-style names/types.
+    if (tests) allTests.push(...tests.map(t => ({ ...t, testType: "IC" })));
   }
 
   if (allTests.length > 0) {
