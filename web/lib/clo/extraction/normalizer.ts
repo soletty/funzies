@@ -342,9 +342,14 @@ export function normalizeSectionResults(
   const ict = sections.interest_coverage_tests;
   if (ict) {
     const tests = ict.tests as Array<Record<string, unknown>> | undefined;
-    // Force testType = "IC" on all tests from the interest_coverage_tests section.
-    // The LLM or table parser may misclassify them with OC-style names/types.
-    if (tests) allTests.push(...tests.map(t => ({ ...t, testType: "IC" })));
+    // Tag tests from the interest_coverage_tests section as IC only if their name
+    // actually indicates an IC test. The section may contain OC test duplicates
+    // (when the document mapper assigns OC pages to the IC section).
+    if (tests) allTests.push(...tests.map(t => {
+      const name = ((t.testName ?? "") as string).toLowerCase();
+      const isIc = name.includes("interest coverage") || name.includes("ic ratio") || (name.includes("ic") && !name.includes("oc"));
+      return { ...t, testType: isIc ? "IC" : (t.testType ?? "IC") };
+    }));
   }
 
   if (allTests.length > 0) {
