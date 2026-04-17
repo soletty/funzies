@@ -47,6 +47,7 @@ export function rowToProfile(row: Record<string, unknown>): CloProfile {
     documents: (row.documents as CloProfile["documents"]) || [],
     extractedConstraints: (row.extracted_constraints as CloProfile["extractedConstraints"]) || {},
     extractedPortfolio: (row.extracted_portfolio as CloProfile["extractedPortfolio"]) || null,
+    equityInceptionData: (row.equity_inception_data as CloProfile["equityInceptionData"]) || null,
     createdAt: (row.created_at as string) || "",
     updatedAt: (row.updated_at as string) || "",
   };
@@ -73,13 +74,14 @@ export async function getProfileForUser(userId: string) {
     raw_questionnaire: Record<string, unknown>;
     extracted_constraints: Record<string, unknown>;
     extracted_portfolio: unknown;
+    equity_inception_data: unknown;
     created_at: string;
     updated_at: string;
   }>(
     `SELECT id, user_id, fund_strategy, target_sectors, risk_appetite, portfolio_size,
             reinvestment_period, concentration_limits, covenant_preferences, rating_thresholds,
             spread_targets, regulatory_constraints, portfolio_description, beliefs_and_biases,
-            raw_questionnaire, extracted_constraints, extracted_portfolio, created_at, updated_at
+            raw_questionnaire, extracted_constraints, extracted_portfolio, equity_inception_data, created_at, updated_at
      FROM clo_profiles WHERE user_id = $1`,
     [userId]
   );

@@ -479,6 +479,17 @@ export interface CloSupplementaryData {
   }>;
 }
 
+export interface EquityPastPayment {
+  date: string;
+  distribution: number | null;
+}
+
+export interface EquityInceptionData {
+  purchaseDate: string | null;
+  purchasePriceCents: number | null;
+  payments: EquityPastPayment[];
+}
+
 export interface CloProfile {
   id: string;
   userId: string;
@@ -498,6 +509,7 @@ export interface CloProfile {
   documents: CloDocument[];
   extractedConstraints: ExtractedConstraints;
   extractedPortfolio: ExtractedPortfolio | null;
+  equityInceptionData: EquityInceptionData | null;
   createdAt: string;
   updatedAt: string;
 }
