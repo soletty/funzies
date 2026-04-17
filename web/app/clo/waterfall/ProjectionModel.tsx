@@ -116,6 +116,7 @@ export default function ProjectionModel({
   const [ddtlDrawAssumption, setDdtlDrawAssumption] = useState<'draw_at_deadline' | 'never_draw' | 'custom_quarter'>('draw_at_deadline');
   const [ddtlDrawQuarter, setDdtlDrawQuarter] = useState<number>(CLO_DEFAULTS.ddtlDrawQuarter);
   const [ddtlDrawPercent, setDdtlDrawPercent] = useState<number>(CLO_DEFAULTS.ddtlDrawPercent);
+  const [equityEntryPriceCents, setEquityEntryPriceCents] = useState<number | null>(null); // null = use book value
   const [showTransparency, setShowTransparency] = useState(false);
   const [expandedPeriod, setExpandedPeriod] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<"projection" | "switch">(urlTab === "switch" ? "switch" : "projection");
@@ -174,10 +175,30 @@ export default function ProjectionModel({
     };
   }, [resolved?.loans]);
 
+  // Equity position metrics
+  const equityMetrics = useMemo(() => {
+    if (!resolved) return null;
+    const subTranche = resolved.tranches.find(t => t.isIncomeNote);
+    const subPar = subTranche?.originalBalance ?? subTranche?.currentBalance ?? 0;
+    const totalLoans = resolved.loans.filter(l => !l.isDelayedDraw).reduce((s, l) => s + l.parBalance, 0);
+    const debt = resolved.tranches.filter(t => !t.isIncomeNote).reduce((s, t) => s + t.currentBalance, 0);
+    const bookValue = Math.max(0, totalLoans + resolved.principalAccountCash - debt);
+    const bookValueCents = subPar > 0 ? (bookValue / subPar) * 100 : 0;
+    return { subPar, bookValue, bookValueCents };
+  }, [resolved]);
+
+  const equityEntryPrice = useMemo(() => {
+    if (!equityMetrics) return undefined;
+    if (equityEntryPriceCents != null) {
+      return equityMetrics.subPar * equityEntryPriceCents / 100;
+    }
+    return undefined; // use engine default (book value)
+  }, [equityEntryPriceCents, equityMetrics]);
+
   const inputs: ProjectionInputs = useMemo(
     () => {
       const resolvedData = resolved ?? EMPTY_RESOLVED;
-      return buildFromResolved(resolvedData, {
+      const base = buildFromResolved(resolvedData, {
         baseRatePct,
         baseRateFloorPct,
         defaultRates: defaultRates,
@@ -203,13 +224,15 @@ export default function ProjectionModel({
         ddtlDrawQuarter,
         ddtlDrawPercent,
       });
+      if (equityEntryPrice != null) base.equityEntryPrice = equityEntryPrice;
+      return base;
     },
     [
       resolved, baseRatePct, baseRateFloorPct, defaultRates, cprPct, recoveryPct, recoveryLagMonths,
       reinvestmentSpreadBps, reinvestmentTenorYears, reinvestmentRating, cccBucketLimitPct, cccMarketValuePct,
       resolved?.deferredInterestCompounds,
       seniorFeePct, subFeePct, trusteeFeeBps, hedgeCostBps, incentiveFeePct, incentiveFeeHurdleIrr, postRpReinvestmentPct,
-      callDate, callPricePct, ddtlDrawAssumption, ddtlDrawQuarter, ddtlDrawPercent,
+      callDate, callPricePct, ddtlDrawAssumption, ddtlDrawQuarter, ddtlDrawPercent, equityEntryPrice,
     ]
   );
 
@@ -479,6 +502,43 @@ export default function ProjectionModel({
         </div>
       )}
 
+      {/* Equity Entry Price */}
+      {equityMetrics && equityMetrics.subPar > 0 && (
+        <div style={{ marginTop: "1rem", padding: "0.75rem 1rem", border: "1px solid var(--color-border-light)", borderRadius: "var(--radius-sm)", background: "var(--color-surface)", fontSize: "0.75rem" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap" }}>
+            <div style={{ color: "var(--color-text-muted)", lineHeight: 1.5 }}>
+              <span style={{ fontWeight: 600 }}>Equity par:</span> {"\u20AC"}{(equityMetrics.subPar / 1e6).toFixed(1)}M
+              {" \u00B7 "}
+              <span style={{ fontWeight: 600 }}>Book value:</span> {"\u20AC"}{(equityMetrics.bookValue / 1e6).toFixed(1)}M ({equityMetrics.bookValueCents.toFixed(1)} cents)
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <label style={{ fontSize: "0.72rem", color: "var(--color-text-muted)", fontWeight: 500, whiteSpace: "nowrap" }}>Entry price:</label>
+              <input
+                type="number"
+                step="0.5"
+                min="1"
+                max="150"
+                value={equityEntryPriceCents ?? equityMetrics.bookValueCents.toFixed(1)}
+                onChange={(e) => {
+                  const v = parseFloat(e.target.value);
+                  setEquityEntryPriceCents(isNaN(v) ? null : v);
+                }}
+                style={{ width: "60px", fontSize: "0.78rem", fontFamily: "var(--font-mono)", padding: "0.2rem 0.4rem", border: "1px solid var(--color-border-light)", borderRadius: "var(--radius-sm)", background: "var(--color-surface)", color: "var(--color-text)", textAlign: "right" }}
+              />
+              <span style={{ fontSize: "0.72rem", color: "var(--color-text-muted)" }}>cents</span>
+              {equityEntryPriceCents != null && (
+                <button
+                  onClick={() => setEquityEntryPriceCents(null)}
+                  style={{ fontSize: "0.65rem", padding: "0.15rem 0.4rem", border: "1px solid var(--color-border-light)", borderRadius: "var(--radius-sm)", background: "var(--color-surface)", color: "var(--color-text-muted)", cursor: "pointer" }}
+                >
+                  Reset
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Results */}
       {result && (
         <div style={{ marginTop: "1.5rem" }}>
@@ -514,7 +574,7 @@ export default function ProjectionModel({
                 }}
               />
               <div style={{ fontSize: "0.7rem", fontWeight: 500, color: "rgba(255,255,255,0.7)", marginBottom: "0.35rem", textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                Projected Forward IRR <span style={{ fontSize: "0.55rem", fontWeight: 400, letterSpacing: "0.02em", opacity: 0.7 }}>(from current date)</span>
+                Projected Forward IRR <span style={{ fontSize: "0.55rem", fontWeight: 400, letterSpacing: "0.02em", opacity: 0.7 }}>({equityEntryPriceCents != null ? `at ${equityEntryPriceCents} cents` : "at book value"})</span>
               </div>
               <div
                 style={{

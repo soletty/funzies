@@ -70,6 +70,7 @@ export interface ProjectionInputs {
   impliedOcAdjustment?: number; // derived residual between trustee's Adjusted CPA and identified components
   quartersSinceReport?: number; // quarters between compliance report and projection start (adjusts default recovery timing)
   ddtlDrawPercent?: number; // % of DDTL par actually funded on draw (default 100)
+  equityEntryPrice?: number; // user-specified entry price for equity IRR (overrides balance-sheet implied value)
 }
 
 export interface PeriodResult {
@@ -283,10 +284,12 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
   let totalEquityDistributions = 0;
 
   const totalDebtOutstanding = debtTranches.reduce((s, t) => s + t.currentBalance, 0);
-  // Equity investment = total assets - total debt. Assets = loan principal + uninvested cash.
-  // In aggregate mode (no loans), initialPar is the best estimate of total collateral value.
+  // Equity investment: user-specified entry price if provided, otherwise balance-sheet implied value.
   const totalAssets = hasLoans ? loanTotal + initialPrincipalCash : initialPar;
-  const equityInvestment = Math.max(0, totalAssets - totalDebtOutstanding);
+  const bookValue = Math.max(0, totalAssets - totalDebtOutstanding);
+  const equityInvestment = inputs.equityEntryPrice != null && inputs.equityEntryPrice > 0
+    ? inputs.equityEntryPrice
+    : bookValue;
   equityCashFlows.push(-equityInvestment);
 
   for (const t of sortedTranches) {
