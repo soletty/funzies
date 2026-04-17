@@ -1326,9 +1326,11 @@ export default function ContextEditor({
                         placeholder="--"
                         onChange={(e) => {
                           const v = parseFloat(e.target.value);
-                          const updated = [...inceptionData.payments];
-                          updated[i] = { ...updated[i], distribution: isNaN(v) ? null : v };
-                          setInceptionData(prev => ({ ...prev, payments: updated }));
+                          setInceptionData(prev => {
+                            const updated = [...prev.payments];
+                            updated[i] = { ...updated[i], distribution: isNaN(v) ? null : v };
+                            return { ...prev, payments: updated };
+                          });
                           setInceptionDirty(true);
                         }}
                         style={{ width: "120px", fontSize: "0.82rem", fontFamily: "var(--font-mono)", padding: "0.2rem 0.4rem", border: "1px solid var(--color-border-light)", borderRadius: "var(--radius-sm)", background: "var(--color-surface)", color: "var(--color-text)", textAlign: "right" }}
