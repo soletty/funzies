@@ -500,7 +500,21 @@ export function resolveWaterfallInputs(
   );
 
   // --- Dates ---
-  const currentDate = new Date().toISOString().slice(0, 10);
+  // Snap currentDate to the most recent payment date so projection periods
+  // align with the deal's actual payment schedule (e.g. 15th of Jan/Apr/Jul/Oct).
+  const today = new Date().toISOString().slice(0, 10);
+  const firstPayment = constraints.keyDates?.firstPaymentDate ?? null;
+  let currentDate = today;
+  if (firstPayment) {
+    const fp = new Date(firstPayment);
+    const now = new Date(today);
+    // Walk forward from firstPaymentDate in 3-month steps to find the most recent payment date
+    const cursor = new Date(fp);
+    while (cursor <= now) {
+      currentDate = cursor.toISOString().slice(0, 10);
+      cursor.setUTCMonth(cursor.getUTCMonth() + 3);
+    }
+  }
   const maturity = dealDates?.maturity ?? constraints.keyDates?.maturityDate ?? null;
   // Dynamic fallback: currentDate + defaultMaxTenorYears (instead of hardcoded date)
   let resolvedMaturity = maturity;
