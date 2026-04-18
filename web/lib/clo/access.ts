@@ -745,3 +745,19 @@ export async function getTrancheSnapshots(reportPeriodId: string): Promise<CloTr
   );
   return rows.map(rowToTrancheSnapshot);
 }
+
+export async function getHistoricalSubNoteDistributions(dealId: string): Promise<{ date: string; distribution: number }[]> {
+  const rows = await query<{ payment_date: string; interest_paid: string }>(
+    `SELECT rp.payment_date, ts.interest_paid
+     FROM clo_tranche_snapshots ts
+     JOIN clo_report_periods rp ON rp.id = ts.report_period_id
+     JOIN clo_tranches t ON t.id = ts.tranche_id
+     WHERE rp.deal_id = $1
+       AND t.is_income_note = true
+       AND ts.interest_paid IS NOT NULL
+       AND rp.payment_date IS NOT NULL
+     ORDER BY rp.payment_date ASC`,
+    [dealId]
+  );
+  return rows.map(r => ({ date: r.payment_date, distribution: Number(r.interest_paid) }));
+}

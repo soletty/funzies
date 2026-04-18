@@ -10,6 +10,7 @@ import {
   getAccountBalances,
   getParValueAdjustments,
   getHoldings,
+  getHistoricalSubNoteDistributions,
   rowToProfile,
 } from "@/lib/clo/access";
 import type { ExtractedConstraints, CloDocument } from "@/lib/clo/types";
@@ -50,13 +51,14 @@ export default async function ContextPage() {
   const deal = await getDealForProfile(profile.id);
   const reportPeriod = deal ? await getLatestReportPeriod(deal.id) : null;
 
-  const [tranches, trancheSnapshots, holdings, periodData, accountBalances, parValueAdjustments] = await Promise.all([
+  const [tranches, trancheSnapshots, holdings, periodData, accountBalances, parValueAdjustments, extractedDistributions] = await Promise.all([
     deal ? getTranches(deal.id) : Promise.resolve([]),
     reportPeriod ? getTrancheSnapshots(reportPeriod.id) : Promise.resolve([]),
     reportPeriod ? getHoldings(reportPeriod.id) : Promise.resolve([]),
     reportPeriod ? getReportPeriodData(reportPeriod.id) : Promise.resolve(null),
     reportPeriod ? getAccountBalances(reportPeriod.id) : Promise.resolve([]),
     reportPeriod ? getParValueAdjustments(reportPeriod.id) : Promise.resolve([]),
+    deal ? getHistoricalSubNoteDistributions(deal.id) : Promise.resolve([]),
   ]);
 
   if (reportPeriod && periodData) {
@@ -130,6 +132,7 @@ export default async function ContextPage() {
         parValueAdjustments={parValueAdjustments}
         dealDates={{ maturity: maturityDate, reinvestmentPeriodEnd, reportDate: reportPeriod?.reportDate ?? null }}
         equityInceptionData={profile.equityInceptionData}
+        extractedDistributions={extractedDistributions}
       />
     </div>
   );

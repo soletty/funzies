@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import {
   InlineText,
   InlineNumber,
@@ -70,6 +70,7 @@ interface ContextEditorProps {
   parValueAdjustments?: CloParValueAdjustment[];
   dealDates?: { maturity?: string | null; reinvestmentPeriodEnd?: string | null; reportDate?: string | null };
   equityInceptionData?: EquityInceptionData | null;
+  extractedDistributions?: { date: string; distribution: number }[];
 }
 
 // ---------------------------------------------------------------------------
@@ -243,19 +244,6 @@ function humanize(key: string): string {
 // Main component
 // ---------------------------------------------------------------------------
 
-function generateQuarterlyDates(fromDate: string): string[] {
-  const dates: string[] = [];
-  const start = new Date(fromDate);
-  const now = new Date();
-  const cursor = new Date(start);
-  cursor.setMonth(cursor.getMonth() + 3);
-  while (cursor <= now) {
-    dates.push(cursor.toISOString().slice(0, 10));
-    cursor.setMonth(cursor.getMonth() + 3);
-  }
-  return dates;
-}
-
 export default function ContextEditor({
   constraints: initialConstraints,
   fundProfile: initialProfile,
@@ -267,6 +255,7 @@ export default function ContextEditor({
   parValueAdjustments,
   dealDates,
   equityInceptionData: initialInceptionData,
+  extractedDistributions,
 }: ContextEditorProps) {
   const [constraints, setConstraints] = useState<ExtractedConstraints>(initialConstraints);
   const [fundProfile, setFundProfile] = useState(initialProfile);
@@ -303,24 +292,6 @@ export default function ContextEditor({
   );
   const [inceptionDirty, setInceptionDirty] = useState(false);
   const [savingInception, setSavingInception] = useState(false);
-
-  const inceptionInitialized = useRef(false);
-  useEffect(() => {
-    if (!inceptionData.purchaseDate) return;
-    const dates = generateQuarterlyDates(inceptionData.purchaseDate);
-    setInceptionData(prev => {
-      const existingByDate = new Map(prev.payments.map(p => [p.date, p.distribution]));
-      const newPayments = dates.map(date => ({
-        date,
-        distribution: existingByDate.get(date) ?? null,
-      }));
-      return { ...prev, payments: newPayments };
-    });
-    if (inceptionInitialized.current) {
-      setInceptionDirty(true);
-    }
-    inceptionInitialized.current = true;
-  }, [inceptionData.purchaseDate]);
 
   // --- Update helpers ---
 
@@ -1303,55 +1274,98 @@ export default function ContextEditor({
           </div>
         </div>
 
-        {inceptionData.payments.length > 0 && (
-          <>
-            <div style={{ fontSize: "0.78rem", color: "var(--color-text-muted)", fontWeight: 600, margin: "0.8rem 0 0.4rem" }}>
-              Past Payments ({inceptionData.payments.filter(p => p.distribution != null).length}/{inceptionData.payments.length} entered)
-            </div>
-            <table style={tableStyle}>
-              <thead>
-                <tr>
-                  <th style={thStyle}>Payment Date</th>
-                  <th style={thStyle}>Distribution</th>
-                </tr>
-              </thead>
-              <tbody>
-                {inceptionData.payments.map((payment, i) => (
-                  <tr key={payment.date}>
-                    <td style={tdStyle}>
-                      <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.8rem" }}>{payment.date}</span>
-                    </td>
-                    <td style={tdStyle}>
-                      <input
-                        type="number"
-                        step="1000"
-                        min="0"
-                        value={payment.distribution ?? ""}
-                        placeholder="--"
-                        onChange={(e) => {
-                          const v = parseFloat(e.target.value);
-                          setInceptionData(prev => {
-                            const updated = [...prev.payments];
-                            updated[i] = { ...updated[i], distribution: isNaN(v) ? null : v };
-                            return { ...prev, payments: updated };
-                          });
-                          setInceptionDirty(true);
-                        }}
-                        style={{ width: "120px", fontSize: "0.82rem", fontFamily: "var(--font-mono)", padding: "0.2rem 0.4rem", border: "1px solid var(--color-border-light)", borderRadius: "var(--radius-sm)", background: "var(--color-surface)", color: "var(--color-text)", textAlign: "right" }}
-                      />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </>
-        )}
-
-        {!inceptionData.purchaseDate && (
-          <div style={{ fontSize: "0.78rem", color: "var(--color-text-muted)", fontStyle: "italic", marginTop: "0.5rem" }}>
-            Set a purchase date to generate quarterly payment rows.
-          </div>
-        )}
+        <div style={{ fontSize: "0.78rem", color: "var(--color-text-muted)", fontWeight: 600, margin: "0.8rem 0 0.4rem" }}>
+          Past Payments {inceptionData.payments.length > 0 && `(${inceptionData.payments.filter(p => p.distribution != null).length}/${inceptionData.payments.length} entered)`}
+        </div>
+        <table style={tableStyle}>
+          <thead>
+            <tr>
+              <th style={thStyle}>Payment Date</th>
+              <th style={thStyle}>Distribution</th>
+              <th style={{ ...thStyle, width: "2rem" }} />
+            </tr>
+          </thead>
+          <tbody>
+            {inceptionData.payments.map((payment, i) => (
+              <tr key={i}>
+                <td style={tdStyle}>
+                  <input
+                    type="date"
+                    value={payment.date}
+                    onChange={(e) => {
+                      setInceptionData(prev => {
+                        const updated = [...prev.payments];
+                        updated[i] = { ...updated[i], date: e.target.value };
+                        return { ...prev, payments: updated };
+                      });
+                      setInceptionDirty(true);
+                    }}
+                    style={{ fontSize: "0.82rem", fontFamily: "var(--font-mono)", padding: "0.2rem 0.4rem", border: "1px solid var(--color-border-light)", borderRadius: "var(--radius-sm)", background: "var(--color-surface)", color: "var(--color-text)" }}
+                  />
+                </td>
+                <td style={tdStyle}>
+                  <input
+                    type="number"
+                    step="1000"
+                    min="0"
+                    value={payment.distribution ?? ""}
+                    placeholder="--"
+                    onChange={(e) => {
+                      const v = parseFloat(e.target.value);
+                      setInceptionData(prev => {
+                        const updated = [...prev.payments];
+                        updated[i] = { ...updated[i], distribution: isNaN(v) ? null : v };
+                        return { ...prev, payments: updated };
+                      });
+                      setInceptionDirty(true);
+                    }}
+                    style={{ width: "120px", fontSize: "0.82rem", fontFamily: "var(--font-mono)", padding: "0.2rem 0.4rem", border: "1px solid var(--color-border-light)", borderRadius: "var(--radius-sm)", background: "var(--color-surface)", color: "var(--color-text)", textAlign: "right" }}
+                  />
+                </td>
+                <td style={tdStyle}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setInceptionData(prev => ({
+                        ...prev,
+                        payments: prev.payments.filter((_, j) => j !== i),
+                      }));
+                      setInceptionDirty(true);
+                    }}
+                    style={removeBtnStyle}
+                    title="Remove"
+                  >&times;</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+          <button
+            type="button"
+            onClick={() => {
+              setInceptionData(prev => ({
+                ...prev,
+                payments: [...prev.payments, { date: "", distribution: null }],
+              }));
+              setInceptionDirty(true);
+            }}
+            style={addBtnStyle}
+          >+ Add payment</button>
+          {extractedDistributions && extractedDistributions.length > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                setInceptionData(prev => ({
+                  ...prev,
+                  payments: extractedDistributions.map(d => ({ date: d.date, distribution: d.distribution })),
+                }));
+                setInceptionDirty(true);
+              }}
+              style={{ ...addBtnStyle, fontSize: "0.75rem" }}
+            >Pre-fill from reports ({extractedDistributions.length})</button>
+          )}
+        </div>
       </CollapsibleSection>
 
       {inceptionDirty && (
