@@ -97,12 +97,38 @@ export async function ingestSdfFiles(
     }
   }
 
-  // Resolve report period
-  const reportPeriodId = await resolveReportPeriod(
-    dealId,
-    asOfDate,
-    periodBeginDate
-  );
+  // If no file provided asOfDate, fall back to most recent existing period or error
+  let reportPeriodId: string;
+  if (!asOfDate) {
+    const latest = await query<{ id: string; report_date: string }>(
+      `SELECT id, report_date FROM clo_report_periods WHERE deal_id = $1 ORDER BY report_date DESC LIMIT 1`,
+      [dealId]
+    );
+    if (latest.length > 0) {
+      console.warn(`No SDF file provided As_Of_Date — using most recent period: ${latest[0].report_date}`);
+      reportPeriodId = latest[0].id;
+      asOfDate = latest[0].report_date;
+    } else {
+      return {
+        reportPeriodId: "",
+        asOfDate: "",
+        results: files.map((f) => ({
+          fileType: f.fileType,
+          rowCount: 0,
+          status: "error" as const,
+          error: "No file provided a report date and no existing period found. Include Test Results or upload a compliance PDF first.",
+        })),
+        skipped: [],
+      };
+    }
+  } else {
+    // Resolve report period normally
+    reportPeriodId = await resolveReportPeriod(
+      dealId,
+      asOfDate,
+      periodBeginDate
+    );
+  }
 
   // Process files in defined order
   const results: SdfIngestionResult["results"] = [];
@@ -164,10 +190,8 @@ async function resolveReportPeriod(
   periodBeginDate: string | null
 ): Promise<string> {
   if (!asOfDate) {
-    // No date available — create a new period with today's date as fallback
-    const today = new Date().toISOString().slice(0, 10);
-    console.warn("SDF ingest: no asOfDate found in files, using today:", today);
-    return createReportPeriod(dealId, today, periodBeginDate);
+    // Caller should handle null asOfDate before calling this function
+    throw new Error("resolveReportPeriod called without asOfDate");
   }
 
   // Exact match
