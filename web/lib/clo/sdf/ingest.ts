@@ -239,11 +239,11 @@ async function resolveReportPeriod(
   );
   if (exact.length > 0) return exact[0].id;
 
-  // Window fallback: ±15 days
+  // Window fallback: ±7 days
   const window = await query<{ id: string; report_date: string }>(
     `SELECT id, report_date FROM clo_report_periods
      WHERE deal_id = $1
-       AND report_date::date BETWEEN ($2::date - INTERVAL '15 days') AND ($2::date + INTERVAL '15 days')
+       AND report_date::date BETWEEN ($2::date - INTERVAL '7 days') AND ($2::date + INTERVAL '7 days')
      ORDER BY ABS(report_date::date - $2::date)
      LIMIT 5`,
     [dealId, asOfDate]
