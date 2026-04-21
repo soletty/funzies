@@ -69,8 +69,15 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const result = await ingestSdfFiles(dealId, detectedFiles);
-  result.skipped.push(...skipped);
-
-  return NextResponse.json(result);
+  try {
+    const result = await ingestSdfFiles(dealId, detectedFiles);
+    result.skipped.push(...skipped);
+    return NextResponse.json(result);
+  } catch (err) {
+    console.error("SDF ingestion failed:", err);
+    return NextResponse.json(
+      { error: "Ingestion failed", detail: err instanceof Error ? err.message : String(err), skipped },
+      { status: 500 }
+    );
+  }
 }
