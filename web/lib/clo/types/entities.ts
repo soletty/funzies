@@ -92,6 +92,11 @@ export interface CloTranche {
   ratingDbrs: string | null;
   isSubordinate: boolean | null;
   isIncomeNote: boolean | null;
+  trancheType: string | null;
+  liabPrin: string | null;
+  legalMaturityDate: string | null;
+  amountNative: number | null;
+  vendorCustomFields: Record<string, unknown> | null;
 }
 
 export interface CloTrancheSnapshot {
@@ -112,6 +117,15 @@ export interface CloTrancheSnapshot {
   cumulativeShortfall: number | null;
   principalPaid: number | null;
   daysAccrued: number | null;
+  ratingMoodysIssuance: string | null;
+  ratingSpIssuance: string | null;
+  ratingFitchIssuance: string | null;
+  icInterest: number | null;
+  accrualStartDate: string | null;
+  accrualEndDate: string | null;
+  baseRate: number | null;
+  unscheduledPrincipalPaydown: number | null;
+  dataSource: string | null;
 }
 
 export interface CloHolding {
@@ -163,6 +177,103 @@ export interface CloHolding {
   remainingLifeYears: number | null;
   warfContribution: number | null;
   diversityScoreGroup: string | null;
+
+  // Purchase/price detail
+  premiumDiscountAmount: number | null;
+  discountAmount: number | null;
+  premiumAmount: number | null;
+  grossPurchasePrice: number | null;
+
+  // Balances
+  unfundedCommitment: number | null;
+  nativeCurrencyBalance: number | null;
+  nativeCurrency: string | null;
+
+  // Dates
+  issueDate: string | null;
+  nextPaymentDate: string | null;
+  defaultDate: string | null;
+  defaultReason: string | null;
+  accrualBeginDate: string | null;
+  accrualEndDate: string | null;
+  callDate: string | null;
+  putDate: string | null;
+
+  // Issuer-level ratings
+  moodysIssuerRating: string | null;
+  moodysIssuerSrUnsecRating: string | null;
+  spIssuerRating: string | null;
+  fitchIssuerRating: string | null;
+
+  // Security-level ratings
+  moodysSecurityRating: string | null;
+  spSecurityRating: string | null;
+  fitchSecurityRating: string | null;
+
+  // Derived ratings
+  moodysRatingFinal: string | null;
+  spRatingFinal: string | null;
+  fitchRatingFinal: string | null;
+  moodysDpRating: string | null;
+  moodysRatingUnadjusted: string | null;
+
+  // Credit watch
+  moodysIssuerWatch: string | null;
+  moodysSecurityWatch: string | null;
+  spIssuerWatch: string | null;
+  spSecurityWatch: string | null;
+
+  // Seniority
+  securityLevelMoodys: string | null;
+  securityLevelSp: string | null;
+  securityLevel: string | null;
+  lienType: string | null;
+  spPriorityCategory: string | null;
+
+  // Industry codes
+  spIndustryCode: string | null;
+  moodysIndustryCode: string | null;
+  fitchIndustryCode: string | null;
+
+  // KBRA
+  kbraRating: string | null;
+  kbraRecoveryRate: number | null;
+  kbraIndustry: string | null;
+
+  // Structural
+  pikAmount: number | null;
+  creditSpreadAdj: number | null;
+  affiliateId: string | null;
+  guarantor: string | null;
+  isSovereign: boolean | null;
+  isEnhancedBond: boolean | null;
+  isCurrentPay: boolean | null;
+  isInterestOnly: boolean | null;
+  isPrincipalOnly: boolean | null;
+  accretionFactor: number | null;
+  capitalizationPct: number | null;
+  aggregateAmortizedCost: number | null;
+  averageLife: number | null;
+  dayCountConvention: string | null;
+  paymentPeriod: string | null;
+
+  // Identifiers
+  cusip: string | null;
+  facilityCode: string | null;
+  facilityId: string | null;
+  figi: string | null;
+  countryCode: string | null;
+
+  // Servicer
+  servicer: string | null;
+  servicerMoodysRating: string | null;
+  servicerSpRating: string | null;
+
+  // Default tracking
+  dealDefaultedBegin: string | null;
+
+  // Provenance
+  dataSource: string | null;
 }
 
 export interface CloPoolSummary {
@@ -230,6 +341,9 @@ export interface CloComplianceTest {
   testMethodology: string | null;
   adjustmentDescription: string | null;
   isActive: boolean;
+  dataSource: string | null;
+  testDate: string | null;
+  vendorId: string | null;
 }
 
 export type ConcentrationType =
@@ -282,6 +396,8 @@ export interface CloAccountBalance {
   balanceAmount: number | null;
   requiredBalance: number | null;
   excessDeficit: number | null;
+  accountInterest: number | null;
+  dataSource: string | null;
 }
 
 export type ProceedsType = "INTEREST" | "PRINCIPAL" | "SALE" | "RECOVERY" | "FEE_REBATE" | "HEDGE" | "OTHER";
@@ -318,6 +434,16 @@ export interface CloTrade {
   isCreditRiskSale: boolean | null;
   isCreditImproved: boolean | null;
   isDiscretionary: boolean | null;
+  cashFlowType: string | null;
+  bookDate: string | null;
+  transactionCode: string | null;
+  description: string | null;
+  saleReason: string | null;
+  trustAccount: string | null;
+  figi: string | null;
+  nativeAmount: number | null;
+  nativeCurrency: string | null;
+  dataSource: string | null;
 }
 
 export interface CloTradingSummary {
@@ -477,6 +603,31 @@ export interface CloSupplementaryData {
     columns?: string[];
     cellValues?: Record<string, unknown>;
   }>;
+}
+
+export interface CloAccrual {
+  id: string;
+  reportPeriodId: string;
+  issuerName: string | null;
+  securityName: string | null;
+  figi: string | null;
+  loanxId: string | null;
+  securityId: string | null;
+  accrualRollupId: string | null;
+  accrualBeginDate: string | null;
+  accrualEndDate: string | null;
+  dayCount: string | null;
+  couponType: string | null;
+  paymentFrequency: string | null;
+  parAmount: number | null;
+  rateIndex: string | null;
+  hasFloor: boolean | null;
+  floorRate: number | null;
+  taxRate: number | null;
+  allInRate: number | null;
+  spread: number | null;
+  adjustedSpread: number | null;
+  annualInterest: number | null;
 }
 
 export interface EquityPastPayment {
