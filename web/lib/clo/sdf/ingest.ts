@@ -134,9 +134,13 @@ export async function ingestSdfFiles(
   const results: SdfIngestionResult["results"] = [];
   const skipped: SdfIngestionResult["skipped"] = [];
   const uploadedTypes = new Set(files.map((f) => f.fileType));
+  const handledAssetLevel = uploadedTypes.has("collateral_file") && uploadedTypes.has("asset_level");
 
   for (const fileType of PROCESSING_ORDER) {
     if (!uploadedTypes.has(fileType)) continue;
+
+    // Skip asset_level if it was handled jointly with collateral_file
+    if (fileType === "asset_level" && handledAssetLevel) continue;
 
     if (PHASE2_STUBS.has(fileType)) {
       results.push({ fileType, rowCount: 0, status: "skipped" });
@@ -145,6 +149,39 @@ export async function ingestSdfFiles(
 
     const entry = parsed.get(fileType);
     if (!entry) continue;
+
+    // When both collateral_file and asset_level are in the batch, run them in a single transaction
+    if (fileType === "collateral_file" && handledAssetLevel) {
+      const assetEntry = parsed.get("asset_level");
+      const client = await getClient();
+      try {
+        await client.query("BEGIN");
+        const collateralCount = await processCollateral(reportPeriodId, entry.parsed as SdfParseResult<SdfCollateralRow>, client);
+        results.push({
+          fileType: "collateral_file",
+          rowCount: collateralCount,
+          status: collateralCount > 0 ? "success" : "empty",
+        });
+        if (assetEntry) {
+          const assetCount = await processAssetLevel(reportPeriodId, assetEntry.parsed as SdfParseResult<SdfAssetLevelRow>, client);
+          results.push({
+            fileType: "asset_level",
+            rowCount: assetCount,
+            status: assetCount > 0 ? "success" : "empty",
+          });
+        }
+        await client.query("COMMIT");
+      } catch (err) {
+        await client.query("ROLLBACK");
+        const message = err instanceof Error ? err.message : "Unknown error";
+        console.error("SDF ingest error for collateral_file+asset_level:", message);
+        results.push({ fileType: "collateral_file", rowCount: 0, status: "error", error: message });
+        results.push({ fileType: "asset_level", rowCount: 0, status: "error", error: message });
+      } finally {
+        client.release();
+      }
+      continue;
+    }
 
     try {
       const rowCount = await processFile(
@@ -303,7 +340,8 @@ async function processTestResults(
 
 async function processCollateral(
   reportPeriodId: string,
-  parsed: SdfParseResult<SdfCollateralRow>
+  parsed: SdfParseResult<SdfCollateralRow>,
+  externalClient?: import("pg").PoolClient
 ): Promise<number> {
   if (parsed.rows.length === 0) return 0;
 
@@ -316,6 +354,19 @@ async function processCollateral(
     console.warn(
       "SDF ingest: Collateral File re-uploaded without Asset Level — enrichment columns will be reset."
     );
+  }
+
+  if (externalClient) {
+    await externalClient.query(
+      `DELETE FROM clo_holdings WHERE report_period_id = $1`,
+      [reportPeriodId]
+    );
+    const rows = parsed.rows.map((r) => ({
+      report_period_id: reportPeriodId,
+      ...r,
+    }));
+    await sdfBatchInsert("clo_holdings", rows, externalClient);
+    return parsed.rows.length;
   }
 
   const client = await getClient();
@@ -403,13 +454,14 @@ const ENRICHMENT_COLUMNS = [
 
 async function processAssetLevel(
   reportPeriodId: string,
-  parsed: SdfParseResult<SdfAssetLevelRow>
+  parsed: SdfParseResult<SdfAssetLevelRow>,
+  externalClient?: import("pg").PoolClient
 ): Promise<number> {
   if (parsed.rows.length === 0) return 0;
 
-  const client = await getClient();
+  const client = externalClient ?? await getClient();
   try {
-    await client.query("BEGIN");
+    if (!externalClient) await client.query("BEGIN");
 
     // Build the COALESCE-based UPDATE SET clause
     const setClauses = ENRICHMENT_COLUMNS.map(
@@ -467,13 +519,13 @@ async function processAssetLevel(
       enrichedCount += matched;
     }
 
-    await client.query("COMMIT");
+    if (!externalClient) await client.query("COMMIT");
     return enrichedCount;
   } catch (err) {
-    await client.query("ROLLBACK");
+    if (!externalClient) await client.query("ROLLBACK");
     throw err;
   } finally {
-    client.release();
+    if (!externalClient) client.release();
   }
 }
 
