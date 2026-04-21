@@ -101,7 +101,7 @@ function classifyTest(testName: string): { type: string; testClass: string | nul
   return { type: "ELIGIBILITY", testClass: null };
 }
 
-function isHigherBetter(testType: string, testName: string): boolean {
+function isHigherBetter(testType: string, testName: string): boolean | null {
   if (testType === "OC_PAR" || testType === "IC" || testType === "INTEREST_DIVERSION") return true;
   if (testType === "RECOVERY" || testType === "DIVERSITY" || testType === "WAS") return true;
   if (testType === "WARF" || testType === "WAL") return false;
@@ -112,7 +112,7 @@ function isHigherBetter(testType: string, testName: string): boolean {
   const clauseMatch = testName.match(/^\(([a-z]{1,2})\)/);
   if (clauseMatch && HIGHER_IS_BETTER_CLAUSES.has(clauseMatch[1])) return true;
 
-  return false;
+  return null;
 }
 
 function parsePassFail(value: string): { isPassing: boolean | null; isActive: boolean } {
@@ -132,9 +132,9 @@ function parseValue(raw: string): number | null {
 function computeCushion(
   actual: number | null,
   trigger: number | null,
-  higherIsBetter: boolean
+  higherIsBetter: boolean | null
 ): number | null {
-  if (actual === null || trigger === null) return null;
+  if (higherIsBetter === null || actual === null || trigger === null) return null;
   return higherIsBetter ? actual - trigger : trigger - actual;
 }
 
