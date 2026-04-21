@@ -480,7 +480,10 @@ async function processAssetLevel(
   try {
     if (!externalClient) await client.query("BEGIN");
 
-    // Build the COALESCE-based UPDATE SET clause
+    // Build the COALESCE-based UPDATE SET clause.
+    // Note: COALESCE treats false as non-null (present), which is correct — boolean columns
+    // such as is_current_pay and is_defaulted can legitimately be false, and Asset Level
+    // data takes precedence over Collateral File per ingestion precedence rules.
     const setClauses = ENRICHMENT_COLUMNS.map(
       (col, i) => `${col} = COALESCE($${i + 2}, ${col})`
     );
