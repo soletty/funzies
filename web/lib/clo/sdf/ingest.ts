@@ -814,12 +814,23 @@ async function processAccruals(
 // Batch INSERT helper
 // ---------------------------------------------------------------------------
 
+const VALID_SQL_NAME = /^[a-z_][a-z0-9_]*$/;
+
+function validateSqlName(name: string): string {
+  if (!VALID_SQL_NAME.test(name)) throw new Error(`Invalid SQL identifier: ${name}`);
+  return name;
+}
+
+const BATCH_SIZE = 50;
+
 async function sdfBatchInsert(
   table: string,
   rows: Record<string, unknown>[],
   client?: import("pg").PoolClient
 ): Promise<void> {
   if (rows.length === 0) return;
+
+  const safeTable = validateSqlName(table);
 
   // Get actual table columns to filter out unknown keys
   const exec = client
@@ -841,16 +852,28 @@ async function sdfBatchInsert(
 
   if (columns.length === 0) return;
 
-  const colNames = columns.join(", ");
+  const safeColumns = columns.map(validateSqlName);
 
-  for (const row of rows) {
-    const values = columns.map((c) => {
-      const v = row[c];
-      if (v === "") return null;
-      if (typeof v === "object" && v !== null) return JSON.stringify(v);
-      return v;
-    });
-    const placeholders = columns.map((_, i) => `$${i + 1}`).join(", ");
-    await exec(`INSERT INTO ${table} (${colNames}) VALUES (${placeholders})`, values);
+  for (let i = 0; i < rows.length; i += BATCH_SIZE) {
+    const batch = rows.slice(i, i + BATCH_SIZE);
+    const values: unknown[] = [];
+    const rowPlaceholders: string[] = [];
+
+    for (const row of batch) {
+      const rowVals = columns.map((c) => {
+        const v = row[c];
+        if (v === "") return null;
+        if (typeof v === "object" && v !== null) return JSON.stringify(v);
+        return v ?? null;
+      });
+      const offset = values.length;
+      rowPlaceholders.push(`(${columns.map((_, j) => `$${offset + j + 1}`).join(", ")})`);
+      values.push(...rowVals);
+    }
+
+    await exec(
+      `INSERT INTO ${safeTable} (${safeColumns.join(", ")}) VALUES ${rowPlaceholders.join(", ")}`,
+      values
+    );
   }
 }
