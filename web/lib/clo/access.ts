@@ -551,6 +551,7 @@ function rowToTrade(row: Record<string, unknown>): CloTrade {
     tradeType: (row.trade_type as CloTrade["tradeType"]) ?? null,
     obligorName: (row.obligor_name as string) ?? null,
     facilityName: (row.facility_name as string) ?? null,
+    isin: (row.isin as string) ?? null,
     tradeDate: (row.trade_date as string) ?? null,
     settlementDate: (row.settlement_date as string) ?? null,
     parAmount: num(row.par_amount),

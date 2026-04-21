@@ -1,0 +1,1 @@
+ALTER TABLE clo_trades ADD COLUMN IF NOT EXISTS isin TEXT;

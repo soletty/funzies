@@ -422,6 +422,7 @@ export interface CloTrade {
   tradeType: TradeType | null;
   obligorName: string | null;
   facilityName: string | null;
+  isin: string | null;
   tradeDate: string | null;
   settlementDate: string | null;
   parAmount: number | null;

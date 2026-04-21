@@ -4,9 +4,10 @@ import type { SdfParseResult } from "./types";
 export interface SdfTransactionRow {
   obligor_name: string | null;
   facility_name: string | null;
+  isin: string | null;
   settlement_price: number | null;
   settlement_amount: number | null;
-  par_amount: number | null;
+  par_amount: null;
   cash_flow_type: string | null;
   trade_type: string | null;
   trade_date: string | null;
@@ -21,7 +22,7 @@ export interface SdfTransactionRow {
   trust_account: string | null;
   native_amount: number | null;
   native_currency: string | null;
-  figi: string | null;
+  figi: null;
   data_source: string;
 }
 
@@ -81,10 +82,11 @@ export function parseTransactions(csvText: string): SdfParseResult<SdfTransactio
 
     rows.push({
       obligor_name: issuerName,
-      facility_name: raw.Facility?.trim() || null,
+      facility_name: raw.Security_Name?.trim() || null,
+      isin: raw.ISIN?.trim() || null,
       settlement_price: parseNumeric(raw.Price),
       settlement_amount: parseNumeric(raw.Amount),
-      par_amount: parseNumeric(raw.Native_Amount),
+      par_amount: null,
       cash_flow_type: cashFlowType,
       trade_type: deriveTradeType(cashFlowType, transactionCode),
       trade_date: parseDate(raw.Transaction_Date, "DD-Mon-YYYY"),
@@ -99,7 +101,7 @@ export function parseTransactions(csvText: string): SdfParseResult<SdfTransactio
       trust_account: extractTrustAccount(raw.Trust_Account),
       native_amount: parseNumeric(raw.Native_Amount),
       native_currency: raw.Native_CCY?.trim() || null,
-      figi: raw.ISIN?.trim() || null,
+      figi: null,
       data_source: "sdf",
     });
   }
