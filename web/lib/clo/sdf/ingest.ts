@@ -834,8 +834,7 @@ async function sdfBatchInsert(
   for (const row of rows) {
     const values = columns.map((c) => {
       const v = row[c];
-      if (v === "" || v === "null" || v === "NULL" || v === "undefined")
-        return null;
+      if (v === "") return null;
       if (typeof v === "object" && v !== null) return JSON.stringify(v);
       return v;
     });
