@@ -786,7 +786,7 @@ export default async function CLODashboard() {
 
       <BriefingCard product="clo" />
 
-      <DocumentUploadBanner hasDocuments={hasDocuments} />
+      <DocumentUploadBanner hasDocuments={hasDocuments} dealId={deal?.id ?? null} />
 
       <BuyListUpload initialItems={buyListItems} />
 

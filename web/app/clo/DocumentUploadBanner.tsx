@@ -21,7 +21,7 @@ const SDF_TYPE_LABELS: Record<SdfFileType, string> = {
   accruals: "Accruals",
 };
 
-export default function DocumentUploadBanner({ hasDocuments }: { hasDocuments?: boolean }) {
+export default function DocumentUploadBanner({ hasDocuments, dealId }: { hasDocuments?: boolean; dealId?: string | null }) {
   const [ppmFiles, setPpmFiles] = useState<File[]>([]);
   const [complianceFiles, setComplianceFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -111,7 +111,14 @@ export default function DocumentUploadBanner({ hasDocuments }: { hasDocuments?: 
     setSdfUploading(true);
     setSdfError(null);
 
+    if (!dealId) {
+      setSdfError("No deal found. Upload a PPM first to create a deal.");
+      setSdfUploading(false);
+      return;
+    }
+
     const formData = new FormData();
+    formData.append("dealId", dealId);
     for (const { file } of sdfFiles) {
       formData.append("files", file);
     }
