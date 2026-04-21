@@ -385,7 +385,7 @@ export interface CloWaterfallStep {
   isIcTestDiversion: boolean | null;
 }
 
-export type AccountType = "COLLECTION" | "PAYMENT" | "RESERVE" | "PRINCIPAL" | "INTEREST" | "EXPENSE" | "HEDGE" | "CUSTODY";
+export type AccountType = "COLLECTION" | "PAYMENT" | "RESERVE" | "PRINCIPAL" | "INTEREST" | "EXPENSE" | "HEDGE" | "CUSTODY" | "CURRENCY" | "OTHER";
 
 export interface CloAccountBalance {
   id: string;
