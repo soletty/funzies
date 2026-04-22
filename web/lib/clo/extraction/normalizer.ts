@@ -19,16 +19,23 @@ function toDbRow(obj: Record<string, unknown>, extraFields?: Record<string, unkn
   return row;
 }
 
-// Moody's ratings — exact, case-insensitive
-const MOODYS_RATING_RE = /^(Aaa|Aa[1-3]|A[1-3]|Baa[1-3]|Ba[1-3]|B[1-3]|Caa[1-3]|Ca|C|WR|NR)$/i;
-// S&P / Fitch ratings — exact, case-insensitive
-const SP_FITCH_RATING_RE = /^(AAA|AA\+|AA|AA-|A\+|A|A-|BBB\+|BBB|BBB-|BB\+|BB|BB-|B\+|B|B-|CCC\+|CCC|CCC-|CC\+|CC|CC-|C|D|WR|NR)$/i;
+// Moody's ratings — CASE-SENSITIVE. Deliberate: the Caa→aa / Baa→aa corruption
+// class shows up as lowercase output ("aa2") that would false-match "Aa2" under
+// case-insensitive validation. Case-sensitive regex flags the corruption loudly.
+const MOODYS_RATING_RE = /^(Aaa|Aa[1-3]|A[1-3]|Baa[1-3]|Ba[1-3]|B[1-3]|Caa[1-3]|Ca|C|WR|NR)$/;
+// S&P / Fitch ratings — CASE-SENSITIVE for the same reason. CCC→CC corruption
+// produces "cc" lowercase; case-sensitive validation catches it. "CC" alone
+// (proper case) is a legitimate rating and passes.
+const SP_FITCH_RATING_RE = /^(AAA|AA\+|AA|AA-|A\+|A|A-|BBB\+|BBB|BBB-|BB\+|BB|BB-|B\+|B|B-|CCC\+|CCC|CCC-|CC\+|CC|CC-|C|D|WR|NR)$/;
 
 /**
  * Check holding rating strings against expected patterns. Logs a loud warning
- * when the value doesn't match — catches the Caa→Aa / CCC→CC corruption class
- * where a leading character is stripped during extraction. Does NOT mutate the
- * row; the goal is to make silent corruption loud so it surfaces during runs.
+ * when the value doesn't match. Case-sensitive regexes mean lowercase variants
+ * like "aa2" or "ccc+" fail validation — catching the leading-letter-strip
+ * corruption class where source "Caa2" or "Baa2" gets truncated to lowercase
+ * "aa2". Note: this cannot distinguish legitimate "Aa2" from corrupted "Caa2"
+ * (both proper case) — that's what the prompt-level directive guards.
+ * Does NOT mutate the row; goal is telemetry, not correction.
  */
 function validateHoldingRatings(row: Record<string, unknown>): void {
   const obligor = (row.obligor_name ?? "unknown") as string;
@@ -47,7 +54,7 @@ function validateHoldingRatings(row: Record<string, unknown>): void {
     if (!re.test(str)) {
       console.warn(
         `[normalizer] rating validation failed: obligor="${obligor}" field="${field}" value="${str}" — ` +
-        `suspect corruption (e.g. Caa2→aa2, CCC→CC, leading character stripped). ` +
+        `suspect corruption (e.g. Caa2→aa2, Baa2→aa2, CCC→cc, leading character stripped or lowercased). ` +
         `Check asset_schedule extraction for this position.`
       );
     }
@@ -423,7 +430,10 @@ export function normalizeSectionResults(
         return { ...t, testType };
       }));
 
-      // Backfill poolSummary from CQ test actual values
+      // Backfill poolSummary from CQ test actual values.
+      // Agency matters for WARF (Moody's and Fitch use different scales:
+      // Moody's rating-factor ~3000s, Fitch percentage ~25). poolSummary.warf
+      // historically holds Moody's-scale WARF — only populate from Moody's.
       if (!poolSummary) poolSummary = { ...base };
       const ps = poolSummary as Record<string, unknown>;
       for (const t of tests) {
@@ -431,14 +441,18 @@ export function normalizeSectionResults(
         const agency = ((t.agency ?? "") as string).toLowerCase();
         const val = t.actualValue as number | null | undefined;
         if (val == null) continue;
-        if (name.includes("warf") && ps.warf == null) ps.warf = val;
+        const isMoodys = agency.includes("moody");
+        const isSp = agency === "s&p" || agency === "sp" || agency.includes("standard");
+        const isFitch = agency.includes("fitch");
+        if (name.includes("warf") && isMoodys && ps.warf == null) ps.warf = val;
         if ((name.includes("wal") || name.includes("weighted average life")) && ps.wal_years == null) ps.wal_years = val;
-        if ((name.includes("was") || (name.includes("floating") && name.includes("spread"))) && ps.wac_spread == null) ps.wac_spread = val;
+        if ((name.includes("was") || name.includes("weighted average spread") || (name.includes("floating") && name.includes("spread"))) && ps.wac_spread == null) ps.wac_spread = val;
         if (name.includes("diversity") && ps.diversity_score == null) ps.diversity_score = val;
         if (name.includes("recovery")) {
-          if (agency.includes("moody") && ps.wa_moodys_recovery == null) ps.wa_moodys_recovery = val;
-          else if (agency.includes("s&p") || agency.includes("sp")) { if (ps.wa_sp_recovery == null) ps.wa_sp_recovery = val; }
-          else if (ps.wa_recovery_rate == null) ps.wa_recovery_rate = val;
+          if (isMoodys && ps.wa_moodys_recovery == null) ps.wa_moodys_recovery = val;
+          else if (isSp && ps.wa_sp_recovery == null) ps.wa_sp_recovery = val;
+          else if (isFitch && ps.wa_fitch_recovery == null) ps.wa_fitch_recovery = val;
+          else if (!isMoodys && !isSp && !isFitch && ps.wa_recovery_rate == null) ps.wa_recovery_rate = val;
         }
       }
     }
