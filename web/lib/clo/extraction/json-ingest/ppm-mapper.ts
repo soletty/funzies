@@ -180,6 +180,22 @@ function mapPortfolioConstraints(ppm: PpmJson): Record<string, unknown> {
   };
 }
 
+function mapWaterfallRules(ppm: PpmJson): Record<string, unknown> {
+  const wf = ppm.section_6_waterfall;
+  const serializeClauses = (clauses: Array<{ clause: string; application: string }>): string =>
+    clauses.map((c) => `(${c.clause}) ${c.application}`).join("\n");
+  return {
+    interestPriority: serializeClauses(wf.interest_priority_of_payments.clauses),
+    principalPriority: serializeClauses(wf.principal_priority_of_payments.clauses),
+    postAcceleration: wf.post_acceleration_priority_of_payments?.sequence_summary ?? undefined,  // ppmWaterfallRulesSchema is string | undefined, NOT nullable
+  };
+}
+
+function mapInterestMechanics(ppm: PpmJson): Record<string, unknown> {
+  // Schema is passthrough; dump section_7 verbatim.
+  return { ...ppm.section_7_interest_mechanics };
+}
+
 export function mapPpm(ppm: PpmJson): PpmSections {
   return {
     transaction_overview: mapTransactionOverview(ppm),
@@ -189,5 +205,7 @@ export function mapPpm(ppm: PpmJson): PpmSections {
     coverage_tests: mapCoverageTests(ppm),
     fees_and_expenses: mapFeesAndExpenses(ppm),
     portfolio_constraints: mapPortfolioConstraints(ppm),
+    waterfall_rules: mapWaterfallRules(ppm),
+    interest_mechanics: mapInterestMechanics(ppm),
   };
 }
