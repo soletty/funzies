@@ -75,18 +75,21 @@ export function validateAndNormalizeConstraints(
   }
 
   for (const entry of capStruct) {
-    const isSubordinated = entry.isSubordinated ?? entry.class.toLowerCase().includes("sub");
+    // entry.class is optional in the Zod schema, and deepFixStringNulls may have
+    // coerced a literal "null" string to null. Guard before calling .toLowerCase.
+    const className = entry.class ?? "";
+    const isSubordinated = entry.isSubordinated ?? className.toLowerCase().includes("sub");
     if (isSubordinated) continue;
 
     const resolved = parseSpreadToBps(entry.spreadBps, entry.spread);
     if (resolved == null) {
       errors.push({
-        field: `${entry.class}.spreadBps`,
-        message: `No spread found for ${entry.class} — neither spreadBps (${entry.spreadBps}) nor spread string ("${entry.spread}") could be parsed`,
+        field: `${className || "<unknown class>"}.spreadBps`,
+        message: `No spread found for ${className || "<unknown class>"} — neither spreadBps (${entry.spreadBps}) nor spread string ("${entry.spread}") could be parsed`,
       });
     } else if (resolved !== entry.spreadBps) {
       fixes.push({
-        field: `${entry.class}.spreadBps`,
+        field: `${className || "<unknown class>"}.spreadBps`,
         message: `Resolved spreadBps from spread string "${entry.spread}"`,
         before: entry.spreadBps,
         after: resolved,

@@ -124,6 +124,7 @@ function resolveTranches(
   const ppmAmortStartByClass = new Map<string, string>();
 
   for (const e of constraints.capitalStructure ?? []) {
+    if (!e.class) continue; // skip malformed entries lacking a class identifier
     const key = normClass(e.class);
     const bps = parseSpreadToBps(e.spreadBps, e.spread);
     if (bps != null && bps > 0) ppmSpreadByClass.set(key, bps);
@@ -201,7 +202,7 @@ function resolveTranches(
   }
 
   // Fallback: build from PPM capital structure
-  const entries = constraints.capitalStructure ?? [];
+  const entries = (constraints.capitalStructure ?? []).filter(e => e.class); // skip class-less entries
   const byClass = new Map<string, typeof entries[number]>();
   for (const e of entries) {
     const key = normClass(e.class);
@@ -214,7 +215,7 @@ function resolveTranches(
   // Sort by class letter to ensure correct seniority regardless of LLM extraction order.
   // Standard CLO classes: X, A, B, C, D, E, F, then subordinated/equity last.
   const classOrder = (e: typeof entries[number]): number => {
-    const name = e.class.replace(/^class\s+/i, "").trim().toLowerCase();
+    const name = (e.class ?? "").replace(/^class\s+/i, "").trim().toLowerCase();
     if (/^x$/i.test(name)) return 0;
     if (e.isSubordinated || name.includes("sub") || name.includes("equity") || name.includes("income")) return 100;
     // Single letter classes (A=1, B=2, ..., F=6) — handles "A-1", "A-2" etc.
@@ -225,25 +226,26 @@ function resolveTranches(
   const sortedEntries = Array.from(byClass.values()).sort((a, b) => classOrder(a) - classOrder(b));
 
   return sortedEntries.map((e, idx) => {
-    const isSub = e.isSubordinated ?? e.class.toLowerCase().includes("sub");
+    const className = e.class ?? "";
+    const isSub = e.isSubordinated ?? className.toLowerCase().includes("sub");
     const isFloating = e.rateType
       ? e.rateType.toLowerCase().includes("float")
       : (e.spread?.toLowerCase().includes("euribor") || e.spread?.toLowerCase().includes("sofr") || false);
-    const key = normClass(e.class);
+    const key = normClass(className);
     const amortPerPeriod = ppmAmortByClass.get(key) ?? null;
     const hasAmort = amortPerPeriod != null;
     const spreadBps = parseSpreadToBps(e.spreadBps, e.spread) ?? 0;
 
     if (spreadBps === 0 && !isSub) {
       warnings.push({
-        field: `${e.class}.spreadBps`,
-        message: `No spread found for ${e.class} in PPM constraints`,
+        field: `${className}.spreadBps`,
+        message: `No spread found for ${className} in PPM constraints`,
         severity: "error",
       });
     }
 
     return {
-      className: e.class,
+      className,
       currentBalance: parseAmount(e.principalAmount),
       originalBalance: parseAmount(e.principalAmount),
       spreadBps,
