@@ -18,6 +18,8 @@ import type {
   DataQuality,
   CloTranche,
   CloTrancheSnapshot,
+  EquityInceptionData,
+  EquityPastPayment,
 } from "./types";
 
 // pg returns NUMERIC columns as strings — convert to number safely
@@ -25,6 +27,49 @@ function num(v: unknown): number | null {
   if (v == null) return null;
   const n = Number(v);
   return isNaN(n) ? null : n;
+}
+
+// Merge the legacy equity_inception_data JSONB blob with rows from
+// clo_payment_history for the Sub tranche. Dates present in payment_history
+// win; dates only in the blob (legacy manual edits) are preserved.
+// purchaseDate and purchasePriceCents always come from the blob — they are
+// user-entered and not extractable.
+async function mergeEquityInceptionData(
+  profileId: string,
+  blob: EquityInceptionData | null,
+): Promise<EquityInceptionData | null> {
+  const paymentHistory = await query<{
+    payment_date: string;
+    cashflow: string | null;
+  }>(
+    `SELECT
+       payment_date::text AS payment_date,
+       COALESCE((override_value->>'cashflow')::numeric, (extracted_value->>'cashflow')::numeric) AS cashflow
+     FROM clo_payment_history
+     WHERE profile_id = $1
+       AND lower(regexp_replace(class_name, '^class\\s+|[-\\s]+notes?$', '', 'gi')) IN ('sub', 'subordinated')
+       AND transaction_type <> 'SALE'
+     ORDER BY payment_date`,
+    [profileId]
+  );
+
+  if (paymentHistory.length === 0) return blob;
+
+  const historyPayments: EquityPastPayment[] = paymentHistory.map(p => ({
+    date: p.payment_date,
+    distribution: p.cashflow !== null ? parseFloat(p.cashflow) : null,
+  }));
+
+  const historyDates = new Set(historyPayments.map(p => p.date));
+  const blobPaymentsNotInHistory = (blob?.payments ?? []).filter(p => !historyDates.has(p.date));
+  const mergedPayments = [...historyPayments, ...blobPaymentsNotInHistory]
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  return {
+    purchaseDate: blob?.purchaseDate ?? null,
+    purchasePriceCents: blob?.purchasePriceCents ?? null,
+    payments: mergedPayments,
+  };
 }
 
 export function rowToProfile(row: Record<string, unknown>): CloProfile {
@@ -85,7 +130,13 @@ export async function getProfileForUser(userId: string) {
      FROM clo_profiles WHERE user_id = $1`,
     [userId]
   );
-  return rows[0] ?? null;
+  const row = rows[0];
+  if (!row) return null;
+  row.equity_inception_data = await mergeEquityInceptionData(
+    row.id,
+    (row.equity_inception_data as EquityInceptionData | null) ?? null,
+  );
+  return row;
 }
 
 // Full profile fetch including raw documents — use only when sending docs to Claude.
@@ -116,7 +167,13 @@ export async function getProfileWithDocuments(userId: string) {
     "SELECT * FROM clo_profiles WHERE user_id = $1",
     [userId]
   );
-  return rows[0] ?? null;
+  const row = rows[0];
+  if (!row) return null;
+  row.equity_inception_data = await mergeEquityInceptionData(
+    row.id,
+    (row.equity_inception_data as EquityInceptionData | null) ?? null,
+  );
+  return row;
 }
 
 // Fetch just document metadata (name, type, size) without the heavy base64 data.
