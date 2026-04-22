@@ -441,6 +441,33 @@ function resolveFees(constraints: ExtractedConstraints, warnings: ResolutionWarn
     warnings.push({ field: "fees.trusteeFeeBps", message: "Trustee/admin fee found in PPM but rate is 'per agreement' — set manually from the compliance report fee schedule (typically 1-5 bps).", severity: "warn" });
   }
 
+  // Sanity: every CLO has a Senior Collateral Management Fee (~0.10-0.20% p.a.)
+  // and a Subordinated CMF (~0.30-0.50% p.a.). If either is exactly 0, the PPM
+  // fees extraction likely regressed (LLM dropped the row or returned rate=null).
+  // Downstream waterfall math with zero mgmt fees dramatically overstates Sub
+  // Note distributions — warn loudly so the user catches it.
+  const feeNames = (constraints.fees ?? []).map(f => (f.name ?? "").toLowerCase());
+  const hasSeniorMgmtFeeName = feeNames.some(n => n.includes("senior") && (n.includes("mgmt") || n.includes("management")));
+  const hasSubMgmtFeeName = feeNames.some(n => n.includes("sub") && (n.includes("mgmt") || n.includes("management")));
+  if (seniorFeePct === 0) {
+    warnings.push({
+      field: "fees.seniorFeePct",
+      message: hasSeniorMgmtFeeName
+        ? `Senior Management Fee entry found but rate extracted as 0 — likely a PPM extraction regression (LLM returned rate=null or "per_agreement"). Check raw.constraints.fees. Typical Senior CMF is 0.10-0.20% p.a. — set manually.`
+        : `No Senior Management Fee found in extracted constraints.fees[]. PPM extraction may have dropped the row. Typical Senior CMF is 0.10-0.20% p.a. — set manually.`,
+      severity: "error",
+    });
+  }
+  if (subFeePct === 0) {
+    warnings.push({
+      field: "fees.subFeePct",
+      message: hasSubMgmtFeeName
+        ? `Subordinated Management Fee entry found but rate extracted as 0 — likely a PPM extraction regression. Typical Sub CMF is 0.30-0.50% p.a. — set manually.`
+        : `No Subordinated Management Fee found in extracted constraints.fees[]. Typical Sub CMF is 0.30-0.50% p.a. — set manually.`,
+      severity: "error",
+    });
+  }
+
   return { seniorFeePct, subFeePct, trusteeFeeBps, incentiveFeePct, incentiveFeeHurdleIrr };
 }
 
@@ -824,9 +851,16 @@ export function resolveWaterfallInputs(
   }
 
   // --- Quality & Concentration Tests ---
+  // Quality tests (WARF/WAL/WAS/diversity/recovery) come from clo_compliance_tests
+  // (populated by §6 Collateral Quality Tests section extraction).
+  //
+  // Concentration tests (63 portfolio-profile buckets from §7) live in their own
+  // table clo_concentrations, NOT in compliance_tests. The resolver had been
+  // filtering compliance_tests for testType=CONCENTRATION which only ever
+  // surfaced stray rows — the real 63 buckets were invisible. Surface them
+  // from complianceData.concentrations[] directly.
   const allComplianceTests = complianceData?.complianceTests ?? [];
   const qualityTestTypes = new Set(['WARF', 'WAL', 'WAS', 'DIVERSITY', 'RECOVERY']);
-  const concentrationTestTypes = new Set(['CONCENTRATION', 'ELIGIBILITY']);
 
   const qualityTests: ResolvedComplianceTest[] = allComplianceTests
     .filter(t => t.testType && qualityTestTypes.has(t.testType))
@@ -839,16 +873,21 @@ export function resolveWaterfallInputs(
       isPassing: t.isPassing,
     }));
 
-  const concentrationTests: ResolvedComplianceTest[] = allComplianceTests
-    .filter(t => t.testType && concentrationTestTypes.has(t.testType))
-    .map(t => ({
-      testName: t.testName,
-      testClass: t.testClass,
-      actualValue: t.actualValue,
-      triggerLevel: t.triggerLevel,
-      cushion: t.cushionPct,
-      isPassing: t.isPassing,
-    }));
+  const concentrationsRaw = (complianceData?.concentrations ?? []) as Array<Record<string, unknown>>;
+  const concentrationTests: ResolvedComplianceTest[] = concentrationsRaw.map(c => {
+    const actualPct = typeof c.actualPct === "number" ? c.actualPct : null;
+    const limitPct = typeof c.limitPct === "number" ? c.limitPct : null;
+    const actualValue = actualPct ?? (typeof c.actualValue === "number" ? c.actualValue : null);
+    const triggerLevel = limitPct ?? (typeof c.limitValue === "number" ? c.limitValue : null);
+    return {
+      testName: (c.bucketName ?? c.concentrationType ?? "") as string,
+      testClass: null,
+      actualValue,
+      triggerLevel,
+      cushion: (limitPct != null && actualPct != null) ? limitPct - actualPct : null,
+      isPassing: typeof c.isPassing === "boolean" ? c.isPassing : null,
+    };
+  });
 
   // --- Data Source Metadata ---
   // Note: account_balances and trades are not loaded in the resolver and thus not checked here.

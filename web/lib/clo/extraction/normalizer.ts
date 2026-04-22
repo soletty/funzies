@@ -87,14 +87,20 @@ function mergeTrancheSnapshots(
   if (waterfall.length === 0) return compliance;
   if (compliance.length === 0) return waterfall;
 
-  const norm = (n: string) => n.replace(/^class(es)?\s+/i, "").replace(/[\s\-]+/g, "").toLowerCase();
+  // Use the same normalizeClassName the runner uses to match snapshots to
+  // clo_tranches rows. Previously the local `norm` collapsed only whitespace
+  // and "class" prefix, so "Subordinated Notes" and "Subordinated Notes due
+  // 2032" were treated as distinct — but downstream the runner's
+  // normalizeClassName collapses both to "SUBORDINATED", producing TWO
+  // snapshot inserts pointing to the SAME tranche_id. Use the authoritative
+  // normalizer here so merging matches downstream lookup.
   const byName = new Map<string, TrancheSnapshot>();
 
   for (const ts of compliance) {
-    byName.set(norm(ts.className), { className: ts.className, data: { ...ts.data } });
+    byName.set(normalizeClassName(ts.className), { className: ts.className, data: { ...ts.data } });
   }
   for (const ts of waterfall) {
-    const key = norm(ts.className);
+    const key = normalizeClassName(ts.className);
     const existing = byName.get(key);
     if (existing) {
       // Merge waterfall fields into existing — waterfall fills gaps, doesn't overwrite
@@ -112,6 +118,10 @@ function mergeTrancheSnapshots(
     }
   }
 
+  // Additional sanity: if the same normalized key appears twice with wildly
+  // different current_balance values, that's a numerical misread (e.g. "44M"
+  // read as "40M" on one pass). Not currently hit since merging is by key
+  // above, but guard the dedup flow at the runner insert layer too.
   return Array.from(byName.values());
 }
 
@@ -421,7 +431,10 @@ export function normalizeSectionResults(
     if (tests) {
       allTests.push(...tests.map(t => {
         const name = ((t.testName ?? "") as string).toLowerCase();
-        let testType: string = "CONCENTRATION";
+        // CQ tests are ALWAYS one of these five types. If the LLM returned a row
+        // whose name doesn't match any, tag it "QUALITY_OTHER" so it doesn't
+        // silently leak into concentrationTests (which filters on CONCENTRATION).
+        let testType: string = "QUALITY_OTHER";
         if (name.includes("warf")) testType = "WARF";
         else if (name.includes("wal") || name.includes("weighted average life")) testType = "WAL";
         else if (name.includes("was") || name.includes("weighted average spread") || (name.includes("floating") && name.includes("spread"))) testType = "WAS";
