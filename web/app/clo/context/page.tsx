@@ -11,6 +11,12 @@ import {
   getParValueAdjustments,
   getHoldings,
   getHistoricalSubNoteDistributions,
+  getAccruals,
+  getTrades,
+  getTradingSummary,
+  getWaterfallSteps,
+  getEvents,
+  getSupplementaryData,
   rowToProfile,
 } from "@/lib/clo/access";
 import type { ExtractedConstraints, CloDocument } from "@/lib/clo/types";
@@ -51,7 +57,7 @@ export default async function ContextPage() {
   const deal = await getDealForProfile(profile.id);
   const reportPeriod = deal ? await getLatestReportPeriod(deal.id) : null;
 
-  const [tranches, trancheSnapshots, holdings, periodData, accountBalances, parValueAdjustments, extractedDistributions] = await Promise.all([
+  const [tranches, trancheSnapshots, holdings, periodData, accountBalances, parValueAdjustments, extractedDistributions, accruals, trades, tradingSummary, waterfallSteps, events, supplementaryData] = await Promise.all([
     deal ? getTranches(deal.id) : Promise.resolve([]),
     reportPeriod ? getTrancheSnapshots(reportPeriod.id) : Promise.resolve([]),
     reportPeriod ? getHoldings(reportPeriod.id) : Promise.resolve([]),
@@ -59,6 +65,12 @@ export default async function ContextPage() {
     reportPeriod ? getAccountBalances(reportPeriod.id) : Promise.resolve([]),
     reportPeriod ? getParValueAdjustments(reportPeriod.id) : Promise.resolve([]),
     deal ? getHistoricalSubNoteDistributions(deal.id) : Promise.resolve([]),
+    reportPeriod ? getAccruals(reportPeriod.id) : Promise.resolve([]),
+    reportPeriod ? getTrades(reportPeriod.id) : Promise.resolve([]),
+    reportPeriod ? getTradingSummary(reportPeriod.id) : Promise.resolve(null),
+    reportPeriod ? getWaterfallSteps(reportPeriod.id) : Promise.resolve([]),
+    deal ? getEvents(deal.id) : Promise.resolve([]),
+    reportPeriod ? getSupplementaryData(reportPeriod.id) : Promise.resolve(null),
   ]);
 
   if (reportPeriod && periodData) {
@@ -133,6 +145,12 @@ export default async function ContextPage() {
         dealDates={{ maturity: maturityDate, reinvestmentPeriodEnd, reportDate: reportPeriod?.reportDate ?? null }}
         equityInceptionData={profile.equityInceptionData}
         extractedDistributions={extractedDistributions}
+        accruals={accruals}
+        trades={trades}
+        tradingSummary={tradingSummary}
+        waterfallSteps={waterfallSteps}
+        events={events}
+        supplementaryData={supplementaryData}
       />
     </div>
   );

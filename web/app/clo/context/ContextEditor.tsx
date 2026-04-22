@@ -31,6 +31,12 @@ import type {
   CloHolding,
   CloAccountBalance,
   CloParValueAdjustment,
+  CloAccrual,
+  CloTrade,
+  CloTradingSummary,
+  CloWaterfallStep,
+  CloEvent,
+  CloSupplementaryData,
   EquityInceptionData,
 } from "@/lib/clo/types";
 import { resolveWaterfallInputs } from "@/lib/clo/resolver";
@@ -71,6 +77,12 @@ interface ContextEditorProps {
   dealDates?: { maturity?: string | null; reinvestmentPeriodEnd?: string | null; reportDate?: string | null };
   equityInceptionData?: EquityInceptionData | null;
   extractedDistributions?: { date: string; distribution: number }[];
+  accruals?: CloAccrual[];
+  trades?: CloTrade[];
+  tradingSummary?: CloTradingSummary | null;
+  waterfallSteps?: CloWaterfallStep[];
+  events?: CloEvent[];
+  supplementaryData?: CloSupplementaryData | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -256,6 +268,12 @@ export default function ContextEditor({
   dealDates,
   equityInceptionData: initialInceptionData,
   extractedDistributions,
+  accruals,
+  trades,
+  tradingSummary,
+  waterfallSteps,
+  events,
+  supplementaryData,
 }: ContextEditorProps) {
   const [constraints, setConstraints] = useState<ExtractedConstraints>(initialConstraints);
   const [fundProfile, setFundProfile] = useState(initialProfile);
@@ -689,9 +707,32 @@ export default function ContextEditor({
   const keyPartyRows = asArray<KeyParty>(constraints.keyParties);
 
   function exportContext() {
+    // Full raw payload — everything fetched from the DB (PDF-extracted + SDF-extracted).
+    // Tables populated by SDF ingestion: accruals, trades, tradingSummary, waterfallSteps,
+    // events, supplementaryData, plus the SDF-enriched columns already inside tranches /
+    // trancheSnapshots / holdings / accountBalances.
+    const raw = {
+      constraints,
+      fundProfile,
+      complianceData,
+      tranches: tranches ?? [],
+      trancheSnapshots: trancheSnapshots ?? [],
+      holdings: holdings ?? [],
+      accountBalances: accountBalances ?? [],
+      parValueAdjustments: parValueAdjustments ?? [],
+      accruals: accruals ?? [],
+      trades: trades ?? [],
+      tradingSummary: tradingSummary ?? null,
+      waterfallSteps: waterfallSteps ?? [],
+      events: events ?? [],
+      supplementaryData: supplementaryData ?? null,
+      dealDates: dealDates ?? null,
+      equityInceptionData: inceptionData ?? null,
+      extractedDistributions: extractedDistributions ?? [],
+    };
     const data = resolved
-      ? { resolved, warnings: resolutionWarnings, raw: { constraints, fundProfile, complianceData } }
-      : { constraints, fundProfile, complianceData };
+      ? { resolved, warnings: resolutionWarnings, raw }
+      : raw;
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");

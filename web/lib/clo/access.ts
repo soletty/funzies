@@ -884,6 +884,37 @@ export async function getTradingSummary(reportPeriodId: string): Promise<CloTrad
   return rows[0] ? rowToTradingSummary(rows[0]) : null;
 }
 
+export async function getAccruals(reportPeriodId: string): Promise<import("./types").CloAccrual[]> {
+  const rows = await query<Record<string, unknown>>(
+    "SELECT * FROM clo_accruals WHERE report_period_id = $1 ORDER BY issuer_name NULLS LAST",
+    [reportPeriodId]
+  );
+  return rows.map((row) => ({
+    id: row.id as string,
+    reportPeriodId: row.report_period_id as string,
+    issuerName: (row.issuer_name as string) ?? null,
+    securityName: (row.security_name as string) ?? null,
+    figi: (row.figi as string) ?? null,
+    loanxId: (row.loanx_id as string) ?? null,
+    securityId: (row.security_id as string) ?? null,
+    accrualRollupId: (row.accrual_rollup_id as string) ?? null,
+    accrualBeginDate: (row.accrual_begin_date as string) ?? null,
+    accrualEndDate: (row.accrual_end_date as string) ?? null,
+    dayCount: (row.day_count as string) ?? null,
+    couponType: (row.coupon_type as string) ?? null,
+    paymentFrequency: (row.payment_frequency as string) ?? null,
+    parAmount: row.par_amount != null ? Number(row.par_amount) : null,
+    rateIndex: (row.rate_index as string) ?? null,
+    hasFloor: (row.has_floor as boolean) ?? null,
+    floorRate: row.floor_rate != null ? Number(row.floor_rate) : null,
+    taxRate: row.tax_rate != null ? Number(row.tax_rate) : null,
+    allInRate: row.all_in_rate != null ? Number(row.all_in_rate) : null,
+    spread: row.spread != null ? Number(row.spread) : null,
+    adjustedSpread: row.adjusted_spread != null ? Number(row.adjusted_spread) : null,
+    annualInterest: row.annual_interest != null ? Number(row.annual_interest) : null,
+  }));
+}
+
 export async function getTranches(dealId: string): Promise<CloTranche[]> {
   const rows = await query<Record<string, unknown>>(
     "SELECT * FROM clo_tranches WHERE deal_id = $1 ORDER BY seniority_rank NULLS LAST",
