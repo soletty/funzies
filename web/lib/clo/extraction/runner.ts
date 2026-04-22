@@ -83,6 +83,11 @@ function ensureComplianceSections(
     });
   }
 
+  // If the scan found nothing, the document isn't in the canonical-heading
+  // format — skip the per-section warn loop (it would emit 12 false alarms
+  // on full trustee reports that don't use our condensed headings).
+  if (scanned.length === 0) return;
+
   const located = new Set(documentMap.sections.map(s => s.sectionType));
   for (const sectionType of Object.keys(CANONICAL_HEADINGS) as SectionType[]) {
     if (!located.has(sectionType)) {
