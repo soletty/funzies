@@ -19,6 +19,7 @@ export const COMPLIANCE_SECTION_TYPES = [
   "interest_accrual",
   "account_balances",
   "supplementary",
+  "notes_information",
 ] as const;
 
 // Section types for PPMs (Private Placement Memorandums)
@@ -34,6 +35,67 @@ export const PPM_SECTION_TYPES = [
   "key_parties",
   "interest_mechanics",
 ] as const;
+
+export type SectionType =
+  | "compliance_summary" | "par_value_tests" | "interest_coverage_tests"
+  | "default_detail" | "asset_schedule" | "concentration_tables"
+  | "waterfall" | "trading_activity" | "interest_accrual"
+  | "account_balances" | "supplementary" | "notes_information";
+
+export const CANONICAL_HEADINGS: Record<SectionType, string> = {
+  compliance_summary:      "Deal Identity",
+  par_value_tests:         "Par Value (Over-collateralisation) Tests",
+  interest_coverage_tests: "Interest Coverage Tests",
+  default_detail:          "Default / Deferring / Current Pay / Discount / Exchanged Securities / Haircut",
+  asset_schedule:          "Schedule of Investments — Trustee View",
+  concentration_tables:    "Portfolio Profile Tests",
+  waterfall:               "Interest Waterfall execution",
+  trading_activity:        "Trading Activity (current period)",
+  interest_accrual:        "Interest Smoothing Account",
+  account_balances:        "Account Balances (full inventory)",
+  supplementary:           "Rating Migration",
+  notes_information:       "Notes Payment History (inception-to-date)",
+};
+
+export interface ScannedSection {
+  sectionType: SectionType;
+  pageStart: number;
+  pageEnd: number;
+  confidence: "high";
+}
+
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+export function scanHeadings(pages: Array<{ page: number; text: string }>): ScannedSection[] {
+  const found: Array<{ sectionType: SectionType; pageStart: number }> = [];
+
+  for (const [sectionType, heading] of Object.entries(CANONICAL_HEADINGS) as Array<[SectionType, string]>) {
+    const re = new RegExp(`(?:^|\\n)\\s*(?:§?\\s*\\d+(?:\\.\\d+)?\\.?\\s*)?${escapeRegex(heading)}`, "im");
+    for (const p of pages) {
+      if (re.test(p.text)) {
+        found.push({ sectionType, pageStart: p.page });
+        break;
+      }
+    }
+  }
+
+  if (found.length === 0) return [];
+
+  found.sort((a, b) => a.pageStart - b.pageStart);
+  const maxPage = Math.max(...pages.map(p => p.page));
+
+  return found.map((curr, i) => {
+    const next = found[i + 1];
+    return {
+      sectionType: curr.sectionType,
+      pageStart: curr.pageStart,
+      pageEnd: next ? next.pageStart - 1 : maxPage,
+      confidence: "high" as const,
+    };
+  });
+}
 
 const sectionSchema = z.object({
   sectionType: z.string(),
