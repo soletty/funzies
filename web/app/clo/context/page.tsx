@@ -17,6 +17,8 @@ import {
   getWaterfallSteps,
   getEvents,
   getSupplementaryData,
+  getProceeds,
+  getOverflow,
   rowToProfile,
 } from "@/lib/clo/access";
 import type { ExtractedConstraints, CloDocument } from "@/lib/clo/types";
@@ -57,7 +59,7 @@ export default async function ContextPage() {
   const deal = await getDealForProfile(profile.id);
   const reportPeriod = deal ? await getLatestReportPeriod(deal.id) : null;
 
-  const [tranches, trancheSnapshots, holdings, periodData, accountBalances, parValueAdjustments, extractedDistributions, accruals, trades, tradingSummary, waterfallSteps, events, supplementaryData] = await Promise.all([
+  const [tranches, trancheSnapshots, holdings, periodData, accountBalances, parValueAdjustments, extractedDistributions, accruals, trades, tradingSummary, waterfallSteps, events, supplementaryData, proceeds, overflow] = await Promise.all([
     deal ? getTranches(deal.id) : Promise.resolve([]),
     reportPeriod ? getTrancheSnapshots(reportPeriod.id) : Promise.resolve([]),
     reportPeriod ? getHoldings(reportPeriod.id) : Promise.resolve([]),
@@ -71,6 +73,8 @@ export default async function ContextPage() {
     reportPeriod ? getWaterfallSteps(reportPeriod.id) : Promise.resolve([]),
     deal ? getEvents(deal.id) : Promise.resolve([]),
     reportPeriod ? getSupplementaryData(reportPeriod.id) : Promise.resolve(null),
+    reportPeriod ? getProceeds(reportPeriod.id) : Promise.resolve([]),
+    reportPeriod ? getOverflow(reportPeriod.id) : Promise.resolve([]),
   ]);
 
   if (reportPeriod && periodData) {
@@ -151,6 +155,8 @@ export default async function ContextPage() {
         waterfallSteps={waterfallSteps}
         events={events}
         supplementaryData={supplementaryData}
+        proceeds={proceeds}
+        overflow={overflow}
       />
     </div>
   );

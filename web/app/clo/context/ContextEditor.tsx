@@ -37,6 +37,8 @@ import type {
   CloWaterfallStep,
   CloEvent,
   CloSupplementaryData,
+  CloProceeds,
+  CloExtractionOverflow,
   EquityInceptionData,
 } from "@/lib/clo/types";
 import { resolveWaterfallInputs } from "@/lib/clo/resolver";
@@ -83,6 +85,8 @@ interface ContextEditorProps {
   waterfallSteps?: CloWaterfallStep[];
   events?: CloEvent[];
   supplementaryData?: CloSupplementaryData | null;
+  proceeds?: CloProceeds[];
+  overflow?: CloExtractionOverflow[];
 }
 
 // ---------------------------------------------------------------------------
@@ -274,6 +278,8 @@ export default function ContextEditor({
   waterfallSteps,
   events,
   supplementaryData,
+  proceeds,
+  overflow,
 }: ContextEditorProps) {
   const [constraints, setConstraints] = useState<ExtractedConstraints>(initialConstraints);
   const [fundProfile, setFundProfile] = useState(initialProfile);
@@ -726,6 +732,8 @@ export default function ContextEditor({
       waterfallSteps: waterfallSteps ?? [],
       events: events ?? [],
       supplementaryData: supplementaryData ?? null,
+      proceeds: proceeds ?? [],
+      overflow: overflow ?? [],
       dealDates: dealDates ?? null,
       equityInceptionData: inceptionData ?? null,
       extractedDistributions: extractedDistributions ?? [],

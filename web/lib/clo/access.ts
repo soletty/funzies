@@ -884,6 +884,22 @@ export async function getTradingSummary(reportPeriodId: string): Promise<CloTrad
   return rows[0] ? rowToTradingSummary(rows[0]) : null;
 }
 
+export async function getProceeds(reportPeriodId: string): Promise<import("./types").CloProceeds[]> {
+  const rows = await query<Record<string, unknown>>(
+    "SELECT * FROM clo_proceeds WHERE report_period_id = $1",
+    [reportPeriodId]
+  );
+  return rows.map((row) => ({
+    id: row.id as string,
+    reportPeriodId: row.report_period_id as string,
+    proceedsType: (row.proceeds_type as import("./types").CloProceeds["proceedsType"]) ?? null,
+    sourceDescription: (row.source_description as string) ?? null,
+    amount: row.amount != null ? Number(row.amount) : null,
+    periodStart: (row.period_start as string) ?? null,
+    periodEnd: (row.period_end as string) ?? null,
+  }));
+}
+
 export async function getAccruals(reportPeriodId: string): Promise<import("./types").CloAccrual[]> {
   const rows = await query<Record<string, unknown>>(
     "SELECT * FROM clo_accruals WHERE report_period_id = $1 ORDER BY issuer_name NULLS LAST",
