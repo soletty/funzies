@@ -97,12 +97,97 @@ function mapKeyParties(ppm: PpmJson): Record<string, unknown> {
   };
 }
 
+function mapCoverageTests(ppm: PpmJson): Record<string, unknown> {
+  const ct = ppm.section_4_coverage_tests;
+  // Build one entry per class_group, combining PV + IC on the same class_group.
+  // Schema expects `class`, `parValueRatio` (string), `interestCoverageRatio` (string).
+  const byClass = new Map<string, { pv?: number; ic?: number }>();
+  for (const p of ct.par_value_tests) {
+    const entry = byClass.get(p.class_group) ?? {};
+    entry.pv = p.required_ratio_pct;
+    byClass.set(p.class_group, entry);
+  }
+  for (const i of ct.interest_coverage_tests) {
+    const entry = byClass.get(i.class_group) ?? {};
+    entry.ic = i.required_ratio_pct;
+    byClass.set(i.class_group, entry);
+  }
+  const entries = Array.from(byClass.entries()).map(([klass, v]) => ({
+    class: klass,
+    parValueRatio: v.pv != null ? `${v.pv}%` : undefined,
+    interestCoverageRatio: v.ic != null ? `${v.ic}%` : undefined,
+  }));
+  const reinv = ct.reinvestment_oc_test;
+  return {
+    coverageTestEntries: entries,
+    reinvestmentOcTest: reinv ? {
+      trigger: `${reinv.required_ratio_pct}%`,
+      appliesDuring: reinv.description ?? undefined,
+      diversionAmount: reinv.trigger_action ?? undefined,
+    } : undefined,
+    // Preserve EoD hybrid composition as passthrough (schema is .passthrough())
+    eventOfDefaultParValueTest: ct.event_of_default_par_value_test,
+  };
+}
+
+function mapFeesAndExpenses(ppm: PpmJson): Record<string, unknown> {
+  const fees = ppm.section_5_fees_and_hurdle.fees.map((f) => {
+    const ratePctPa = f.rate_pct_pa;
+    const ratePct = f.rate_pct;
+    const rate = ratePctPa != null ? String(ratePctPa)
+      : ratePct != null ? String(ratePct)
+      : (f.rate as string | undefined);
+    const rateUnit =
+      ratePctPa != null ? "pct_pa"
+      : ratePct != null && f.name?.toLowerCase().includes("incentive") ? "pct_of_residual"
+      : f.rate === "Per Trust Deed" || f.rate === "Per Condition 1 definition" ? "per_agreement"
+      : ratePct != null ? "pct_pa"
+      : null;
+    return {
+      name: f.name,
+      rate,
+      rateUnit,
+      basis: f.basis ?? undefined,
+      description: [f.waterfall_clause, f.seniority, f.trigger, f.vat_treatment].filter(Boolean).join("; ") || undefined,
+      hurdleRate: f.trigger === "Incentive Fee IRR Threshold"
+        ? ppm.section_5_fees_and_hurdle.incentive_fee_irr_threshold?.threshold_pct_pa != null
+          ? `${ppm.section_5_fees_and_hurdle.incentive_fee_irr_threshold.threshold_pct_pa}%`
+          : undefined
+        : undefined,
+    };
+  });
+  return { fees, accounts: [] };
+}
+
+function mapPortfolioConstraints(ppm: PpmJson): Record<string, unknown> {
+  const limits = ppm.section_8_portfolio_and_quality_tests.portfolio_profile_limits_selected ?? [];
+  const quality = ppm.section_8_portfolio_and_quality_tests.collateral_quality_tests ?? [];
+  const portfolioProfileTests: Record<string, { min?: string | null; max?: string | null; notes?: string }> = {};
+  for (const l of limits) {
+    portfolioProfileTests[l.bucket] = {
+      min: l.direction === ">=" ? String(l.limit_pct) : null,
+      max: l.direction === "<=" ? String(l.limit_pct) : null,
+      notes: l.note ?? l.basis,
+    };
+  }
+  return {
+    collateralQualityTests: quality.map((q) => ({
+      name: q.test,
+      agency: /moody/i.test(q.test) ? "Moody's" : /fitch/i.test(q.test) ? "Fitch" : undefined,
+      value: q.description ?? null,
+    })),
+    portfolioProfileTests,
+  };
+}
+
 export function mapPpm(ppm: PpmJson): PpmSections {
   return {
     transaction_overview: mapTransactionOverview(ppm),
     capital_structure: mapCapitalStructure(ppm),
     key_dates: mapKeyDates(ppm),
     key_parties: mapKeyParties(ppm),
-    // remaining sections added in subsequent tasks
+    coverage_tests: mapCoverageTests(ppm),
+    fees_and_expenses: mapFeesAndExpenses(ppm),
+    portfolio_constraints: mapPortfolioConstraints(ppm),
   };
 }
