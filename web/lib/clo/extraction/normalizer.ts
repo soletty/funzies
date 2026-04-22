@@ -323,10 +323,11 @@ export function normalizePass5(data: Pass5Output, reportPeriodId: string, dealId
 // ---------------------------------------------------------------------------
 
 const POOL_METRIC_KEYS = new Set([
-  "totalPar", "wacSpread", "warf", "diversityScore", "numberOfAssets",
-  "numberOfObligors", "walYears", "waRecoveryRate", "aggregatePrincipalBalance",
-  "adjustedCollateralPrincipalAmount", "pctFixedRate", "pctFloatingRate",
-  "pctCovLite", "pctSecondLien", "pctDefaulted", "pctCccAndBelow",
+  "totalPar", "totalPrincipalBalance", "wacSpread", "warf", "diversityScore",
+  "numberOfAssets", "numberOfObligors", "walYears", "waRecoveryRate",
+  "aggregatePrincipalBalance", "adjustedCollateralPrincipalAmount",
+  "pctFixedRate", "pctFloatingRate", "pctCovLite", "pctSecondLien",
+  "pctDefaulted", "pctCccAndBelow",
 ]);
 
 export function normalizeSectionResults(

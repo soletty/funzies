@@ -31,6 +31,7 @@ export const complianceSummarySchema = z.object({
   numberOfAssets: z.number().nullable().optional(),
   numberOfObligors: z.number().nullable().optional(),
   totalPar: z.number().nullable().optional(),
+  totalPrincipalBalance: z.number().nullable().optional(),
   wacSpread: z.number().nullable().optional(),
   diversityScore: z.number().nullable().optional(),
   warf: z.number().nullable().optional(),

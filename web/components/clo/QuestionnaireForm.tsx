@@ -290,7 +290,7 @@ export default function QuestionnaireForm() {
       targetSectors: "",
       riskAppetite: form.riskAppetite,
       portfolioSize: "",
-      reinvestmentPeriod: rpEnd ? `${rpStart || ""} - ${rpEnd}` : "",
+      reinvestmentPeriod: rpEnd ? (rpStart ? `${rpStart} - ${rpEnd}` : rpEnd) : "",
       concentrationLimits: constraints.concentrationLimits
         ? Object.entries(constraints.concentrationLimits).map(([k, v]) => `${k}: ${v}`).join(", ")
         : "",

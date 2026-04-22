@@ -43,6 +43,10 @@ function mapComplianceSummary(c: ComplianceJson): Record<string, unknown> {
     aggregatePrincipalBalance: c.pool_summary.aggregate_principal_balance ?? null,
     adjustedCollateralPrincipalAmount: c.pool_summary.adjusted_collateral_principal_amount ?? null,
     totalPar: c.pool_summary.adjusted_collateral_principal_amount ?? c.pool_summary.aggregate_principal_balance ?? null,
+    // totalPrincipalBalance is the interest-generating principal base (pre-haircut).
+    // totalPar is the OC-numerator value (post-haircut). The resolver uses totalPrincipalBalance
+    // for cashflow/interest projection and totalPar for trigger tests — they're distinct columns.
+    totalPrincipalBalance: c.pool_summary.aggregate_principal_balance ?? null,
     wacSpread: (() => {
       const was = qualityByName.get("minimum wa floating spread") ?? qualityByName.get("minimum weighted average floating spread");
       return was != null ? decimalToPct(was) : null;   // 0.0368 → 3.68%
@@ -58,11 +62,30 @@ function mapComplianceSummary(c: ComplianceJson): Record<string, unknown> {
 }
 
 // "Admiral Bidco GmbH - Facility B2" → ["Admiral Bidco GmbH", "Facility B2"]
-// Exported for use by mapAssetSchedule, mapTradingActivity, mapInterestAccrual (Tasks 7/8).
+//
+// Source-data contamination patterns we strip before splitting:
+//   "Loan Subtotal:   440,805,583.95   ...  Allwyn Fin - ..."  → subtotal prefix bleed
+//   "FACILITY B4 (EUR) Dedalus Finance GmbH - ..."             → facility-code prefix bleed
+//   "LLC) - 2025 Euro Term Loans Gold Rush Bidco Ltd - ..."    → trailing-fragment + category bleed
+//   "Rate                  Adj Allwyn Fin - ..."               → column-header bleed
+//
+// Exported for use by mapAssetSchedule, mapTradingActivity, mapInterestAccrual.
 export function splitDescription(desc: string): [string, string] {
-  const idx = desc.indexOf(" - ");
-  if (idx === -1) return [desc.trim(), ""];
-  return [desc.slice(0, idx).trim(), desc.slice(idx + 3).trim()];
+  let s = desc;
+  // Strip "Loan Subtotal: <numbers>   " style subtotal prefix that bled into a real obligor row
+  s = s.replace(/^\s*(Loan\s+Subtotal|Total|Subtotal):\s*[\d,.\s-]+/i, "");
+  // Strip trailing fragment of previous entity: "LLC) - ", "Inc) - ", "Ltd) - "
+  s = s.replace(/^[A-Za-z]{0,5}\)\s*-\s*/, "");
+  // Strip "Rate   Adj " prefix bleed from interest-accrual column headers
+  s = s.replace(/^Rate\s+Adj\s+/i, "");
+  // Strip leading facility-code prefix: "FACILITY B4 (EUR) "
+  s = s.replace(/^FACILITY\s+[A-Z0-9]+\s*\([^)]*\)\s+/i, "");
+  // Strip loan-category prefix: "2025 Euro Term Loans ", "EUR Term Loans "
+  s = s.replace(/^(\d{4}\s+)?(Euro|EUR|USD)\s+Term\s+Loans?\s+/i, "");
+  s = s.trim();
+  const idx = s.indexOf(" - ");
+  if (idx === -1) return [s, ""];
+  return [s.slice(0, idx).trim(), s.slice(idx + 3).trim()];
 }
 
 function mapAssetSchedule(c: ComplianceJson): Record<string, unknown> {
@@ -277,12 +300,36 @@ function mapTradingActivity(c: ComplianceJson): Record<string, unknown> {
   return { trades, tradingSummary: summary };
 }
 
+// Map BNY-style "group" strings to the AccountType enum used by the resolver.
+// The resolver's principalAccountCash filter does strict === "PRINCIPAL", so the
+// raw "Principal Funding" group (or a misspelled name like "Principle EUR") has
+// to be normalized here. Unknown groups → "OTHER".
+function normalizeAccountType(group: string | null | undefined, name: string): string {
+  const g = (group ?? "").toLowerCase();
+  const n = name.toLowerCase();
+  if (g.includes("principal") || n.includes("principal") || n.includes("principle")) return "PRINCIPAL";
+  if (g.includes("interest") || n.includes("interest")) return "INTEREST";
+  if (g.includes("collection") || n.includes("collection")) return "COLLECTION";
+  if (g.includes("payment") || n.includes("payment")) return "PAYMENT";
+  if (g.includes("reserve") || n.includes("reserve")) return "RESERVE";
+  if (g.includes("expense") || n.includes("expense")) return "EXPENSE";
+  if (g.includes("hedge") || n.includes("hedge")) return "HEDGE";
+  if (g.includes("custody") || n.includes("custody")) return "CUSTODY";
+  if (g.includes("currency") || n.includes("currency")) return "CURRENCY";
+  return "OTHER";
+}
+
 function mapAccountBalances(c: ComplianceJson): Record<string, unknown> {
   return {
     accounts: c.account_balances.accounts.map((a) => ({
       accountName: a.name,
-      accountType: a.group ?? null,
+      accountType: normalizeAccountType(a.group, a.name),
       currency: a.ccy ?? null,
+      // BNY reports deal_received_eur as the ending balance in EUR (confirmed
+      // against account_balances.principal_funding_account_received_basis_eur
+      // subtotal). deal_trade_eur is the trade-basis balance; native_received
+      // is ending balance in native currency. Prefer received_eur to match the
+      // reconciliation footing used by the Adjusted CPA.
       balanceAmount: a.deal_received_eur ?? a.deal_trade_eur ?? a.native_received ?? null,
       requiredBalance: null,
       excessDeficit: null,

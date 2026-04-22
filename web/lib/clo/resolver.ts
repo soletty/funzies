@@ -629,11 +629,14 @@ export function resolveWaterfallInputs(
   const fees = resolveFees(constraints, warnings);
 
   // --- Reinvestment OC Trigger ---
-  // Resolved from PPM's reinvestmentOcTest field, with fallback to the most junior OC test
+  // Priority: (1) compliance test explicitly named "Reinvestment OC" with
+  // testType INTEREST_DIVERSION — authoritative; (2) PPM's reinvestmentOcTest
+  // gated to >=103% (PPM extractor sometimes conflates the §10(a)(iv) EoD
+  // threshold of 102.5% with the Reinvestment OC trigger); (3) most junior
+  // class OC trigger as last resort.
   let reinvestmentOcTrigger: ResolvedReinvestmentOcTrigger | null = null;
   const reinvOcRaw = constraints.reinvestmentOcTest;
 
-  // Parse diversion percentage from the extracted diversionAmount string (e.g. "Up to 50%...", "100%")
   let diversionPct = 50; // common default
   if (reinvOcRaw?.diversionAmount) {
     const pctMatch = reinvOcRaw.diversionAmount.match(/(\d+(?:\.\d+)?)\s*%/);
@@ -646,40 +649,51 @@ export function resolveWaterfallInputs(
     warnings.push({ field: "reinvestmentOcTrigger.diversionPct", message: `Reinvestment OC trigger found but no diversion amount specified — defaulting to 50%`, severity: "warn" });
   }
 
-  if (reinvOcRaw?.trigger) {
+  const mostJuniorOcRank = ocTriggers.length > 0
+    ? [...ocTriggers].sort((a, b) => b.rank - a.rank)[0].rank
+    : 99;
+
+  const complianceReinvOc = (complianceData?.complianceTests ?? []).find(t => {
+    const name = (t.testName ?? "").toLowerCase();
+    return t.triggerLevel != null
+      && t.triggerLevel > 0
+      && name.includes("reinvestment")
+      && (t.testType === "INTEREST_DIVERSION" || name.includes("oc") || name.includes("overcollateral"));
+  });
+  if (complianceReinvOc?.triggerLevel != null) {
+    reinvestmentOcTrigger = {
+      triggerLevel: complianceReinvOc.triggerLevel,
+      rank: mostJuniorOcRank,
+      diversionPct,
+    };
+  }
+
+  if (!reinvestmentOcTrigger && reinvOcRaw?.trigger) {
     let triggerLevel = parseFloat(reinvOcRaw.trigger);
     if (!isNaN(triggerLevel) && triggerLevel > 0) {
-      // Apply the same ratio→percentage normalization as standard OC triggers:
-      // values < 10 are almost certainly ratios (e.g. 1.05 → 105%).
       if (triggerLevel < 10) {
         warnings.push({ field: "reinvestmentOcTrigger", message: `Reinvestment OC trigger ${triggerLevel} looks like a ratio, converting to ${triggerLevel * 100}%`, severity: "warn" });
         triggerLevel = triggerLevel * 100;
-      } else if (triggerLevel >= 10 && triggerLevel < 90) {
-        warnings.push({ field: "reinvestmentOcTrigger", message: `Reinvestment OC trigger ${triggerLevel}% is implausible (10-90%). Check extraction and set manually.`, severity: "error" });
       }
-      if (triggerLevel > 200) {
-        warnings.push({ field: "reinvestmentOcTrigger", message: `Reinvestment OC trigger ${triggerLevel}% seems unusually high`, severity: "warn" });
+      if (triggerLevel < 103) {
+        warnings.push({
+          field: "reinvestmentOcTrigger",
+          message: `PPM reinvestmentOcTest.trigger is ${triggerLevel}% — implausibly low (typical range 103-106%). Likely the §10(a)(iv) EoD threshold (102.5%) misassigned. Ignoring PPM value.`,
+          severity: "warn",
+        });
+      } else {
+        if (triggerLevel > 200) {
+          warnings.push({ field: "reinvestmentOcTrigger", message: `Reinvestment OC trigger ${triggerLevel}% seems unusually high`, severity: "warn" });
+        }
+        reinvestmentOcTrigger = { triggerLevel, rank: mostJuniorOcRank, diversionPct };
       }
-      // Use the most junior OC test rank (typically Class F)
-      const sortedOc = [...ocTriggers].sort((a, b) => b.rank - a.rank);
-      reinvestmentOcTrigger = { triggerLevel, rank: sortedOc[0]?.rank ?? 99, diversionPct };
     }
   }
+
   if (!reinvestmentOcTrigger && ocTriggers.length > 0) {
-    // Fallback: derive from the most junior OC trigger. Skip implausibly low
-    // values (<103%) which are usually the EoD threshold (102.5%) misextracted
-    // as a class trigger and would produce a wildly wrong reinvestment OC.
     const sortedOc = [...ocTriggers].filter(t => t.triggerLevel >= 103).sort((a, b) => b.rank - a.rank);
     if (sortedOc.length > 0) {
       reinvestmentOcTrigger = { triggerLevel: sortedOc[0].triggerLevel, rank: sortedOc[0].rank, diversionPct };
-    }
-  }
-  // Prefer compliance trigger level for the reinvestment OC test when available.
-  // The reinvestment OC test is typically at the same level as the most junior OC trigger (Class F).
-  if (reinvestmentOcTrigger && ocTriggers.length > 0) {
-    const juniorCompliance = [...ocTriggers].filter(t => t.source === "compliance").sort((a, b) => b.rank - a.rank);
-    if (juniorCompliance.length > 0 && juniorCompliance[0].rank === reinvestmentOcTrigger.rank) {
-      reinvestmentOcTrigger = { ...reinvestmentOcTrigger, triggerLevel: juniorCompliance[0].triggerLevel };
     }
   }
 
