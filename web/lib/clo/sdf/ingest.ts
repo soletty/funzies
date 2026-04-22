@@ -163,7 +163,10 @@ export async function ingestSdfFiles(
           status: collateralCount > 0 ? "success" : "empty",
         });
         if (assetEntry) {
-          const assetCount = await processAssetLevel(reportPeriodId, assetEntry.parsed as SdfParseResult<SdfAssetLevelRow>, client);
+          // Pass uploadedTypes so processAssetLevel skips its pre-check, which
+          // otherwise runs on a separate pool connection and can't see the
+          // uncommitted Collateral File INSERTs we just made on `client`.
+          const assetCount = await processAssetLevel(reportPeriodId, assetEntry.parsed as SdfParseResult<SdfAssetLevelRow>, client, uploadedTypes);
           results.push({
             fileType: "asset_level",
             rowCount: assetCount,
