@@ -196,8 +196,181 @@ function mapConcentrationTables(c: ComplianceJson): Record<string, unknown> {
   };
 }
 
-export function mapCompliance(c: ComplianceJson): ComplianceSections {
+function mapWaterfall(c: ComplianceJson): Record<string, unknown> {
+  const exec = c.current_period_execution;
+  if (!exec) return { waterfallSteps: [], proceeds: [], trancheSnapshots: [] };
+
+  const waterfallSteps = (exec.interest_waterfall_execution ?? []).map((step: any, idx: number) => ({
+    waterfallType: "INTEREST",
+    priorityOrder: idx + 1,
+    description: step.clause ?? step.description ?? null,
+    payee: step.payee ?? step.recipient ?? null,
+    amountDue: step.amount_due ?? null,
+    amountPaid: step.amount_paid ?? step.amount ?? null,
+    shortfall: step.shortfall ?? null,
+    fundsAvailableBefore: step.funds_available_before ?? null,
+    fundsAvailableAfter: step.funds_available_after ?? null,
+    isOcTestDiversion: Boolean(step.is_oc_cure ?? /coverage test/i.test(String(step.description ?? step.clause ?? ""))),
+    isIcTestDiversion: false,
+  }));
+
+  const trancheSnapshots = (exec.tranche_distributions ?? []).map((t) => ({
+    className: t.class,
+    currentBalance: t.ending,
+    couponRate: t.all_in_rate != null ? t.all_in_rate * 100 : null,
+    interestAccrued: t.interest_due ?? null,
+    interestPaid: t.interest_paid ?? null,
+    principalPaid: t.principal_paid ?? null,
+    beginningBalance: t.beginning,
+    endingBalance: t.ending,
+  }));
+
+  const proceeds = [
+    exec.account_flow_on_payment_date?.interest_account && {
+      proceedsType: "INTEREST",
+      sourceDescription: "Interest Funding Account",
+      amount: (exec.account_flow_on_payment_date as any).interest_account.beginning ?? null,
+      periodStart: c.key_dates.collection_period_start ?? null,
+      periodEnd: c.key_dates.collection_period_end ?? null,
+    },
+    exec.account_flow_on_payment_date?.principal_account && {
+      proceedsType: "PRINCIPAL",
+      sourceDescription: "Principal Funding Account",
+      amount: (exec.account_flow_on_payment_date as any).principal_account.beginning ?? null,
+      periodStart: c.key_dates.collection_period_start ?? null,
+      periodEnd: c.key_dates.collection_period_end ?? null,
+    },
+  ].filter(Boolean);
+
+  return { waterfallSteps, proceeds, trancheSnapshots };
+}
+
+function mapTradingActivity(c: ComplianceJson): Record<string, unknown> {
+  const makeTrade = (t: any, tradeType: string) => {
+    const [obligorName, facilityName] = splitDescription(t.description);
+    return {
+      tradeType,
+      obligorName,
+      facilityName,
+      tradeDate: parseFlexibleDate(t.trade_date),
+      settlementDate: parseFlexibleDate(t.settle_date),
+      parAmount: t.par ?? null,
+      settlementPrice: t.price ?? null,
+      settlementAmount: t.total ?? null,
+      currency: t.ccy ?? null,
+    };
+  };
+  const purchases = (c.purchases ?? []).map((t) => makeTrade(t, "PURCHASE"));
+  const sales = (c.sales ?? []).map((t) => makeTrade(t, "SALE"));
+  const trades = [...purchases, ...sales];
+  const summary = {
+    totalPurchasesPar: purchases.reduce((s, t) => s + (t.parAmount ?? 0), 0),
+    totalSalesPar: sales.reduce((s, t) => s + Math.abs(t.parAmount ?? 0), 0),
+    totalSalesProceeds: sales.reduce((s, t) => s + (t.settlementAmount ?? 0), 0),
+    netGainLoss: null,
+    totalPaydowns: (c.paydowns ?? []).reduce((s, p) => s + (p.amount ?? 0), 0),
+  };
+  return { trades, tradingSummary: summary };
+}
+
+function mapAccountBalances(c: ComplianceJson): Record<string, unknown> {
   return {
+    accounts: c.account_balances.accounts.map((a) => ({
+      accountName: a.name,
+      accountType: a.group ?? null,
+      currency: a.ccy ?? null,
+      balanceAmount: a.deal_received_eur ?? a.deal_trade_eur ?? a.native_received ?? null,
+      requiredBalance: null,
+      excessDeficit: null,
+    })),
+  };
+}
+
+function mapInterestAccrual(c: ComplianceJson): Record<string, unknown> {
+  // Schema expects assetRateDetails[]; we fold §22 into a sparser shape here.
+  const positions = c.interest_accrual_detail?.positions ?? [];
+  return {
+    assetRateDetails: positions.map((p) => {
+      const [obligorName, facilityName] = splitDescription(p.description);
+      return {
+        obligorName,
+        facilityName,
+        referenceRate: p.base_index ?? null,
+        baseRate: p.index_rate_pct ?? null,
+        indexFloor: p.index_floor_pct ?? null,
+        spread: p.spread_pct ?? null,
+        creditSpreadAdj: p.credit_spread_adj_pct ?? null,
+        effectiveSpread: p.effective_spread_pct ?? null,
+        allInRate: p.all_in_rate_pct ?? null,
+      };
+    }),
+  };
+}
+
+function mapDefaultDetail(c: ComplianceJson): Record<string, unknown> {
+  const positions = [
+    ...(c.moody_caa_obligations?.positions ?? []),
+    ...(c.fitch_ccc_obligations?.positions ?? []),
+  ] as Array<Record<string, unknown>>;
+  // These are CCC obligations, not defaults — schema allows non-defaulted rows too.
+  return {
+    defaults: positions.map((p) => ({
+      obligorName: String(p.description ?? p.obligor_name ?? p.issuer ?? ""),
+      securityId: (p.security_id as string) ?? null,
+      parAmount: (p.principal_balance as number) ?? (p.par as number) ?? null,
+      marketPrice: (p.market_price as number) ?? null,
+      isDefaulted: false,
+      isDeferring: false,
+    })),
+  };
+}
+
+function mapSupplementary(c: ComplianceJson): Record<string, unknown> {
+  const fees: Array<Record<string, unknown>> = [];
+  const mgmt = c.current_period_execution?.management_fees_paid as Record<string, unknown> | undefined;
+  if (mgmt && typeof mgmt === "object") {
+    for (const [name, amount] of Object.entries(mgmt)) {
+      if (typeof amount === "number") fees.push({ feeType: name, paid: amount });
+    }
+  }
+  const admin = c.current_period_execution?.administrative_expenses ?? [];
+  for (const a of admin) {
+    fees.push({
+      feeType: (a as any).name,
+      payee: null,
+      accrued: (a as any).amount_due ?? null,
+      paid: (a as any).paid_on_ipd ?? null,
+      unpaid: (a as any).outstanding ?? null,
+    });
+  }
+
+  return {
+    fees,
+    hedgePositions: [],
+    fxRates: c.key_dates.fx ? Object.entries(c.key_dates.fx).map(([pair, rate]) => {
+      const [base, , quote] = pair.split("_");
+      return { baseCurrency: base, quoteCurrency: quote, spotRate: rate as number };
+    }) : [],
+    ratingActions: [],
+    events: [],
+    spCdoMonitor: [],
+  };
+}
+
+function mapNotesInformation(c: ComplianceJson): Record<string, unknown> | null {
+  const hist = c.notes_payment_history?.per_tranche;
+  if (!hist) return null;
+  const allRows: Array<Record<string, unknown>> = [];
+  for (const [className, data] of Object.entries(hist)) {
+    for (const row of (data as any).rows ?? []) {
+      allRows.push({ className, ...row });
+    }
+  }
+  return { paymentHistory: allRows };
+}
+
+export function mapCompliance(c: ComplianceJson): ComplianceSections {
+  const sections: ComplianceSections = {
     compliance_summary: mapComplianceSummary(c),
     asset_schedule: mapAssetSchedule(c),
     interest_accrual_detail: mapInterestAccrualDetail(c),
@@ -205,6 +378,14 @@ export function mapCompliance(c: ComplianceJson): ComplianceSections {
     interest_coverage_tests: mapInterestCoverageTests(c),
     collateral_quality_tests: mapCollateralQualityTests(c),
     concentration_tables: mapConcentrationTables(c),
-    // remaining sections added in Task 8
+    waterfall: mapWaterfall(c),
+    trading_activity: mapTradingActivity(c),
+    account_balances: mapAccountBalances(c),
+    interest_accrual: mapInterestAccrual(c),
+    default_detail: mapDefaultDetail(c),
+    supplementary: mapSupplementary(c),
   };
+  const ni = mapNotesInformation(c);
+  if (ni) sections.notes_information = ni;
+  return sections;
 }
