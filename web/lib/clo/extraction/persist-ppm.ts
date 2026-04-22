@@ -1,6 +1,6 @@
 import type { Pool } from "pg";
-import { normalizeClassName } from "../api.js";
-import type { CapitalStructureEntry } from "../types/index.js";
+import { normalizeClassName } from "../api";
+import type { CapitalStructureEntry } from "../types/index";
 
 function parseAmount(s: string | undefined | null): number | null {
   if (!s) return null;
