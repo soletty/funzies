@@ -73,11 +73,14 @@ export function scanHeadings(pages: Array<{ page: number; text: string }>): Scan
 
   for (const [sectionType, heading] of Object.entries(CANONICAL_HEADINGS) as Array<[SectionType, string]>) {
     const re = new RegExp(`(?:^|\\n)\\s*(?:§?\\s*\\d+(?:\\.\\d+)?\\.?\\s*)?${escapeRegex(heading)}`, "im");
+    let lastMatch: number | null = null;
     for (const p of pages) {
       if (re.test(p.text)) {
-        found.push({ sectionType, pageStart: p.page });
-        break;
+        lastMatch = p.page;
       }
+    }
+    if (lastMatch !== null) {
+      found.push({ sectionType, pageStart: lastMatch });
     }
   }
 
