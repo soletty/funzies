@@ -116,11 +116,95 @@ function mapInterestAccrualDetail(c: ComplianceJson): Record<string, unknown> {
   };
 }
 
+function mapParValueTests(c: ComplianceJson): Record<string, unknown> {
+  return {
+    tests: c.par_value_tests.map((t) => {
+      const className = t.test;
+      const isEod = /event of default/i.test(t.test) || t.subtype === "EventOfDefault";
+      const testType = /reinvestment/i.test(t.test) ? "INTEREST_DIVERSION" : "OC_PAR";
+      return {
+        testName: t.test,
+        testType,
+        testClass: isEod ? "EOD" : className.replace(/^Class\s*/i, "").trim(),
+        numerator: t.numerator,
+        denominator: t.denominator,
+        actualValue: t.actual * 100,            // 1.3698 → 136.98
+        triggerLevel: t.trigger * 100,
+        cushionPct: t.cushion != null ? t.cushion * 100 : null,
+        isPassing: t.result === "Passed" ? true : t.result === "Failed" ? false : null,
+      };
+    }),
+    parValueAdjustments: [],  // synthesised later if adjusted_cpa_reconciliation has non-zero fields
+  };
+}
+
+function mapInterestCoverageTests(c: ComplianceJson): Record<string, unknown> {
+  return {
+    tests: c.interest_coverage_tests.tests.map((t) => ({
+      testName: t.test,
+      testType: "IC",
+      testClass: t.test.replace(/\s*IC$/, "").replace(/^Class\s*/i, "").trim(),
+      numerator: t.numerator,
+      denominator: t.denominator,
+      actualValue: t.actual * 100,
+      triggerLevel: t.trigger * 100,
+      cushionPct: t.cushion != null ? t.cushion * 100 : null,
+      isPassing: t.result === "Passed" ? true : t.result === "Failed" ? false : null,
+    })),
+    interestAmountsPerTranche: c.capital_structure.map((tr) => ({
+      className: tr.tranche,
+      interestAmount: tr.period_interest ?? null,
+      currency: c.meta.reporting_currency ?? "EUR",
+    })),
+  };
+}
+
+function mapCollateralQualityTests(c: ComplianceJson): Record<string, unknown> {
+  return {
+    tests: c.collateral_quality_tests.map((t) => {
+      const agency = /moody/i.test(t.test) ? "Moody's" : /fitch/i.test(t.test) ? "Fitch" : null;
+      const triggerType: "MIN" | "MAX" = /min/i.test(t.test) ? "MIN" : /max/i.test(t.test) ? "MAX" : (t.actual < t.trigger ? "MIN" : "MAX");
+      return {
+        testName: t.test,
+        agency,
+        actualValue: t.actual,
+        triggerLevel: t.trigger,
+        triggerType,
+        isPassing: t.result === "Passed" ? true : t.result === "Failed" ? false : null,
+        cushion: triggerType === "MIN" ? t.actual - t.trigger : t.trigger - t.actual,
+      };
+    }),
+  };
+}
+
+function mapConcentrationTables(c: ComplianceJson): Record<string, unknown> {
+  return {
+    concentrations: c.portfolio_profile_tests.map((p) => ({
+      concentrationType: p.code,
+      bucketName: p.test,
+      actualValue: p.actual ?? null,
+      actualPct: p.actual_pct ?? null,
+      limitValue: p.limit ?? null,
+      limitPct: p.limit_pct ?? null,
+      excessAmount: null,
+      isPassing: p.result === "Passed" ? true : p.result === "Failed" ? false : null,
+      isHaircutApplied: null,
+      haircutAmount: null,
+      obligorCount: null,
+      assetCount: null,
+    })),
+  };
+}
+
 export function mapCompliance(c: ComplianceJson): ComplianceSections {
   return {
     compliance_summary: mapComplianceSummary(c),
     asset_schedule: mapAssetSchedule(c),
     interest_accrual_detail: mapInterestAccrualDetail(c),
-    // remaining sections added in subsequent tasks
+    par_value_tests: mapParValueTests(c),
+    interest_coverage_tests: mapInterestCoverageTests(c),
+    collateral_quality_tests: mapCollateralQualityTests(c),
+    concentration_tables: mapConcentrationTables(c),
+    // remaining sections added in Task 8
   };
 }
