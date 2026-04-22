@@ -87,6 +87,7 @@ interface ContextEditorProps {
   supplementaryData?: CloSupplementaryData | null;
   proceeds?: CloProceeds[];
   overflow?: CloExtractionOverflow[];
+  dealId?: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -280,6 +281,7 @@ export default function ContextEditor({
   supplementaryData,
   proceeds,
   overflow,
+  dealId,
 }: ContextEditorProps) {
   const [constraints, setConstraints] = useState<ExtractedConstraints>(initialConstraints);
   const [fundProfile, setFundProfile] = useState(initialProfile);
@@ -316,6 +318,41 @@ export default function ContextEditor({
   );
   const [inceptionDirty, setInceptionDirty] = useState(false);
   const [savingInception, setSavingInception] = useState(false);
+
+  const [intexUploading, setIntexUploading] = useState(false);
+  const [intexMessage, setIntexMessage] = useState<string | null>(null);
+
+  async function uploadIntexCashflows(file: File) {
+    if (!dealId) {
+      setIntexMessage("No deal associated with this profile yet — upload PPM or compliance data first.");
+      return;
+    }
+    setIntexUploading(true);
+    setIntexMessage(null);
+    try {
+      const body = new FormData();
+      body.append("dealId", dealId);
+      body.append("file", file);
+      const res = await fetch("/api/clo/intex/cashflows", { method: "POST", body });
+      const json = await res.json();
+      if (!res.ok) {
+        setIntexMessage(`Upload failed: ${json.error ?? res.statusText}${json.detail ? ` — ${json.detail}` : ""}`);
+      } else {
+        const parts = [
+          `${json.periodsParsed} periods parsed`,
+          `${json.periodsInserted} inserted`,
+          `${json.periodsUpdated} updated`,
+          `${json.snapshotsUpserted} tranche snapshots`,
+        ];
+        if (json.tranchesCreated?.length) parts.push(`new tranches: ${json.tranchesCreated.join(", ")}`);
+        setIntexMessage(parts.join(" · ") + ". Reload the page to see the history.");
+      }
+    } catch (err) {
+      setIntexMessage(`Upload failed: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setIntexUploading(false);
+    }
+  }
 
   // --- Update helpers ---
 
@@ -817,7 +854,39 @@ export default function ContextEditor({
             onChange={(e) => { if (e.target.files?.[0]) importContext(e.target.files[0]); }}
           />
         </label>
+        <label
+          title="Upload the Intex 'Past Cashflows' sheet as CSV. Backfills clo_report_periods + clo_tranche_snapshots for every period in the file."
+          style={{
+            ...saveBtnStyle,
+            background: "var(--color-surface)",
+            color: "var(--color-text)",
+            border: "1px solid var(--color-border)",
+            cursor: dealId && !intexUploading ? "pointer" : "not-allowed",
+            opacity: dealId && !intexUploading ? 1 : 0.5,
+          }}
+        >
+          {intexUploading ? "Uploading..." : "Import Intex Cashflows (CSV)"}
+          <input
+            type="file"
+            accept=".csv"
+            disabled={!dealId || intexUploading}
+            style={{ display: "none" }}
+            onChange={(e) => { if (e.target.files?.[0]) uploadIntexCashflows(e.target.files[0]); }}
+          />
+        </label>
       </div>
+      {intexMessage && (
+        <div style={{
+          marginBottom: "1rem",
+          padding: "0.5rem 0.75rem",
+          fontSize: "0.85rem",
+          border: "1px solid var(--color-border)",
+          borderRadius: "var(--radius-sm)",
+          background: "var(--color-surface)",
+        }}>
+          {intexMessage}
+        </div>
+      )}
 
       {resolutionWarnings.length > 0 && (
         <div style={{

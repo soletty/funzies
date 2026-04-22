@@ -127,6 +127,9 @@ export interface ResolvedLoan {
   pikAmount?: number;
   // Consolidated credit watch — true if ANY agency has negative watch
   creditWatch?: boolean;
+  // Moody's WARF factor for this position (1=Aaa, 10000=Ca/C). Multiply by
+  // parBalance and divide by pool par to get the position's WARF contribution.
+  warfFactor?: number;
 }
 
 export type WarningSeverity = "info" | "warn" | "error";

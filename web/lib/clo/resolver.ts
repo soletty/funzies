@@ -1,7 +1,7 @@
 import type { ExtractedConstraints, CloPoolSummary, CloComplianceTest, CloTranche, CloTrancheSnapshot, CloHolding, CloAccountBalance, CloParValueAdjustment } from "./types";
 import type { ResolvedDealData, ResolvedTranche, ResolvedPool, ResolvedTrigger, ResolvedReinvestmentOcTrigger, ResolvedDates, ResolvedFees, ResolvedLoan, ResolvedComplianceTest, ResolvedMetadata, ResolutionWarning } from "./resolver-types";
 import { parseSpreadToBps, normalizeWacSpread } from "./ingestion-gate";
-import { mapToRatingBucket } from "./rating-mapping";
+import { mapToRatingBucket, moodysWarfFactor } from "./rating-mapping";
 import { CLO_DEFAULTS } from "./defaults";
 
 /** Remove keys with null/undefined values to avoid JSON bloat. */
@@ -20,6 +20,16 @@ function addQuartersForResolver(dateIso: string, quarters: number): string {
   // Clamp to last day of target month if day rolled forward (e.g. Jan 31 + 3mo → Apr 30)
   if (d.getUTCDate() !== origDay) d.setUTCDate(0);
   return d.toISOString().slice(0, 10);
+}
+
+/** Normalize a concentration test / portfolio profile bucket name for name-based joins.
+ *  Strips leading "(a)" / "(p)(i)" prefixes, collapses punctuation, lowercases. */
+function normalizeConcName(name: string): string {
+  return String(name ?? "")
+    .toLowerCase()
+    .replace(/^\s*\([a-z0-9]+\)(?:\([iv]+\))?\s*/i, "") // strip lettered prefix
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
 }
 
 function normClass(s: string): string {
@@ -699,7 +709,16 @@ export function resolveWaterfallInputs(
 
   // --- Loans ---
   const fallbackMaturity = resolvedMaturity;
-  const activeHoldings = holdings.filter(h => h.parBalance != null && h.parBalance > 0 && !h.isDefaulted);
+  // Bonds carry parBalance=0 by SDF convention (the "funded balance" concept
+  // doesn't apply — their outstanding par lives in principalBalance). Use the
+  // higher of the two so bonds aren't silently dropped. The SDF parser now
+  // handles this at ingestion time; this fallback protects already-ingested
+  // rows and any other source that mirrors the SDF convention.
+  const holdingPar = (h: typeof holdings[number]): number =>
+    (h.parBalance && h.parBalance > 0) ? h.parBalance
+    : (h.principalBalance && h.principalBalance > 0) ? h.principalBalance
+    : 0;
+  const activeHoldings = holdings.filter(h => holdingPar(h) > 0 && !h.isDefaulted);
   const nonDdtlHoldings = activeHoldings.filter(h => !h.isDelayedDraw);
 
   const loans: ResolvedLoan[] = activeHoldings.map(h => {
@@ -749,8 +768,16 @@ export function resolveWaterfallInputs(
       h.spSecurityWatch,
     ].some(w => w && w.toLowerCase().includes('negative')) || undefined;
 
+    // Moody's uses its DP (Default Probability) rating for WARF when available,
+    // falling back to the final/published rating, then the raw Moody's rating.
+    const warfFactor =
+      moodysWarfFactor(h.moodysDpRating)
+      ?? moodysWarfFactor(h.moodysRatingFinal)
+      ?? moodysWarfFactor(h.moodysRating)
+      ?? undefined;
+
     return stripNulls({
-      parBalance: h.parBalance!,
+      parBalance: holdingPar(h),
       maturityDate: h.maturityDate ?? fallbackMaturity,
       ratingBucket,
       spreadBps: isFixed ? 0 : (isDdtl ? 0 : (h.spreadBps ?? wacSpreadBps)),
@@ -777,6 +804,7 @@ export function resolveWaterfallInputs(
       floorRate: h.floorRate ?? undefined,
       pikAmount: h.pikAmount ?? undefined,
       creditWatch: creditWatch || undefined,
+      warfFactor,
     });
   });
 
@@ -784,33 +812,35 @@ export function resolveWaterfallInputs(
   // Defaulted holdings are excluded from the loan list (no interest income).
   // For each holding: use market price recovery if available, track unpriced par
   // separately so the engine can apply its model recoveryPct to the remainder.
-  const defaultedHoldings = holdings.filter(h => h.isDefaulted && h.parBalance != null && h.parBalance > 0);
-  const preExistingDefaultedPar = defaultedHoldings.reduce((s, h) => s + h.parBalance!, 0);
+  const defaultedHoldings = holdings.filter(h => h.isDefaulted && holdingPar(h) > 0);
+  const preExistingDefaultedPar = defaultedHoldings.reduce((s, h) => s + holdingPar(h), 0);
   let preExistingDefaultRecovery = 0; // market-price-based recovery for priced holdings
   let unpricedDefaultedPar = 0; // par of holdings without market price (engine applies recoveryPct)
   for (const h of defaultedHoldings) {
+    const par = holdingPar(h);
     if (h.currentPrice != null && h.currentPrice > 0) {
       // currentPrice in percentage format (e.g. 31.29 = 31.29% of par).
       // Ambiguity: values in (0, 1) could be 0.5% or 50% — we treat as decimal (50%).
       // True fix requires normalizing at the extraction layer based on source format.
-      preExistingDefaultRecovery += h.parBalance! * (h.currentPrice >= 1 ? h.currentPrice / 100 : h.currentPrice);
+      preExistingDefaultRecovery += par * (h.currentPrice >= 1 ? h.currentPrice / 100 : h.currentPrice);
     } else {
-      unpricedDefaultedPar += h.parBalance!;
+      unpricedDefaultedPar += par;
     }
   }
   // Agency recovery value for OC numerator — the indenture uses the LESSER of available
   // agency recovery rates (e.g. "Lesser of Fitch Collateral Value and S&P Collateral Value").
   const preExistingDefaultOcValue = defaultedHoldings.reduce((s, h) => {
+    const par = holdingPar(h);
     const rates = [h.recoveryRateMoodys, h.recoveryRateSp, h.recoveryRateFitch]
       .filter((r): r is number => r != null && r > 0);
     if (rates.length > 0) {
       const minRate = Math.min(...rates);
       // Agency rates in percentage format (e.g. 28.5 = 28.5%)
-      return s + h.parBalance! * (minRate >= 1 ? minRate / 100 : minRate);
+      return s + par * (minRate >= 1 ? minRate / 100 : minRate);
     }
     // No agency rates — fall back to market price
     if (h.currentPrice != null && h.currentPrice > 0) {
-      return s + h.parBalance! * (h.currentPrice >= 1 ? h.currentPrice / 100 : h.currentPrice);
+      return s + par * (h.currentPrice >= 1 ? h.currentPrice / 100 : h.currentPrice);
     }
     // No data — return 0 so engine uses model recoveryPct
     return s;
@@ -906,42 +936,128 @@ export function resolveWaterfallInputs(
       isPassing: t.isPassing,
     }));
 
+  // Concentration tests come from three sources of varying completeness:
+  //   (1) clo_concentrations — 63 buckets with bucketName + actualValue (no limit)
+  //   (2) clo_compliance_tests (testType=CONCENTRATION) — ~36 rows with both
+  //       actual and trigger, but only covers lettered sections (a)–(dd)
+  //   (3) PPM portfolioProfileTests — constraint limits by bucket name
+  //
+  // The concentrationType letter ("a", "b", "p(i)") in source (1) matches the
+  // "(a) ...", "(b) ...", "(p)(i) ..." prefix in source (2), giving a clean
+  // join for the lettered buckets. Per-rating Fitch/Moody's buckets all use
+  // concentrationType="z" and have no simple PPM limit (matrix-governed).
   const concentrationsRaw = (complianceData?.concentrations ?? []) as Array<Record<string, unknown>>;
+  const concTestsByLetter = new Map<string, CloComplianceTest>();
+  for (const t of allComplianceTests) {
+    if (t.testType !== "CONCENTRATION") continue;
+    // Match leading "(a)", "(p)(i)", "(dd)" patterns
+    const m = (t.testName ?? "").match(/^\s*\(([a-z]+)\)(?:\(([iv]+)\))?/i);
+    if (!m) continue;
+    const letter = m[1].toLowerCase();
+    const roman = (m[2] ?? "").toLowerCase();
+    const key = roman ? `${letter}(${roman})` : letter;
+    concTestsByLetter.set(key, t);
+  }
+
+  const ppmProfile = constraints.portfolioProfileTests ?? {};
+  const ppmByKey = new Map<string, { max: number | null; min: number | null }>();
+  for (const [name, limits] of Object.entries(ppmProfile)) {
+    const max = parseFloat((limits as { max?: string | null }).max ?? "");
+    const min = parseFloat((limits as { min?: string | null }).min ?? "");
+    ppmByKey.set(normalizeConcName(name), {
+      max: isNaN(max) ? null : max,
+      min: isNaN(min) ? null : min,
+    });
+  }
+
   const concentrationTests: ResolvedComplianceTest[] = concentrationsRaw.map(c => {
+    const bucketName = (c.bucketName ?? c.concentrationType ?? "") as string;
+    const concType = (c.concentrationType ?? "") as string;
+
+    // Prefer compliance test (has both actual + trigger + passing flag)
+    const ct = concTestsByLetter.get(concType.toLowerCase());
+    if (ct) {
+      return {
+        testName: bucketName || ct.testName,
+        testClass: null,
+        actualValue: ct.actualValue,
+        triggerLevel: ct.triggerLevel,
+        cushion: ct.cushionPct ?? (ct.triggerLevel != null && ct.actualValue != null ? ct.triggerLevel - ct.actualValue : null),
+        isPassing: ct.isPassing,
+      };
+    }
+
+    // Fall back to concentrations row + PPM limit join by normalized name
     const actualPct = typeof c.actualPct === "number" ? c.actualPct : null;
+    const rawActual = actualPct ?? (typeof c.actualValue === "number" ? c.actualValue : null);
+    // concentrations.actualValue is a decimal ratio (0.0692 = 6.92%). PPM limits
+    // are percentages (7.5 = 7.5%). Normalize actual to percentage for cushion math.
+    const actualValue = rawActual != null && rawActual > 0 && rawActual < 1 ? rawActual * 100 : rawActual;
+
+    const ppmLimit = ppmByKey.get(normalizeConcName(bucketName));
     const limitPct = typeof c.limitPct === "number" ? c.limitPct : null;
-    const actualValue = actualPct ?? (typeof c.actualValue === "number" ? c.actualValue : null);
-    const triggerLevel = limitPct ?? (typeof c.limitValue === "number" ? c.limitValue : null);
+    const limitValue = typeof c.limitValue === "number" ? c.limitValue : null;
+    const triggerLevel = limitPct ?? limitValue ?? ppmLimit?.max ?? ppmLimit?.min ?? null;
+
     return {
-      testName: (c.bucketName ?? c.concentrationType ?? "") as string,
+      testName: bucketName,
       testClass: null,
       actualValue,
       triggerLevel,
-      cushion: (limitPct != null && actualPct != null) ? limitPct - actualPct : null,
+      cushion: (triggerLevel != null && actualValue != null) ? triggerLevel - actualValue : null,
       isPassing: typeof c.isPassing === "boolean" ? c.isPassing : null,
     };
   });
 
   // --- Data Source Metadata ---
-  // Note: account_balances and trades are not loaded in the resolver and thus not checked here.
-  const dataSources = new Set<string>();
-  for (const h of holdings) { if (h.dataSource) dataSources.add(h.dataSource); }
-  for (const t of allComplianceTests) { if (t.dataSource) dataSources.add(t.dataSource); }
-  trancheSnapshots.forEach(s => s.dataSource && dataSources.add(s.dataSource));
+  // Per-row data_source tags are a single literal "sdf" today, which is too coarse
+  // to answer "which SDF files were ingested?". Infer the answer from the shape of
+  // data the resolver can see: each SDF file populates a distinctive surface.
+  // Note: transactions and accruals are not passed to the resolver — the caller
+  // (ContextEditor) can merge those in separately if needed.
+  const rowTags = new Set<string>();
+  for (const h of holdings) { if (h.dataSource) rowTags.add(h.dataSource); }
+  for (const t of allComplianceTests) { if (t.dataSource) rowTags.add(t.dataSource); }
+  for (const s of trancheSnapshots) { if (s.dataSource) rowTags.add(s.dataSource); }
+  for (const a of accountBalances ?? []) { if (a.dataSource) rowTags.add(a.dataSource); }
 
   const sdfFilesIngested: string[] = [];
+  if (trancheSnapshots.length > 0) sdfFilesIngested.push("sdf_notes");
+  if (holdings.length > 0) sdfFilesIngested.push("sdf_collateral");
+  // Asset Level enriches holdings with fields the Collateral File doesn't carry
+  // (moodys_dp_rating, watchlist flags, derived ratings). Presence of any enrichment
+  // field is a reliable fingerprint that Asset Level was ingested.
+  if (holdings.some(h => h.moodysRatingFinal || h.moodysDpRating || h.moodysIssuerWatch || h.moodysSecurityWatch)) {
+    sdfFilesIngested.push("sdf_asset_level");
+  }
+  if (allComplianceTests.length > 0) sdfFilesIngested.push("sdf_test_results");
+  if ((accountBalances ?? []).length > 0) sdfFilesIngested.push("sdf_accounts");
+
+  // PPM ingest was invisible to the previous detection because constraints don't
+  // carry a per-row data_source. Detect presence by checking the structural shape.
   const pdfExtracted: string[] = [];
-  for (const ds of dataSources) {
-    if (ds.startsWith('sdf')) sdfFilesIngested.push(ds);
-    else if (ds.startsWith('pdf')) pdfExtracted.push(ds);
+  const hasPpm =
+    (constraints.capitalStructure ?? []).length > 0
+    || (constraints.fees ?? []).length > 0
+    || !!constraints.keyDates?.maturityDate
+    || !!constraints.dealIdentity?.dealName
+    || !!constraints.interestMechanics;
+  if (hasPpm) pdfExtracted.push("ppm");
+
+  // Carry any non-"sdf" row tags through as-is (e.g. "pdf_compliance" when compliance
+  // comes from a PDF rather than SDF CSVs). Avoids silently dropping real sources.
+  for (const tag of rowTags) {
+    if (tag === "sdf" || sdfFilesIngested.includes(tag) || pdfExtracted.includes(tag)) continue;
+    if (tag.startsWith("sdf")) sdfFilesIngested.push(tag);
+    else if (tag.startsWith("pdf")) pdfExtracted.push(tag);
   }
 
   let dataSource: ResolvedMetadata["dataSource"] = null;
-  if (dataSources.size > 0) {
-    const allSdf = [...dataSources].every(s => s.startsWith('sdf'));
-    const allPdf = [...dataSources].every(s => s.startsWith('pdf'));
-    dataSource = allSdf ? "sdf" : allPdf ? "pdf" : "mixed";
-  }
+  const hasSdf = sdfFilesIngested.length > 0;
+  const hasPdf = pdfExtracted.length > 0;
+  if (hasSdf && hasPdf) dataSource = "mixed";
+  else if (hasSdf) dataSource = "sdf";
+  else if (hasPdf) dataSource = "pdf";
 
   const metadata: ResolvedMetadata = {
     reportDate: dealDates?.reportDate ?? null,

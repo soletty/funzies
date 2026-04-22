@@ -141,6 +141,7 @@ export default async function ContextPage() {
       <JsonUploadSection />
 
       <ContextEditor
+        dealId={deal?.id ?? null}
         constraints={constraints}
         fundProfile={fundProfile}
         complianceData={complianceData}

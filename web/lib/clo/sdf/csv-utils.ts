@@ -26,7 +26,7 @@ export function parseCsvLines(csvText: string): {
   return { headers, rows };
 }
 
-function parseCsvRow(line: string): string[] {
+export function parseCsvRow(line: string): string[] {
   const fields: string[] = [];
   let current = "";
   let inQuotes = false;

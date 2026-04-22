@@ -121,7 +121,14 @@ export function parseCollateralFile(
   const dealName = trimOrNull(firstRow?.Deal_Name);
 
   const rows: SdfCollateralRow[] = csvRows.map((raw) => {
-    const parBalance = parseNumeric(raw.Principal_Funded_Balance);
+    // Principal_Funded_Balance is the "drawn" balance — relevant for loans with
+    // revolver/DDTL commitments. Bonds carry PFB=0 by CSV convention (no
+    // funding concept); their outstanding par is in Principal_Balance. Fall
+    // back to PB when PFB is absent so bonds don't get silently dropped by
+    // downstream par-based filters.
+    const principalBalance = parseNumeric(raw.Principal_Balance);
+    const fundedBalance = parseNumeric(raw.Principal_Funded_Balance);
+    const parBalance = (fundedBalance != null && fundedBalance > 0) ? fundedBalance : principalBalance;
     const commitment = parseNumeric(raw.Commitment);
     const grossPurchasePrice = parseNumeric(raw.Gross_Purchase_Price);
     const marketValue = parseNumeric(raw.Market_Value);
@@ -133,7 +140,7 @@ export function parseCollateralFile(
       obligor_name: trimOrNull(raw.Issuer_Name),
       facility_name: trimOrNull(raw.Security_Name),
       par_balance: parBalance,
-      principal_balance: parseNumeric(raw.Principal_Balance),
+      principal_balance: principalBalance,
       unfunded_commitment: computeUnfundedCommitment(commitment, parBalance),
       native_currency_balance: parseNumeric(
         raw.Native_Principal_Funded_Balance
