@@ -1,5 +1,5 @@
 // web/lib/clo/extraction/json-ingest/ingest.ts
-import { query, getPool } from "../../../db";
+import { query, getPool, getClient } from "../../../db";
 import {
   ppmCapitalStructureSchema,
   ppmCoverageTestsSchema,
@@ -86,35 +86,67 @@ export async function ingestPpmJson(
   if (!validation.ok) return { ok: false, errors: validation.errors };
 
   const extractedConstraints: Record<string, unknown> = normalizePpmSectionResults(sections);
+  console.log(`[json-ingest:ppm] normalized keys=${Object.keys(extractedConstraints).join(",")} capStruct=${(extractedConstraints.capitalStructure as unknown[] | undefined)?.length ?? 0} fees=${(extractedConstraints.fees as unknown[] | undefined)?.length ?? 0} keyParties=${(extractedConstraints.keyParties as unknown[] | undefined)?.length ?? 0}`);
+
   const gate = validateAndNormalizeConstraints(extractedConstraints as ExtractedConstraints);
   if (gate.ok) {
     Object.assign(extractedConstraints, gate.data);
+    console.log(`[json-ingest:ppm] gate ok, ${gate.fixes.length} fixes applied`);
   } else {
-    console.warn("[json-ingest] PPM gate validation failed:", gate.errors);
+    console.warn("[json-ingest:ppm] gate validation failed:", gate.errors);
   }
   extractedConstraints._sectionBasedExtraction = true;
   extractedConstraints._jsonIngest = true;
 
-  await query(
-    `UPDATE clo_profiles
-     SET extracted_constraints = $1::jsonb,
-         ppm_raw_extraction = $2::jsonb,
-         ppm_extracted_at = now(),
-         ppm_extraction_status = 'complete',
-         ppm_extraction_error = NULL,
-         ppm_extraction_progress = $3::jsonb,
-         updated_at = now()
-     WHERE id = $4`,
-    [
-      JSON.stringify(extractedConstraints),
-      JSON.stringify({ _jsonIngest: true, _rawInput: ppm }),
-      JSON.stringify({ step: "complete", detail: "JSON ingest complete", updatedAt: new Date().toISOString() }),
-      profileId,
-    ],
-  );
+  const stringified = JSON.stringify(extractedConstraints);
+  console.log(`[json-ingest:ppm] about to UPDATE clo_profiles id=${profileId} jsonb length=${stringified.length}`);
+
+  const client = await getClient();
+  let rowCount = 0;
+  try {
+    const res = await client.query(
+      `UPDATE clo_profiles
+       SET extracted_constraints = $1::jsonb,
+           ppm_raw_extraction = $2::jsonb,
+           ppm_extracted_at = now(),
+           ppm_extraction_status = 'complete',
+           ppm_extraction_error = NULL,
+           ppm_extraction_progress = $3::jsonb,
+           updated_at = now()
+       WHERE id = $4`,
+      [
+        stringified,
+        JSON.stringify({ _jsonIngest: true, _rawInput: ppm }),
+        JSON.stringify({ step: "complete", detail: "JSON ingest complete", updatedAt: new Date().toISOString() }),
+        profileId,
+      ],
+    );
+    rowCount = res.rowCount ?? 0;
+    console.log(`[json-ingest:ppm] UPDATE rowCount=${rowCount}`);
+
+    if (rowCount !== 1) {
+      throw new Error(`PPM UPDATE matched ${rowCount} rows (expected 1) for profileId=${profileId}`);
+    }
+
+    // Read-after-write to prove the JSONB actually persisted.
+    const check = await client.query<{ key_count: number; sample_keys: string[] }>(
+      `SELECT
+         (SELECT COUNT(*) FROM jsonb_object_keys(extracted_constraints))::int AS key_count,
+         ARRAY(SELECT jsonb_object_keys(extracted_constraints) LIMIT 5) AS sample_keys
+       FROM clo_profiles WHERE id = $1`,
+      [profileId],
+    );
+    console.log(`[json-ingest:ppm] read-after-write: key_count=${check.rows[0]?.key_count} sample=[${check.rows[0]?.sample_keys?.join(",")}]`);
+    if ((check.rows[0]?.key_count ?? 0) === 0) {
+      throw new Error(`PPM UPDATE appears to have written empty JSONB for profileId=${profileId} — data loss`);
+    }
+  } finally {
+    client.release();
+  }
 
   const pool = getPool();
   await syncPpmToRelationalTables(pool, profileId, extractedConstraints);
+  console.log(`[json-ingest:ppm] syncPpmToRelationalTables done for profileId=${profileId}`);
 
   return {
     ok: true,
@@ -186,6 +218,24 @@ export async function ingestComplianceJson(
   );
   const reportPeriodId = periods[0].id;
 
+  console.log(`[json-ingest:compliance] starting persist for reportPeriodId=${reportPeriodId} dealId=${dealId}`);
   const result = await persistComplianceSections(sections, reportPeriodId, dealId, compliance);
+  console.log(`[json-ingest:compliance] persist done, counts=${JSON.stringify(result.counts)}`);
+
+  // Read-after-write to prove pool_summary + compliance_tests actually landed.
+  const verify = await query<{ pool_rows: number; test_rows: number; conc_rows: number; status: string }>(
+    `SELECT
+       (SELECT COUNT(*)::int FROM clo_pool_summary WHERE report_period_id = $1) AS pool_rows,
+       (SELECT COUNT(*)::int FROM clo_compliance_tests WHERE report_period_id = $1) AS test_rows,
+       (SELECT COUNT(*)::int FROM clo_concentrations WHERE report_period_id = $1) AS conc_rows,
+       (SELECT extraction_status FROM clo_report_periods WHERE id = $1) AS status`,
+    [reportPeriodId],
+  );
+  const v = verify[0];
+  console.log(`[json-ingest:compliance] read-after-write: pool=${v?.pool_rows} tests=${v?.test_rows} conc=${v?.conc_rows} status=${v?.status}`);
+  if ((v?.pool_rows ?? 0) === 0) {
+    throw new Error(`compliance ingest completed but clo_pool_summary has no row for reportPeriodId=${reportPeriodId}`);
+  }
+
   return { ok: true, reportPeriodId, counts: result.counts };
 }
