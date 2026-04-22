@@ -592,21 +592,29 @@ export function resolveWaterfallInputs(
     }
     return null;
   };
+  /** Round to 4 decimal places to tame float artifacts (0.0093 × 100 =
+   *  0.9299999999999999). Null passes through. */
+  const round4 = (v: number | null): number | null =>
+    v == null ? null : Math.round(v * 1e4) / 1e4;
   // Prefer poolSummary.pct* when populated, else derive from concentrations.
   const num = (x: unknown): number | null => (typeof x === "number" && !isNaN(x) ? x : null);
-  const derivedPctFixedRate     = num(pool?.pctFixedRate) ?? pickConc("fixed rate cdos", "fixed rate collateral debt obligations");
-  const derivedPctCovLite       = num(pool?.pctCovLite) ?? pickConc("cov lite loans", "covenant lite loans");
+  const derivedPctFixedRate     = round4(num(pool?.pctFixedRate) ?? pickConc("fixed rate cdos", "fixed rate collateral debt obligations"));
+  const derivedPctCovLite       = round4(num(pool?.pctCovLite) ?? pickConc("cov lite loans", "covenant lite loans"));
   // pctPik isn't on CloPoolSummary — concentrations-only.
-  const derivedPctPik           = pickConc("pik securities", "pik obligations");
+  const derivedPctPik           = round4(pickConc("pik securities", "pik obligations"));
   const moodysCaa = pickConc("moody s caa obligations");
   const fitchCcc = pickConc("fitch ccc obligations");
   // CCC bucket: OC cares about the worse read — take the higher of the two agencies.
-  const derivedPctCccAndBelow   = num(pool?.pctCccAndBelow)
-    ?? (moodysCaa != null || fitchCcc != null ? Math.max(moodysCaa ?? 0, fitchCcc ?? 0) : null);
-  const derivedPctBonds         = num(pool?.pctBonds) ?? pickConc("sr secured bonds hy bonds mezz");
-  const derivedPctSeniorSecured = num(pool?.pctSeniorSecured) ?? pickConc("senior secured obligations");
-  const derivedPctSecondLien    = num(pool?.pctSecondLien) ?? pickConc("unsecured hy mezz 2nd lien");
-  const derivedPctCurrentPay    = num(pool?.pctCurrentPay) ?? pickConc("current pay obligations");
+  const derivedPctCccAndBelow   = round4(num(pool?.pctCccAndBelow)
+    ?? (moodysCaa != null || fitchCcc != null ? Math.max(moodysCaa ?? 0, fitchCcc ?? 0) : null));
+  const derivedPctBonds         = round4(num(pool?.pctBonds) ?? pickConc("sr secured bonds hy bonds mezz"));
+  const derivedPctSeniorSecured = round4(num(pool?.pctSeniorSecured) ?? pickConc("senior secured obligations"));
+  // pctSecondLien intentionally NOT mapped from "Unsecured / HY / Mezz / 2nd Lien"
+  // — that's a 4-category combined bucket; using it as second-lien only would
+  // overclaim on deals with any HY/mezz. Prefer pool?.pctSecondLien if the
+  // source provides it directly; otherwise leave null.
+  const derivedPctSecondLien    = round4(num(pool?.pctSecondLien));
+  const derivedPctCurrentPay    = round4(num(pool?.pctCurrentPay) ?? pickConc("current pay obligations"));
 
   const poolSummary: ResolvedPool = {
     totalPar: pool?.totalPar ?? 0,
@@ -1001,7 +1009,7 @@ export function resolveWaterfallInputs(
       testClass: t.testClass,
       actualValue: t.actualValue,
       triggerLevel: t.triggerLevel,
-      cushion: t.cushionPct,
+      cushion: round4(t.cushionPct),
       isPassing: t.isPassing,
     }));
 
@@ -1051,7 +1059,7 @@ export function resolveWaterfallInputs(
         testClass: null,
         actualValue: ct.actualValue,
         triggerLevel: ct.triggerLevel,
-        cushion: ct.cushionPct ?? (ct.triggerLevel != null && ct.actualValue != null ? ct.triggerLevel - ct.actualValue : null),
+        cushion: round4(ct.cushionPct ?? (ct.triggerLevel != null && ct.actualValue != null ? ct.triggerLevel - ct.actualValue : null)),
         isPassing: ct.isPassing,
       };
     }
@@ -1071,9 +1079,9 @@ export function resolveWaterfallInputs(
     return {
       testName: bucketName,
       testClass: null,
-      actualValue,
+      actualValue: round4(actualValue),
       triggerLevel,
-      cushion: (triggerLevel != null && actualValue != null) ? triggerLevel - actualValue : null,
+      cushion: round4((triggerLevel != null && actualValue != null) ? triggerLevel - actualValue : null),
       isPassing: typeof c.isPassing === "boolean" ? c.isPassing : null,
     };
   });
@@ -1113,12 +1121,25 @@ export function resolveWaterfallInputs(
     || !!constraints.interestMechanics;
   if (hasPpm) pdfExtracted.push("ppm");
 
-  // Carry any non-"sdf" row tags through as-is (e.g. "pdf_compliance" when compliance
-  // comes from a PDF rather than SDF CSVs). Avoids silently dropping real sources.
+  // Carry any non-"sdf" row tags through. Some upserts produce composite tags
+  // like "sdf+intex_past_cashflows" when a later ingest appends to an existing
+  // snapshot — split on "+" so each source ends up in the right bucket rather
+  // than emitting the literal composite string.
   for (const tag of rowTags) {
-    if (tag === "sdf" || sdfFilesIngested.includes(tag) || pdfExtracted.includes(tag)) continue;
-    if (tag.startsWith("sdf")) sdfFilesIngested.push(tag);
-    else if (tag.startsWith("pdf")) pdfExtracted.push(tag);
+    if (!tag || tag === "sdf") continue;
+    for (const part of tag.split("+").map(s => s.trim()).filter(Boolean)) {
+      if (part === "sdf") continue; // already covered by shape detection
+      if (part.startsWith("sdf")) {
+        if (!sdfFilesIngested.includes(part)) sdfFilesIngested.push(part);
+      } else if (part.startsWith("pdf") || part === "ppm") {
+        if (!pdfExtracted.includes(part)) pdfExtracted.push(part);
+      } else if (part.startsWith("intex")) {
+        // Intex backfill is a historical-cashflow source. Not PDF, not SDF CSV.
+        // Record in pdfExtracted as the closest non-sdf bucket; downstream
+        // consumers that want to distinguish can read the full tag.
+        if (!pdfExtracted.includes(part)) pdfExtracted.push(part);
+      }
+    }
   }
 
   let dataSource: ResolvedMetadata["dataSource"] = null;
@@ -1136,26 +1157,36 @@ export function resolveWaterfallInputs(
   };
 
   // --- Diagnostic warnings ---
-  // (a) Duplicate holdings clusters. The SDF Collateral File occasionally emits
-  // multiple rows for the same (obligor, facility, par). Pool totals already
-  // include them, so we can't dedup at ingest without breaking reconciliation —
-  // but consumers rendering per-facility views should group by facility.
+  // (a) Duplicate holdings rows from the SDF Collateral File. Two scales of
+  // duplication matter to consumers:
+  //   - strict (obligor, facilityCode, parBalance) identical clusters:
+  //     trustee sometimes emits the same lot multiple times
+  //   - aggregated (obligor, facilityCode) pairs: purchase-lot fragmentation —
+  //     same facility bought across multiple tranches at different par sizes
+  // Consumers rendering a per-facility view (memo, UI) care about the
+  // aggregated number, which is typically much larger. Pool totals already
+  // include both kinds, so we never dedup at ingest (would break the SDF
+  // reconciliation); surface both counts so consumers know what to collapse.
   {
-    const clusterCounts = new Map<string, number>();
+    const totalWithKeys = holdings.filter(h => h.obligorName && h.facilityCode && h.parBalance).length;
+    const strictCounts = new Map<string, number>();
+    const pairCounts = new Map<string, number>();
     for (const h of holdings) {
       if (!h.obligorName || !h.facilityCode || !h.parBalance) continue;
-      const k = `${h.obligorName}|${h.facilityCode}|${h.parBalance}`;
-      clusterCounts.set(k, (clusterCounts.get(k) ?? 0) + 1);
+      const strictKey = `${h.obligorName}|${h.facilityCode}|${h.parBalance}`;
+      strictCounts.set(strictKey, (strictCounts.get(strictKey) ?? 0) + 1);
+      const pairKey = `${h.obligorName}|${h.facilityCode}`;
+      pairCounts.set(pairKey, (pairCounts.get(pairKey) ?? 0) + 1);
     }
-    let dupClusters = 0;
-    let dupRows = 0;
-    for (const n of clusterCounts.values()) {
-      if (n > 1) { dupClusters++; dupRows += n; }
-    }
-    if (dupClusters > 0) {
+    let strictClusters = 0;
+    let strictRows = 0;
+    for (const n of strictCounts.values()) if (n > 1) { strictClusters++; strictRows += n; }
+    const uniquePairs = pairCounts.size;
+    const pairDelta = totalWithKeys - uniquePairs;
+    if (strictClusters > 0 || pairDelta > 0) {
       warnings.push({
         field: "holdings.duplicateClusters",
-        message: `${dupClusters} holdings cluster(s) (${dupRows} rows) share identical (obligor, facilityCode, parBalance). Pool totals include these duplicates. Consumers rendering per-facility views should group by (obligorName, facilityCode).`,
+        message: `${totalWithKeys} raw holdings collapse to ${uniquePairs} unique (obligor, facilityCode) pairs — ${pairDelta} rows are purchase-lot fragments. Of those, ${strictRows} row(s) in ${strictClusters} cluster(s) are identical on (obligor, facilityCode, parBalance). Pool totals include all rows; per-facility consumers should aggregate by (obligorName, facilityCode) and sum par.`,
         severity: "info",
       });
     }
