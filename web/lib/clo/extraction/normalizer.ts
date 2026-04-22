@@ -168,7 +168,12 @@ function deduplicateComplianceTests(
     const name = (t.testName ?? "").toLowerCase();
     if (!name.includes("oc") && !name.includes("ic") && !name.includes("coverage") &&
         !name.includes("overcollateral") && !name.includes("par value") && !name.includes("par ratio") &&
-        !name.includes("interest") && !name.includes("reinvestment")) return false;
+        !name.includes("interest") && !name.includes("reinvestment") &&
+        // Collateral quality test names — these are coverage tests semantically and
+        // the resolver pulls them back out by testType ∈ {WARF, WAL, WAS, DIVERSITY, RECOVERY}.
+        !name.includes("warf") && !name.includes("wal") && !name.includes("was") &&
+        !name.includes("weighted average") && !name.includes("diversity") &&
+        !name.includes("recovery") && !name.includes("floating spread")) return false;
     // Skip entries where actualValue is actually a string description
     if (t.actualValue != null && typeof t.actualValue !== "number") return false;
     if (t.triggerLevel != null && typeof t.triggerLevel !== "number") return false;

@@ -122,8 +122,12 @@ function mapParValueTests(c: ComplianceJson): Record<string, unknown> {
       const className = t.test;
       const isEod = /event of default/i.test(t.test) || t.subtype === "EventOfDefault";
       const testType = /reinvestment/i.test(t.test) ? "INTEREST_DIVERSION" : "OC_PAR";
+      // Append "Par Value Test" to names that don't already contain an OC keyword,
+      // so normalizer.ts:deduplicateComplianceTests doesn't drop them by its name filter.
+      const hasKeyword = /par value|par ratio|\boc\b|overcollateral|reinvestment/i.test(t.test);
+      const testName = hasKeyword ? t.test : `${t.test} Par Value Test`;
       return {
-        testName: t.test,
+        testName,
         testType,
         testClass: isEod ? "EOD" : className.replace(/^Class\s*/i, "").trim(),
         numerator: t.numerator,
