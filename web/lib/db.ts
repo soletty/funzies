@@ -18,3 +18,7 @@ export async function query<T extends QueryResultRow = QueryResultRow>(
 export async function getClient(): Promise<PoolClient> {
   return pool.connect();
 }
+
+export function getPool(): Pool {
+  return pool;
+}
