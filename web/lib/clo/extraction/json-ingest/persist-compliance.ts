@@ -147,7 +147,14 @@ export async function persistComplianceSections(
       [trancheId, reportPeriodId],
     );
 
-    const filteredEntries = Object.entries(ts.data).filter(([k]) => snapshotColumns.has(k));
+    // Strip fields we manage explicitly (report_period_id is pre-injected into
+    // ts.data by the normalizer's toDbRow helper; tranche_id and id are
+    // PK/FK columns we don't take from the mapper). Without this we'd
+    // duplicate report_period_id in the INSERT column list.
+    const managedKeys = new Set(["report_period_id", "tranche_id", "id", "data_source"]);
+    const filteredEntries = Object.entries(ts.data).filter(
+      ([k]) => snapshotColumns.has(k) && !managedKeys.has(k),
+    );
     const dataKeys = filteredEntries.map(([k]) => k);
     const dataVals = filteredEntries.map(([, v]) => v);
 
