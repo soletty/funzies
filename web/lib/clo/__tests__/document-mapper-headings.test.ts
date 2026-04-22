@@ -57,4 +57,19 @@ describe("scanHeadings", () => {
     const sections = scanHeadings([{ page: 1, text: "interest coverage tests" }]);
     expect(sections.some(s => s.sectionType === "interest_coverage_tests")).toBe(true);
   });
+
+  it("picks body occurrence over TOC occurrence (last match wins)", () => {
+    const pages = [
+      { page: 1, text: "Cover page" },
+      { page: 2, text: "Table of Contents\nDeal Identity ................ 5\nInterest Coverage Tests ...... 10\nSchedule of Investments — Trustee View ..... 12" },
+      { page: 5, text: "§1. Deal Identity\nOther content" },
+      { page: 10, text: "§5.2 Interest Coverage Tests\n..." },
+      { page: 12, text: "Schedule of Investments — Trustee View\n..." },
+    ];
+    const sections = scanHeadings(pages);
+    const byType = Object.fromEntries(sections.map(s => [s.sectionType, s.pageStart]));
+    expect(byType.compliance_summary).toBe(5);         // body, not TOC page 2
+    expect(byType.interest_coverage_tests).toBe(10);   // body, not TOC page 2
+    expect(byType.asset_schedule).toBe(12);            // body, not TOC page 2
+  });
 });
