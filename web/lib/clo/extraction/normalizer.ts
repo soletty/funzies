@@ -419,29 +419,23 @@ export function normalizeSectionResults(
 
   // Apply to holdings
   const matchedDefaultNames = new Set<string>();
-  // Pre-seed matchedDefaultNames with any defaultedObligors whose name exactly
-  // matches an already-flagged holding — these "matched" without going through
-  // the loop above.
-  for (const h of holdings) {
-    if (!h.is_defaulted) continue;
-    const obligor = ((h.obligor_name ?? "") as string).toLowerCase().trim();
-    if (obligor.length >= 4 && defaultedObligors.has(obligor)) {
-      matchedDefaultNames.add(obligor);
-    }
-  }
   if (defaultedObligors.size > 0 && holdings.length > 0) {
     for (const h of holdings) {
-      if (h.is_defaulted) continue;
       const obligor = ((h.obligor_name ?? "") as string).toLowerCase().trim();
-      if (obligor.length >= 4 && defaultedObligors.has(obligor)) {
-        h.is_defaulted = true;
+      if (obligor.length < 4) continue;
+
+      // Exact match: flag holding (if not already) AND record the match.
+      if (defaultedObligors.has(obligor)) {
+        if (!h.is_defaulted) h.is_defaulted = true;
         matchedDefaultNames.add(obligor);
+        continue;
       }
-      // Fuzzy: check if any defaulted name is a substring of the holding's obligor (or vice versa)
-      if (!h.is_defaulted && obligor.length >= 6) {
+
+      // Fuzzy match: flag holding (if not already) AND record the matched defName.
+      if (obligor.length >= 6) {
         for (const defName of defaultedObligors) {
           if (defName.length >= 6 && (obligor.includes(defName) || defName.includes(obligor))) {
-            h.is_defaulted = true;
+            if (!h.is_defaulted) h.is_defaulted = true;
             matchedDefaultNames.add(defName);
             break;
           }
