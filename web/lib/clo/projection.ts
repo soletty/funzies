@@ -9,6 +9,11 @@ import {
   computePoolQualityMetrics,
   type PoolQualityMetrics,
 } from "./pool-metrics";
+import {
+  applySeniorExpensesToAvailable,
+  sumSeniorExpensesPreOverflow,
+  type SeniorExpenseBreakdown,
+} from "./senior-expense-breakdown";
 
 export interface LoanInput {
   parBalance: number;
@@ -1393,7 +1398,22 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     const seniorFeeAmount = beginningPar * (seniorFeePct / 100) * dayFracActual;
     // PPM Step F: Hedge payments (NOT capped).
     const hedgeCostAmount = beginningPar * (hedgeCostBps / 10000) * dayFracActual;
-    const totalSeniorExpenses = taxesAmount + issuerProfitPaid + trusteeFeeAmount + adminFeeAmount + seniorFeeAmount + hedgeCostAmount;
+    // KI-21 Scope 2 closure: single canonical breakdown drives BOTH the IC
+    // numerator (via sumSeniorExpensesPreOverflow) AND the cash-flow chain
+    // (via applySeniorExpensesToAvailable below). Trustee/admin overflow at
+    // steps Y/Z is computed separately on residual interest after tranche
+    // interest, so it's set later (see `trusteeOverflowPaid` block).
+    const seniorExpenseBreakdown: SeniorExpenseBreakdown = {
+      taxes: taxesAmount,
+      issuerProfit: issuerProfitPaid,
+      trusteeCapped: trusteeFeeAmount,
+      adminCapped: adminFeeAmount,
+      seniorMgmt: seniorFeeAmount,
+      hedge: hedgeCostAmount,
+      trusteeOverflow: 0,
+      adminOverflow: 0,
+    };
+    const totalSeniorExpenses = sumSeniorExpensesPreOverflow(seniorExpenseBreakdown);
     const interestAfterFees = Math.max(0, interestCollected - totalSeniorExpenses);
 
     const bopTrancheBalances: Record<string, number> = {};
@@ -1748,30 +1768,17 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     // Interest DUE uses BOP balances (accrued before paydown).
     // Class X interest is paid sequentially (earlier in the loop). Class X amortisation
     // and Class A interest are paid pro rata per PPM Step G if there is a shortfall.
-    //
-    // ⚠ KI-21: This `availableInterest -=` chain is the CASH-FLOW deduction
-    //  path (what's left for tranche interest + sub residual). A PARALLEL
-    //  accumulator `totalSeniorExpenses` above drives the IC numerator via
-    //  `interestAfterFees`. Any NEW senior expense MUST be added to BOTH —
-    //  the KI-01 ship caught this when the first-pass fix only touched
-    //  `totalSeniorExpenses` and KI-13a drift didn't shift as predicted.
-    //  Until KI-21's refactor lands (compute deductions once, apply once),
-    //  every new step requires touching both sites.
     let availableInterest = interestCollected;
     const trancheInterest: PeriodResult["trancheInterest"] = [];
 
-    // PPM Step (A)(i): Issuer taxes — deducted before trustee fees.
-    availableInterest -= Math.min(taxesAmount, availableInterest);
-    // PPM Step (A)(ii): Issuer Profit Amount — fixed € per period.
-    availableInterest -= Math.min(issuerProfitPaid, availableInterest);
-    // PPM Step (B): Trustee fees (capped portion; overflow defers to step Y)
-    availableInterest -= Math.min(trusteeFeeAmount, availableInterest);
-    // PPM Step (C): Administrative expenses (capped portion; overflow defers to step Z)
-    availableInterest -= Math.min(adminFeeAmount, availableInterest);
-    // PPM Step (E): Senior collateral management fee
-    availableInterest -= Math.min(seniorFeeAmount, availableInterest);
-    // PPM Step (F): Hedge payments
-    availableInterest -= Math.min(hedgeCostAmount, availableInterest);
+    // PPM Steps (A)(i) → (F): senior expenses deducted in strict PPM order
+    // (taxes → issuer profit → trustee capped → admin capped → senior mgmt
+    // → hedge). Single helper drives this AND the IC numerator above from
+    // the same `seniorExpenseBreakdown` object — see KI-21 Scope 2.
+    ({ remainingAvailable: availableInterest } = applySeniorExpensesToAvailable(
+      seniorExpenseBreakdown,
+      availableInterest,
+    ));
 
     // Step G (PPM): Class X amort + Class A interest are paid pro rata / pari passu.
     // Class X amort starts on the second payment date (q >= 2) per PPM definition.
@@ -2094,19 +2101,19 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
       equityDistribution,
       defaultsByRating,
       stepTrace: {
-        taxes: taxesAmount,
-        issuerProfit: issuerProfitPaid, // KI-01 (PPM A.ii)
+        taxes: seniorExpenseBreakdown.taxes,
+        issuerProfit: seniorExpenseBreakdown.issuerProfit, // KI-01 (PPM A.ii)
         // Each field maps to exactly one PPM step so the N1 harness ties
         // engine-emission to trustee-reported on a per-step basis. Pre-C3
         // `trusteeFeesPaid` bundled (B)+(C)+(Y)+(Z); the split lets us
         // distinguish trustee vs admin drift (and in/out of cap) under
         // both normal and accelerated paths.
-        trusteeFeesPaid: trusteeFeeAmount,   // PPM (B)
-        adminFeesPaid: adminFeeAmount,       // PPM (C)
-        trusteeOverflowPaid,                 // PPM (Y)
-        adminOverflowPaid,                   // PPM (Z)
-        seniorMgmtFeePaid: seniorFeeAmount,
-        hedgePaymentPaid: hedgeCostAmount,
+        trusteeFeesPaid: seniorExpenseBreakdown.trusteeCapped, // PPM (B)
+        adminFeesPaid: seniorExpenseBreakdown.adminCapped,     // PPM (C)
+        trusteeOverflowPaid,                                   // PPM (Y)
+        adminOverflowPaid,                                     // PPM (Z)
+        seniorMgmtFeePaid: seniorExpenseBreakdown.seniorMgmt,
+        hedgePaymentPaid: seniorExpenseBreakdown.hedge,
         subMgmtFeePaid: subFeeAmount,
         incentiveFeeFromInterest,
         incentiveFeeFromPrincipal,

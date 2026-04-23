@@ -2,6 +2,8 @@
 
 import React, { useState } from "react";
 import { SliderInput } from "./SliderInput";
+import { CitationTooltip } from "@/components/clo/CitationTooltip";
+import type { Citation } from "@/lib/clo/resolver-types";
 
 export function FeeAssumptions({
   seniorFeePct, onSeniorFeeChange,
@@ -11,6 +13,7 @@ export function FeeAssumptions({
   incentiveFeePct, onIncentiveFeeChange,
   incentiveFeeHurdleIrr, onHurdleChange,
   hasResolvedFees,
+  feesCitation,
   callDate, onCallDateChange,
   callPricePct, onCallPriceChange,
   callPriceMode, onCallPriceModeChange,
@@ -26,6 +29,7 @@ export function FeeAssumptions({
   incentiveFeePct: number; onIncentiveFeeChange: (v: number) => void;
   incentiveFeeHurdleIrr: number; onHurdleChange: (v: number) => void;
   hasResolvedFees: boolean;
+  feesCitation?: Citation | null;
   callDate: string | null; onCallDateChange: (v: string | null) => void;
   callPricePct: number; onCallPriceChange: (v: number) => void;
   callPriceMode: "multiplier" | "flat"; onCallPriceModeChange: (v: "multiplier" | "flat") => void;
@@ -51,6 +55,7 @@ export function FeeAssumptions({
         <span>
           <span style={{ fontSize: "0.65rem", marginRight: "0.3rem" }}>{open ? "▾" : "▸"}</span>
           Dates, Fees & Expenses
+          <CitationTooltip citation={feesCitation ?? null} />
         </span>
         {hasResolvedFees && <span style={{ fontSize: "0.6rem", fontWeight: 600, padding: "0.1rem 0.35rem", borderRadius: "3px", background: "var(--color-high)18", color: "var(--color-high)" }}>FROM PPM</span>}
         {!hasResolvedFees && (seniorFeePct === 0 && subFeePct === 0) && <span style={{ fontSize: "0.6rem", fontWeight: 600, padding: "0.1rem 0.35rem", borderRadius: "3px", background: "var(--color-warning, #d97706)18", color: "var(--color-warning, #d97706)" }}>NOT SET</span>}

@@ -133,7 +133,16 @@
       "pctSeniorSecured": 100,
       "pctSecondLien": 0,
       "pctCurrentPay": 0,
-      "top10ObligorsPct": 9.434414641884839
+      "top10ObligorsPct": 9.434414641884839,
+      "citation": {
+        "sourcePages": [
+          23,
+          27,
+          287,
+          295
+        ],
+        "sourceCondition": null
+      }
     },
     "ocTriggers": [
       {
@@ -792,7 +801,15 @@
       "subFeePct": 0.35,
       "trusteeFeeBps": 0,
       "incentiveFeePct": 20,
-      "incentiveFeeHurdleIrr": 0.12
+      "incentiveFeeHurdleIrr": 0.12,
+      "citation": {
+        "sourcePages": [
+          22,
+          23,
+          146
+        ],
+        "sourceCondition": null
+      }
     },
     "loans": [
       {
@@ -8151,7 +8168,14 @@
     "baseRateFloorPct": null,
     "eventOfDefaultTest": {
       "triggerLevel": 102.5,
-      "sourcePage": 207
+      "sourcePage": 207,
+      "citation": {
+        "sourcePages": [
+          207,
+          208
+        ],
+        "sourceCondition": "OC Condition 10(a)(iv)"
+      }
     }
   },
   "warnings": [
@@ -8706,6 +8730,23 @@
         "denominator_description": "Principal Amount Outstanding of the Class A Notes only",
         "downstream_modelling_note": "Single testType=OC_PAR will mis-compute the ratio in any default scenario; must represent components (1), (2), (3) compositionally",
         "behaviour_when_defaults_zero": "Component (2) = 0; numerator collapses to APB(non-defaulted) + Principal Proceeds = Adjusted CPA; test behaves identically to a Class-A-denominator OC_PAR"
+      },
+      "_feesProvenance": {
+        "source_pages": [
+          22,
+          23,
+          146
+        ],
+        "source_condition": null
+      },
+      "_poolProvenance": {
+        "source_pages": [
+          23,
+          27,
+          287,
+          295
+        ],
+        "source_condition": null
       }
     },
     "fundProfile": {

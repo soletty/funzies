@@ -20,6 +20,18 @@ export interface ResolvedMetadata {
   pdfExtracted: string[];
 }
 
+/** E1 (Sprint 5) — PPM provenance metadata for a resolved value. Populated
+ *  when the underlying PPM extraction (ppm.json) carries `source_pages`
+ *  and/or `source_condition` for the originating field. Null when the
+ *  extraction didn't capture provenance. Partner UI uses this to render
+ *  "Source: PPM Condition 10, p.127" tooltips on hover. */
+export interface Citation {
+  /** PPM page numbers (1-indexed) where the value is defined. */
+  sourcePages: number[] | null;
+  /** PPM condition number / label (e.g., "Condition 10", "1 (Definitions)"). */
+  sourceCondition: string | null;
+}
+
 /** B1: Event of Default Par Value Test (PPM Condition 10(a)(iv)).
  *  Structurally distinct from class-level OC tests — its numerator is
  *  compositional (APB non-defaulted + Σ(MV × PB) defaulted + principal
@@ -29,6 +41,9 @@ export interface ResolvedMetadata {
 export interface ResolvedEodTest {
   triggerLevel: number; // 102.5 for Euro XV
   sourcePage: number | null;
+  /** E1: PPM provenance for the EoD trigger (source_pages + source_condition
+   *  from ppm.json section_4_coverage_tests.event_of_default_par_value_test). */
+  citation?: Citation | null;
 }
 
 export interface ResolvedDealData {
@@ -119,6 +134,10 @@ export interface ResolvedPool {
   // can show concentration impact of a proposed trade. Null when loan data
   // lacks obligorName coverage (e.g., EMPTY_RESOLVED placeholder).
   top10ObligorsPct: number | null;
+  /** E1: PPM provenance for the pool-summary block (source_pages from
+   *  ppm.json section_8_portfolio_and_quality_tests). Null when the
+   *  underlying extraction didn't carry provenance. */
+  citation?: Citation | null;
 }
 
 export interface ResolvedTrigger {
@@ -143,6 +162,10 @@ export interface ResolvedFees {
   trusteeFeeBps: number; // Trustee + admin expenses (PPM Steps B-C), in bps p.a.
   incentiveFeePct: number; // Incentive management fee as % of residual above IRR hurdle (e.g. 20)
   incentiveFeeHurdleIrr: number; // IRR hurdle for incentive fee (annualized, e.g. 0.12 for 12%)
+  /** E1: PPM provenance for the fees block (source_pages from
+   *  ppm.json section_5_fees_and_hurdle). Null when the underlying
+   *  extraction didn't carry provenance. */
+  citation?: Citation | null;
 }
 
 export interface ResolvedLoan {

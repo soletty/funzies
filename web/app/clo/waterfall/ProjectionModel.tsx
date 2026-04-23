@@ -576,6 +576,7 @@ export default function ProjectionModel({
           incentiveFeePct={incentiveFeePct} onIncentiveFeeChange={setIncentiveFeePct}
           incentiveFeeHurdleIrr={incentiveFeeHurdleIrr} onHurdleChange={setIncentiveFeeHurdleIrr}
           hasResolvedFees={!!resolved && (resolved.fees.seniorFeePct > 0 || resolved.fees.subFeePct > 0)}
+          feesCitation={resolved?.fees.citation ?? null}
           callDate={callDate} onCallDateChange={setCallDate}
           callPricePct={callPricePct} onCallPriceChange={setCallPricePct}
           callPriceMode={callPriceMode} onCallPriceModeChange={setCallPriceMode}
@@ -1148,6 +1149,7 @@ export default function ProjectionModel({
               incentiveFeePct={incentiveFeePct} onIncentiveFeeChange={setIncentiveFeePct}
               incentiveFeeHurdleIrr={incentiveFeeHurdleIrr} onHurdleChange={setIncentiveFeeHurdleIrr}
               hasResolvedFees={!!resolved && (resolved.fees.seniorFeePct > 0 || resolved.fees.subFeePct > 0)}
+              feesCitation={resolved?.fees.citation ?? null}
               callDate={callDate} onCallDateChange={setCallDate}
               callPricePct={callPricePct} onCallPriceChange={setCallPricePct}
           callPriceMode={callPriceMode} onCallPriceModeChange={setCallPriceMode}

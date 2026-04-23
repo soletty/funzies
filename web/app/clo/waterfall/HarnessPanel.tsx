@@ -28,6 +28,36 @@ import { useMemo, useState } from "react";
 import type { ProjectionInputs } from "@/lib/clo/projection";
 import type { BacktestInputs } from "@/lib/clo/backtest-types";
 import { runBacktestHarness, type HarnessResult } from "@/lib/clo/backtest-harness";
+import type { EngineBucket } from "@/lib/clo/ppm-step-map";
+
+/** E2 (Sprint 5) — Static map from harness engine bucket to the KI ledger
+ *  entries that document its expected drift. Rendered as small badges on
+ *  non-green rows so partners can click through from a drift to the ledger
+ *  explanation. Only buckets with real documented drift or deferred
+ *  modeling are included; a bucket showing red without a KI badge = genuine
+ *  unexpected drift, partner should flag. Ledger anchors at
+ *  `docs/clo-model-known-issues.md#ki-<id>` (kebab-case). */
+const BUCKET_TO_KI: Partial<Record<EngineBucket, { ids: string[]; blurb: string }>> = {
+  taxes: { ids: ["KI-09"], blurb: "Issuer taxes (A.i). CLOSED Sprint 3. Residual is 91/360 vs 90/360 harness-period-mismatch — closes fully with KI-12a." },
+  issuerProfit: { ids: ["KI-01"], blurb: "Issuer Profit Amount (A.ii). CLOSED Sprint 4. Fixed €250/period — engine ties to the cent." },
+  trusteeFeesPaid: { ids: ["KI-08", "KI-16"], blurb: "Trustee fee (B) back-derived from Q1 waterfall (D3). Cap mechanics shipped in C3. 3 assumptions pending PPM verification (KI-16)." },
+  adminFeesPaid: { ids: ["KI-08", "KI-16"], blurb: "Admin fee (C), split from trustee post-C3. Day-count residual closes with KI-12a." },
+  subDistribution: { ids: ["KI-13", "KI-13a"], blurb: "Sub distribution residual — cascade from KI-01/08/09/12a/12b. Re-baselined on each upstream closure." },
+  classA_interest: { ids: ["KI-12b", "KI-12a"], blurb: "Class A interest day-count drift. Engine Q2 (91/360) vs trustee Q1 (90/360) period mismatch — closes with KI-12a." },
+  classB_interest: { ids: ["KI-12b", "KI-12a"], blurb: "Class B interest day-count drift. Same mechanic as Class A." },
+  classC_current: { ids: ["KI-12b", "KI-12a"], blurb: "Class C current interest day-count drift." },
+  classD_current: { ids: ["KI-12b", "KI-12a"], blurb: "Class D current interest day-count drift." },
+  classE_current: { ids: ["KI-12b", "KI-12a"], blurb: "Class E current interest day-count drift." },
+  classF_current: { ids: ["KI-12b", "KI-12a"], blurb: "Class F current interest day-count drift." },
+  seniorMgmtFeePaid: { ids: ["KI-12a"], blurb: "Senior mgmt fee (E). Fee-base harness period mismatch — engine beginningPar vs trustee prior-DD ACB." },
+  subMgmtFeePaid: { ids: ["KI-12a"], blurb: "Sub mgmt fee (X). Same fee-base mismatch as senior mgmt." },
+  expenseReserve: { ids: ["KI-02"], blurb: "Expense Reserve top-up (D). Deferred — CM-discretionary; usually zero." },
+  effectiveDateRating: { ids: ["KI-03"], blurb: "Effective Date Rating Event (V). Deferred — inactive post-ramp." },
+  defaultedHedgeTermination: { ids: ["KI-06"], blurb: "Defaulted hedge termination (AA). Deferred — hedge-default-only." },
+  supplementalReserve: { ids: ["KI-05"], blurb: "Supplemental Reserve (BB). Deferred — CM-discretionary." },
+  incentiveFeePaid: { ids: ["KI-15"], blurb: "Incentive fee. Hardcoded inactive under acceleration (B2); normal-mode ties via resolveIncentiveFee solver." },
+  reinvestmentBlockedCompliance: { ids: [], blurb: "C1 audit metric — amount of reinvestment the engine blocked due to WARF trigger enforcement. No PPM step / no trustee analogue." },
+};
 
 interface Props {
   inputs: ProjectionInputs;
@@ -226,6 +256,8 @@ export default function HarnessPanel({ inputs, backtest, engineMathInputs }: Pro
                 mode — tweak any assumption slider above to see how it moves the delta table.
               </>
             )}
+            {" "}Rows with documented drift carry KI-xx badges linking to the ledger entry
+            that explains the residual; a red row without a KI badge is unexpected drift.
           </p>
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.75rem" }}>
@@ -260,7 +292,10 @@ export default function HarnessPanel({ inputs, backtest, engineMathInputs }: Pro
                     : "✗";
                   return (
                     <tr key={s.engineBucket} style={{ background: rowBg }}>
-                      <td style={{ ...cellStyle, textAlign: "left", fontFamily: "var(--font-sans)" }}>{s.engineBucket}</td>
+                      <td style={{ ...cellStyle, textAlign: "left", fontFamily: "var(--font-sans)" }}>
+                        {s.engineBucket}
+                        <KiBadges bucket={s.engineBucket} />
+                      </td>
                       <td style={{ ...cellStyle, textAlign: "left", color: "var(--color-text-muted)" }}>{s.ppmSteps.join(", ")}</td>
                       <td style={cellStyle}>{s.actual.toLocaleString("en-EU", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                       <td style={cellStyle}>{s.projected.toLocaleString("en-EU", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
@@ -280,6 +315,41 @@ export default function HarnessPanel({ inputs, backtest, engineMathInputs }: Pro
         </div>
       )}
     </section>
+  );
+}
+
+/** E2 — Small KI badge(s) next to an engine bucket, with hover tooltip.
+ *  Renders nothing when the bucket has no documented KI. Partner hovering
+ *  a badge sees the ledger blurb on the `title` attribute. The KI id acts
+ *  as a visual marker + anchor for the blurb; no link (an in-app ledger
+ *  viewer is the proper long-term surface — see E2.1 follow-up). Prior
+ *  approach used a hardcoded GitHub blob URL which is fragile to repo /
+ *  branch / path changes + breaks offline; deliberately removed. */
+function KiBadges({ bucket }: { bucket: EngineBucket }) {
+  const meta = BUCKET_TO_KI[bucket];
+  if (!meta || meta.ids.length === 0) return null;
+  return (
+    <span style={{ marginLeft: "0.5rem", display: "inline-flex", gap: "0.25rem" }}>
+      {meta.ids.map((id) => (
+        <span
+          key={id}
+          title={meta.blurb}
+          style={{
+            fontSize: "0.62rem",
+            fontFamily: "var(--font-mono)",
+            padding: "0.1rem 0.35rem",
+            borderRadius: "3px",
+            border: "1px solid var(--color-border-light)",
+            background: "var(--color-surface)",
+            color: "var(--color-text-muted)",
+            letterSpacing: "0.02em",
+            cursor: "help",
+          }}
+        >
+          {id}
+        </span>
+      ))}
+    </span>
   );
 }
 

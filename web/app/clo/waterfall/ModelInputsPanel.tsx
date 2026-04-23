@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import type { ResolvedDealData } from "@/lib/clo/resolver-types";
 import type { ProjectionInputs } from "@/lib/clo/projection";
 import { formatAmount } from "./helpers";
+import { CitationTooltip } from "@/components/clo/CitationTooltip";
 
 export function ModelInputsPanel({ resolved, inputs }: { resolved: ResolvedDealData; inputs: ProjectionInputs }) {
   const [open, setOpen] = useState(false);
@@ -62,7 +63,10 @@ export function ModelInputsPanel({ resolved, inputs }: { resolved: ResolvedDealD
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "1rem", marginBottom: "1rem" }}>
             <div>
-              <div style={{ fontSize: "0.68rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--color-text-muted)", marginBottom: "0.4rem" }}>Fees</div>
+              <div style={{ fontSize: "0.68rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--color-text-muted)", marginBottom: "0.4rem" }}>
+                Fees
+                <CitationTooltip citation={resolved.fees.citation ?? null} />
+              </div>
               <div style={kvStyle}><span style={kvLabel}>Senior Mgmt</span> <span style={kvValue}>{resolved.fees.seniorFeePct}%</span></div>
               <div style={kvStyle}><span style={kvLabel}>Sub Mgmt</span> <span style={kvValue}>{resolved.fees.subFeePct}%</span></div>
               <div style={kvStyle}><span style={kvLabel}>Trustee/Admin</span> <span style={kvValue}>{resolved.fees.trusteeFeeBps} bps</span></div>
@@ -77,7 +81,10 @@ export function ModelInputsPanel({ resolved, inputs }: { resolved: ResolvedDealD
               <div style={kvStyle}><span style={kvLabel}>Call Date</span> <span style={kvValue}>{inputs.callDate ?? "Not set"}</span></div>
             </div>
             <div>
-              <div style={{ fontSize: "0.68rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--color-text-muted)", marginBottom: "0.4rem" }}>Pool</div>
+              <div style={{ fontSize: "0.68rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--color-text-muted)", marginBottom: "0.4rem" }}>
+                Pool
+                <CitationTooltip citation={resolved.poolSummary.citation ?? null} />
+              </div>
               <div style={kvStyle}><span style={kvLabel}>Initial Par</span> <span style={kvValue}>{formatAmount(resolved.poolSummary.totalPar)}</span></div>
               <div style={kvStyle}><span style={kvLabel}>WAC Spread</span> <span style={kvValue}>{resolved.poolSummary.wacSpreadBps} bps</span></div>
               <div style={kvStyle}><span style={kvLabel}>Loans</span> <span style={kvValue}>{resolved.loans.length}</span></div>

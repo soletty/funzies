@@ -1,5 +1,5 @@
 import type { ExtractedConstraints, CloPoolSummary, CloComplianceTest, CloTranche, CloTrancheSnapshot, CloHolding, CloAccountBalance, CloParValueAdjustment } from "./types";
-import type { ResolvedDealData, ResolvedTranche, ResolvedPool, ResolvedTrigger, ResolvedReinvestmentOcTrigger, ResolvedDates, ResolvedFees, ResolvedLoan, ResolvedComplianceTest, ResolvedEodTest, ResolvedMetadata, ResolutionWarning } from "./resolver-types";
+import type { Citation, ResolvedDealData, ResolvedTranche, ResolvedPool, ResolvedTrigger, ResolvedReinvestmentOcTrigger, ResolvedDates, ResolvedFees, ResolvedLoan, ResolvedComplianceTest, ResolvedEodTest, ResolvedMetadata, ResolutionWarning } from "./resolver-types";
 import { parseSpreadToBps, normalizeWacSpread } from "./ingestion-gate";
 import { mapToRatingBucket, moodysWarfFactor } from "./rating-mapping";
 import { isRatingSentinel } from "./sdf/csv-utils";
@@ -21,6 +21,20 @@ function stripNulls<T extends Record<string, unknown>>(obj: T): T {
     if (v != null) result[k] = v;
   }
   return result as T;
+}
+
+/** E1 (Sprint 5) — convert a raw provenance source (carrying `source_pages`
+ *  and/or `source_condition` from ppm.json) into the partner-facing
+ *  `Citation` shape. Returns null when neither field carries useful info,
+ *  so call sites can render unconditionally without a null check. */
+function extractCitation(
+  source: { source_pages?: number[] | null; source_condition?: string | null } | null | undefined,
+): Citation | null {
+  if (!source) return null;
+  const pages = source.source_pages ?? null;
+  const cond = source.source_condition ?? null;
+  if ((pages == null || pages.length === 0) && cond == null) return null;
+  return { sourcePages: pages, sourceCondition: cond };
 }
 
 function addQuartersForResolver(dateIso: string, quarters: number): string {
@@ -315,7 +329,7 @@ function resolveTriggers(
   constraints: ExtractedConstraints,
   resolvedTranches: ResolvedTranche[],
   warnings: ResolutionWarning[],
-  eventOfDefaultConstraint: { required_ratio_pct?: number; source_pages?: number[] } | null | undefined,
+  eventOfDefaultConstraint: { required_ratio_pct?: number; source_pages?: number[]; source_condition?: string } | null | undefined,
 ): { oc: ResolvedTrigger[]; ic: ResolvedTrigger[]; eventOfDefaultTest: ResolvedEodTest | null } {
   // Resolve a class name (possibly compound like "A/B") to its most junior seniority rank
   function resolveRank(cls: string): number {
@@ -419,11 +433,12 @@ function resolveTriggers(
   const ocWithoutEod = oc.filter((t) => normClass(t.className) !== "eod");
   let eventOfDefaultTest: ResolvedEodTest | null = null;
   const constraintTrigger = eventOfDefaultConstraint?.required_ratio_pct;
+  const eodCitation = extractCitation(eventOfDefaultConstraint);
   if (eodEntries.length > 0) {
     // Prefer compliance-reported level; fall back to PPM constraint if somehow missing.
     const eodLevel = eodEntries[0].triggerLevel;
     const sourcePage = eventOfDefaultConstraint?.source_pages?.[0] ?? null;
-    eventOfDefaultTest = { triggerLevel: eodLevel, sourcePage };
+    eventOfDefaultTest = { triggerLevel: eodLevel, sourcePage, citation: eodCitation };
     if (constraintTrigger != null && Math.abs(constraintTrigger - eodLevel) > 0.01) {
       warnings.push({
         field: "eventOfDefaultTest",
@@ -436,6 +451,7 @@ function resolveTriggers(
     eventOfDefaultTest = {
       triggerLevel: constraintTrigger,
       sourcePage: eventOfDefaultConstraint?.source_pages?.[0] ?? null,
+      citation: eodCitation,
     };
   }
 
@@ -537,7 +553,13 @@ function resolveFees(constraints: ExtractedConstraints, warnings: ResolutionWarn
     });
   }
 
-  return { seniorFeePct, subFeePct, trusteeFeeBps, incentiveFeePct, incentiveFeeHurdleIrr };
+  // E1 (Sprint 5) — surface PPM section provenance for the fees block.
+  // ppm-mapper.ts attaches `_feesProvenance` to constraints from
+  // section_5_fees_and_hurdle.source_pages.
+  const feesProvenance = (constraints as unknown as { _feesProvenance?: { source_pages?: number[] | null; source_condition?: string | null } | null })._feesProvenance ?? null;
+  const citation = extractCitation(feesProvenance);
+
+  return { seniorFeePct, subFeePct, trusteeFeeBps, incentiveFeePct, incentiveFeeHurdleIrr, citation };
 }
 
 export function resolveWaterfallInputs(
@@ -656,6 +678,13 @@ export function resolveWaterfallInputs(
   );
   const derivedPctCurrentPay    = round4(num(pool?.pctCurrentPay) ?? pickConc("current pay obligations"));
 
+  // E1 (Sprint 5) — surface PPM section provenance for the pool-summary block.
+  // ppm-mapper.ts attaches `_poolProvenance` to constraints from
+  // section_8_portfolio_and_quality_tests.source_pages (portfolio_profile +
+  // collateral_quality_tests pages).
+  const poolProvenance = (constraints as unknown as { _poolProvenance?: { source_pages?: number[] | null; source_condition?: string | null } | null })._poolProvenance ?? null;
+  const poolCitation = extractCitation(poolProvenance);
+
   const poolSummary: ResolvedPool = {
     totalPar: pool?.totalPar ?? 0,
     totalPrincipalBalance: pool?.totalPrincipalBalance ?? 0,
@@ -679,6 +708,7 @@ export function resolveWaterfallInputs(
     // `loans[].obligorName` + `parBalance`). Placeholder null here; patched
     // into the literal once the loan list is ready.
     top10ObligorsPct: null,
+    citation: poolCitation,
   };
 
   if (poolSummary.totalPar === 0) {
@@ -687,7 +717,7 @@ export function resolveWaterfallInputs(
 
   // --- Triggers ---
   const eodConstraint =
-    (constraints as unknown as { eventOfDefaultParValueTest?: { required_ratio_pct?: number; source_pages?: number[] } | null })
+    (constraints as unknown as { eventOfDefaultParValueTest?: { required_ratio_pct?: number; source_pages?: number[]; source_condition?: string } | null })
       .eventOfDefaultParValueTest ?? null;
   const { oc: ocTriggers, ic: icTriggers, eventOfDefaultTest } = resolveTriggers(
     complianceData?.complianceTests ?? [],

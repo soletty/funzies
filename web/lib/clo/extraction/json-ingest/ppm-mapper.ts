@@ -130,7 +130,30 @@ function mapCoverageTests(ppm: PpmJson): Record<string, unknown> {
   };
 }
 
+/** E1 (Sprint 5) — derive a normalized provenance object from a ppm.json
+ *  section's `source_pages` (number[] | object) + `source_condition`. Returns
+ *  null when neither field is set. The `pageSelector` lets callers pick a
+ *  sub-key for sections whose source_pages is a structured map (e.g.
+ *  section_8 carries `{portfolio_profile: [...], collateral_quality_tests: [...]}`). */
+function deriveSectionProvenance(
+  section: { source_pages?: unknown; source_condition?: unknown } | null | undefined,
+  pageSelector?: (pagesObj: Record<string, unknown>) => number[] | null,
+): { source_pages: number[] | null; source_condition: string | null } | null {
+  if (!section) return null;
+  let pages: number[] | null = null;
+  const rawPages = section.source_pages;
+  if (Array.isArray(rawPages)) {
+    pages = rawPages.filter((p): p is number => typeof p === "number");
+  } else if (rawPages && typeof rawPages === "object" && pageSelector) {
+    pages = pageSelector(rawPages as Record<string, unknown>);
+  }
+  const cond = typeof section.source_condition === "string" ? section.source_condition : null;
+  if ((pages == null || pages.length === 0) && cond == null) return null;
+  return { source_pages: pages, source_condition: cond };
+}
+
 function mapFeesAndExpenses(ppm: PpmJson): Record<string, unknown> {
+  const feesProvenance = deriveSectionProvenance(ppm.section_5_fees_and_hurdle as { source_pages?: unknown; source_condition?: unknown });
   const fees = ppm.section_5_fees_and_hurdle.fees.map((f) => {
     const ratePctPa = f.rate_pct_pa;
     const ratePct = f.rate_pct;
@@ -156,12 +179,13 @@ function mapFeesAndExpenses(ppm: PpmJson): Record<string, unknown> {
         : undefined,
     };
   });
-  return { fees, accounts: [] };
+  return { fees, accounts: [], _feesProvenance: feesProvenance ?? undefined };
 }
 
 function mapPortfolioConstraints(ppm: PpmJson): Record<string, unknown> {
-  const limits = ppm.section_8_portfolio_and_quality_tests.portfolio_profile_limits_selected ?? [];
-  const quality = ppm.section_8_portfolio_and_quality_tests.collateral_quality_tests ?? [];
+  const sec = ppm.section_8_portfolio_and_quality_tests;
+  const limits = sec.portfolio_profile_limits_selected ?? [];
+  const quality = sec.collateral_quality_tests ?? [];
   const portfolioProfileTests: Record<string, { min?: string | null; max?: string | null; notes?: string }> = {};
   for (const l of limits) {
     portfolioProfileTests[l.bucket] = {
@@ -170,6 +194,16 @@ function mapPortfolioConstraints(ppm: PpmJson): Record<string, unknown> {
       notes: l.note ?? l.basis,
     };
   }
+  // section_8.source_pages is a structured object — collect every page from
+  // portfolio_profile + collateral_quality_tests for the pool-summary citation.
+  const portfolioProvenance = deriveSectionProvenance(sec as { source_pages?: unknown; source_condition?: unknown }, (obj) => {
+    const collected: number[] = [];
+    for (const key of ["portfolio_profile", "collateral_quality_tests"]) {
+      const v = obj[key];
+      if (Array.isArray(v)) for (const p of v) if (typeof p === "number") collected.push(p);
+    }
+    return collected.length > 0 ? collected : null;
+  });
   return {
     collateralQualityTests: quality.map((q) => ({
       name: q.test,
@@ -177,6 +211,7 @@ function mapPortfolioConstraints(ppm: PpmJson): Record<string, unknown> {
       value: q.description ?? null,
     })),
     portfolioProfileTests,
+    _poolProvenance: portfolioProvenance ?? undefined,
   };
 }
 

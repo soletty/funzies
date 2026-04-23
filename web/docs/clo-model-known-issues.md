@@ -26,8 +26,9 @@ Categorized so a partner reading cold can separate "what's still wrong" from "wh
 - [KI-17 — wacSpreadBps methodology gap (±30 bps drift vs trustee)](#ki-17)
 - [KI-18 — pctCccAndBelow coarse-bucket collapse (±3pp vs trustee per-agency max)](#ki-18)
 - [KI-20 — D2 legacy escape-hatch on 6 test-factory sites](#ki-20)
-- [KI-21 — Parallel implementations of same calculation (PARTIAL — quality-metrics closed D4; senior-expense accumulators remain)](#ki-21)
+- [KI-21 — Parallel implementations of same calculation (PARTIAL — Scope 1+2 closed; Scope 3 accel + T=0 remains)](#ki-21)
 - [KI-23 — Industry taxonomy missing on BuyListItem + ResolvedLoan blocks industry-cap filtering](#ki-23)
+- [KI-24 — E1 citation propagation coverage is partial (8 deferred paths)](#ki-24)
 
 ### Deferred — intentionally not modeled, magnitude known
 - [KI-02 — Step (D) Expense Reserve top-up](#ki-02)
@@ -499,31 +500,66 @@ Total ~2-3 days across tiers. Priority: MEDIUM (partner-demo gap but not blockin
 ---
 
 <a id="ki-21"></a>
-### [KI-21] Parallel implementations of same calculation in multiple engine sites (architectural — PARTIALLY CLOSED Sprint 4 / D4)
+### [KI-21] Parallel implementations of same calculation in multiple engine sites (architectural — PARTIAL: Scope 1+2 closed, Scope 3 remains)
 
-**Original scope (Sprint 4 / KI-01 ship):** Engine was found to have multiple parallel-implementation sites where "same calculation maintained in two places" risked drift:
+**Status (2026-04-23):** Scope 1 (quality metrics) closed Sprint 4; Scope 2 (normal-mode waterfall two-path drift) closed Sprint 5; Scope 3 (accel executor + T=0 initialState hardcoded field enumerations) remains open — surfaced during Sprint 5 closure-verification probe.
+
+**Original scope (Sprint 4 / KI-01 ship):** Engine had multiple parallel-implementation sites where "same calculation maintained in two places" risked drift:
 
 1. **Quality-metric computation:** projection engine (per-period closure), switch simulator (inline recomputation), resolver T=0 (inline). Three implementations that needed to agree.
-2. **Senior-expense deduction:** IC-numerator path (`totalSeniorExpenses` → `interestAfterFees`) vs cash-flow path (`availableInterest -=` chain in the waterfall loop). Two accumulators that needed to stay in sync.
+2. **Senior-expense two-path drift (normal mode):** IC-numerator path (`totalSeniorExpenses` → `interestAfterFees`) vs cash-flow path (`availableInterest -=` chain). Two parallel accumulators computing the same six senior-expense amounts that had to stay in sync.
 
-**Partial close (Sprint 4 / D4, 2026-04-23):** Scope 1 resolved structurally. `lib/clo/pool-metrics.ts` now hosts the canonical implementations of `computePoolQualityMetrics`, `computeTopNObligorsPct`, and `BUCKET_WARF_FALLBACK`. Three consumers (projection engine, switch simulator, resolver) delegate to the shared helpers — drift-by-construction eliminated. Future quality metrics added to the helper flow automatically to all consumers. No more "did I update both places?" pattern for quality math.
+**Scope 1 close (Sprint 4 / D4, 2026-04-23):** `lib/clo/pool-metrics.ts` now hosts the canonical implementations of `computePoolQualityMetrics`, `computeTopNObligorsPct`, and `BUCKET_WARF_FALLBACK`. Three consumers (projection engine, switch simulator, resolver) delegate to the shared helpers — drift-by-construction eliminated.
 
-**Remaining open scope:** Scope 2 — senior-expense deduction parallelism in the waterfall loop still exists:
+**How Scope 2 surfaced (Sprint 4):** KI-01 ship. First-pass fix added `issuerProfitPaid` to `totalSeniorExpenses` only. Harness showed engine emitting €250 correctly AND KI-13a cascade probe showed sub-distribution drift UNCHANGED — meaning cash flow didn't lose the €250. Fixed by adding to the `availableInterest -=` chain; drift shifted by exactly −€250 as theory predicted.
 
-1. **IC-numerator path** (`totalSeniorExpenses` → `interestAfterFees`, ~line 1434): sums `taxes + issuerProfit + trusteeFee + adminFee + seniorMgmt + hedge` once to drive the IC test `actual` value.
-2. **Cash-flow path** (`availableInterest -=` chain, ~line 1793): decrements `availableInterest` step-by-step through the same expenses to compute what's available for tranche interest and sub residual.
+**Scope 2 close (Sprint 5, 2026-04-23):** Retired via `lib/clo/senior-expense-breakdown.ts` extraction — same template as D4's `pool-metrics.ts`. The IC numerator and the cash-flow chain in `projection.ts`'s normal-mode period loop now both derive from the same `SeniorExpenseBreakdown` object: the IC path calls `sumSeniorExpensesPreOverflow(breakdown)`, the cash-flow path calls `applySeniorExpensesToAvailable(breakdown, availableInterest)`. Two-path drift eliminated in normal mode.
 
-Both paths must stay in sync — any new senior expense has to be added to BOTH, or the engine emits the amount on `stepTrace` while cash flow doesn't reflect it.
+**Scope 3 (still open) — cross-site field-enumeration consistency:** The Scope 2 closure applies only to the normal-mode period loop. Two OTHER engine sites still maintain hardcoded six-field senior-expense enumerations:
 
-**How the remaining scope surfaced:** KI-01 ship (Sprint 4). First-pass fix added `issuerProfitPaid` to `totalSeniorExpenses` only. Harness showed engine emitting €250 correctly AND KI-13a cascade probe showed the sub-distribution drift UNCHANGED — meaning cash flow didn't lose the €250. Fixed by adding to the `availableInterest -=` chain; drift shifted by exactly −€250 as theory predicted.
+1. **Accelerated executor** (`runPostAccelerationWaterfall`, ~line 536 in `projection.ts`): hardcoded `seniorPaid = { taxes: pay(input.seniorExpenses.taxes), issuerProfit: pay(...), trusteeFees: pay(...), adminExpenses: pay(...), seniorMgmtFee: pay(...), hedgePayments: pay(...) }`. Single-path (no internal parallel-accumulator bug) but DOES hardcode the full field list at a site separate from the normal-mode breakdown.
+2. **T=0 initialState.icTests** (~line 1049 in `projection.ts`): hardcoded subtraction `scheduledInterest − taxesAmountT0 − issuerProfitAmountT0 − trusteeFeeAmountT0 − adminFeeAmountT0 − seniorFeeAmountT0 − hedgeCostAmountT0`. Also single-path internally but maintains its own field enumeration.
 
-**Current engine behavior:** Correct for all existing expenses (taxes, issuer profit, trustee, admin, senior mgmt, hedge), but correctness is maintained by vigilance rather than by construction. Future KI closures (KI-02 expense reserve, defaulted-hedge activation, any new step A–F deduction) will need to touch both sites.
+**Concrete failure mode:** a future KI that adds a new senior expense (e.g., modeling KI-02 Expense Reserve top-up at step (D)) would update the `SeniorExpenseBreakdown` type and the normal-mode callsite picks it up automatically (Scope 2 closure win). BUT the accel executor + T=0 initialState would silently skip the new expense until a reader remembers to touch those sites. That's the vigilance-based maintenance Scope 2 was supposed to retire — just scoped narrowly.
 
-**Forcing function:** Code comment at the `availableInterest -=` chain warns about the parallel accumulator and cites KI-21. Next developer adding a deduction sees the warning before the bug ships.
+**Path to close (Scope 3):** Extend the breakdown's use to the other two sites:
+- Accel executor: accept a `breakdown: SeniorExpenseBreakdown` instead of the current field-by-field `seniorExpenses` param. Internal `pay(...)` loop iterates the breakdown's fields in PPM order. Callers (the accel branch in the period loop) pass the same breakdown they already construct.
+- T=0 initialState: construct a `SeniorExpenseBreakdown` at T=0 using quarterly rates instead of per-period amounts, then call `sumSeniorExpensesPreOverflow(breakdownT0)` once. Removes the hardcoded subtraction chain.
 
-**Path to close:** Apply the D4 pattern to senior-expense deduction — extract `computeSeniorExpenseBreakdown(...)` as a shared pure helper in a module alongside `pool-metrics.ts`. Return a structured `SeniorExpenseBreakdown` object; IC numerator derives via sum, cash-flow path iterates the same fields. Eliminates the duplicate-path class of bugs by construction, same way D4 eliminated quality-metric drift. Estimated: ~half day (careful refactor with cascade verification after each sub-step). Priority: LOW until a future KI hits the bug badly enough to justify pulling it forward.
+Estimated ~1-2 hours careful refactor + N1-harness re-verification. Low priority until a new senior expense lands (KI-02 Expense Reserve would be the natural trigger).
 
-**Test:** None standalone. Regression catch is: any new KI that adds a senior expense must verify BOTH (a) `stepTrace.<field>` emits correctly AND (b) KI-13a cascade shifts by the expected amount. If only (a) shifts, suspect the two-path bug.
+**Verification (Sprint 5, Scope 2 only):** Full suite green with unchanged numerical output. KI-13a expected drift unchanged at −€50,992.24 ± €50, KI-12b markers unchanged, KI-IC-AB/C/D markers unchanged. The refactor consolidated the normal-mode representation; it did not change any computed amount.
+
+**Tests:** `lib/clo/__tests__/senior-expense-breakdown.test.ts` covers the helpers' arithmetic and PPM-order truncation. Full waterfall correctness regression remains in `n1-correctness.test.ts`.
+
+---
+
+<a id="ki-24"></a>
+### [KI-24] E1 citation propagation coverage is partial (8 deferred paths)
+
+**Context:** Sprint 5 / E1 shipped PPM citation propagation on three partner-facing surfaces: `ResolvedPool`, `ResolvedFees`, `ResolvedEodTest`. Partner hovering the Pool or Fees header sees "Source: PPM p.23, 27, 287, 295" / "p.22, 23, 146" / "p.207, 208 (OC Condition 10(a)(iv))" as intended.
+
+**What's NOT covered (surfaced in the E1 subagent's completion report):** Eight ppm.json source-annotated paths carry `source_pages` or `source_condition` but don't yet propagate into partner-facing tooltips. Enumerated:
+
+1. `section_1_deal_identity.source_pages = [1, 17, 18, 19, 240, 327]` — no current consumer; would tooltip a deal-identity header.
+2. `section_2_key_dates.source_pages = [18, 19, 20, 21, 22]` — could attach to `ResolvedDates` (maturity / reinvestment end / non-call). Intentionally omitted from E1 scope; reasonable follow-up.
+3. `section_3_capital_structure.source_pages = [18]` — per-tranche citations. E1 explicitly excluded `ResolvedLoan` / `ResolvedTrigger` per scope.
+4. `section_4_coverage_tests.source_pages = [28, 207, 208]` — section-level page range. Only the EoD subsection is plumbed; class-level OC / IC triggers would need per-trigger citations on `ResolvedTrigger`.
+5. `section_6_waterfall.source_condition = "OC Condition 3(c)"`, `source_pages = [176, 179]` + `post_acceleration_priority_of_payments.source_condition = "OC Condition 10"` — no current `Resolved*` consumer for waterfall shape (engine implements the waterfall; no partner-facing tooltip surface today).
+6. `section_7_interest_mechanics.source_condition` — flows through `constraints.interestMechanics` passthrough; no partner-facing slider rooted in it today.
+7. `section_8_portfolio_and_quality_tests.source_pages.{moodys_matrix, fitch_matrix}` — rating-matrix-specific pages. Only `portfolio_profile` and `collateral_quality_tests` are folded into `poolSummary.citation`; matrix pages intentionally omitted (not partner-facing fields).
+8. `section_9_collateral_manager_replacement.source_pages = [313, 318]` — no UI surface today.
+
+**Partner-visible impact:** A partner asking "where does this Class A/B OC test trigger come from?" sees no citation on the OC row today (coverage gap #4). Same for reinvestment-period-end date (gap #2), class coupon formulas (gap #3), waterfall clause-level references (gap #5). E1 shipped the pattern; extending it to these eight paths is mechanical but not free.
+
+**Path to close:**
+- **Tier 1 (partner-demo value, ~1-2 hours total):** Key dates + class-level OC/IC triggers. Most frequent partner questions are "where's this date/trigger from?" Add `citation?` field to `ResolvedTrigger` + `ResolvedDates`; populate in resolver from `section_4` + `section_2` provenance. Wire tooltips into the trigger display + dates display.
+- **Tier 2 (institutional completeness, ~2-3 hours):** Per-tranche citations + waterfall section citations. Requires extending `ResolvedTranche` (partner tranche panel tooltips) and introducing a waterfall-rendering surface that doesn't exist today.
+- **Tier 3 (rating matrix, misc, ~1 hour):** Moody's / Fitch rating matrix pages; collateral manager replacement section. Low-demand surfaces.
+
+Total ~4-6 hours across tiers. Priority: MEDIUM — Tier 1 would close the most common partner "where from?" questions; Tier 2+ can wait for specific asks.
+
+**Test:** No standalone test required until each deferred path ships. When a path lands, extend the existing `e1-citation-propagation.test.ts` with a per-surface assertion.
 
 ---
 
