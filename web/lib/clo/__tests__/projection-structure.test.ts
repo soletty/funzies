@@ -96,6 +96,8 @@ function makeFullDealInputs(overrides: Partial<ProjectionInputs> = {}): Projecti
     cccBucketLimitPct: CLO_DEFAULTS.cccBucketLimitPct,
     cccMarketValuePct: CLO_DEFAULTS.cccMarketValuePct,
     deferredInterestCompounds: true,
+    // D2 — legacy pin; test predates per-position WARF hazard. See test-helpers.ts.
+    useLegacyBucketHazard: true,
     ...overrides,
   };
 }
@@ -619,6 +621,8 @@ describe("Fee waterfall order", () => {
       cccBucketLimitPct: CLO_DEFAULTS.cccBucketLimitPct,
       cccMarketValuePct: CLO_DEFAULTS.cccMarketValuePct,
       deferredInterestCompounds: true,
+      // D2 — legacy pin; test predates per-position WARF hazard.
+      useLegacyBucketHazard: true,
       ...feeOverrides,
     };
   }

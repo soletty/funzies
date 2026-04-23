@@ -222,6 +222,8 @@ function makeRealisticInputs(overrides: Partial<ProjectionInputs> = {}): Project
     cccBucketLimitPct: CLO_DEFAULTS.cccBucketLimitPct,
     cccMarketValuePct: CLO_DEFAULTS.cccMarketValuePct,
     deferredInterestCompounds: true,
+    // D2 — legacy pin; test predates per-position WARF hazard. See test-helpers.ts for context.
+    useLegacyBucketHazard: true,
     ...overrides,
   };
 }

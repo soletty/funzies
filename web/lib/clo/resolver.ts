@@ -4,6 +4,7 @@ import { parseSpreadToBps, normalizeWacSpread } from "./ingestion-gate";
 import { mapToRatingBucket, moodysWarfFactor } from "./rating-mapping";
 import { isRatingSentinel } from "./sdf/csv-utils";
 import { CLO_DEFAULTS } from "./defaults";
+import { computeTopNObligorsPct } from "./pool-metrics";
 
 /** Defensive sentinel stripper for rating strings already in the DB. The SDF
  *  parser now filters these at ingest (see trimRating), but pre-fix rows can
@@ -642,8 +643,17 @@ export function resolveWaterfallInputs(
   // pctSecondLien intentionally NOT mapped from "Unsecured / HY / Mezz / 2nd Lien"
   // — that's a 4-category combined bucket; using it as second-lien only would
   // overclaim on deals with any HY/mezz. Prefer pool?.pctSecondLien if the
-  // source provides it directly; otherwise leave null.
-  const derivedPctSecondLien    = round4(num(pool?.pctSecondLien));
+  // source provides it directly. Soft inference when senior-secured = 100%:
+  // all par is senior-secured ⇒ second-lien is 0 by definition (mutually
+  // exclusive lien categories). Lets partners see "0% second-lien" on deals
+  // like Euro XV rather than "unknown" where the complement arithmetic makes
+  // the answer certain.
+  const directSecondLien = num(pool?.pctSecondLien);
+  const derivedPctSecondLien = round4(
+    directSecondLien != null
+      ? directSecondLien
+      : (derivedPctSeniorSecured === 100 ? 0 : null),
+  );
   const derivedPctCurrentPay    = round4(num(pool?.pctCurrentPay) ?? pickConc("current pay obligations"));
 
   const poolSummary: ResolvedPool = {
@@ -665,6 +675,10 @@ export function resolveWaterfallInputs(
     pctSeniorSecured: derivedPctSeniorSecured,
     pctSecondLien: derivedPctSecondLien,
     pctCurrentPay: derivedPctCurrentPay,
+    // D4 — populated after `loans` is constructed below (the helper needs
+    // `loans[].obligorName` + `parBalance`). Placeholder null here; patched
+    // into the literal once the loan list is ready.
+    top10ObligorsPct: null,
   };
 
   if (poolSummary.totalPar === 0) {
@@ -975,6 +989,47 @@ export function resolveWaterfallInputs(
     })
     .reduce((s, a) => s + a.balanceAmount!, 0);
 
+  // --- D7: Non-principal account balances ---
+  // Group remaining account rows by case-insensitive name match so downstream
+  // consumers (UI, projection engine callers) can reference each PPM account
+  // balance. Exposure only — NOT wired into the engine OC numerator, since
+  // which accounts flow into the CPA is deal-specific per the PPM.
+  // Rows with null balanceAmount are skipped; multiple matching rows are summed.
+  //
+  // Token matchers are broadened to handle abbreviated names — trustee reports
+  // often use "SMOOTH" / "SUPP RES" / "EXP RES" instead of the full "Smoothing"
+  // / "Supplemental" / "Expense Reserve". Strict "smoothing"/"supplemental"/
+  // "expense" tokens would silently misroute abbreviated accounts into
+  // `interestAccountCash` (the default interest bucket). Caught during Sprint 4
+  // D7 review against Euro XV fixture which uses all three abbreviations.
+  let interestAccountCash = 0;
+  let interestSmoothingBalance = 0;
+  let supplementalReserveBalance = 0;
+  let expenseReserveBalance = 0;
+  for (const a of accountBalances ?? []) {
+    if (a.balanceAmount == null) continue;
+    const name = (a.accountName ?? "").toLowerCase();
+    // "smooth" matches both "smoothing" and "SMOOTH ACT".
+    const isSmoothing = name.includes("smooth");
+    // "supp" matches "supplemental" + "SUPP RES". Would also match "supply" /
+    // "support" — not expected in PPM account taxonomy; revisit if it surfaces.
+    const isSupplemental = name.includes("supp");
+    // "exp res" / "expense" both match. The compound "exp res" token is
+    // specific enough to avoid colliding with unrelated "exp"/"expiration"
+    // account names.
+    const isExpense = name.includes("expense") || name.includes("exp res");
+    const isPrincipal = name.includes("principal") || name.includes("principle");
+    if (isSmoothing) {
+      interestSmoothingBalance += a.balanceAmount;
+    } else if (isSupplemental) {
+      supplementalReserveBalance += a.balanceAmount;
+    } else if (isExpense) {
+      expenseReserveBalance += a.balanceAmount;
+    } else if (name.includes("interest") && !isPrincipal) {
+      interestAccountCash += a.balanceAmount;
+    }
+  }
+
   // --- Discount & Long-Dated Obligation Haircuts ---
   // The trustee's Adjusted CPA deducts par of discount/long-dated obligations and adds back
   // their recovery values. The NET haircut is the OC numerator reduction. Extract from the
@@ -1278,8 +1333,15 @@ export function resolveWaterfallInputs(
     }
   }
 
+  // D4 — compute top10ObligorsPct from the assembled loan list. Relies on
+  // `obligorName` being populated on most positions (resolver does populate
+  // it when the SDF row has it). Positions without an obligorName still
+  // contribute to total par but not to any obligor bucket — so the metric
+  // reflects only identifiable-obligor concentration.
+  poolSummary.top10ObligorsPct = loans.length > 0 ? computeTopNObligorsPct(loans, 10) : null;
+
   return {
-    resolved: { tranches, poolSummary, ocTriggers, icTriggers, qualityTests, concentrationTests, reinvestmentOcTrigger, eventOfDefaultTest, dates, fees, loans, metadata, principalAccountCash, preExistingDefaultedPar, preExistingDefaultRecovery, unpricedDefaultedPar, preExistingDefaultOcValue, discountObligationHaircut, longDatedObligationHaircut, impliedOcAdjustment, quartersSinceReport, ddtlUnfundedPar, deferredInterestCompounds, baseRateFloorPct },
+    resolved: { tranches, poolSummary, ocTriggers, icTriggers, qualityTests, concentrationTests, reinvestmentOcTrigger, eventOfDefaultTest, dates, fees, loans, metadata, principalAccountCash, interestAccountCash, interestSmoothingBalance, supplementalReserveBalance, expenseReserveBalance, preExistingDefaultedPar, preExistingDefaultRecovery, unpricedDefaultedPar, preExistingDefaultOcValue, discountObligationHaircut, longDatedObligationHaircut, impliedOcAdjustment, quartersSinceReport, ddtlUnfundedPar, deferredInterestCompounds, baseRateFloorPct },
     warnings,
   };
 }

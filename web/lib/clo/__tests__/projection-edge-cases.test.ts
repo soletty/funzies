@@ -56,6 +56,8 @@ function makeSimpleInputs(overrides: Partial<ProjectionInputs> = {}): Projection
     cccBucketLimitPct: CLO_DEFAULTS.cccBucketLimitPct,
     cccMarketValuePct: CLO_DEFAULTS.cccMarketValuePct,
     deferredInterestCompounds: true,
+    // D2 — legacy pin; test predates per-position WARF hazard. See test-helpers.ts.
+    useLegacyBucketHazard: true,
     ...overrides,
   };
 }
@@ -122,6 +124,8 @@ function makeMultiTrancheInputs(overrides: Partial<ProjectionInputs> = {}): Proj
     cccBucketLimitPct: CLO_DEFAULTS.cccBucketLimitPct,
     cccMarketValuePct: CLO_DEFAULTS.cccMarketValuePct,
     deferredInterestCompounds: true,
+    // D2 — legacy pin; test predates per-position WARF hazard. See test-helpers.ts.
+    useLegacyBucketHazard: true,
     ...overrides,
   };
 }

@@ -7,6 +7,7 @@ import type { UserAssumptions } from "@/lib/clo/build-projection-inputs";
 import { applySwitch } from "@/lib/clo/switch-simulator";
 import { runProjection, type ProjectionResult } from "@/lib/clo/projection";
 import { RATING_BUCKETS, mapToRatingBucket } from "@/lib/clo/rating-mapping";
+import { buyListFiltersFromResolved, filterBuyList } from "@/lib/clo/buy-list-filter";
 import { formatAmount, formatPct } from "./helpers";
 
 interface SwitchPrefill {
@@ -165,14 +166,32 @@ export function SwitchSimulator({ resolved, holdings, buyList, userAssumptions, 
         </div>
       )}
 
-      {/* Buy loan — from buy list or manual entry */}
-      {buyList.length > 0 && (
-        <BuyLoanSelector
-          buyList={buyList}
-          onSelect={handleBuyListSelect}
-          prefillName={prefill?.buyName}
-        />
-      )}
+      {/* Buy loan — from buy list or manual entry.
+          D5: pre-filter candidates against deal PPM triggers (Moody's WARF
+          + Minimum WAS) before showing the picker. Partner sees only
+          compliance-passing candidates by default, with "M of N match"
+          attribution below. Binary excludeCaa/excludeCovLite toggles left
+          out — that's UI-redesign scope (tracked as D5.1 follow-up). */}
+      {buyList.length > 0 && (() => {
+        const prefilledFilters = buyListFiltersFromResolved(resolved);
+        const filtered = filterBuyList(buyList, prefilledFilters);
+        return (
+          <>
+            <BuyLoanSelector
+              buyList={filtered.passed}
+              onSelect={handleBuyListSelect}
+              prefillName={prefill?.buyName}
+            />
+            {filtered.dropped.length > 0 && (
+              <div style={{ fontSize: "0.62rem", color: "var(--color-text-muted)", marginTop: "-0.75rem", marginBottom: "0.75rem", opacity: 0.85 }}>
+                Buy list filtered to PPM-compliant candidates:
+                {" "}{filtered.passed.length} of {buyList.length} match deal caps (Moody's WARF ≤ {prefilledFilters.maxWarfFactor ?? "—"}, min spread ≥ {prefilledFilters.minSpreadBps ?? "—"} bps).
+                {" "}{filtered.dropped.length} dropped.
+              </div>
+            )}
+          </>
+        );
+      })()}
       <div style={{ marginBottom: "1.25rem" }}>
         <div style={{ border: "1px solid var(--color-border-light)", borderRadius: "var(--radius-sm)", padding: "0.75rem", background: "var(--color-surface)" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>

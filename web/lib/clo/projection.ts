@@ -3,6 +3,12 @@
 
 import { CLO_DEFAULTS } from "./defaults";
 import { POST_ACCEL_SEQUENCE } from "./waterfall-schema";
+import { warfFactorToQuarterlyHazard } from "./rating-mapping";
+import {
+  BUCKET_WARF_FALLBACK,
+  computePoolQualityMetrics,
+  type PoolQualityMetrics,
+} from "./pool-metrics";
 
 export interface LoanInput {
   parBalance: number;
@@ -24,24 +30,10 @@ export interface LoanInput {
   warfFactor?: number | null;
 }
 
-/** C2 — Coarse RatingBucket → Moody's WARF factor. Uses the middle sub-bucket
- *  (aa2/a2/baa2/ba2/b2/caa2) as a reasonable proxy when per-position WARF is
- *  unavailable. NR is treated as Caa2 (6500) per Moody's CLO rating
- *  methodology ("unrated positions treated as Caa2 unless the manager
- *  supplies a shadow rating"). A B2 midpoint (2720) was considered but
- *  rejected — it understates WARF drift under NR-concentration scenarios,
- *  which matters for C1 reinvestment enforcement against the Moody's WARF
- *  trigger. See KI-19. */
-const BUCKET_WARF_FALLBACK: Record<string, number> = {
-  AAA: 1,
-  AA: 20,
-  A: 120,
-  BBB: 360,
-  BB: 1350,
-  B: 2720,
-  CCC: 6500,
-  NR: 6500, // Moody's convention: treat as Caa2. See KI-19.
-};
+// C2 — Coarse RatingBucket → Moody's WARF factor. Imported from pool-metrics.ts
+// to share the convention between the projection engine (D2 per-position hazard
+// fallback; reinvested-loan factor) and the switch simulator (D4 post-switch
+// pool recomputation). NR → Caa2 (6500) per Moody's CLO methodology; see KI-19.
 
 export type DefaultDrawFn = (survivingPar: number, hazardRate: number) => number;
 
@@ -56,6 +48,12 @@ export interface ProjectionInputs {
    *  Deducted before trustee fees. Default 0 when no Q1 actuals available.
    *  Back-derived by `defaultsFromResolved` from Q1 waterfall step (A)(i). */
   taxesBps?: number;
+  /** KI-01 — PPM step (A)(ii) Issuer Profit Amount. Absolute € per period
+   *  (not bps, not annualized). Per PPM Condition 1 definitions: €250 per
+   *  regular period, €500 per period post-Frequency-Switch Event. Deducted
+   *  between taxes (A.i) and trustee fees (B). Default 0 when no Q1 actuals
+   *  available. Back-derived by `defaultsFromResolved` from Q1 step (A)(ii). */
+  issuerProfitAmount?: number;
   trusteeFeeBps: number; // PPM step (B) trustee, in bps p.a. on collateral par
   /** C3 — PPM step (C) administrative expenses, in bps p.a. on collateral par.
    *  Jointly capped with trusteeFeeBps under Senior Expenses Cap; overflow
@@ -131,6 +129,24 @@ export interface ProjectionInputs {
    *  breaching). Excess principal flows to senior paydown instead. Null =
    *  no enforcement. */
   moodysWarfTriggerLevel?: number | null;
+  /** D2 — Legacy escape-hatch: when true, defaults fall back to the coarse
+   *  `defaultRatesByRating[bucket]` hazard path (the pre-D2 approximation).
+   *
+   *  **Default: false** (per-position WARF hazard is active — the
+   *  institutionally-correct behavior matching Moody's CLO methodology).
+   *  Caa1 (factor 4770 ≈ 6.3% annual) and Caa3 (8070 ≈ 15.2% annual) get
+   *  distinct hazards instead of both averaging to the CCC bucket's 10.28%.
+   *
+   *  Flag exists for (a) legacy test pinning that predates D2 and hasn't
+   *  been re-baselined yet (six test factories in `__tests__/`, see
+   *  `test-helpers.ts`), (b) A/B validation when rolling forward, (c)
+   *  deterministic regressions against known pre-D2 fixtures.
+   *
+   *  Tracked for deprecation under **KI-20**. When set to true, the engine
+   *  emits a one-shot `console.warn` in dev builds so stale legacy pins
+   *  surface during test output rather than silently. The flag is expected
+   *  to be removed entirely once all legacy-pinned tests re-baseline. */
+  useLegacyBucketHazard?: boolean;
 }
 
 /** Per-step waterfall emission for N1 harness comparison against trustee
@@ -159,6 +175,10 @@ export interface PeriodStepTrace {
   /** KI-09 — PPM step (A)(i) Issuer taxes. Engine emits zero pre-fix; post-fix
    *  populated via `taxesBps` input. Euro XV Q1 2026 observed: €6,133/quarter. */
   taxes: number;
+  /** KI-01 — PPM step (A)(ii) Issuer Profit Amount. Fixed absolute deduction
+   *  per period (€250 regular, €500 post-Frequency-Switch on Euro XV). Engine
+   *  emits zero pre-fix; post-fix populated via `issuerProfitAmount` input. */
+  issuerProfit: number;
   /** PPM step (B) — trustee fee, capped portion actually paid. Split from
    *  `adminFeesPaid` in Sprint 3 / C3 so the N1 harness can distinguish
    *  trustee vs admin drift. Pre-C3 this field bundled steps (B)+(C)+(Y)+(Z). */
@@ -205,31 +225,12 @@ export interface PeriodStepTrace {
  *  C1 reinvestment enforcement is scoped to Moody's WARF because that trigger
  *  has material cushion vs its methodology gap. The tighter-cushion WAS and
  *  Caa concentration tests are NOT enforced until their gaps close (see KIs). */
-export interface PeriodQualityMetrics {
-  /** Weighted Average Rating Factor (Moody's, 1=Aaa, 10000=Ca/C). Uses
-   *  per-position warfFactor when resolver populated it (for rated loans);
-   *  reinvested synthetic loans fall back to `BUCKET_WARF_FALLBACK`. */
-  warf: number;
-  /** Weighted Average Life of the remaining pool in years. Computed as
-   *  par × (quartersToMaturity / 4), par-weighted. This is the bullet-maturity
-   *  approximation: coincides with the standard WAL formula (principal
-   *  payment × time-to-payment) for bullets but diverges for amortising loans.
-   *  Euro XV pool is mostly bullet; reinvestment tenor is bullet; revisit if
-   *  amortising reinvestment is ever modeled. */
-  walYears: number;
-  /** Weighted Average Coupon spread in bps. Engine averages per-loan
-   *  `spreadBps` as-set by the resolver; trustee methodology may adjust
-   *  fixed-rate coupons to floating-equivalent or exclude defaulted positions.
-   *  See KI-17 for the documented 30 bps systematic drift. */
-  wacSpreadBps: number;
-  /** % of remaining non-defaulted par rated CCC or below (engine coarse
-   *  bucket). Trustee reports per-agency (Moody's Caa + Fitch CCC) and takes
-   *  the max; engine collapses to a single `ratingBucket === "CCC"` rollup.
-   *  Methodology gap ±3pp tracked as KI-18 — NOT safe for tight-cushion
-   *  compliance enforcement (e.g., the 0.58pp-cushion Caa concentration test
-   *  at Euro XV). */
-  pctCccAndBelow: number;
-}
+/** Per-period alias of the shared `PoolQualityMetrics` shape. Engine emits
+ *  this at each period end; switch simulator uses the same shape for
+ *  pre/post-trade comparison. See `pool-metrics.ts` for the compute helper +
+ *  methodology-gap documentation (KI-17 wacSpreadBps, KI-18 pctCccAndBelow,
+ *  KI-19 NR convention). */
+export type PeriodQualityMetrics = PoolQualityMetrics;
 
 export interface PeriodResult {
   periodNum: number;
@@ -469,10 +470,14 @@ export interface PostAccelExecutorInput {
   tranches: ProjectionInputs["tranches"];
   trancheBalances: Record<string, number>;
   deferredBalances: Record<string, number>;
-  /** Senior expenses in order (A taxes through E hedge). Caller constructs
-   *  these so values tie to PPM day-count + rates for the period. */
+  /** Senior expenses in PPM order (A.i taxes, A.ii issuer profit, B trustee,
+   *  C admin, E senior mgmt, F hedge). Caller constructs these so values
+   *  tie to PPM day-count + rates for the period. Issuer profit is a fixed
+   *  absolute amount per PPM Condition 1; still paid under acceleration
+   *  (priority order preserved by PPM 10(b)). */
   seniorExpenses: {
     taxes: number;
+    issuerProfit: number;
     trusteeFees: number;
     adminExpenses: number;
     seniorMgmtFee: number;
@@ -501,6 +506,7 @@ export interface PostAccelExecutorResult {
   }>;
   seniorExpensesPaid: {
     taxes: number;
+    issuerProfit: number;
     trusteeFees: number;
     adminExpenses: number;
     seniorMgmtFee: number;
@@ -524,6 +530,7 @@ export function runPostAccelerationWaterfall(input: PostAccelExecutorInput): Pos
   };
   const seniorPaid = {
     taxes: pay(input.seniorExpenses.taxes),
+    issuerProfit: pay(input.seniorExpenses.issuerProfit),
     trusteeFees: pay(input.seniorExpenses.trusteeFees),
     adminExpenses: pay(input.seniorExpenses.adminExpenses),
     seniorMgmtFee: pay(input.seniorExpenses.seniorMgmtFee),
@@ -715,7 +722,7 @@ function trancheCouponRate(t: ProjectionInputs["tranches"][number], baseRatePct:
 export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultDrawFn): ProjectionResult {
   const {
     initialPar, wacSpreadBps, baseRatePct, baseRateFloorPct, seniorFeePct, subFeePct,
-    taxesBps = 0, trusteeFeeBps, adminFeeBps = 0, seniorExpensesCapBps, hedgeCostBps, incentiveFeePct, incentiveFeeHurdleIrr,
+    taxesBps = 0, issuerProfitAmount = 0, trusteeFeeBps, adminFeeBps = 0, seniorExpensesCapBps, hedgeCostBps, incentiveFeePct, incentiveFeeHurdleIrr,
     postRpReinvestmentPct, callDate, callPricePct, callPriceMode, reinvestmentOcTrigger, eventOfDefaultTest,
     tranches, ocTriggers, icTriggers,
     reinvestmentPeriodEnd, maturityDate, currentDate,
@@ -726,7 +733,21 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     discountObligationHaircut = 0, longDatedObligationHaircut = 0, impliedOcAdjustment = 0, quartersSinceReport = 0,
     ddtlDrawPercent = 100,
     moodysWarfTriggerLevel = null,
+    useLegacyBucketHazard = false,
   } = inputs;
+
+  // D2 — Warn when the legacy escape-hatch is active so stale pins in test
+  // output don't silently perpetuate. Forces deprecation awareness per KI-20.
+  // Fires once per runProjection call; tests pinning the flag see this in
+  // their stderr as a reminder to re-baseline. Gated on `typeof console` so
+  // non-browser environments without console don't throw.
+  if (useLegacyBucketHazard && typeof console !== "undefined" && typeof console.warn === "function") {
+    console.warn(
+      "[D2] Legacy bucket-hazard path active (useLegacyBucketHazard=true). " +
+      "This test or caller is pinned to the pre-D2 default-hazard computation. " +
+      "Re-baseline to per-position WARF hazard and remove the flag. See KI-20.",
+    );
+  }
 
   // D1: Class A and Class B are non-deferrable per PPM — if they don't receive
   // full interest, the deal hits an Event of Default (not PIK). A tranche
@@ -755,7 +776,10 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
   const totalQuarters = callQuarters ? Math.min(callQuarters, maturityQuarters) : maturityQuarters;
   const recoveryLagQ = Math.max(0, Math.round(recoveryLagMonths / 3));
 
-  // Pre-compute quarterly hazard rates per rating bucket
+  // Pre-compute quarterly hazard rates per rating bucket. Used as a legacy
+  // fallback when the D2 per-position path is explicitly opted out via
+  // `useLegacyBucketHazard`, and for positions without a per-position
+  // `warfFactor` when the flag is absent. See the default-draw loop below.
   const quarterlyHazard: Record<string, number> = {};
   for (const [rating, annualCDR] of Object.entries(defaultRatesByRating)) {
     const clamped = Math.max(0, Math.min(annualCDR, 99.99));
@@ -884,33 +908,23 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
 
   // C2 — Compute end-of-period portfolio quality + concentration metrics from
   // `loanStates`. Ignores unfunded DDTLs and defaulted par pending recovery.
-  // Called at each period emit so partner can see forward drift.
+  // Called at each period emit so partner can see forward drift. Delegates
+  // the math to `computePoolQualityMetrics` in pool-metrics.ts so the switch
+  // simulator uses identical formulas (see KI-21 — avoid parallel impls).
   const computeQualityMetrics = (currentQuarter: number): PeriodQualityMetrics => {
-    let totalPar = 0;
-    let warfSum = 0;
-    let walSum = 0;
-    let spreadSum = 0;
-    let cccAndBelowPar = 0;
+    const qloans = [];
     for (const l of loanStates) {
-      if (l.isDelayedDraw && (l.drawQuarter ?? 0) > currentQuarter) continue; // not yet drawn
-      const par = l.survivingPar;
-      if (par <= 0) continue;
-      totalPar += par;
-      warfSum += par * l.warfFactor;
-      const qToMat = Math.max(0, l.maturityQuarter - currentQuarter);
-      walSum += par * (qToMat / 4);
-      spreadSum += par * l.spreadBps;
-      if (l.ratingBucket === "CCC") cccAndBelowPar += par;
+      if (l.isDelayedDraw && (l.drawQuarter ?? 0) > currentQuarter) continue;
+      if (l.survivingPar <= 0) continue;
+      qloans.push({
+        parBalance: l.survivingPar,
+        warfFactor: l.warfFactor,
+        yearsToMaturity: Math.max(0, l.maturityQuarter - currentQuarter) / 4,
+        spreadBps: l.spreadBps,
+        ratingBucket: l.ratingBucket,
+      });
     }
-    if (totalPar === 0) {
-      return { warf: 0, walYears: 0, wacSpreadBps: 0, pctCccAndBelow: 0 };
-    }
-    return {
-      warf: warfSum / totalPar,
-      walYears: walSum / totalPar,
-      wacSpreadBps: spreadSum / totalPar,
-      pctCccAndBelow: (cccAndBelowPar / totalPar) * 100,
-    };
+    return computePoolQualityMetrics(qloans);
   };
 
   // Track tranche balances (debt outstanding per tranche)
@@ -1017,13 +1031,17 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     // move observed drift because this computation wasn't deducting them).
     const scheduledInterestOnCollateral = poolPar * (wacSpreadBps / 10000 + baseRatePct / 100) / 4;
     const taxesAmountT0 = poolPar * (taxesBps / 10000) / 4;
+    // KI-01: Issuer Profit is a fixed € per period (not par-scaled), same
+    // absolute value at T=0 as in the forward loop. Deducting at T=0 keeps
+    // IC compositional parity aligned with the in-loop path.
+    const issuerProfitAmountT0 = issuerProfitAmount;
     const trusteeFeeAmountT0 = poolPar * (trusteeFeeBps / 10000) / 4;
     const adminFeeAmountT0 = poolPar * (adminFeeBps / 10000) / 4;
     const seniorFeeAmountT0 = poolPar * (seniorFeePct / 100) / 4;
     const hedgeCostAmountT0 = poolPar * (hedgeCostBps / 10000) / 4;
     const interestAfterFeesT0 = Math.max(
       0,
-      scheduledInterestOnCollateral - taxesAmountT0 - trusteeFeeAmountT0 - adminFeeAmountT0 - seniorFeeAmountT0 - hedgeCostAmountT0,
+      scheduledInterestOnCollateral - taxesAmountT0 - issuerProfitAmountT0 - trusteeFeeAmountT0 - adminFeeAmountT0 - seniorFeeAmountT0 - hedgeCostAmountT0,
     );
     const icTests: ProjectionInitialState["icTests"] = icTriggersByClass.map((ic) => {
       const interestDueAtAndAbove = ocEligibleAtStart
@@ -1161,7 +1179,19 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
         const loan = loanStates[idx];
         if (loan.survivingPar <= 0) continue;
         if (loan.isDelayedDraw) continue;
-        const hazard = quarterlyHazard[loan.ratingBucket] ?? 0;
+        // D2 — Per-position hazard is the default behavior (Moody's CLO
+        // methodology). `useLegacyBucketHazard` escapes to the pre-D2
+        // bucket-averaged path when legacy tests need their pinning
+        // preserved. Per-position distinguishes Caa1 (factor 4770 ≈ 6.3%
+        // annual) from Caa3 (8070 ≈ 15.2% annual) which the bucket map
+        // averages together as "CCC" at 10.28%. Positions without a
+        // `warfFactor` (shouldn't happen post-D2 since construction always
+        // populates from LoanInput or BUCKET_WARF_FALLBACK) fall back to
+        // the bucket map as a defensive path.
+        const hazard =
+          useLegacyBucketHazard || loan.warfFactor <= 0
+            ? (quarterlyHazard[loan.ratingBucket] ?? 0)
+            : warfFactorToQuarterlyHazard(loan.warfFactor);
         const loanDefaults = draw(loan.survivingPar, hazard);
         loan.survivingPar -= loanDefaults;
         totalDefaults += loanDefaults;
@@ -1337,6 +1367,11 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     //   legacy / synthetic-test behaviour.
     // KI-09: Step (A)(i) Issuer taxes. Deducted before trustee fees per PPM.
     const taxesAmount = beginningPar * (taxesBps / 10000) * dayFracActual;
+    // KI-01: Step (A)(ii) Issuer Profit Amount. Fixed absolute € per period
+    // (PPM Condition 1 definitions — €250 regular, €500 post-Frequency-Switch).
+    // Deducted immediately after taxes and before trustee fees. Not
+    // day-count adjusted (fixed amount per waterfall event, not an accrual).
+    const issuerProfitPaid = issuerProfitAmount;
     const trusteeFeeRequested = beginningPar * (trusteeFeeBps / 10000) * dayFracActual;
     const adminFeeRequested = beginningPar * (adminFeeBps / 10000) * dayFracActual;
     const cappedRequested = trusteeFeeRequested + adminFeeRequested;
@@ -1358,7 +1393,7 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     const seniorFeeAmount = beginningPar * (seniorFeePct / 100) * dayFracActual;
     // PPM Step F: Hedge payments (NOT capped).
     const hedgeCostAmount = beginningPar * (hedgeCostBps / 10000) * dayFracActual;
-    const totalSeniorExpenses = taxesAmount + trusteeFeeAmount + adminFeeAmount + seniorFeeAmount + hedgeCostAmount;
+    const totalSeniorExpenses = taxesAmount + issuerProfitPaid + trusteeFeeAmount + adminFeeAmount + seniorFeeAmount + hedgeCostAmount;
     const interestAfterFees = Math.max(0, interestCollected - totalSeniorExpenses);
 
     const bopTrancheBalances: Record<string, number> = {};
@@ -1412,6 +1447,9 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
           // KI-09 closed (Sprint 3): `taxesAmount` computed from taxesBps.
           // Under acceleration taxes are still paid at step (A)(i) per PPM.
           taxes: taxesAmount,
+          // KI-01 closed (Sprint 4): Issuer Profit at step (A.ii). Fixed
+          // absolute € per period; still paid under acceleration per PPM.
+          issuerProfit: issuerProfitPaid,
           // PPM 10(b): Senior Expenses Cap DISAPPEARS under acceleration —
           // trustee + admin fees pay uncapped (steps B + C directly, no
           // overflow deferral to Y/Z). Pass the REQUESTED amounts, not the
@@ -1495,6 +1533,7 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
           // the N1 harness compares B vs B and C vs C — the B2 regression
           // guard asserts adminFeesPaid > 0 directly, no subtraction needed.
           taxes: accelResult.seniorExpensesPaid.taxes,
+          issuerProfit: accelResult.seniorExpensesPaid.issuerProfit,
           trusteeFeesPaid: accelResult.seniorExpensesPaid.trusteeFees,
           adminFeesPaid: accelResult.seniorExpensesPaid.adminExpenses,
           trusteeOverflowPaid: 0,
@@ -1709,11 +1748,22 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     // Interest DUE uses BOP balances (accrued before paydown).
     // Class X interest is paid sequentially (earlier in the loop). Class X amortisation
     // and Class A interest are paid pro rata per PPM Step G if there is a shortfall.
+    //
+    // ⚠ KI-21: This `availableInterest -=` chain is the CASH-FLOW deduction
+    //  path (what's left for tranche interest + sub residual). A PARALLEL
+    //  accumulator `totalSeniorExpenses` above drives the IC numerator via
+    //  `interestAfterFees`. Any NEW senior expense MUST be added to BOTH —
+    //  the KI-01 ship caught this when the first-pass fix only touched
+    //  `totalSeniorExpenses` and KI-13a drift didn't shift as predicted.
+    //  Until KI-21's refactor lands (compute deductions once, apply once),
+    //  every new step requires touching both sites.
     let availableInterest = interestCollected;
     const trancheInterest: PeriodResult["trancheInterest"] = [];
 
     // PPM Step (A)(i): Issuer taxes — deducted before trustee fees.
     availableInterest -= Math.min(taxesAmount, availableInterest);
+    // PPM Step (A)(ii): Issuer Profit Amount — fixed € per period.
+    availableInterest -= Math.min(issuerProfitPaid, availableInterest);
     // PPM Step (B): Trustee fees (capped portion; overflow defers to step Y)
     availableInterest -= Math.min(trusteeFeeAmount, availableInterest);
     // PPM Step (C): Administrative expenses (capped portion; overflow defers to step Z)
@@ -2045,6 +2095,7 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
       defaultsByRating,
       stepTrace: {
         taxes: taxesAmount,
+        issuerProfit: issuerProfitPaid, // KI-01 (PPM A.ii)
         // Each field maps to exactly one PPM step so the N1 harness ties
         // engine-emission to trustee-reported on a per-step basis. Pre-C3
         // `trusteeFeesPaid` bundled (B)+(C)+(Y)+(Z); the split lets us

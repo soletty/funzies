@@ -132,7 +132,8 @@
       "pctBonds": 10.67,
       "pctSeniorSecured": 100,
       "pctSecondLien": 0,
-      "pctCurrentPay": 0
+      "pctCurrentPay": 0,
+      "top10ObligorsPct": 9.434414641884839
     },
     "ocTriggers": [
       {
@@ -776,7 +777,7 @@
     ],
     "reinvestmentOcTrigger": {
       "triggerLevel": 103.74,
-      "rank": 99,
+      "rank": 7,
       "diversionPct": 50
     },
     "dates": {
@@ -8133,6 +8134,10 @@
       ]
     },
     "principalAccountCash": -1817412.94,
+    "interestAccountCash": 0,
+    "interestSmoothingBalance": 0,
+    "supplementalReserveBalance": 0,
+    "expenseReserveBalance": 0,
     "preExistingDefaultedPar": 0,
     "preExistingDefaultRecovery": 0,
     "unpricedDefaultedPar": 0,

@@ -68,7 +68,7 @@ describe("B2 — runPostAccelerationWaterfall (pure helper)", () => {
     "Class A": 1_000_000, "Class B-1": 200_000, "Class B-2": 100_000, "Class C": 150_000, "Sub": 0,
   };
   const seniorExpenses = {
-    taxes: 10_000, trusteeFees: 50_000, adminExpenses: 0, seniorMgmtFee: 150_000, hedgePayments: 0,
+    taxes: 10_000, issuerProfit: 250, trusteeFees: 50_000, adminExpenses: 0, seniorMgmtFee: 150_000, hedgePayments: 0,
   };
 
   it("Class A absorbs cash first until retired; Class B sees nothing until A is paid", () => {

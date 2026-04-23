@@ -45,6 +45,22 @@ export interface ResolvedDealData {
   loans: ResolvedLoan[];
   metadata: ResolvedMetadata;
   principalAccountCash: number; // uninvested cash in principal accounts (counts toward OC numerator)
+  /** D7: Interest Account cash — collections awaiting distribution on the next
+   *  payment date (PPM Interest Account). Exposed for downstream consumers but
+   *  NOT integrated into the engine OC numerator (deal-specific per-PPM). */
+  interestAccountCash: number;
+  /** D7: Interest Smoothing Account balance — reserve used to smooth interest
+   *  distributions across periods (PPM Interest Smoothing Account). Resolver-
+   *  exposed only; not wired into engine OC math. */
+  interestSmoothingBalance: number;
+  /** D7: Supplemental Reserve Account balance — discretionary reserve governed
+   *  by the collateral manager (PPM Supplemental Reserve Account). Resolver-
+   *  exposed only; not wired into engine OC math. */
+  supplementalReserveBalance: number;
+  /** D7: Expense Reserve Account balance — reserved for ongoing deal expenses
+   *  (PPM Expense Reserve Account). Resolver-exposed only; not wired into
+   *  engine OC math. */
+  expenseReserveBalance: number;
   preExistingDefaultedPar: number; // par of defaulted loans excluded from loan list
   preExistingDefaultRecovery: number; // market-price recovery for priced defaulted holdings
   unpricedDefaultedPar: number; // par of defaulted holdings without market price (engine applies recoveryPct)
@@ -97,6 +113,12 @@ export interface ResolvedPool {
   pctSeniorSecured: number | null;
   pctSecondLien: number | null;
   pctCurrentPay: number | null;
+  // D4 (Sprint 4): par share held by the top 10 obligors, computed from
+  // loans grouped by obligorName. Populated by the resolver for the base
+  // pool; recomputed by `applySwitch` for the post-trade pool so the UI
+  // can show concentration impact of a proposed trade. Null when loan data
+  // lacks obligorName coverage (e.g., EMPTY_RESOLVED placeholder).
+  top10ObligorsPct: number | null;
 }
 
 export interface ResolvedTrigger {

@@ -14,6 +14,7 @@ export const EMPTY_RESOLVED: ResolvedDealData = {
     numberOfAssets: null, totalMarketValue: null, waRecoveryRate: null,
     pctFixedRate: null, pctCovLite: null, pctPik: null, pctCccAndBelow: null,
     pctBonds: null, pctSeniorSecured: null, pctSecondLien: null, pctCurrentPay: null,
+    top10ObligorsPct: null,
   },
   ocTriggers: [],
   icTriggers: [],
@@ -26,6 +27,10 @@ export const EMPTY_RESOLVED: ResolvedDealData = {
   loans: [],
   metadata: { reportDate: null, dataSource: null, sdfFilesIngested: [], pdfExtracted: [] },
   principalAccountCash: 0,
+  interestAccountCash: 0,
+  interestSmoothingBalance: 0,
+  supplementalReserveBalance: 0,
+  expenseReserveBalance: 0,
   preExistingDefaultedPar: 0,
   preExistingDefaultRecovery: 0,
   unpricedDefaultedPar: 0,
@@ -71,6 +76,10 @@ export interface UserAssumptions {
    *  Deducted before trustee fees. Back-derived from Q1 waterfall step
    *  (A)(i) via `defaultsFromResolved`. Euro XV: ~0.50 bps (€6,133 quarterly). */
   taxesBps: number;
+  /** KI-01 — PPM step (A)(ii) Issuer Profit Amount. Absolute € per period.
+   *  €250 regular, €500 post-Frequency-Switch on Euro XV. Back-derived from
+   *  Q1 waterfall step (A)(ii) via `defaultsFromResolved`. */
+  issuerProfitAmount: number;
   /** C3 — Trustee fee bps on Collateral Principal Amount, per annum. Paid
    *  at PPM step (B). Jointly subject to Senior Expenses Cap with adminFeeBps;
    *  overflow routes to uncapped step (Y). */
@@ -117,6 +126,7 @@ export const DEFAULT_ASSUMPTIONS: UserAssumptions = {
   seniorFeePct: CLO_DEFAULTS.seniorFeePct,
   subFeePct: CLO_DEFAULTS.subFeePct,
   taxesBps: 0,
+  issuerProfitAmount: 0,
   trusteeFeeBps: CLO_DEFAULTS.trusteeFeeBps,
   adminFeeBps: 0,
   // Conservative static default when Q1 actuals aren't available.
@@ -202,7 +212,17 @@ export function defaultsFromResolved(
         s.description != null &&
         /^\(?a\)?\s*\(?i\)?\b|^a\.i\b/i.test(s.description),
     );
+  // Step (A)(ii) for issuer profit — same format tolerance as (A)(i).
+  const findAii = () =>
+    raw?.waterfallSteps?.find(
+      (s) =>
+        s &&
+        s.waterfallType === "INTEREST" &&
+        s.description != null &&
+        /^\(?a\)?\s*\(?ii\)?\b|^a\.ii\b/i.test(s.description),
+    );
   const stepAi = findAi();
+  const stepAii = findAii();
   const stepB = findStep("B");
   const stepC = findStep("C");
   const beginPar = resolved.poolSummary.totalPrincipalBalance;
@@ -212,6 +232,15 @@ export function defaultsFromResolved(
     const bps = ((stepAi.amountPaid ?? 0) * 4 * 10000) / beginPar;
     // Sanity bound: 0 < bps < 10 is plausible for issuer taxes.
     if (bps > 0 && bps < 10) base.taxesBps = bps;
+  }
+
+  // KI-01 issuer profit back-derive. Fixed absolute € per period (€250
+  // regular, €500 post-Frequency-Switch on Euro XV). Sanity bound: €0–€1000
+  // covers both periodic amounts with generous headroom; caps pathological
+  // extractions without rejecting real values.
+  if (stepAii) {
+    const amount = stepAii.amountPaid ?? 0;
+    if (amount > 0 && amount < 1000) base.issuerProfitAmount = amount;
   }
 
   if (f.trusteeFeeBps > 0) {
@@ -335,6 +364,7 @@ export function buildFromResolved(
     seniorFeePct: userAssumptions.seniorFeePct,
     subFeePct: userAssumptions.subFeePct,
     taxesBps: userAssumptions.taxesBps,
+    issuerProfitAmount: userAssumptions.issuerProfitAmount,
     trusteeFeeBps: userAssumptions.trusteeFeeBps,
     adminFeeBps: userAssumptions.adminFeeBps,
     seniorExpensesCapBps: userAssumptions.seniorExpensesCapBps,

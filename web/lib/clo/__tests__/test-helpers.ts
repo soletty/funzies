@@ -67,6 +67,14 @@ export function makeInputs(overrides: Partial<ProjectionInputs> = {}): Projectio
     impliedOcAdjustment: 0,
     quartersSinceReport: 0,
     ddtlDrawPercent: 100,
+    // D2 (Sprint 4): tests predating per-position WARF hazard compute
+    // expected defaults from `defaultRatesByRating[bucket]`. Pin them to
+    // the legacy bucket-map path so their hand-computed values remain
+    // correct. D2-aware tests (see `d2-per-position-warf-hazard.test.ts`)
+    // exercise the per-position default path explicitly. This pin is an
+    // escape-hatch; the intended long-term state is re-baselining these
+    // legacy tests to per-position expected values.
+    useLegacyBucketHazard: true,
     ...overrides,
   };
 }

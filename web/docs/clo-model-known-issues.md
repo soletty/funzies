@@ -25,9 +25,11 @@ Categorized so a partner reading cold can separate "what's still wrong" from "wh
 - [KI-16 — KI-08 closure assumptions pending PPM verification](#ki-16)
 - [KI-17 — wacSpreadBps methodology gap (±30 bps drift vs trustee)](#ki-17)
 - [KI-18 — pctCccAndBelow coarse-bucket collapse (±3pp vs trustee per-agency max)](#ki-18)
+- [KI-20 — D2 legacy escape-hatch on 6 test-factory sites](#ki-20)
+- [KI-21 — Parallel implementations of same calculation (PARTIAL — quality-metrics closed D4; senior-expense accumulators remain)](#ki-21)
+- [KI-23 — Industry taxonomy missing on BuyListItem + ResolvedLoan blocks industry-cap filtering](#ki-23)
 
 ### Deferred — intentionally not modeled, magnitude known
-- [KI-01 — Step (A)(ii) Issuer Profit Amount (€250/quarter)](#ki-01)
 - [KI-02 — Step (D) Expense Reserve top-up](#ki-02)
 - [KI-03 — Step (V) Effective Date Rating Event redemption](#ki-03)
 - [KI-04 — Frequency Switch mid-projection cadence/rate switch (C4 Phase 3)](#ki-04)
@@ -45,23 +47,38 @@ Categorized so a partner reading cold can separate "what's still wrong" from "wh
 - [KI-19 — NR positions proxied to Caa2 for WARF (Moody's convention)](#ki-19)
 
 ### Closed — fixes shipped, verification green
+- [KI-01 — Step (A)(ii) Issuer Profit Amount **(CLOSED Sprint 4)**](#ki-01)
 - [KI-08 — `trusteeFeesPaid` bundled steps B+C **(PARTIALLY CLOSED — pre-fill D3 + cap mechanics C3; see KI-16 for the 3 remaining assumptions)**](#ki-08)
 - [KI-09 — Step (A)(i) Issuer taxes **(CLOSED Sprint 3)**](#ki-09)
 - [KI-10 — baseRate pre-fill gap **(CLOSED D3)**](#ki-10)
 - [KI-11 — Senior / sub management fee rate pre-fill **(CLOSED D3; fee-base tracked as KI-12a)**](#ki-11)
+- [KI-22 — Fixture-regeneration test was a spot-check for 20 days **(CLOSED Sprint 4)**](#ki-22)
 
 ---
 
 <a id="ki-01"></a>
-### [KI-01] Step (A)(ii) Issuer Profit Amount
+### [KI-01] Step (A)(ii) Issuer Profit Amount — CLOSED (Sprint 4, 2026-04-23)
 
-**PPM reference:** Condition 1 definitions, p.127.
-**Current engine behavior:** Not modeled; engine skips step (A)(ii) entirely. `stepTrace.issuerProfit` emits 0.
-**PPM-correct behavior:** €250 per quarter deducted from interest proceeds before trustee fees. €500 per period post-Frequency-Switch Event.
-**Quantitative magnitude:** €250 × 4 = €1,000/year on a €500M deal ≈ 0.02 bps of annualized waterfall throughput. Below N1 tolerance for every downstream step.
-**Deferral rationale:** Immaterial. Explicit constant €1K/year addable as an input with ~2 hours of engine work; not worth the API surface unless a partner explicitly asks.
-**Path to close:** Tier D follow-up; ~0.25 day.
-**Test:** Infinity-tolerance (informational) in both `n1-correctness.test.ts` and `n1-production-path.test.ts` under "engine-does-not-model steps" → `issuerProfit`. Asserts trustee-side magnitude of €250/period (sanity that the trustee value is still what KI-01 documents).
+**PPM reference:** Condition 1 definitions, p.127. €250 per regular period deducted from interest proceeds between taxes (A.i) and trustee fees (B). €500 per period post-Frequency-Switch Event (handled by KI-04 when that closes).
+
+**Pre-fix behavior:** Not modeled. `stepTrace.issuerProfit` emitted 0. Engine `subDistribution` over-stated by exactly €250/period on Euro XV because the waterfall's `availableInterest -=` chain skipped step (A.ii).
+
+**Pre-fix quantitative magnitude:** €250/quarter = €1,000/year on Euro XV. Cumulative ~€10,000 over a 10-year projection — immaterial in isolation but material to KI-13a cascade cleanliness (it was the last non-day-count bucket feeding into the sub residual).
+
+**Fix (Sprint 4):** `issuerProfitAmount` added to `ProjectionInputs` + `UserAssumptions` (absolute € per period, not bps). Engine deducts at PPM step (A.ii) position — after taxes at (A.i), before trustee at (B) — in both:
+- **Normal mode** (`projection.ts`): added to `totalSeniorExpenses` for IC parity AND to the `availableInterest -=` chain for cash flow. The first fix without the second emits correctly on stepTrace but never removes the €250 from sub residual — caught by the KI-13a cascade probe before ship. See [KI-21](#ki-21) for the architectural tracking of the two-parallel-accumulator pattern.
+- **Accelerated mode** (`runPostAccelerationWaterfall`): new `seniorExpenses.issuerProfit` field on the executor input + output, same priority position. PPM 10(b) preserves step ordering under acceleration.
+- **T=0 initial state** (`initialState.icTests`): `issuerProfitAmountT0` added to the IC numerator deduction chain alongside taxes / admin / trustee / senior / hedge so compositional parity tracks the in-loop computation.
+
+**Pre-fill:** `defaultsFromResolved` back-derives from `raw.waterfallSteps` step (A)(ii). Regex matches `"(A)(ii)"` or `"A.ii"` formats. Sanity bound: 0 < amount < €1,000 (covers €250 regular + €500 post-Frequency-Switch). Euro XV Q1 observed: €250.00 exactly.
+
+**Cascade re-baseline:** KI-13a expected drift −€50,742.24 → −€50,992.24 (Δ = −€250 exact, matches engine emission to the cent — no day-count residual since amount is fixed absolute, not accrued).
+
+**Cascade sub-tolerance verification (KI-IC-AB/C/D + KI-13b):** The €250 deduction flows into the IC numerator (`totalSeniorExpenses`) as well as cash flow. Measured Δ_IC per class from T=0 initialState probe: Class C = −0.00828 pp (denom ≈ €3.02M), Class D = −0.00722 pp (denom ≈ €3.46M). Class A/B denom is smaller (≈ €2.68M interest due), so |Δ_pp| ≈ −250 / 2,681,150 × 100 = −0.0093 pp. All three classes shift under the 0.05 pp tolerance → no KI-IC re-baseline required. KI-13b production-path markers use the same math — unchanged.
+
+**Verification:** Engine emits €250.00/period, ties to trustee €250.00 to the cent. N1 harness `issuerProfit` bucket tolerance tightened from Infinity → €1 (now the tightest tolerance in the step table). 558/558 tests green post-close.
+
+**Tests:** `n1-correctness.test.ts > "KI-01 CLOSED: engine emits €250 issuer profit, ties to trustee to the cent"`. Shipped as a closed-KI positive-enforcement assertion (`row.projected ≈ 250, |delta| < 1`) replacing the prior informational "engine emits 0; trustee collected €250" marker.
 
 ---
 
@@ -172,9 +189,19 @@ Categorized so a partner reading cold can separate "what's still wrong" from "wh
 ---
 
 <a id="ki-09"></a>
-### [KI-09] Step (A)(i) Issuer taxes not modeled — **CLOSED (Sprint 3)**
+### [KI-09] Step (A)(i) Issuer taxes — CLOSED (Sprint 3, 2026-04-23)
 
-**Status (2026-04-23):** Closed. `taxesBps` added to `ProjectionInputs` + `UserAssumptions`; engine emits `stepTrace.taxes` at step (A)(i); default pre-filled via `defaultsFromResolved` from raw `waterfallSteps` step (A)(i) annualized on beginningPar. Euro XV: 0.497 bps (€6,133/quarter). Engine produces €6,202 vs trustee €6,133 = €69 day-count residual at 91/360 vs 90/360. N1 harness `taxes` bucket tolerance tightened from Infinity to €100.
+**PPM reference:** Condition 1 definitions (Issuer profit / tax provisions); step (A)(i) in the interest waterfall.
+
+**Pre-fix behavior:** Not modeled. `stepTrace.taxes` emitted 0. Engine `subDistribution` over-stated by ~€6,133/quarter on Euro XV because taxes never came out of the top of the waterfall.
+
+**Pre-fix quantitative magnitude:** €6,133/quarter = €24,532/year on Euro XV. On a €42.56M equity cost basis (95c × €44.8M sub par) ≈ 5.8 bps annual drag; cumulative ~€245K over a 10-year projection.
+
+**Fix (Sprint 3):** `taxesBps` added to `ProjectionInputs` + `UserAssumptions`. Engine deducts taxes at step (A)(i) before any other senior expense. `stepTrace.taxes` emits the amount. `defaultsFromResolved` back-derives `taxesBps` from raw `waterfallSteps` step (A)(i) annualized on beginningPar (Euro XV: 0.497 bps = €6,133/quarter, matched to the cent). Accel branch (B2) also passes `taxesAmount` through to the post-acceleration executor since taxes remain payable under acceleration per PPM 10.
+
+**Verification:** Engine produces €6,202/period vs trustee €6,133 = €69 day-count residual at 91/360 vs 90/360. Decomposed: engine taxesAmount = beginningPar × (taxesBps / 10000) × (91 / 360), trustee reports annualized tax × (90 / 360) window. On the €493.3M Euro XV pool at 0.497 bps the ratio is 91/90 = 1.0111, so residual ≈ €6,133 × 0.0111 = €68.7 (matches observed €69 to the cent). Same day-count mechanic as KI-12b for tranche interest — it's a harness-period-mismatch artifact, not an engine bug; closes with KI-12a.
+
+**Cascade re-baseline:** N1 harness `taxes` bucket tolerance tightened from Infinity to €100. KI-13a cascade re-baselined from −€44,540 to −€50,742 (Δ = −€6,202 matching engine emission to the euro). KI-IC-AB/C/D cascade moved ~1-2 pp on each class (see KI-14).
 
 ---
 
@@ -443,6 +470,112 @@ The Class A/B/C/D/E/F interest tie-outs currently pass at |drift| < €1 under l
 
 ---
 
+<a id="ki-23"></a>
+### [KI-23] Industry taxonomy missing on BuyListItem + ResolvedLoan blocks industry-cap enforcement
+
+**Context:** CLO indentures typically cap single-industry concentration (e.g., "largest industry ≤ 15% of par"). Enforcing this requires per-loan industry classification under a standardized taxonomy (Moody's 35-industry list, S&P 35-industry list, or PPM-specific mapping).
+
+**Current engine behavior:** Two affected surfaces — neither can compute industry concentration:
+
+1. **`ResolvedLoan`** has no industry field. The switch-simulator's D4 pool-metric recomputation explicitly skips `largestIndustryPct` for this reason (see D4 code comment).
+2. **`BuyListItem`** has a `sector: string | null` field, but it's **free-text** (partner-entered "Technology" / "Retail & Restaurants" / etc.). Without taxonomy normalization, an "exclude largest industry" filter would group near-duplicates ("Tech", "Technology", "Software & Tech") as distinct industries and under-enforce.
+
+The D5 buy-list filter therefore ships 4 enforceable filters (WARF / WAS / excludeCaa / excludeCovLite) and defers industry. Partner demo story: "3 of 5 PPM filter categories fully enforced; industry filter deferred pending taxonomy normalization, documented as KI-23."
+
+**PPM-correct behavior:** Per-loan industry tagged against the deal's canonical taxonomy (Moody's or S&P depending on PPM). Industry concentration computed as `max_per_industry(Σ par) / total par × 100`. Cap enforced at reinvestment (C1) + filter (D5) + forward projection (C2).
+
+**Quantitative magnitude:** Unknown without data. On Euro XV, `pool?.largestIndustryPct` is not populated and no concentration test row tracks it; resolver emits nothing for industry.
+
+**Path to close (tiered):**
+
+- **Tier 1 (buy-list filter, D5 extension):** Normalize `BuyListItem.sector` via a lookup table (or add a `sectorKey` canonicalized column). Add `maxIndustryPct` + `excludeLargestIndustry` filters. ~0.5 day.
+- **Tier 2 (ResolvedLoan extension, D4 + C2 extension):** Add `industry: string | null` + `industryKey: string | null` to `ResolvedLoan`. Populate from holdings data (resolver extracts from SDF if present, else null). Extend `computePoolQualityMetrics` + switch simulator with `largestIndustryPct`. Extend C1 reinvestment compliance to enforce industry cap. ~1-1.5 days.
+- **Tier 3 (C2 concentration test coverage):** Add industry concentration test to `resolved.concentrationTests` + compliance enforcement during forward projection. ~0.5 day.
+
+Total ~2-3 days across tiers. Priority: MEDIUM (partner-demo gap but not blocking for Euro XV where industry concentration is likely within caps).
+
+**Test:** None standalone until Tier 1 ships. When it does, a `d5-industry-filter.test.ts` pinned to synthetic buy-list items would cover the normalization + filter logic.
+
+---
+
+<a id="ki-21"></a>
+### [KI-21] Parallel implementations of same calculation in multiple engine sites (architectural — PARTIALLY CLOSED Sprint 4 / D4)
+
+**Original scope (Sprint 4 / KI-01 ship):** Engine was found to have multiple parallel-implementation sites where "same calculation maintained in two places" risked drift:
+
+1. **Quality-metric computation:** projection engine (per-period closure), switch simulator (inline recomputation), resolver T=0 (inline). Three implementations that needed to agree.
+2. **Senior-expense deduction:** IC-numerator path (`totalSeniorExpenses` → `interestAfterFees`) vs cash-flow path (`availableInterest -=` chain in the waterfall loop). Two accumulators that needed to stay in sync.
+
+**Partial close (Sprint 4 / D4, 2026-04-23):** Scope 1 resolved structurally. `lib/clo/pool-metrics.ts` now hosts the canonical implementations of `computePoolQualityMetrics`, `computeTopNObligorsPct`, and `BUCKET_WARF_FALLBACK`. Three consumers (projection engine, switch simulator, resolver) delegate to the shared helpers — drift-by-construction eliminated. Future quality metrics added to the helper flow automatically to all consumers. No more "did I update both places?" pattern for quality math.
+
+**Remaining open scope:** Scope 2 — senior-expense deduction parallelism in the waterfall loop still exists:
+
+1. **IC-numerator path** (`totalSeniorExpenses` → `interestAfterFees`, ~line 1434): sums `taxes + issuerProfit + trusteeFee + adminFee + seniorMgmt + hedge` once to drive the IC test `actual` value.
+2. **Cash-flow path** (`availableInterest -=` chain, ~line 1793): decrements `availableInterest` step-by-step through the same expenses to compute what's available for tranche interest and sub residual.
+
+Both paths must stay in sync — any new senior expense has to be added to BOTH, or the engine emits the amount on `stepTrace` while cash flow doesn't reflect it.
+
+**How the remaining scope surfaced:** KI-01 ship (Sprint 4). First-pass fix added `issuerProfitPaid` to `totalSeniorExpenses` only. Harness showed engine emitting €250 correctly AND KI-13a cascade probe showed the sub-distribution drift UNCHANGED — meaning cash flow didn't lose the €250. Fixed by adding to the `availableInterest -=` chain; drift shifted by exactly −€250 as theory predicted.
+
+**Current engine behavior:** Correct for all existing expenses (taxes, issuer profit, trustee, admin, senior mgmt, hedge), but correctness is maintained by vigilance rather than by construction. Future KI closures (KI-02 expense reserve, defaulted-hedge activation, any new step A–F deduction) will need to touch both sites.
+
+**Forcing function:** Code comment at the `availableInterest -=` chain warns about the parallel accumulator and cites KI-21. Next developer adding a deduction sees the warning before the bug ships.
+
+**Path to close:** Apply the D4 pattern to senior-expense deduction — extract `computeSeniorExpenseBreakdown(...)` as a shared pure helper in a module alongside `pool-metrics.ts`. Return a structured `SeniorExpenseBreakdown` object; IC numerator derives via sum, cash-flow path iterates the same fields. Eliminates the duplicate-path class of bugs by construction, same way D4 eliminated quality-metric drift. Estimated: ~half day (careful refactor with cascade verification after each sub-step). Priority: LOW until a future KI hits the bug badly enough to justify pulling it forward.
+
+**Test:** None standalone. Regression catch is: any new KI that adds a senior expense must verify BOTH (a) `stepTrace.<field>` emits correctly AND (b) KI-13a cascade shifts by the expected amount. If only (a) shifts, suspect the two-path bug.
+
+---
+
+<a id="ki-22"></a>
+### [KI-22] Fixture-regeneration test was a field-by-field spot check, not full-equality — CLOSED (Sprint 4, 2026-04-23)
+
+**Pre-fix behavior:** Sprint 0 shipped `fixture-regeneration.test.ts` framed as a "drift canary" — running the current resolver on `fixture.raw` and verifying output matches `fixture.resolved`. The stated purpose: permanent drift protection so the fixture stays canonical as the resolver evolves.
+
+**What the test actually did:** Checked 5 specific assertions on a handful of fields (`principalAccountCash`, `impliedOcAdjustment`, ocTriggers length, eventOfDefaultTest.triggerLevel, totalPrincipalBalance + two fee fields). Any resolver change that populated a NEW field, or changed a field NOT in that narrow list, passed silently.
+
+**How this surfaced:** Sprint 4 / D4. Added `top10ObligorsPct` to `ResolvedPool`, expected the fixture-regeneration test to fail and guide the fixture update. It did not. Investigation revealed the spot-check nature. Extending to a full iterator immediately surfaced two additional drifts that had been latent:
+
+1. **`pctSecondLien: 0 → null`**: drift since Sprint 0. Resolver intentionally emits null when the source doesn't carry a dedicated pctSecondLien column (it's combined with HY/Mezz/Unsecured in a 4-category bucket). Sprint 4 fix: resolver now infers `pctSecondLien: 0` when `pctSeniorSecured === 100` (mutually exclusive lien categories make 0 certain). Fixture patched to match new resolver output.
+2. **`reinvestmentOcTrigger.rank: 99 → 7`**: Sprint 0-era fixture used the fallback "no-OC-triggers" rank 99; fresh resolver correctly computes `mostJuniorOcRank = 7` (Class F). Fixture patched.
+
+Both drifts had been invisible for ~20 days of active development. Every "fixture is canonical" claim across Sprint 1-3 was built on the spot-check illusion.
+
+**Fix (Sprint 4):** Extended `fixture-regeneration.test.ts` with a recursive full-equality iterator. Walks every field on top-level `resolved.*` (skipping volatile `metadata` + large `loans` array), compares fresh vs stored with named mismatch reports, numeric fields use 1e-4 relative tolerance. Fails with "fieldPath: fresh=X vs stored=Y" on any drift.
+
+**Current behavior:** 566/566 green, full-equality guard active. Next new `ResolvedDealData.*` field or any silent resolver change will trip the guard immediately.
+
+**Path to close:** Closed in Sprint 4. Follow-up (lower priority): extend coverage to the `loans` array — currently skipped because per-field drift on 400+ loans would produce unmanageable test output for a single resolver change. If needed, add a separate loan-shape regeneration test that samples a few canonical loans or compares aggregates.
+
+**Tests:** `fixture-regeneration.test.ts > "every top-level resolved.* field matches fresh resolver output (recursive full-equality)"`.
+
+---
+
+<a id="ki-20"></a>
+### [KI-20] D2 legacy escape-hatch on 6 test-factory sites (Sprint 4)
+
+**Context:** Sprint 4 shipped D2 (per-position WARF hazard) as the engine's production default. Legacy test factories that predate D2 compute expected defaults from `defaultRatesByRating[ratingBucket]` hand-math — under the new default they would fail (bucket rate ≠ WARF-derived per-position rate). Rather than re-baselining ~30 hand-computed expected values in one PR, the factories were pinned to `useLegacyBucketHazard: true` as a bridge.
+
+**Current engine behavior:** Production default = per-position WARF hazard. Six test-factory sites explicitly opt into legacy bucket behavior:
+1. `lib/clo/__tests__/test-helpers.ts:makeInputs` (shared factory, ~5 test files consume)
+2. `lib/clo/__tests__/projection-edge-cases.test.ts:makeSimpleInputs`
+3. `lib/clo/__tests__/projection-edge-cases.test.ts:makeMultiTrancheInputs`
+4. `lib/clo/__tests__/projection-cure.test.ts:makeRealisticInputs`
+5. `lib/clo/__tests__/projection-structure.test.ts:makeFullDealInputs`
+6. `lib/clo/__tests__/projection-structure.test.ts:makeFeeTestInputs` (local to one describe block)
+
+**Partner-visible impact:** None on production behavior — Euro XV runs through `buildFromResolved`/`defaultsFromResolved` which is NOT pinned to legacy. N1 / N6 / B1 / B2 / C1 / C2 / C3 tests all run on per-position hazard already and pass (D2's precision benefit is materially visible only in stress scenarios with concentrated sub-bucket exposure, not in Euro XV base case).
+
+**Path to close:** For each of the 6 test factories, (a) determine which tests it serves actually depend on hand-computed default-hazard math (as opposed to just wanting plausible defaults for other mechanics), (b) for math-dependent tests, re-baseline expected values to the per-position formula, (c) remove the legacy pin from the factory once all its tests re-baseline, (d) delete `useLegacyBucketHazard` entirely once no pin sites remain.
+
+**Forcing function:** Engine emits `console.warn` when `useLegacyBucketHazard: true` is passed (`projection.ts`, one-shot per `runProjection` call). Test output surfaces the deprecation so a future developer sees it in CI. Without the warn, flag becomes permanent tech debt framed as temporary.
+
+**Estimated effort:** ~2 hours per factory (1–2 days total) spread across sprints. Not a Sprint 4 blocker.
+
+**Test:** No standalone marker. Closure signal is: all six pin sites deleted, `useLegacyBucketHazard` field removed from `ProjectionInputs`, full suite green.
+
+---
+
 <a id="ki-19"></a>
 ### [KI-19] NR positions proxied to Caa2 for WARF — Moody's CLO methodology convention
 
@@ -460,23 +593,3 @@ The Class A/B/C/D/E/F interest tie-outs currently pass at |drift| < €1 under l
 
 **Test:** `c2-quality-forward-projection.test.ts > "every period has a qualityMetrics object with finite numbers"` covers the path. Explicit NR-convention test could be added when a fixture with meaningful NR concentration arrives.
 
----
-
-## Closed issues
-
-_Entries move here when their corresponding fix ships and is verified green in the N1 harness._
-
-<a id="ki-09-closed"></a>
-### [KI-09] Step (A)(i) Issuer taxes not modeled — CLOSED (Sprint 3, 2026-04-23)
-
-**PPM reference:** Condition 1 definitions (Issuer profit / tax provisions); step (A)(i) in the interest waterfall.
-
-**Pre-fix behavior:** Not modeled. `stepTrace.taxes` emitted 0. Engine `subDistribution` over-stated by ~€6,133/quarter on Euro XV because taxes never came out of the top of the waterfall.
-
-**Pre-fix quantitative magnitude:** €6,133/quarter = €24,532/year on Euro XV. On a €42.56M equity cost basis (95c × €44.8M sub par) ≈ 5.8 bps annual drag; cumulative ~€245K over a 10-year projection.
-
-**Fix (Sprint 3):** `taxesBps` added to `ProjectionInputs` + `UserAssumptions`. Engine deducts taxes at step (A)(i) before any other senior expense. `stepTrace.taxes` emits the amount. `defaultsFromResolved` back-derives `taxesBps` from raw `waterfallSteps` step (A)(i) annualized on beginningPar (Euro XV: 0.497 bps = €6,133/quarter, matched to the cent). Accel branch (B2) also passes `taxesAmount` through to the post-acceleration executor since taxes remain payable under acceleration per PPM 10.
-
-**Verification:** Engine produces €6,202/period vs trustee €6,133 = €69 day-count residual at 91/360 vs 90/360. Decomposed: engine taxesAmount = beginningPar × (taxesBps / 10000) × (91 / 360), trustee reports annualized tax × (90 / 360) window. On the €493.3M Euro XV pool at 0.497 bps the ratio is 91/90 = 1.0111, so residual ≈ €6,133 × 0.0111 = €68.7 (matches observed €69 to the cent). Same day-count mechanic as KI-12b for tranche interest — it's a harness-period-mismatch artifact, not an engine bug; closes with KI-12a.
-
-N1 harness `taxes` bucket tolerance tightened from Infinity to €100. KI-13a cascade re-baselined from −€44,540 to −€50,742 (Δ = −€6,202 matching engine emission to the euro). KI-IC-AB/C/D cascade moved ~1-2 pp on each class (see KI-14).

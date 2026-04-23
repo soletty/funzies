@@ -129,11 +129,20 @@ export type EngineBucket =
   | "defaultedHedgeTermination" // step aa — NOT EMITTED by engine (KI-06)
   | "supplementalReserve"   // step bb   — NOT EMITTED by engine (KI-05)
   | "incentiveFeePaid"      // step cc
-  | "subDistribution";      // step dd   (from stepTrace.equityFromInterest)
+  | "subDistribution"       // step dd   (from stepTrace.equityFromInterest)
+  | "reinvestmentBlockedCompliance"; // C1 — no direct PPM step; trustee doesn't report a bucket for "manager chose not to reinvest due to compliance". Displayed in the harness table with Infinity tolerance for audit visibility.
 
-/** Maps each engine bucket to the PPM step codes it covers.
- *  The harness sums trustee `amountPaid` across `ENGINE_BUCKET_TO_PPM[bucket]`
- *  and compares against the engine's emitted bucket value. */
+/** Maps each engine bucket to the PPM step codes it covers. The harness sums
+ *  trustee `amountPaid` across `ENGINE_BUCKET_TO_PPM[bucket]` and compares
+ *  against the engine's emitted bucket value.
+ *
+ *  Special case — `[]` empty array: bucket is an **engine audit metric** with
+ *  no PPM waterfall step analogue (e.g., `reinvestmentBlockedCompliance`
+ *  surfaces "manager chose not to reinvest due to WARF trigger", which isn't
+ *  a step the trustee reports). Harness treats `[]` buckets as always
+ *  comparing against trustee-sum 0, with Infinity tolerance in
+ *  `STEP_TOLERANCES_TARGET` — they appear in the delta table for audit
+ *  visibility but cannot fail the harness. */
 export const ENGINE_BUCKET_TO_PPM: Record<EngineBucket, readonly PpmInterestStep[]> = {
   taxes: ["a.i"],
   issuerProfit: ["a.ii"],
@@ -166,6 +175,11 @@ export const ENGINE_BUCKET_TO_PPM: Record<EngineBucket, readonly PpmInterestStep
   supplementalReserve: ["bb"],
   incentiveFeePaid: ["cc"],
   subDistribution: ["dd"],
+  // C1 — No PPM step for "manager chose not to reinvest". Trustee doesn't
+  // report a row for this; harness compares engine-emitted blocked amount
+  // against a constant 0 (trustee has no analogue) with Infinity tolerance.
+  // Partner-visible audit field: surfaces WHEN the engine blocked a trade.
+  reinvestmentBlockedCompliance: [],
 } as const;
 
 /** Reverse lookup: given a canonical step code, which engine bucket covers it?

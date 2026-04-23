@@ -63,4 +63,73 @@ describe("fixture regeneration probe", () => {
     expect(resolved.fees.seniorFeePct).toBeCloseTo(fixture.resolved.fees.seniorFeePct, 4);
     expect(resolved.fees.subFeePct).toBeCloseTo(fixture.resolved.fees.subFeePct, 4);
   });
+
+  // KI-22 — Recursive full-equality guard on every top-level `resolved.*`
+  // field. The original spot-check tests above cover individual patched
+  // fields but missed silent drift for ~20 days (caught at D4 ship:
+  // top10ObligorsPct never populated in fixture, pctSecondLien: 0 → null
+  // drift undetected since Sprint 0). This iterator walks fresh vs stored
+  // resolved output recursively and fails with named mismatches.
+  //
+  // Fields skipped (non-deterministic / volatile): `metadata` (carries
+  // timestamps + sdfFilesIngested which change per ingest); `loans` (large
+  // array — per-field field-drift on 400+ loans produces massive test output
+  // for a single resolver-level change; delegate loan-shape coverage to
+  // dedicated resolver tests if needed).
+  it("every top-level resolved.* field matches fresh resolver output (recursive full-equality)", () => {
+    const SKIP_TOP_KEYS = new Set(["metadata", "loans"]);
+    const mismatches: string[] = [];
+    const walk = (path: string, fresh: unknown, stored: unknown) => {
+      // Null/undefined equivalence.
+      if (fresh == null && stored == null) return;
+      if (fresh == null || stored == null) {
+        mismatches.push(`${path}: fresh=${String(fresh)} vs stored=${String(stored)}`);
+        return;
+      }
+      // Arrays: compare length + element-wise.
+      if (Array.isArray(fresh) || Array.isArray(stored)) {
+        if (!Array.isArray(fresh) || !Array.isArray(stored)) {
+          mismatches.push(`${path}: array shape mismatch`);
+          return;
+        }
+        if (fresh.length !== stored.length) {
+          mismatches.push(`${path}: length fresh=${fresh.length} vs stored=${stored.length}`);
+          return;
+        }
+        for (let i = 0; i < fresh.length; i++) {
+          walk(`${path}[${i}]`, fresh[i], stored[i]);
+        }
+        return;
+      }
+      // Objects: walk every key on both sides.
+      if (typeof fresh === "object" && typeof stored === "object") {
+        const keys = new Set([...Object.keys(fresh), ...Object.keys(stored)]);
+        for (const k of keys) {
+          walk(`${path}.${k}`, (fresh as Record<string, unknown>)[k], (stored as Record<string, unknown>)[k]);
+        }
+        return;
+      }
+      // Numbers: allow 1e-4 relative tolerance for float artifacts.
+      if (typeof fresh === "number" && typeof stored === "number") {
+        const tol = Math.max(1e-6, Math.abs(stored) * 1e-4);
+        if (Math.abs(fresh - stored) > tol) {
+          mismatches.push(`${path}: fresh=${fresh} vs stored=${stored} (Δ=${fresh - stored})`);
+        }
+        return;
+      }
+      // Primitives: strict equality.
+      if (fresh !== stored) {
+        mismatches.push(`${path}: fresh=${JSON.stringify(fresh)} vs stored=${JSON.stringify(stored)}`);
+      }
+    };
+
+    const freshResolved = resolved as unknown as Record<string, unknown>;
+    const storedResolved = fixture.resolved as Record<string, unknown>;
+    const topKeys = new Set([...Object.keys(freshResolved), ...Object.keys(storedResolved)]);
+    for (const k of topKeys) {
+      if (SKIP_TOP_KEYS.has(k)) continue;
+      walk(k, freshResolved[k], storedResolved[k]);
+    }
+    expect(mismatches.slice(0, 20), mismatches.join("\n")).toEqual([]);
+  });
 });

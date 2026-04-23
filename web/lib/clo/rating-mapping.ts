@@ -35,6 +35,33 @@ export function moodysWarfFactor(rating: string | null | undefined): number | nu
   return MOODYS_WARF_FACTORS[key] ?? null;
 }
 
+/** D2 — Convert a Moody's WARF factor to a per-quarter default hazard rate.
+ *
+ *  Math: WARF factor is Moody's idealized 10-year cumulative default
+ *  probability × 10000. Assuming a constant quarterly hazard rate `h`
+ *  across the 40-quarter horizon, 10-year survival = (1 - h)^40, so
+ *    cumDef = warfFactor / 10000 = 1 - (1 - h)^40
+ *    h = 1 - (1 - cumDef)^(1/40)
+ *
+ *  Spot checks:
+ *    - Aaa (factor 1):      cumDef 0.01% → h ≈ 2.5e-6/quarter (effectively 0)
+ *    - B2  (factor 2720):   cumDef 27.2% → h ≈ 0.79%/quarter  (≈ 3.13% annualized)
+ *    - Caa1 (factor 4770):  cumDef 47.7% → h ≈ 1.61%/quarter  (≈ 6.30% annualized)
+ *    - Caa2 (factor 6500):  cumDef 65.0% → h ≈ 2.59%/quarter  (≈ 10.01% annualized)
+ *    - Caa3 (factor 8070):  cumDef 80.7% → h ≈ 4.02%/quarter  (≈ 15.19% annualized)
+ *    - Ca/C (factor 10000): cumDef 100%  → h = 1.0 (default next quarter)
+ *
+ *  Used by the D2 per-position hazard path. When `loan.warfFactor` is set,
+ *  the engine uses this helper instead of `defaultRatesByRating[bucket]`
+ *  — gives Caa1 vs Caa3 distinct hazards where the bucket path averaged
+ *  them together as "CCC". */
+export function warfFactorToQuarterlyHazard(warfFactor: number): number {
+  if (!Number.isFinite(warfFactor) || warfFactor <= 0) return 0;
+  const cumDef = Math.min(warfFactor / 10000, 1);
+  if (cumDef >= 1) return 1;
+  return 1 - Math.pow(1 - cumDef, 1 / 40);
+}
+
 const MOODYS_MAP: Record<string, RatingBucket> = {
   aaa: "AAA",
   aa1: "AA", aa2: "AA", aa3: "AA",

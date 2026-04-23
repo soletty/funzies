@@ -277,7 +277,12 @@ describe("N1 correctness — currently broken buckets (documented in KI ledger)"
       //   taxes + issuerProfit drifts: −€6,383 (KI-09 + KI-01, engine doesn't model)
       //   Σ of non-sub drifts: +€77,150
       //   Sub residual = 32,577 − 77,150 = −€44,573 ✓ (matches measured to €30)
-      expectedDrift: -50742.24,
+      // Sprint 4 / KI-01 closure: engine now deducts €250 issuer profit per
+      // period (PPM step A.ii). Subs receive €250 less → drift more negative
+      // by €250. Pre-KI-01: -€50,742.24. Post-KI-01: -€50,992.24. Matches
+      // engine emission of €250 to the cent (fixed absolute amount, no
+      // day-count residual like KI-09 taxes).
+      expectedDrift: -50992.24,
       tolerance: 50,
       closeThreshold: 50,
     },
@@ -303,8 +308,14 @@ describe("N1 correctness — engine-does-not-model steps (KI ledger commitments)
     expect(row?.projected).toBeCloseTo(6202, -2);
     expect(Math.abs(row?.delta ?? 0)).toBeLessThan(100);
   });
-  it("issuerProfit drift is present (KI-01): engine emits 0; trustee collected €250", () => {
+  it("KI-01 CLOSED: engine emits €250 issuer profit, ties to trustee to the cent", () => {
+    // Post-fix: defaultsFromResolved back-derives issuerProfitAmount from
+    // Q1 waterfall step (A)(ii) (€250 regular period). Fixed absolute
+    // deduction — no day-count residual (unlike KI-09 taxes), so drift
+    // should tie within €1.
     const row = driftsByBucket.get("issuerProfit");
     expect(row?.actual).toBeCloseTo(250, 0);
+    expect(row?.projected).toBeCloseTo(250, 0);
+    expect(Math.abs(row?.delta ?? 0)).toBeLessThan(1);
   });
 });

@@ -11,6 +11,7 @@ import {
   getAccountBalances,
   getParValueAdjustments,
   getHoldings,
+  getTrades,
   getPanelForUser,
   rowToProfile,
 } from "@/lib/clo/access";
@@ -39,7 +40,7 @@ export default async function WaterfallPage() {
   // Fetch report-level data if a deal record exists
   const reportPeriod = deal ? await getLatestReportPeriod(deal.id) : null;
 
-  const [waterfallSteps, tranches, trancheSnapshots, periodData, accountBalances, parValueAdjustments, holdings] =
+  const [waterfallSteps, tranches, trancheSnapshots, periodData, accountBalances, parValueAdjustments, holdings, trades] =
     await Promise.all([
       reportPeriod ? getWaterfallSteps(reportPeriod.id) : Promise.resolve([]),
       deal ? getTranches(deal.id) : Promise.resolve([]),
@@ -48,6 +49,7 @@ export default async function WaterfallPage() {
       reportPeriod ? getAccountBalances(reportPeriod.id) : Promise.resolve([]),
       reportPeriod ? getParValueAdjustments(reportPeriod.id) : Promise.resolve([]),
       reportPeriod ? getHoldings(reportPeriod.id) : Promise.resolve([]),
+      reportPeriod ? getTrades(reportPeriod.id) : Promise.resolve([]),
     ]);
 
   const panel = await getPanelForUser(session.user.id);
@@ -140,6 +142,7 @@ export default async function WaterfallPage() {
         equityInceptionData={profile.equityInceptionData}
         waterfallSteps={waterfallSteps}
         accountBalances={accountBalances}
+        trades={trades}
         reportDate={reportPeriod?.reportDate ?? null}
         paymentDate={reportPeriod?.paymentDate ?? null}
       />

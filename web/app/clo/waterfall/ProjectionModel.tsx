@@ -14,7 +14,12 @@ import type {
   EquityInceptionData,
   CloWaterfallStep,
   CloAccountBalance,
+  CloTrade,
 } from "@/lib/clo/types";
+import {
+  calibrateReinvestmentFromTrades,
+  type ReinvestmentCalibration,
+} from "@/lib/clo/reinvestment-calibration";
 import { buildBacktestInputs } from "@/lib/clo/backtest-types";
 import HarnessPanel from "./HarnessPanel";
 import {
@@ -61,6 +66,7 @@ interface Props {
   // N1 harness inputs — realized trustee data for the latest period
   waterfallSteps?: CloWaterfallStep[];
   accountBalances?: CloAccountBalance[];
+  trades?: CloTrade[];
   reportDate?: string | null;
   paymentDate?: string | null;
 }
@@ -82,6 +88,7 @@ export default function ProjectionModel({
   equityInceptionData,
   waterfallSteps,
   accountBalances,
+  trades,
   reportDate,
   paymentDate,
 }: Props) {
@@ -122,6 +129,7 @@ export default function ProjectionModel({
   const [seniorFeePct, setSeniorFeePct] = useState<number>(initFees?.seniorFeePct ?? CLO_DEFAULTS.seniorFeePct);
   const [subFeePct, setSubFeePct] = useState<number>(initFees?.subFeePct ?? CLO_DEFAULTS.subFeePct);
   const [taxesBps, setTaxesBps] = useState<number>(0);
+  const [issuerProfitAmount, setIssuerProfitAmount] = useState<number>(0);
   const [trusteeFeeBps, setTrusteeFeeBps] = useState<number>(initFees?.trusteeFeeBps ?? CLO_DEFAULTS.trusteeFeeBps);
   const [adminFeeBps, setAdminFeeBps] = useState<number>(0);
   const [seniorExpensesCapBps, setSeniorExpensesCapBps] = useState<number>(20);
@@ -153,6 +161,12 @@ export default function ProjectionModel({
   // `diagnoseFeePrefill` produces partner-visible warnings when the pre-fill
   // data source is incomplete (e.g., step C missing → adminFeeBps silently 0).
   const [prefillWarnings, setPrefillWarnings] = useState<ResolutionWarning[]>([]);
+  // D6c — reinvestment-calibration result from manager BUY trades. Null when
+  // fewer than MIN_TRADES BUYs exist (partner sees generic defaults) or when
+  // BUYs can't be enriched from holdings. Displayed as a status line below
+  // the reinvestment sliders for attribution.
+  const [reinvestmentCalibration, setReinvestmentCalibration] =
+    useState<ReinvestmentCalibration | null>(null);
   const feesInitialized = useRef(false);
   React.useEffect(() => {
     if (!resolved || feesInitialized.current) return;
@@ -163,6 +177,7 @@ export default function ProjectionModel({
     setSeniorFeePct(d.seniorFeePct);
     setSubFeePct(d.subFeePct);
     setTaxesBps(d.taxesBps);
+    setIssuerProfitAmount(d.issuerProfitAmount);
     setTrusteeFeeBps(d.trusteeFeeBps);
     setAdminFeeBps(d.adminFeeBps);
     setSeniorExpensesCapBps(d.seniorExpensesCapBps);
@@ -170,7 +185,23 @@ export default function ProjectionModel({
     setIncentiveFeeHurdleIrr(d.incentiveFeeHurdleIrr);
     setPrefillWarnings(diagnoseFeePrefill(resolved, raw, d));
     if (resolved.dates.nonCallPeriodEnd) setCallDate(null);
-  }, [resolved, trancheSnapshots, waterfallSteps]);
+
+    // D6c reinvestment-calibration pre-fill: when the manager has ≥3 BUY
+    // trades we can join to holdings, pre-fill the reinvestment sliders
+    // with the par-weighted observed values. Gated on the same once-per-load
+    // semantic (feesInitialized) so user edits aren't stomped.
+    const cal = calibrateReinvestmentFromTrades(
+      trades,
+      holdings,
+      resolved.dates.currentDate,
+    );
+    if (cal) {
+      setReinvestmentCalibration(cal);
+      setReinvestmentSpreadBps(cal.reinvestmentSpreadBps);
+      setReinvestmentTenorYears(cal.reinvestmentTenorYears);
+      setReinvestmentRating(cal.reinvestmentRating);
+    }
+  }, [resolved, trancheSnapshots, waterfallSteps, trades, holdings]);
 
   // Pre-fill equity entry price from inception-data purchase cents on first load.
   // Don't overwrite if the user has already touched the slider (non-null state).
@@ -275,6 +306,7 @@ export default function ProjectionModel({
         seniorFeePct,
         subFeePct,
         taxesBps,
+        issuerProfitAmount,
         trusteeFeeBps,
         adminFeeBps,
         seniorExpensesCapBps,
@@ -333,6 +365,7 @@ export default function ProjectionModel({
     seniorFeePct,
     subFeePct,
     taxesBps,
+    issuerProfitAmount,
     trusteeFeeBps,
     adminFeeBps,
     seniorExpensesCapBps,
@@ -524,6 +557,15 @@ export default function ProjectionModel({
             </div>
           </div>
         </div>
+        {reinvestmentCalibration && (
+          <div style={{ fontSize: "0.7rem", color: "var(--color-text-muted)", marginTop: "0.75rem", opacity: 0.8 }}>
+            Reinvestment sliders calibrated from {reinvestmentCalibration.tradeCount} manager BUY trades
+            {reinvestmentCalibration.minTradeDate && reinvestmentCalibration.maxTradeDate
+              ? ` (${reinvestmentCalibration.minTradeDate} to ${reinvestmentCalibration.maxTradeDate})`
+              : ""}
+            .
+          </div>
+        )}
 
         {/* Fees & Expenses — collapsible, pre-filled from PPM extraction */}
         <FeeAssumptions
