@@ -32,7 +32,8 @@ import {
 } from "@/lib/clo/projection";
 import type { ResolvedDealData, ResolutionWarning } from "@/lib/clo/resolver-types";
 import { buildFromResolved, DEFAULT_ASSUMPTIONS, EMPTY_RESOLVED, defaultsFromResolved, diagnoseFeePrefill } from "@/lib/clo/build-projection-inputs";
-import { DEFAULT_RATES_BY_RATING, RATING_BUCKETS, type RatingBucket } from "@/lib/clo/rating-mapping";
+import { DEFAULT_RATES_BY_RATING, RATING_BUCKETS, type RatingBucket, warfFactorToAnnualCDRPct } from "@/lib/clo/rating-mapping";
+import { BUCKET_WARF_FALLBACK } from "@/lib/clo/pool-metrics";
 import SuggestAssumptions from "./SuggestAssumptions";
 import { CLO_DEFAULTS } from "@/lib/clo/defaults";
 import { useMonteCarlo } from "@/lib/clo/useMonteCarlo";
@@ -114,6 +115,12 @@ export default function ProjectionModel({
   const unmappedIc = icTriggers.filter((ic) => ic.rank === 0);
 
   const [defaultRates, setDefaultRates] = useState<Record<string, number>>({ ...DEFAULT_RATES_BY_RATING });
+  // D2b — Buckets whose slider the user has touched. The engine treats these
+  // as bucket-rate overrides of per-position WARF; untouched buckets keep
+  // per-position WARF. Slider seeds from per-position WARF (see effect below)
+  // so what's shown matches what the engine uses until the user drags.
+  const [overriddenBuckets, setOverriddenBuckets] = useState<Set<string>>(new Set());
+  const defaultRatesSeeded = useRef(false);
   const [cprPct, setCprPct] = useState<number>(CLO_DEFAULTS.cprPct);
   const [recoveryPct, setRecoveryPct] = useState<number>(CLO_DEFAULTS.recoveryPct);
   const [recoveryLagMonths, setRecoveryLagMonths] = useState<number>(CLO_DEFAULTS.recoveryLagMonths);
@@ -217,6 +224,58 @@ export default function ProjectionModel({
 
   const loanInputs: LoanInput[] = resolved?.loans ?? [];
 
+  // D2b — Seed the per-bucket CDR sliders from per-position WARF (par-weighted
+  // per bucket) so the UI shows the rate the engine is actually applying.
+  // Fires once per deal load; if the user has already touched any slider the
+  // seeded value for that bucket is replaced on next touch anyway. When no
+  // WARF factors are present (early render), fall back to DEFAULT_RATES_BY_RATING.
+  React.useEffect(() => {
+    if (defaultRatesSeeded.current) return;
+    if (loanInputs.length === 0) return;
+    const parByBucket: Record<string, number> = {};
+    const warfSumByBucket: Record<string, number> = {};
+    for (const bucket of RATING_BUCKETS) {
+      parByBucket[bucket] = 0;
+      warfSumByBucket[bucket] = 0;
+    }
+    for (const loan of loanInputs) {
+      const b = loan.ratingBucket;
+      if (!(b in parByBucket)) continue;
+      const wf = loan.warfFactor ?? BUCKET_WARF_FALLBACK[b] ?? 0;
+      parByBucket[b] += loan.parBalance;
+      warfSumByBucket[b] += loan.parBalance * wf;
+    }
+    const seeded: Record<string, number> = {};
+    for (const bucket of RATING_BUCKETS) {
+      if (parByBucket[bucket] > 0) {
+        const avgWf = warfSumByBucket[bucket] / parByBucket[bucket];
+        seeded[bucket] = warfFactorToAnnualCDRPct(avgWf);
+      } else {
+        seeded[bucket] = DEFAULT_RATES_BY_RATING[bucket];
+      }
+    }
+    setDefaultRates(seeded);
+    defaultRatesSeeded.current = true;
+  }, [loanInputs]);
+
+  // Slider change handler — updates the rates AND marks every bucket whose
+  // value actually changed as overridden (so the engine consumes the slider
+  // instead of per-position WARF for that bucket).
+  const handleDefaultRatesChange = React.useCallback((next: Record<string, number>) => {
+    setDefaultRates((prev) => {
+      setOverriddenBuckets((prevOverrides) => {
+        const updated = new Set(prevOverrides);
+        for (const bucket of RATING_BUCKETS) {
+          const p = prev[bucket] ?? 0;
+          const n = next[bucket] ?? 0;
+          if (Math.abs(p - n) > 1e-9) updated.add(bucket);
+        }
+        return updated;
+      });
+      return next;
+    });
+  }, []);
+
   const ratingDistribution = useMemo(() => {
     const dist: Record<string, { count: number; par: number }> = {};
     for (const bucket of RATING_BUCKETS) {
@@ -289,6 +348,7 @@ export default function ProjectionModel({
         baseRatePct,
         baseRateFloorPct,
         defaultRates: defaultRates,
+        overriddenBuckets: Array.from(overriddenBuckets),
         cprPct,
         recoveryPct,
         recoveryLagMonths,
@@ -319,7 +379,7 @@ export default function ProjectionModel({
       });
     },
     [
-      resolved, baseRatePct, baseRateFloorPct, defaultRates, cprPct, recoveryPct, recoveryLagMonths,
+      resolved, baseRatePct, baseRateFloorPct, defaultRates, overriddenBuckets, cprPct, recoveryPct, recoveryLagMonths,
       reinvestmentSpreadBps, reinvestmentTenorYears, reinvestmentRating, cccBucketLimitPct, cccMarketValuePct,
       resolved?.deferredInterestCompounds,
       seniorFeePct, subFeePct, trusteeFeeBps, hedgeCostBps, incentiveFeePct, incentiveFeeHurdleIrr, postRpReinvestmentPct,
@@ -348,6 +408,7 @@ export default function ProjectionModel({
     baseRatePct,
     baseRateFloorPct,
     defaultRates: defaultRates,
+    overriddenBuckets: Array.from(overriddenBuckets),
     cprPct,
     recoveryPct,
     recoveryLagMonths,
@@ -376,7 +437,7 @@ export default function ProjectionModel({
     ddtlDrawPercent,
     equityEntryPriceCents,
   }), [
-    baseRatePct, baseRateFloorPct, defaultRates, cprPct, recoveryPct, recoveryLagMonths,
+    baseRatePct, baseRateFloorPct, defaultRates, overriddenBuckets, cprPct, recoveryPct, recoveryLagMonths,
     reinvestmentSpreadBps, reinvestmentTenorYears, reinvestmentRating, cccBucketLimitPct, cccMarketValuePct,
     resolved?.deferredInterestCompounds,
     postRpReinvestmentPct, hedgeCostBps, callDate, callPricePct, callPriceMode, seniorFeePct, subFeePct, trusteeFeeBps, incentiveFeePct, incentiveFeeHurdleIrr,
@@ -407,6 +468,7 @@ export default function ProjectionModel({
       uniform[bucket] = assumptions.cdrPct;
     }
     setDefaultRates(uniform);
+    setOverriddenBuckets(new Set(RATING_BUCKETS));
     setCprPct(assumptions.cprPct);
     setRecoveryPct(assumptions.recoveryPct);
     setRecoveryLagMonths(assumptions.recoveryLagMonths);
@@ -588,7 +650,7 @@ export default function ProjectionModel({
         <div style={{ marginTop: "1rem" }}>
           <DefaultRatePanel
             defaultRates={defaultRates}
-            onChange={setDefaultRates}
+            onChange={handleDefaultRatesChange}
             ratingDistribution={ratingDistribution}
             weightedAvgCdr={weightedAvgCdr}
           />
@@ -1161,7 +1223,7 @@ export default function ProjectionModel({
             <div style={{ marginTop: "1rem" }}>
               <DefaultRatePanel
                 defaultRates={defaultRates}
-                onChange={setDefaultRates}
+                onChange={handleDefaultRatesChange}
                 ratingDistribution={ratingDistribution}
                 weightedAvgCdr={weightedAvgCdr}
               />

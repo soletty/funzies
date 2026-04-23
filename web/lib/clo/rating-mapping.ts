@@ -62,6 +62,17 @@ export function warfFactorToQuarterlyHazard(warfFactor: number): number {
   return 1 - Math.pow(1 - cumDef, 1 / 40);
 }
 
+/** Annualised CDR (%) equivalent to a Moody's WARF factor. Used to seed the
+ *  per-bucket UI sliders with the same effective rate the engine applies via
+ *  the per-position hazard path — so the slider's displayed value matches
+ *  what the engine is really using until the user drags it. */
+export function warfFactorToAnnualCDRPct(warfFactor: number): number {
+  const h = warfFactorToQuarterlyHazard(warfFactor);
+  if (h <= 0) return 0;
+  if (h >= 1) return 100;
+  return (1 - Math.pow(1 - h, 4)) * 100;
+}
+
 const MOODYS_MAP: Record<string, RatingBucket> = {
   aaa: "AAA",
   aa1: "AA", aa2: "AA", aa3: "AA",

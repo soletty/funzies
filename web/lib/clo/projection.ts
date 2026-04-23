@@ -152,6 +152,13 @@ export interface ProjectionInputs {
    *  surface during test output rather than silently. The flag is expected
    *  to be removed entirely once all legacy-pinned tests re-baseline. */
   useLegacyBucketHazard?: boolean;
+  /** D2b — Per-bucket override hook. When a rating bucket appears in this
+   *  list, the engine uses the user's `defaultRatesByRating[bucket]` hazard
+   *  for every loan in that bucket, overriding the per-position WARF hazard.
+   *  Buckets absent from the list keep per-position WARF (the D2 default).
+   *  Wired to the UI bucket-CDR sliders: a slider that the user has touched
+   *  reports its bucket here, so the slider value actually takes effect. */
+  overriddenBuckets?: readonly string[];
 }
 
 /** Per-step waterfall emission for N1 harness comparison against trustee
@@ -739,7 +746,11 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     ddtlDrawPercent = 100,
     moodysWarfTriggerLevel = null,
     useLegacyBucketHazard = false,
+    overriddenBuckets,
   } = inputs;
+  const overriddenBucketSet = overriddenBuckets && overriddenBuckets.length > 0
+    ? new Set<string>(overriddenBuckets)
+    : null;
 
   // D2 — Warn when the legacy escape-hatch is active so stale pins in test
   // output don't silently perpetuate. Forces deprecation awareness per KI-20.
@@ -1193,8 +1204,9 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
         // `warfFactor` (shouldn't happen post-D2 since construction always
         // populates from LoanInput or BUCKET_WARF_FALLBACK) fall back to
         // the bucket map as a defensive path.
+        const isBucketOverridden = overriddenBucketSet?.has(loan.ratingBucket) ?? false;
         const hazard =
-          useLegacyBucketHazard || loan.warfFactor <= 0
+          useLegacyBucketHazard || isBucketOverridden || loan.warfFactor <= 0
             ? (quarterlyHazard[loan.ratingBucket] ?? 0)
             : warfFactorToQuarterlyHazard(loan.warfFactor);
         const loanDefaults = draw(loan.survivingPar, hazard);

@@ -48,6 +48,10 @@ export interface UserAssumptions {
   baseRatePct: number;
   baseRateFloorPct: number;
   defaultRates: Record<string, number>;
+  /** D2b — Rating buckets whose `defaultRates` slider the user has touched.
+   *  These override per-position WARF hazard for every loan in the bucket.
+   *  Buckets absent from this list keep per-position WARF (D2 default). */
+  overriddenBuckets: string[];
   cprPct: number;
   recoveryPct: number;
   recoveryLagMonths: number;
@@ -106,6 +110,7 @@ export const DEFAULT_ASSUMPTIONS: UserAssumptions = {
   baseRatePct: CLO_DEFAULTS.baseRatePct,
   baseRateFloorPct: CLO_DEFAULTS.baseRateFloorPct,
   defaultRates: { ...DEFAULT_RATES_BY_RATING },
+  overriddenBuckets: [],
   cprPct: CLO_DEFAULTS.cprPct,
   recoveryPct: CLO_DEFAULTS.recoveryPct,
   recoveryLagMonths: CLO_DEFAULTS.recoveryLagMonths,
@@ -404,6 +409,7 @@ export function buildFromResolved(
     currentDate: resolved.dates.currentDate,
     loans,
     defaultRatesByRating: userAssumptions.defaultRates,
+    overriddenBuckets: userAssumptions.overriddenBuckets,
     cprPct: userAssumptions.cprPct,
     recoveryPct: userAssumptions.recoveryPct,
     recoveryLagMonths: userAssumptions.recoveryLagMonths,

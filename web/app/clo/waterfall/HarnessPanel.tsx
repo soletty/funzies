@@ -318,21 +318,22 @@ export default function HarnessPanel({ inputs, backtest, engineMathInputs }: Pro
   );
 }
 
-/** E2 — Small KI badge(s) next to an engine bucket, with hover tooltip.
- *  Renders nothing when the bucket has no documented KI. Partner hovering
- *  a badge sees the ledger blurb on the `title` attribute. The KI id acts
- *  as a visual marker + anchor for the blurb; no link (an in-app ledger
- *  viewer is the proper long-term surface — see E2.1 follow-up). Prior
- *  approach used a hardcoded GitHub blob URL which is fragile to repo /
- *  branch / path changes + breaks offline; deliberately removed. */
+/** E2 — Small KI badge(s) next to an engine bucket. Clicking opens the ledger
+ *  section at its stable `<a id="ki-xx">` anchor (anchors live in
+ *  web/docs/clo-model-known-issues.md). Hover still surfaces the blurb. */
+const KI_DOC_URL = "https://github.com/theholdinco/assembly/blob/main/web/docs/clo-model-known-issues.md";
+
 function KiBadges({ bucket }: { bucket: EngineBucket }) {
   const meta = BUCKET_TO_KI[bucket];
   if (!meta || meta.ids.length === 0) return null;
   return (
     <span style={{ marginLeft: "0.5rem", display: "inline-flex", gap: "0.25rem" }}>
       {meta.ids.map((id) => (
-        <span
+        <a
           key={id}
+          href={`${KI_DOC_URL}#${id.toLowerCase()}`}
+          target="_blank"
+          rel="noopener noreferrer"
           title={meta.blurb}
           style={{
             fontSize: "0.62rem",
@@ -343,11 +344,11 @@ function KiBadges({ bucket }: { bucket: EngineBucket }) {
             background: "var(--color-surface)",
             color: "var(--color-text-muted)",
             letterSpacing: "0.02em",
-            cursor: "help",
+            textDecoration: "none",
           }}
         >
           {id}
-        </span>
+        </a>
       ))}
     </span>
   );
