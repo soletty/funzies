@@ -16,9 +16,9 @@
  * precision.
  */
 
-import type { CloTrade, CloHolding } from "@/lib/clo/types";
-import { mapToRatingBucket, type RatingBucket } from "@/lib/clo/rating-mapping";
-import { BUCKET_WARF_FALLBACK } from "@/lib/clo/pool-metrics";
+import type { CloTrade, CloHolding } from "./types";
+import { mapToRatingBucket, type RatingBucket } from "./rating-mapping";
+import { BUCKET_WARF_FALLBACK } from "./pool-metrics";
 
 /** Minimum BUY count required to produce a calibration. Below this, noise
  *  dominates the weighted averages and we'd be over-claiming on sparse data. */
