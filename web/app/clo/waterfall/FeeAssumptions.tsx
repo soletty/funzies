@@ -13,6 +13,7 @@ export function FeeAssumptions({
   hasResolvedFees,
   callDate, onCallDateChange,
   callPricePct, onCallPriceChange,
+  callPriceMode, onCallPriceModeChange,
   portfolioInfo,
   ddtlDrawAssumption, onDdtlDrawAssumptionChange,
   ddtlDrawQuarter, onDdtlDrawQuarterChange,
@@ -27,6 +28,7 @@ export function FeeAssumptions({
   hasResolvedFees: boolean;
   callDate: string | null; onCallDateChange: (v: string | null) => void;
   callPricePct: number; onCallPriceChange: (v: number) => void;
+  callPriceMode: "multiplier" | "flat"; onCallPriceModeChange: (v: "multiplier" | "flat") => void;
   portfolioInfo: {
     fixedRateCount: number; fixedRatePar: number; fixedRatePct: number;
     ddtlCount: number; ddtlPar: number; hasDdtls: boolean; hasFixedRate: boolean;
@@ -96,7 +98,62 @@ export function FeeAssumptions({
               </div>
             </div>
             {callDate && (
-              <SliderInput label="Liquidation Price" value={callPricePct} onChange={onCallPriceChange} min={80} max={105} step={0.5} suffix="% of par" hint="Average price at which the loan portfolio is sold on the call date" />
+              <div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "0.25rem" }}>
+                  <label style={{ fontSize: "0.72rem", color: "var(--color-text-muted)", fontWeight: 500 }}>Call price mode</label>
+                </div>
+                <div style={{ fontSize: "0.62rem", color: "var(--color-text-muted)", marginBottom: "0.35rem", lineHeight: 1.4, opacity: 0.85 }}>
+                  {callPriceMode === "multiplier"
+                    ? "Each position sells at its own market price × the multiplier below. Default 100 = liquidate at current market."
+                    : "Every position sells at the flat price below, regardless of its market value. Useful for quick stress scenarios (e.g. \"everything at 98c\")."}
+                </div>
+                <div style={{ display: "flex", gap: "0.35rem", marginBottom: "0.5rem" }}>
+                  <button
+                    onClick={() => onCallPriceModeChange("multiplier")}
+                    style={{
+                      flex: 1,
+                      padding: "0.3rem 0.5rem",
+                      fontSize: "0.7rem",
+                      fontWeight: callPriceMode === "multiplier" ? 600 : 500,
+                      border: `1px solid ${callPriceMode === "multiplier" ? "var(--color-accent)" : "var(--color-border-light)"}`,
+                      background: callPriceMode === "multiplier" ? "var(--color-accent-bg, rgba(59,130,246,0.08))" : "var(--color-surface)",
+                      color: callPriceMode === "multiplier" ? "var(--color-accent)" : "var(--color-text-muted)",
+                      borderRadius: "var(--radius-sm)",
+                      cursor: "pointer",
+                    }}
+                  >
+                    Multiplier (per-position MtM)
+                  </button>
+                  <button
+                    onClick={() => onCallPriceModeChange("flat")}
+                    style={{
+                      flex: 1,
+                      padding: "0.3rem 0.5rem",
+                      fontSize: "0.7rem",
+                      fontWeight: callPriceMode === "flat" ? 600 : 500,
+                      border: `1px solid ${callPriceMode === "flat" ? "var(--color-accent)" : "var(--color-border-light)"}`,
+                      background: callPriceMode === "flat" ? "var(--color-accent-bg, rgba(59,130,246,0.08))" : "var(--color-surface)",
+                      color: callPriceMode === "flat" ? "var(--color-accent)" : "var(--color-text-muted)",
+                      borderRadius: "var(--radius-sm)",
+                      cursor: "pointer",
+                    }}
+                  >
+                    Flat (same price for all)
+                  </button>
+                </div>
+                <SliderInput
+                  label={callPriceMode === "multiplier" ? "Liquidation Multiplier" : "Liquidation Price"}
+                  value={callPricePct}
+                  onChange={onCallPriceChange}
+                  min={80}
+                  max={callPriceMode === "multiplier" ? 120 : 105}
+                  step={0.5}
+                  suffix={callPriceMode === "multiplier" ? "% of market" : "% of par"}
+                  hint={callPriceMode === "multiplier"
+                    ? "Haircut/premium applied to each position's market price. 100 = market unchanged; 95 = 5% haircut below market; 105 = 5% premium."
+                    : "Flat sale price for every position, irrespective of its market value."}
+                />
+              </div>
             )}
           </div>
           {(portfolioInfo.hasFixedRate || portfolioInfo.hasDdtls) && (

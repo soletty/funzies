@@ -30,7 +30,7 @@ Updated per sprint. Entries are closed (marked `[CLOSED]`) when the correspondin
 - [KI-10 — baseRate pre-fill gap (D3 family)](#ki-10)
 - [KI-11 — Senior / sub management fee pre-fill gap (C3 family)](#ki-11)
 - [KI-12a — Senior / sub management fee base discrepancy](#ki-12a)
-- [KI-12b — B3 day-count approximation (matters on non-90-day periods)](#ki-12b)
+- [KI-12b — Day-count precision active; six class-interest markers under harness period mismatch](#ki-12b)
 - [KI-13 — Sub distribution cascade residual](#ki-13)
 - [KI-14 — IC compositional parity at T=0 (cascade)](#ki-14)
 
@@ -244,10 +244,14 @@ Not closed by Sprint 1 / B3 (day-count) or Sprint 3 / C3 (fee pre-fill). Structu
 ---
 
 <a id="ki-12b"></a>
-### [KI-12b] B3 day-count approximation — currently masked by harness period mismatch
+### [KI-12b] Day-count precision active; surfacing KI-12a period mismatch on 6 class-interest buckets
+
+**Status (2026-04-23 update):** B3 shipped. `dayCountFraction` helper + per-tranche convention (Actual/360 float, 30/360 fixed) replaced the legacy `/4` everywhere in the period loop. First-principles arithmetic tests (`b3-day-count.test.ts`, 11 cases) anchor the helper to PPM worked example `2.966% × 310M × 90/360 = €2,298,650`.
+
+**What KI-12b now represents:** residual drift on the harness's six class-interest buckets caused by the KI-12a period mismatch becoming arithmetically visible. Pre-B3, the `/4 = 90/360` coincidence masked this — engine Q2 (91 days) and trustee Q1 (90 days) produced identical tranche coupons under /4. Post-B3, engine Q2 accrues Actual/360 on 91 days and diverges from trustee's 90-day window by one day of interest per tranche.
 
 **PPM reference:** Condition 1 — "Day count (Actual/360 float, 30/360 fixed)"; confirmed via `ppm.json` grep and PPM worked example (see KI-12a).
-**Current engine behavior:** Engine divides by 4 (periods-per-year proxy) for interest-denominated steps. For periods of exactly 90 days this is identical to Actual/360 (`90/360 = 1/4`). For periods of 89 / 91 / 92 days or any semi-annual period, the approximation drifts.
+**Current engine behavior:** B3 landed. Engine uses `dayCountFraction("actual_360"|"30_360", periodStart, periodEnd)` for tranche coupons, loan interest, and all management/trustee/hedge fees. `trancheDayFrac(t) = t.isFloating ? dayFracActual : dayFrac30`.
 **PPM-correct behavior:** Per-tranche day-count convention + actual days in the period. Applies across every interest-denominated step (tranche coupons, management fees, hedge legs).
 
 **Quantitative magnitude — the B3 / KI-12a interaction (new in 2026-04-23 review):**
@@ -272,14 +276,31 @@ The Class A/B/C/D/E/F interest tie-outs currently pass at |drift| < €1 under l
   Class A alone contributes ~52% of the total; treating it as "~€25K per class" overstates the picture.
 - This drift is NOT an engine regression — it's the harness period mismatch (KI-12a) finally bleeding through the arithmetic once the `/4 = 90/360` coincidence is gone.
 
-**Implication for Sprint 1 sequencing:** Shipping B3 **before** KI-12a's harness fix will produce a spurious "Sprint 1 broke six tests" signal. KI-12b's closure is therefore **entangled with KI-12a**, not independent. Either:
-- (i) Fix KI-12a first (harness period mismatch → rebuild fixture at Q4 2025 determination or move to multi-period historical backtest), then ship B3 — drifts stay at |drift| < €1 through the transition.
-- (ii) Ship B3 first accepting the six "new" class-interest drifts as expected KI-12a symptoms; add temporary `failsWithMagnitude` markers with documented magnitudes; close them when KI-12a lands.
-- **Recommended: (i).** Cleaner narrative; KI-12a is structural, KI-12b becomes a clean arithmetic fix on top of a valid harness.
+**Sprint 1 sequencing (historical note):** Pre-ship analysis anticipated that shipping B3 before KI-12a would produce a spurious "Sprint 1 broke six tests" signal. That prediction was correct — and the six `failsWithMagnitude` markers below formalize the drift so it's documented rather than flagged as regression.
 
-**Deferral rationale:** Engine rework — day-count traversal is load-bearing across the waterfall, touches every coupon line, needs a per-tranche config surface.
-**Path to close:** Sprint 1 / B3 (per-tranche day-count + actual-days period length), but gated behind KI-12a per the sequencing note above.
-**Test:** No active marker today — drift is zero under the current `/4 = 90/360` coincidence. When B3 ships or KI-12a ships (whichever first), expect six new markers (one per class interest bucket) with documented magnitudes; close them as the other KI resolves.
+**Empirical magnitudes (measured against Euro XV fixture, legit-pinned, post-B3 engine):**
+
+| Class | Post-B3 drift (€) | Formula check |
+|---|---|---|
+| A | +25,540.56 | 310M × 2.966% × 1/360 ≈ €25,545 ✓ |
+| B (B-1 + B-2) | +3,483.75 | 45M × (avg 3.44%) × 1/360 ≈ €4,300 (B-2 is fixed 30/360 = 0, so only B-1 floating contributes; hence lower than the combined estimate) |
+| C | +3,715.83 | 32.5M × (avg 4.12%) × 1/360 ≈ €3,720 ✓ |
+| D | +4,932.81 | 34.375M × (avg 5.17%) × 1/360 ≈ €4,940 ✓ |
+| E | +5,784.13 | 25.625M × (avg 8.13%) × 1/360 ≈ €5,790 ✓ |
+| F | +4,527.50 | 15M × (avg 10.87%) × 1/360 ≈ €4,530 ✓ |
+| **Total** | **+€47,984.68** | Within 2% of the pre-ship prediction (~€48.8K) |
+
+**Cascade impact:** KI-13a-engineMath re-baselined from −€607.93 (pre-B3) to +€20,841.63 (post-B3) — sign flipped because the six positive KI-12b drifts + KI-12a fee drifts (~€35K) outweigh the negative KI-08/09/01 drifts (−€71K). Textbook example of reviewer's warning that cascade signs can flip mid-close.
+
+**Path to close:** All six markers remove together when KI-12a (harness period mismatch) lands — either a Q4 2025 fixture that makes `periods[0]` a Q1 replay, or multi-period historical backtest.
+
+**Test:** `n1-correctness.test.ts > "currently broken buckets"` — six `failsWithMagnitude` markers:
+- `KI-12b-classA` (+€25,540.56 ± €50)
+- `KI-12b-classB` (+€3,483.75 ± €50)
+- `KI-12b-classC` (+€3,715.83 ± €50)
+- `KI-12b-classD` (+€4,932.81 ± €50)
+- `KI-12b-classE` (+€5,784.13 ± €50)
+- `KI-12b-classF` (+€4,527.50 ± €50)
 
 ---
 

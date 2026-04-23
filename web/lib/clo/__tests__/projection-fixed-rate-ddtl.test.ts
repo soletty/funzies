@@ -1,6 +1,14 @@
 import { describe, it, expect } from "vitest";
-import { runProjection, addQuarters } from "../projection";
+import { runProjection, addQuarters, dayCountFraction } from "../projection";
 import { makeInputs, uniformRates } from "./test-helpers";
+
+// B3: makeInputs uses currentDate=2026-03-09 → period 1 ends 2026-06-09.
+// That window is 92 days under Actual/360. Interest/fee formulas that used to
+// be hand-coded as `par × rate / 4` now need `par × rate × dayFrac` where
+// dayFrac = dayCountFraction("actual_360", "2026-03-09", "2026-06-09").
+const Q1_ACTUAL = dayCountFraction("actual_360", "2026-03-09", "2026-06-09");
+// Q2 (same helper's next period): 2026-06-09 → 2026-09-09 = 92 days.
+const Q2_ACTUAL = dayCountFraction("actual_360", "2026-06-09", "2026-09-09");
 
 describe("Fixed-rate loan projection", () => {
   it("earns flat coupon regardless of base rate", () => {
@@ -33,7 +41,7 @@ describe("Fixed-rate loan projection", () => {
       })
     );
 
-    const expected = 10_000_000 * 8 / 100 / 4; // 200,000
+    const expected = 10_000_000 * 8 / 100 * Q1_ACTUAL; // 92 days @ Actual/360
     expect(low.periods[0].interestCollected).toBeCloseTo(expected, 0);
     expect(high.periods[0].interestCollected).toBeCloseTo(expected, 0);
   });
@@ -65,9 +73,10 @@ describe("Fixed-rate loan projection", () => {
       })
     );
 
-    // floating: 9M * (2.5 + 3.75) / 100 / 4 = 140,625
-    // fixed:    1M * 8.0 / 100 / 4          =  20,000
-    expect(result.periods[0].interestCollected).toBeCloseTo(160_625, 0);
+    // 92-day Q1 window (Actual/360) — see Q1_ACTUAL above
+    const floatingInt = 9_000_000 * (2.5 + 3.75) / 100 * Q1_ACTUAL;
+    const fixedInt = 1_000_000 * 8.0 / 100 * Q1_ACTUAL;
+    expect(result.periods[0].interestCollected).toBeCloseTo(floatingInt + fixedInt, 0);
   });
 });
 
@@ -123,8 +132,8 @@ describe("DDTL projection", () => {
 
     // Q1: not drawn yet → 0
     expect(result.periods[0].interestCollected).toBeCloseTo(0, 2);
-    // Q2: drawn at beginning of Q2 → 500K * (2.5 + 3.5) / 100 / 4 = 7,500
-    expect(result.periods[1].interestCollected).toBeCloseTo(7_500, 0);
+    // Q2: drawn at beginning of Q2 → 500K × (2.5 + 3.5)% × 92/360
+    expect(result.periods[1].interestCollected).toBeCloseTo(500_000 * (2.5 + 3.5) / 100 * Q2_ACTUAL, 0);
   });
 
   it("never_draw (drawQuarter <= 0) removes par at Q1", () => {
@@ -157,7 +166,7 @@ describe("DDTL projection", () => {
 
     // Only the 10M loan's interest should appear
     expect(result.periods[0].beginningPar).toBeCloseTo(10_000_000, 0);
-    const expectedInterest = 10_000_000 * (2.5 + 3.75) / 100 / 4;
+    const expectedInterest = 10_000_000 * (2.5 + 3.75) / 100 * Q1_ACTUAL;
     expect(result.periods[0].interestCollected).toBeCloseTo(expectedInterest, 0);
   });
 
@@ -184,8 +193,8 @@ describe("DDTL projection", () => {
       })
     );
 
-    // Q2: 60% of 500K = 300K funded. Interest = 300K * (2.5 + 3.5) / 100 / 4 = 4,500
-    expect(result.periods[1].interestCollected).toBeCloseTo(4_500, 0);
+    // Q2: 60% of 500K = 300K funded. Interest = 300K × (2.5 + 3.5)% × 92/360
+    expect(result.periods[1].interestCollected).toBeCloseTo(300_000 * (2.5 + 3.5) / 100 * Q2_ACTUAL, 0);
   });
 
   it("DDTL not subject to defaults/prepay before draw", () => {

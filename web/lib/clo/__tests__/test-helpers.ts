@@ -23,16 +23,16 @@ export function makeInputs(overrides: Partial<ProjectionInputs> = {}): Projectio
     subFeePct: CLO_DEFAULTS.subFeePct,
     tranches: [
       { className: "A", currentBalance: 65_000_000, spreadBps: 140, seniorityRank: 1, isFloating: true, isIncomeNote: false, isDeferrable: false },
-      { className: "B", currentBalance: 15_000_000, spreadBps: 250, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
+      { className: "J", currentBalance: 15_000_000, spreadBps: 250, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
       { className: "Sub", currentBalance: 20_000_000, spreadBps: 0, seniorityRank: 3, isFloating: false, isIncomeNote: true, isDeferrable: false },
     ],
     ocTriggers: [
       { className: "A", triggerLevel: 120, rank: 1 },
-      { className: "B", triggerLevel: 110, rank: 2 },
+      { className: "J", triggerLevel: 110, rank: 2 },
     ],
     icTriggers: [
       { className: "A", triggerLevel: 120, rank: 1 },
-      { className: "B", triggerLevel: 110, rank: 2 },
+      { className: "J", triggerLevel: 110, rank: 2 },
     ],
     reinvestmentPeriodEnd: "2028-06-15",
     maturityDate: "2034-06-15",
@@ -55,6 +55,7 @@ export function makeInputs(overrides: Partial<ProjectionInputs> = {}): Projectio
     postRpReinvestmentPct: 0,
     callDate: null,
     callPricePct: 100,
+    callPriceMode: "multiplier",
     reinvestmentOcTrigger: null,
     initialPrincipalCash: 0,
     preExistingDefaultedPar: 0,

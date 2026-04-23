@@ -86,6 +86,7 @@ function makeRealisticInputs(overrides: Partial<ProjectionInputs> = {}): Project
     postRpReinvestmentPct: 0,
     callDate: null,
     callPricePct: 100,
+    callPriceMode: "multiplier",
     reinvestmentOcTrigger: null,
     tranches: [
       // Class X — amortising, paid from interest waterfall
@@ -113,7 +114,7 @@ function makeRealisticInputs(overrides: Partial<ProjectionInputs> = {}): Project
       },
       // Class B-1 — AA
       {
-        className: "B-1",
+        className: "J-1",
         currentBalance: 50_000_000,
         spreadBps: 165,
         seniorityRank: 2,
@@ -123,7 +124,7 @@ function makeRealisticInputs(overrides: Partial<ProjectionInputs> = {}): Project
       },
       // Class B-2 — AA (same rank as B-1)
       {
-        className: "B-2",
+        className: "J-2",
         currentBalance: 30_000_000,
         spreadBps: 190,
         seniorityRank: 2,
@@ -192,7 +193,7 @@ function makeRealisticInputs(overrides: Partial<ProjectionInputs> = {}): Project
     // F: 438M → trigger 103% → numerator must be ~451M (tight — easiest to fail)
     ocTriggers: [
       { className: "A",   triggerLevel: 129.0, rank: 1 },
-      { className: "B-1", triggerLevel: 120.0, rank: 2 },
+      { className: "J-1", triggerLevel: 120.0, rank: 2 },
       { className: "C",   triggerLevel: 114.0, rank: 3 },
       { className: "D",   triggerLevel: 108.5, rank: 4 },
       { className: "E",   triggerLevel: 105.5, rank: 5 },
@@ -201,7 +202,7 @@ function makeRealisticInputs(overrides: Partial<ProjectionInputs> = {}): Project
     // IC triggers: interest income / interest due
     icTriggers: [
       { className: "A",   triggerLevel: 120, rank: 1 },
-      { className: "B-1", triggerLevel: 115, rank: 2 },
+      { className: "J-1", triggerLevel: 115, rank: 2 },
       { className: "C",   triggerLevel: 110, rank: 3 },
       { className: "D",   triggerLevel: 107, rank: 4 },
       { className: "E",   triggerLevel: 104, rank: 5 },
@@ -240,7 +241,7 @@ describe("OC partial cure outside RP", () => {
       recoveryPct: 0,
       ocTriggers: [
         { className: "A",   triggerLevel: 129.0, rank: 1 },
-        { className: "B-1", triggerLevel: 120.0, rank: 2 },
+        { className: "J-1", triggerLevel: 120.0, rank: 2 },
         { className: "C",   triggerLevel: 114.0, rank: 3 },
         { className: "D",   triggerLevel: 108.5, rank: 4 },
         { className: "E",   triggerLevel: 105.5, rank: 5 },
@@ -359,7 +360,7 @@ describe("OC cure during RP buys collateral", () => {
       // Trigger F OC failure with high CDR
       ocTriggers: [
         { className: "A",   triggerLevel: 129.0, rank: 1 },
-        { className: "B-1", triggerLevel: 120.0, rank: 2 },
+        { className: "J-1", triggerLevel: 120.0, rank: 2 },
         { className: "C",   triggerLevel: 114.0, rank: 3 },
         { className: "D",   triggerLevel: 108.5, rank: 4 },
         { className: "E",   triggerLevel: 105.5, rank: 5 },
@@ -702,7 +703,7 @@ describe("Multiple OC tests cascade (E + F both fail)", () => {
     // Should have 6 OC test entries (one per trigger class in makeRealisticInputs)
     for (const p of result.periods.slice(0, 3)) {
       expect(p.ocTests).toHaveLength(6);
-      expect(p.ocTests.map((t) => t.className)).toEqual(["A", "B-1", "C", "D", "E", "F"]);
+      expect(p.ocTests.map((t) => t.className)).toEqual(["A", "J-1", "C", "D", "E", "F"]);
     }
   });
 });
@@ -721,21 +722,21 @@ describe("Split-tranche diversion (B-1 and B-2 at same seniorityRank)", () => {
       icTriggers: [],
       // Only trigger at B-1 rank (rank 2) so diversion fires after B-2 is paid
       ocTriggers: [
-        { className: "B-1", triggerLevel: 200.0, rank: 2 },
+        { className: "J-1", triggerLevel: 200.0, rank: 2 },
       ],
     });
 
     const result = runProjection(inputs);
     const failPeriod = result.periods.find((p) =>
-      p.ocTests.some((t) => t.className === "B-1" && !t.passing)
+      p.ocTests.some((t) => t.className === "J-1" && !t.passing)
     );
 
     expect(failPeriod).toBeDefined();
 
     if (failPeriod) {
       // B-1 must have been paid (rank boundary fires AFTER B-2)
-      const b1Interest = failPeriod.trancheInterest.find((t) => t.className === "B-1")!;
-      const b2Interest = failPeriod.trancheInterest.find((t) => t.className === "B-2")!;
+      const b1Interest = failPeriod.trancheInterest.find((t) => t.className === "J-1")!;
+      const b2Interest = failPeriod.trancheInterest.find((t) => t.className === "J-2")!;
       expect(b1Interest).toBeDefined();
       expect(b2Interest).toBeDefined();
 
@@ -760,17 +761,17 @@ describe("Split-tranche diversion (B-1 and B-2 at same seniorityRank)", () => {
       cprPct: 0,
       recoveryPct: 0,
       icTriggers: [],
-      ocTriggers: [{ className: "B-1", triggerLevel: 200.0, rank: 2 }],
+      ocTriggers: [{ className: "J-1", triggerLevel: 200.0, rank: 2 }],
     });
 
     const result = runProjection(inputs);
     const failPeriod = result.periods.find((p) =>
-      p.ocTests.some((t) => t.className === "B-1" && !t.passing)
+      p.ocTests.some((t) => t.className === "J-1" && !t.passing)
     );
 
     if (failPeriod) {
       // B-1 should have paid > 0 (paid before diversion)
-      const b1 = failPeriod.trancheInterest.find((t) => t.className === "B-1")!;
+      const b1 = failPeriod.trancheInterest.find((t) => t.className === "J-1")!;
       expect(b1.paid).toBeGreaterThan(0);
 
       // C (rank 3) should get paid = 0 (after diversion boundary at rank 2)
@@ -860,7 +861,7 @@ describe("OC cure exactly at boundary", () => {
       // Triggers at realistic levels for a fresh deal
       ocTriggers: [
         { className: "A",   triggerLevel: 108.0, rank: 1 },
-        { className: "B-1", triggerLevel: 105.0, rank: 2 },
+        { className: "J-1", triggerLevel: 105.0, rank: 2 },
         { className: "C",   triggerLevel: 103.5, rank: 3 },
         { className: "D",   triggerLevel: 102.5, rank: 4 },
         { className: "E",   triggerLevel: 101.5, rank: 5 },

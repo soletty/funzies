@@ -130,10 +130,15 @@ export default function ProjectionModel({
   const [postRpReinvestmentPct, setPostRpReinvestmentPct] = useState<number>(CLO_DEFAULTS.postRpReinvestmentPct);
   const [callDate, setCallDate] = useState<string | null>(null);
   const [callPricePct, setCallPricePct] = useState<number>(100);
+  const [callPriceMode, setCallPriceMode] = useState<"multiplier" | "flat">("multiplier");
   const [ddtlDrawAssumption, setDdtlDrawAssumption] = useState<'draw_at_deadline' | 'never_draw' | 'custom_quarter'>('draw_at_deadline');
   const [ddtlDrawQuarter, setDdtlDrawQuarter] = useState<number>(CLO_DEFAULTS.ddtlDrawQuarter);
   const [ddtlDrawPercent, setDdtlDrawPercent] = useState<number>(CLO_DEFAULTS.ddtlDrawPercent);
   const [equityEntryPriceCents, setEquityEntryPriceCents] = useState<number | null>(null); // null = use book value
+  // Tracks where the current equityEntryPriceCents value came from, so the UI can
+  // show "auto-filled from inception cost" when applicable. Flips to "manual" as
+  // soon as the user edits the input.
+  const [equityEntrySource, setEquityEntrySource] = useState<"default" | "inception" | "manual">("default");
   const [showTransparency, setShowTransparency] = useState(false);
   const [expandedPeriod, setExpandedPeriod] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<"projection" | "switch">(urlTab === "switch" ? "switch" : "projection");
@@ -152,6 +157,18 @@ export default function ProjectionModel({
     if (f.incentiveFeeHurdleIrr != null) setIncentiveFeeHurdleIrr(f.incentiveFeeHurdleIrr * 100); // stored as decimal, display as %
     if (resolved.dates.nonCallPeriodEnd) setCallDate(null);
   }, [resolved]);
+
+  // Pre-fill equity entry price from inception-data purchase cents on first load.
+  // Don't overwrite if the user has already touched the slider (non-null state).
+  const equityEntryInitialized = useRef(false);
+  React.useEffect(() => {
+    if (equityEntryInitialized.current) return;
+    const cents = equityInceptionData?.purchasePriceCents;
+    if (cents == null) return;
+    equityEntryInitialized.current = true;
+    setEquityEntryPriceCents(cents);
+    setEquityEntrySource("inception");
+  }, [equityInceptionData]);
 
   const loanInputs: LoanInput[] = resolved?.loans ?? [];
 
@@ -204,14 +221,6 @@ export default function ProjectionModel({
     return { subPar, bookValue, bookValueCents };
   }, [resolved]);
 
-  const equityEntryPrice = useMemo(() => {
-    if (!equityMetrics) return undefined;
-    if (equityEntryPriceCents != null) {
-      return equityMetrics.subPar * equityEntryPriceCents / 100;
-    }
-    return undefined; // use engine default (book value)
-  }, [equityEntryPriceCents, equityMetrics]);
-
   const inceptionIrr = useMemo(() => {
     const data = equityInceptionData;
     if (!data?.purchaseDate || data.purchasePriceCents == null || !equityMetrics) return null;
@@ -231,7 +240,7 @@ export default function ProjectionModel({
   const inputs: ProjectionInputs = useMemo(
     () => {
       const resolvedData = resolved ?? EMPTY_RESOLVED;
-      const base = buildFromResolved(resolvedData, {
+      return buildFromResolved(resolvedData, {
         baseRatePct,
         baseRateFloorPct,
         defaultRates: defaultRates,
@@ -248,6 +257,7 @@ export default function ProjectionModel({
         hedgeCostBps,
         callDate,
         callPricePct,
+        callPriceMode,
         seniorFeePct,
         subFeePct,
         trusteeFeeBps,
@@ -256,16 +266,15 @@ export default function ProjectionModel({
         ddtlDrawAssumption,
         ddtlDrawQuarter,
         ddtlDrawPercent,
+        equityEntryPriceCents,
       });
-      if (equityEntryPrice != null) base.equityEntryPrice = equityEntryPrice;
-      return base;
     },
     [
       resolved, baseRatePct, baseRateFloorPct, defaultRates, cprPct, recoveryPct, recoveryLagMonths,
       reinvestmentSpreadBps, reinvestmentTenorYears, reinvestmentRating, cccBucketLimitPct, cccMarketValuePct,
       resolved?.deferredInterestCompounds,
       seniorFeePct, subFeePct, trusteeFeeBps, hedgeCostBps, incentiveFeePct, incentiveFeeHurdleIrr, postRpReinvestmentPct,
-      callDate, callPricePct, ddtlDrawAssumption, ddtlDrawQuarter, ddtlDrawPercent, equityEntryPrice,
+      callDate, callPricePct, callPriceMode, ddtlDrawAssumption, ddtlDrawQuarter, ddtlDrawPercent, equityEntryPriceCents,
     ]
   );
 
@@ -303,6 +312,7 @@ export default function ProjectionModel({
     hedgeCostBps,
     callDate,
     callPricePct,
+    callPriceMode,
     seniorFeePct,
     subFeePct,
     trusteeFeeBps,
@@ -311,12 +321,13 @@ export default function ProjectionModel({
     ddtlDrawAssumption,
     ddtlDrawQuarter,
     ddtlDrawPercent,
+    equityEntryPriceCents,
   }), [
     baseRatePct, baseRateFloorPct, defaultRates, cprPct, recoveryPct, recoveryLagMonths,
     reinvestmentSpreadBps, reinvestmentTenorYears, reinvestmentRating, cccBucketLimitPct, cccMarketValuePct,
     resolved?.deferredInterestCompounds,
-    postRpReinvestmentPct, hedgeCostBps, callDate, callPricePct, seniorFeePct, subFeePct, trusteeFeeBps, incentiveFeePct, incentiveFeeHurdleIrr,
-    ddtlDrawAssumption, ddtlDrawQuarter, ddtlDrawPercent,
+    postRpReinvestmentPct, hedgeCostBps, callDate, callPricePct, callPriceMode, seniorFeePct, subFeePct, trusteeFeeBps, incentiveFeePct, incentiveFeeHurdleIrr,
+    ddtlDrawAssumption, ddtlDrawQuarter, ddtlDrawPercent, equityEntryPriceCents,
   ]);
 
   const validationErrors = useMemo(() => validateInputs(inputs), [inputs]);
@@ -505,6 +516,7 @@ export default function ProjectionModel({
           hasResolvedFees={!!resolved && (resolved.fees.seniorFeePct > 0 || resolved.fees.subFeePct > 0)}
           callDate={callDate} onCallDateChange={setCallDate}
           callPricePct={callPricePct} onCallPriceChange={setCallPricePct}
+          callPriceMode={callPriceMode} onCallPriceModeChange={setCallPriceMode}
           portfolioInfo={portfolioInfo}
           ddtlDrawAssumption={ddtlDrawAssumption} onDdtlDrawAssumptionChange={setDdtlDrawAssumption}
           ddtlDrawQuarter={ddtlDrawQuarter} onDdtlDrawQuarterChange={setDdtlDrawQuarter}
@@ -572,13 +584,17 @@ export default function ProjectionModel({
                 onChange={(e) => {
                   const v = parseFloat(e.target.value);
                   setEquityEntryPriceCents(isNaN(v) ? null : v);
+                  setEquityEntrySource("manual");
                 }}
                 style={{ width: "60px", fontSize: "0.78rem", fontFamily: "var(--font-mono)", padding: "0.2rem 0.4rem", border: "1px solid var(--color-border-light)", borderRadius: "var(--radius-sm)", background: "var(--color-surface)", color: "var(--color-text)", textAlign: "right" }}
               />
               <span style={{ fontSize: "0.72rem", color: "var(--color-text-muted)" }}>cents</span>
               {equityEntryPriceCents != null && (
                 <button
-                  onClick={() => setEquityEntryPriceCents(null)}
+                  onClick={() => {
+                    setEquityEntryPriceCents(null);
+                    setEquityEntrySource("default");
+                  }}
                   style={{ fontSize: "0.65rem", padding: "0.15rem 0.4rem", border: "1px solid var(--color-border-light)", borderRadius: "var(--radius-sm)", background: "var(--color-surface)", color: "var(--color-text-muted)", cursor: "pointer" }}
                 >
                   Reset
@@ -586,6 +602,18 @@ export default function ProjectionModel({
               )}
             </div>
           </div>
+          {/* A1-UI-1: auto-fill provenance hint */}
+          {equityEntrySource === "inception" && equityInceptionData?.purchaseDate && (
+            <div style={{ marginTop: "0.5rem", fontSize: "0.68rem", color: "var(--color-text-muted)", fontStyle: "italic", lineHeight: 1.4 }}>
+              Auto-filled from inception cost basis (purchased {equityInceptionData.purchaseDate} at {equityInceptionData.purchasePriceCents}c). Edit the field above to override.
+            </div>
+          )}
+          {/* A1-UI-2: data-quality warning when inception record exists but price is missing */}
+          {equityInceptionData?.purchaseDate && equityInceptionData.purchasePriceCents == null && (
+            <div style={{ marginTop: "0.5rem", padding: "0.4rem 0.6rem", fontSize: "0.68rem", color: "var(--color-low)", background: "var(--color-low-bg)", borderRadius: "var(--radius-sm)", lineHeight: 1.45 }}>
+              Inception data exists (purchase date {equityInceptionData.purchaseDate}) but the purchase price is missing — equity IRR falls back to book value ({equityMetrics.bookValueCents.toFixed(1)}c), which for secondary-market buyers typically misstates the cost basis. Set the entry price manually if you have it.
+            </div>
+          )}
         </div>
       )}
 
@@ -1033,6 +1061,7 @@ export default function ProjectionModel({
               hasResolvedFees={!!resolved && (resolved.fees.seniorFeePct > 0 || resolved.fees.subFeePct > 0)}
               callDate={callDate} onCallDateChange={setCallDate}
               callPricePct={callPricePct} onCallPriceChange={setCallPricePct}
+          callPriceMode={callPriceMode} onCallPriceModeChange={setCallPriceMode}
               portfolioInfo={portfolioInfo}
               ddtlDrawAssumption={ddtlDrawAssumption} onDdtlDrawAssumptionChange={setDdtlDrawAssumption}
               ddtlDrawQuarter={ddtlDrawQuarter} onDdtlDrawQuarterChange={setDdtlDrawQuarter}

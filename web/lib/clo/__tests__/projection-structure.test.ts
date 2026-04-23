@@ -40,6 +40,7 @@ function makeFullDealInputs(overrides: Partial<ProjectionInputs> = {}): Projecti
     postRpReinvestmentPct: 0,
     callDate: null,
     callPricePct: 100,
+    callPriceMode: "multiplier",
     reinvestmentOcTrigger: null,
     tranches: [
       // Class X: amortising, paid from interest waterfall
@@ -58,9 +59,9 @@ function makeFullDealInputs(overrides: Partial<ProjectionInputs> = {}): Projecti
       // Class A: senior, floating
       { className: "A",  currentBalance: 60_000_000, spreadBps: 140, seniorityRank: 1, isFloating: true,  isIncomeNote: false, isDeferrable: false },
       // Class B-1: floating
-      { className: "B-1", currentBalance: 6_000_000,  spreadBps: 225, seniorityRank: 3, isFloating: true,  isIncomeNote: false, isDeferrable: true  },
+      { className: "J-1", currentBalance: 6_000_000,  spreadBps: 225, seniorityRank: 3, isFloating: true,  isIncomeNote: false, isDeferrable: true  },
       // Class B-2: fixed coupon (spreadBps = full coupon in bps)
-      { className: "B-2", currentBalance: 4_000_000,  spreadBps: 550, seniorityRank: 3, isFloating: false, isIncomeNote: false, isDeferrable: true  },
+      { className: "J-2", currentBalance: 4_000_000,  spreadBps: 550, seniorityRank: 3, isFloating: false, isIncomeNote: false, isDeferrable: true  },
       // Class C through F: deferrable junior tranches
       { className: "C",  currentBalance: 6_000_000,  spreadBps: 330, seniorityRank: 4, isFloating: true,  isIncomeNote: false, isDeferrable: true  },
       { className: "D",  currentBalance: 5_000_000,  spreadBps: 420, seniorityRank: 5, isFloating: true,  isIncomeNote: false, isDeferrable: true  },
@@ -71,7 +72,7 @@ function makeFullDealInputs(overrides: Partial<ProjectionInputs> = {}): Projecti
     ],
     ocTriggers: [
       { className: "A",  triggerLevel: 120, rank: 1 },
-      { className: "B-1", triggerLevel: 114, rank: 3 },
+      { className: "J-1", triggerLevel: 114, rank: 3 },
       { className: "C",  triggerLevel: 108, rank: 4 },
       { className: "D",  triggerLevel: 105, rank: 5 },
       { className: "E",  triggerLevel: 103, rank: 6 },
@@ -79,7 +80,7 @@ function makeFullDealInputs(overrides: Partial<ProjectionInputs> = {}): Projecti
     ],
     icTriggers: [
       { className: "A",  triggerLevel: 120, rank: 1 },
-      { className: "B-1", triggerLevel: 112, rank: 3 },
+      { className: "J-1", triggerLevel: 112, rank: 3 },
     ],
     reinvestmentPeriodEnd: addQuarters(currentDate, 8),
     maturityDate: addQuarters(currentDate, 36),
@@ -190,8 +191,8 @@ describe("Split tranches: B-1 floating + B-2 fixed at same rank", () => {
 
     const q1 = result.periods[0];
 
-    const b1 = q1.trancheInterest.find((t) => t.className === "B-1")!;
-    const b2 = q1.trancheInterest.find((t) => t.className === "B-2")!;
+    const b1 = q1.trancheInterest.find((t) => t.className === "J-1")!;
+    const b2 = q1.trancheInterest.find((t) => t.className === "J-2")!;
 
     expect(b1.paid).toBeGreaterThan(0);
     expect(b2.paid).toBeGreaterThan(0);
@@ -208,8 +209,8 @@ describe("Split tranches: B-1 floating + B-2 fixed at same rank", () => {
     }));
 
     const q1 = result.periods[0];
-    const b1 = q1.trancheInterest.find((t) => t.className === "B-1")!;
-    const b2 = q1.trancheInterest.find((t) => t.className === "B-2")!;
+    const b1 = q1.trancheInterest.find((t) => t.className === "J-1")!;
+    const b2 = q1.trancheInterest.find((t) => t.className === "J-2")!;
 
     // B-2 fixed: 4,000,000 * 0.055 / 4 = 55,000
     expect(b2.due).toBeCloseTo(55_000, -1);
@@ -225,8 +226,8 @@ describe("Split tranches: B-1 floating + B-2 fixed at same rank", () => {
     }));
 
     const q1 = result.periods[0];
-    const b1 = q1.trancheInterest.find((t) => t.className === "B-1")!;
-    const b2 = q1.trancheInterest.find((t) => t.className === "B-2")!;
+    const b1 = q1.trancheInterest.find((t) => t.className === "J-1")!;
+    const b2 = q1.trancheInterest.find((t) => t.className === "J-2")!;
 
     // Same rank, different balance + coupon type → different interest amounts
     expect(b1.due).not.toBeCloseTo(b2.due, 0);
@@ -444,7 +445,7 @@ describe("Deferrable tranches (PIK) on OC failure", () => {
       ocTriggers: [
         // A passes (realistic trigger), B-1 fails immediately (unreachably high trigger)
         { className: "A",   triggerLevel: 110, rank: 1 },
-        { className: "B-1", triggerLevel: 999, rank: 3 }, // always fails → diverts all junior interest
+        { className: "J-1", triggerLevel: 999, rank: 3 }, // always fails → diverts all junior interest
       ],
       icTriggers: [],
       loans: [{ parBalance: 100_000_000, maturityDate: addQuarters("2025-01-15", 30), ratingBucket: "B", spreadBps: 375 }],
@@ -503,7 +504,7 @@ describe("Deferrable tranches (PIK) on OC failure", () => {
       deferredInterestCompounds: true,
       ocTriggers: [
         { className: "A",   triggerLevel: 110, rank: 1 },
-        { className: "B-1", triggerLevel: 999, rank: 3 },
+        { className: "J-1", triggerLevel: 999, rank: 3 },
       ],
       icTriggers: [],
       loans: [{ parBalance: 100_000_000, maturityDate: addQuarters("2025-01-15", 30), ratingBucket: "B", spreadBps: 375 }],
@@ -549,6 +550,7 @@ describe("Call date termination", () => {
     const result = runProjection(makeFullDealInputs({
       callDate: addQuarters("2025-01-15", 8),
       callPricePct: 100,
+    callPriceMode: "multiplier",
       defaultRatesByRating: zeroCdrs(),
       cprPct: 0,
     }));
@@ -595,6 +597,7 @@ describe("Fee waterfall order", () => {
       postRpReinvestmentPct: 0,
       callDate: null,
       callPricePct: 100,
+    callPriceMode: "multiplier",
       reinvestmentOcTrigger: null,
       tranches: [
         { className: "A",   currentBalance: 65_000_000, spreadBps: 140, seniorityRank: 1, isFloating: true,  isIncomeNote: false, isDeferrable: false },

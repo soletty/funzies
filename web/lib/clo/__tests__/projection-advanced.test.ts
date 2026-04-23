@@ -594,7 +594,7 @@ describe("reinvestment OC test (PPM Step V)", () => {
       reinvestmentOcTrigger: { triggerLevel: 200, rank: 2, diversionPct: 50 },
       tranches: [
         { className: "A", currentBalance: 65_000_000, spreadBps: 140, seniorityRank: 1, isFloating: true, isIncomeNote: false, isDeferrable: false },
-        { className: "B", currentBalance: 15_000_000, spreadBps: 250, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
+        { className: "J", currentBalance: 15_000_000, spreadBps: 250, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
         { className: "Sub", currentBalance: 20_000_000, spreadBps: 0, seniorityRank: 3, isFloating: false, isIncomeNote: true, isDeferrable: false },
       ],
     }));

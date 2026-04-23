@@ -54,7 +54,11 @@ export interface UserAssumptions {
   postRpReinvestmentPct: number;
   hedgeCostBps: number;
   callDate: string | null;
-  callPricePct: number; // liquidation price as % of par on call date (100 = par)
+  callPricePct: number; // liquidation price % (semantics depend on callPriceMode)
+  // Call-liquidation pricing semantics (A3):
+  //   'multiplier' (default): per-position price = currentPrice × callPricePct/100
+  //   'flat': every position sells at callPricePct regardless of market price
+  callPriceMode: "multiplier" | "flat";
   ddtlDrawAssumption: 'draw_at_deadline' | 'never_draw' | 'custom_quarter';
   ddtlDrawQuarter: number;
   ddtlDrawPercent: number;
@@ -65,6 +69,11 @@ export interface UserAssumptions {
   trusteeFeeBps: number;
   incentiveFeePct: number;
   incentiveFeeHurdleIrr: number; // as percentage (e.g. 12 for 12%), converted to decimal internally
+  // Equity (sub note) entry price in cents of sub note par. Used for secondary-
+  // market IRR calc. When set, buildFromResolved converts to an absolute €
+  // cost basis = subNotePar × (equityEntryPriceCents / 100). Null = fall back
+  // to engine default (bookValue).
+  equityEntryPriceCents: number | null;
 }
 
 export const DEFAULT_ASSUMPTIONS: UserAssumptions = {
@@ -84,6 +93,7 @@ export const DEFAULT_ASSUMPTIONS: UserAssumptions = {
   hedgeCostBps: 0,
   callDate: null,
   callPricePct: 100,
+  callPriceMode: "multiplier",
   ddtlDrawAssumption: 'draw_at_deadline' as const,
   ddtlDrawQuarter: CLO_DEFAULTS.ddtlDrawQuarter,
   ddtlDrawPercent: CLO_DEFAULTS.ddtlDrawPercent,
@@ -92,6 +102,7 @@ export const DEFAULT_ASSUMPTIONS: UserAssumptions = {
   trusteeFeeBps: CLO_DEFAULTS.trusteeFeeBps,
   incentiveFeePct: CLO_DEFAULTS.incentiveFeePct,
   incentiveFeeHurdleIrr: CLO_DEFAULTS.incentiveFeeHurdleIrr,
+  equityEntryPriceCents: null,
 };
 
 export function buildFromResolved(
@@ -111,6 +122,20 @@ export function buildFromResolved(
     : l
   );
 
+  // Equity entry price: if user assumption is set in cents, resolve against
+  // sub note ORIGINAL par (face at issuance). The buyer's cost basis is a
+  // one-time invariant set at the purchase event — using currentBalance
+  // would silently drift once the sub note amortizes (post-RP or any
+  // principal redemption), producing a lower cost basis than the buyer
+  // actually paid and overstating forward IRR.
+  // The engine's `ProjectionInputs.equityEntryPrice` field is an absolute €.
+  const subNote = resolved.tranches.find(t => t.isIncomeNote);
+  const subNoteFaceAtPurchase = subNote?.originalBalance ?? 0;
+  const equityEntryPrice =
+    userAssumptions.equityEntryPriceCents != null && subNoteFaceAtPurchase > 0
+      ? subNoteFaceAtPurchase * (userAssumptions.equityEntryPriceCents / 100)
+      : undefined;
+
   return {
     initialPar: resolved.poolSummary.totalPar,
     wacSpreadBps: resolved.poolSummary.wacSpreadBps,
@@ -125,6 +150,7 @@ export function buildFromResolved(
     postRpReinvestmentPct: userAssumptions.postRpReinvestmentPct,
     callDate: userAssumptions.callDate,
     callPricePct: userAssumptions.callPricePct,
+    callPriceMode: userAssumptions.callPriceMode,
     reinvestmentOcTrigger: resolved.reinvestmentOcTrigger,
     tranches: resolved.tranches.map(t => ({
       className: t.className,
@@ -172,5 +198,6 @@ export function buildFromResolved(
     impliedOcAdjustment: resolved.impliedOcAdjustment,
     quartersSinceReport: resolved.quartersSinceReport,
     ddtlDrawPercent: userAssumptions.ddtlDrawPercent,
+    ...(equityEntryPrice != null ? { equityEntryPrice } : {}),
   };
 }

@@ -2,8 +2,14 @@ import { describe, it, expect } from "vitest";
 import {
   runProjection,
   addQuarters,
+  dayCountFraction,
 } from "../projection";
 import { uniformRates, makeInputs } from "./test-helpers";
+
+// B3: makeInputs uses currentDate=2026-03-09 → period 1 window is 92 days.
+// Legacy /4-based expected values need the actual day fraction. Fixed-rate
+// tranches use 30/360 (= 0.25 for any 3-month window, unchanged from /4).
+const Q1_ACTUAL = dayCountFraction("actual_360", "2026-03-09", "2026-06-09");
 
 // ─── Task 1: OC cure RP behavior — document modeling convention ─────────────
 
@@ -14,7 +20,7 @@ describe("OC cure RP convention: buy collateral (not paydown)", () => {
       defaultRatesByRating: uniformRates(8),
       cprPct: 0,
       recoveryPct: 0,
-      ocTriggers: [{ className: "B", triggerLevel: 130, rank: 2 }],
+      ocTriggers: [{ className: "J", triggerLevel: 130, rank: 2 }],
       icTriggers: [],
     });
 
@@ -31,7 +37,7 @@ describe("OC cure RP convention: buy collateral (not paydown)", () => {
     const baseline = runProjection(noTriggerInputs);
 
     const failPeriod = result.periods.find((p) =>
-      p.ocTests.some((t) => t.className === "B" && !t.passing)
+      p.ocTests.some((t) => t.className === "J" && !t.passing)
     );
     expect(failPeriod).toBeDefined();
 
@@ -49,8 +55,8 @@ describe("OC cure RP convention: buy collateral (not paydown)", () => {
       cprPct: 0,
       recoveryPct: 0,
       baseRatePct: 0.5,
-      ocTriggers: [{ className: "B", triggerLevel: 130, rank: 2 }],
-      icTriggers: [{ className: "B", triggerLevel: 999, rank: 2 }],
+      ocTriggers: [{ className: "J", triggerLevel: 130, rank: 2 }],
+      icTriggers: [{ className: "J", triggerLevel: 999, rank: 2 }],
     });
 
     const ocOnlyInputs = makeInputs({
@@ -59,7 +65,7 @@ describe("OC cure RP convention: buy collateral (not paydown)", () => {
       cprPct: 0,
       recoveryPct: 0,
       baseRatePct: 0.5,
-      ocTriggers: [{ className: "B", triggerLevel: 130, rank: 2 }],
+      ocTriggers: [{ className: "J", triggerLevel: 130, rank: 2 }],
       icTriggers: [],
     });
 
@@ -125,7 +131,7 @@ describe("Incentive fee three-regime behavior", () => {
       })),
       tranches: [
         { className: "A", currentBalance: 70_000_000, spreadBps: 140, seniorityRank: 1, isFloating: true, isIncomeNote: false, isDeferrable: false },
-        { className: "B", currentBalance: 20_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
+        { className: "J", currentBalance: 20_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
         { className: "Sub", currentBalance: 10_000_000, spreadBps: 0, seniorityRank: 3, isFloating: false, isIncomeNote: true, isDeferrable: false },
       ],
     };
@@ -218,7 +224,7 @@ describe("Principal paydown is sequential (senior-first), not pro-rata", () => {
       ],
       tranches: [
         { className: "A", currentBalance: 50_000_000, spreadBps: 140, seniorityRank: 1, isFloating: true, isIncomeNote: false, isDeferrable: false },
-        { className: "B", currentBalance: 30_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
+        { className: "J", currentBalance: 30_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
         { className: "Sub", currentBalance: 20_000_000, spreadBps: 0, seniorityRank: 3, isFloating: false, isIncomeNote: true, isDeferrable: false },
       ],
       ocTriggers: [],
@@ -229,14 +235,14 @@ describe("Principal paydown is sequential (senior-first), not pro-rata", () => {
 
     const q2 = result.periods.find((p) => p.periodNum === 2)!;
     const aPrinQ2 = q2.tranchePrincipal.find((t) => t.className === "A")!;
-    const bPrinQ2 = q2.tranchePrincipal.find((t) => t.className === "B")!;
+    const bPrinQ2 = q2.tranchePrincipal.find((t) => t.className === "J")!;
     expect(aPrinQ2.paid).toBeCloseTo(40_000_000, -3);
     expect(bPrinQ2.paid).toBeCloseTo(0, -1);
     expect(aPrinQ2.endBalance).toBeCloseTo(10_000_000, -3);
 
     const q4 = result.periods.find((p) => p.periodNum === 4)!;
     const aPrinQ4 = q4.tranchePrincipal.find((t) => t.className === "A")!;
-    const bPrinQ4 = q4.tranchePrincipal.find((t) => t.className === "B")!;
+    const bPrinQ4 = q4.tranchePrincipal.find((t) => t.className === "J")!;
     expect(aPrinQ4.endBalance).toBeCloseTo(0, -1);
     expect(bPrinQ4.endBalance).toBeCloseTo(0, -1);
     expect(q4.equityDistribution).toBeGreaterThan(15_000_000);
@@ -256,7 +262,7 @@ describe("Principal paydown is sequential (senior-first), not pro-rata", () => {
       })),
       tranches: [
         { className: "A", currentBalance: 35_000_000, spreadBps: 140, seniorityRank: 1, isFloating: true, isIncomeNote: false, isDeferrable: false },
-        { className: "B", currentBalance: 20_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
+        { className: "J", currentBalance: 20_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
         { className: "Sub", currentBalance: 45_000_000, spreadBps: 0, seniorityRank: 3, isFloating: false, isIncomeNote: true, isDeferrable: false },
       ],
       ocTriggers: [],
@@ -267,7 +273,7 @@ describe("Principal paydown is sequential (senior-first), not pro-rata", () => {
 
     for (const p of result.periods) {
       const aEnd = p.tranchePrincipal.find((t) => t.className === "A")!.endBalance;
-      const bPaid = p.tranchePrincipal.find((t) => t.className === "B")!.paid;
+      const bPaid = p.tranchePrincipal.find((t) => t.className === "J")!.paid;
       if (aEnd > 1_000) {
         expect(bPaid).toBeCloseTo(0, -1);
       }
@@ -309,7 +315,8 @@ describe("Fee waterfall priority order", () => {
     const totalToDebtHigh = q1High.trancheInterest.reduce((s, t) => s + t.paid, 0) + q1High.equityDistribution;
     const totalToDebtNone = q1None.trancheInterest.reduce((s, t) => s + t.paid, 0) + q1None.equityDistribution;
 
-    expect(totalToDebtNone - totalToDebtHigh).toBeCloseTo(1_000_000, -3);
+    // trusteeFeeBps=400 on 100M par × 92/360 → ~€1.02M diverted from debt/equity.
+    expect(totalToDebtNone - totalToDebtHigh).toBeCloseTo(100_000_000 * 400 / 10000 * Q1_ACTUAL, -3);
   });
 
   it("senior fee is deducted before tranche interest calculation (reduces IC numerator)", () => {
@@ -367,7 +374,7 @@ describe("Fee waterfall priority order", () => {
     }));
 
     // All tranche interest should be identical with/without sub fee
-    for (const className of ["A", "B"]) {
+    for (const className of ["A", "J"]) {
       const withSubFee = result.periods[0].trancheInterest.find((t) => t.className === className)!;
       const withoutSubFee = noSubFee.periods[0].trancheInterest.find((t) => t.className === className)!;
       expect(withSubFee.paid).toBeCloseTo(withoutSubFee.paid, 0);
@@ -399,12 +406,12 @@ describe("OC numerator combines all components correctly", () => {
       ],
       tranches: [
         { className: "A", currentBalance: 60_000_000, spreadBps: 140, seniorityRank: 1, isFloating: true, isIncomeNote: false, isDeferrable: false },
-        { className: "B", currentBalance: 20_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
+        { className: "J", currentBalance: 20_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
         { className: "Sub", currentBalance: 20_000_000, spreadBps: 0, seniorityRank: 3, isFloating: false, isIncomeNote: true, isDeferrable: false },
       ],
       ocTriggers: [
         { className: "A", triggerLevel: 110, rank: 1 },
-        { className: "B", triggerLevel: 105, rank: 2 },
+        { className: "J", triggerLevel: 105, rank: 2 },
       ],
       icTriggers: [],
     });
@@ -440,7 +447,7 @@ describe("PIK catch-up: deferred interest paid when deal recovers", () => {
       deferredInterestCompounds: true,
       tranches: [
         { className: "A", currentBalance: 50_000_000, spreadBps: 140, seniorityRank: 1, isFloating: true, isIncomeNote: false, isDeferrable: false },
-        { className: "B", currentBalance: 20_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
+        { className: "J", currentBalance: 20_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
         { className: "Sub", currentBalance: 30_000_000, spreadBps: 0, seniorityRank: 3, isFloating: false, isIncomeNote: true, isDeferrable: false },
       ],
       ocTriggers: [{ className: "A", triggerLevel: 200, rank: 1 }],
@@ -449,11 +456,11 @@ describe("PIK catch-up: deferred interest paid when deal recovers", () => {
 
     const result = runProjection(inputs);
 
-    const bBalanceQ2 = result.periods[1]?.tranchePrincipal.find((t) => t.className === "B")!.endBalance;
+    const bBalanceQ2 = result.periods[1]?.tranchePrincipal.find((t) => t.className === "J")!.endBalance;
     expect(bBalanceQ2).toBeGreaterThanOrEqual(20_000_000);
 
     const totalBPrincipal = result.periods.reduce((s, p) => {
-      const bPrin = p.tranchePrincipal.find((t) => t.className === "B");
+      const bPrin = p.tranchePrincipal.find((t) => t.className === "J");
       return s + (bPrin?.paid ?? 0);
     }, 0);
 
@@ -470,7 +477,7 @@ describe("PIK catch-up: deferred interest paid when deal recovers", () => {
       deferredInterestCompounds: true,
       tranches: [
         { className: "A", currentBalance: 70_000_000, spreadBps: 140, seniorityRank: 1, isFloating: true, isIncomeNote: false, isDeferrable: false },
-        { className: "B", currentBalance: 10_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
+        { className: "J", currentBalance: 10_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
         { className: "Sub", currentBalance: 20_000_000, spreadBps: 0, seniorityRank: 3, isFloating: false, isIncomeNote: true, isDeferrable: false },
       ],
       ocTriggers: [{ className: "A", triggerLevel: 999, rank: 1 }],
@@ -480,7 +487,7 @@ describe("PIK catch-up: deferred interest paid when deal recovers", () => {
     const result = runProjection(inputs);
 
     const totalBPaid = result.periods.reduce((s, p) => {
-      return s + (p.tranchePrincipal.find((t) => t.className === "B")?.paid ?? 0);
+      return s + (p.tranchePrincipal.find((t) => t.className === "J")?.paid ?? 0);
     }, 0);
 
     expect(totalBPaid).toBeGreaterThan(10_000_000);
@@ -497,7 +504,7 @@ describe("OC + IC cure uses max (not sum) of cure amounts", () => {
       cprPct: 0,
       recoveryPct: 0,
       defaultRatesByRating: uniformRates(15),
-      ocTriggers: [{ className: "B", triggerLevel: 150, rank: 2 }],
+      ocTriggers: [{ className: "J", triggerLevel: 150, rank: 2 }],
       icTriggers: [],
     }));
 
@@ -509,7 +516,7 @@ describe("OC + IC cure uses max (not sum) of cure amounts", () => {
       defaultRatesByRating: uniformRates(0),
       baseRatePct: 0.5,
       seniorFeePct: 1.0,
-      icTriggers: [{ className: "B", triggerLevel: 300, rank: 2 }],
+      icTriggers: [{ className: "J", triggerLevel: 300, rank: 2 }],
       ocTriggers: [],
     }));
 
@@ -521,8 +528,8 @@ describe("OC + IC cure uses max (not sum) of cure amounts", () => {
       defaultRatesByRating: uniformRates(15),
       baseRatePct: 0.5,
       seniorFeePct: 1.0,
-      ocTriggers: [{ className: "B", triggerLevel: 150, rank: 2 }],
-      icTriggers: [{ className: "B", triggerLevel: 300, rank: 2 }],
+      ocTriggers: [{ className: "J", triggerLevel: 150, rank: 2 }],
+      icTriggers: [{ className: "J", triggerLevel: 300, rank: 2 }],
     }));
 
     const ocEquity = ocOnly.periods[0].equityDistribution;
@@ -585,18 +592,19 @@ describe("Absolute-value verification (hand-computed)", () => {
       hedgeCostBps: 0,
     }));
 
-    expect(result.periods[0].interestCollected).toBeCloseTo(1_875_000, -2);
+    // 100M × 7.5% × 92/360 (Actual/360, currentDate=2026-03-09)
+    expect(result.periods[0].interestCollected).toBeCloseTo(100_000_000 * 0.075 * Q1_ACTUAL, -2);
   });
 
   it("Q1 tranche interest due: floating A and floating B at known rates", () => {
-    // A: 70M × (3.5 + 1.4)% / 4 = 857,500
-    // B: 20M × (3.5 + 3.0)% / 4 = 325,000
+    // A: 70M × (3.5 + 1.4)% × 92/360
+    // B: 20M × (3.5 + 3.0)% × 92/360
     const result = runProjection(makeInputs({
       baseRatePct: 3.5,
       loans: [{ parBalance: 100_000_000, maturityDate: addQuarters("2026-03-09", 20), ratingBucket: "B", spreadBps: 400 }],
       tranches: [
         { className: "A", currentBalance: 70_000_000, spreadBps: 140, seniorityRank: 1, isFloating: true, isIncomeNote: false, isDeferrable: false },
-        { className: "B", currentBalance: 20_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
+        { className: "J", currentBalance: 20_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
         { className: "Sub", currentBalance: 10_000_000, spreadBps: 0, seniorityRank: 3, isFloating: false, isIncomeNote: true, isDeferrable: false },
       ],
       defaultRatesByRating: uniformRates(0),
@@ -611,20 +619,20 @@ describe("Absolute-value verification (hand-computed)", () => {
     }));
 
     const aDue = result.periods[0].trancheInterest.find((t) => t.className === "A")!.due;
-    const bDue = result.periods[0].trancheInterest.find((t) => t.className === "B")!.due;
+    const bDue = result.periods[0].trancheInterest.find((t) => t.className === "J")!.due;
 
-    expect(aDue).toBeCloseTo(857_500, -2);
-    expect(bDue).toBeCloseTo(325_000, -2);
+    expect(aDue).toBeCloseTo(70_000_000 * (3.5 + 1.4) / 100 * Q1_ACTUAL, -2);
+    expect(bDue).toBeCloseTo(20_000_000 * (3.5 + 3.0) / 100 * Q1_ACTUAL, -2);
   });
 
   it("Q1 equity distribution = interest - A coupon - B coupon (no fees, no triggers)", () => {
-    // 1,875,000 - 857,500 - 325,000 = 692,500
+    // interest − A coupon − B coupon, all at 92/360
     const result = runProjection(makeInputs({
       baseRatePct: 3.5,
       loans: [{ parBalance: 100_000_000, maturityDate: addQuarters("2026-03-09", 20), ratingBucket: "B", spreadBps: 400 }],
       tranches: [
         { className: "A", currentBalance: 70_000_000, spreadBps: 140, seniorityRank: 1, isFloating: true, isIncomeNote: false, isDeferrable: false },
-        { className: "B", currentBalance: 20_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
+        { className: "J", currentBalance: 20_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
         { className: "Sub", currentBalance: 10_000_000, spreadBps: 0, seniorityRank: 3, isFloating: false, isIncomeNote: true, isDeferrable: false },
       ],
       defaultRatesByRating: uniformRates(0),
@@ -638,7 +646,10 @@ describe("Absolute-value verification (hand-computed)", () => {
       hedgeCostBps: 0,
     }));
 
-    expect(result.periods[0].equityDistribution).toBeCloseTo(692_500, -2);
+    const interest = 100_000_000 * 0.075 * Q1_ACTUAL;
+    const aCoupon = 70_000_000 * (3.5 + 1.4) / 100 * Q1_ACTUAL;
+    const bCoupon = 20_000_000 * (3.5 + 3.0) / 100 * Q1_ACTUAL;
+    expect(result.periods[0].equityDistribution).toBeCloseTo(interest - aCoupon - bCoupon, -2);
   });
 
   it("Q1 defaults with 2% CDR: par × quarterlyHazard", () => {
@@ -682,7 +693,7 @@ describe("Absolute-value verification (hand-computed)", () => {
       loans: [{ parBalance: 100_000_000, maturityDate: addQuarters("2026-03-09", 20), ratingBucket: "B", spreadBps: 400 }],
       tranches: [
         { className: "A", currentBalance: 70_000_000, spreadBps: 140, seniorityRank: 1, isFloating: true, isIncomeNote: false, isDeferrable: false },
-        { className: "B", currentBalance: 20_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
+        { className: "J", currentBalance: 20_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
         { className: "Sub", currentBalance: 10_000_000, spreadBps: 0, seniorityRank: 3, isFloating: false, isIncomeNote: true, isDeferrable: false },
       ],
       defaultRatesByRating: uniformRates(0),
@@ -690,7 +701,7 @@ describe("Absolute-value verification (hand-computed)", () => {
       reinvestmentPeriodEnd: null,
       ocTriggers: [
         { className: "A", triggerLevel: 120, rank: 1 },
-        { className: "B", triggerLevel: 110, rank: 2 },
+        { className: "J", triggerLevel: 110, rank: 2 },
       ],
       icTriggers: [],
       seniorFeePct: 0,
@@ -700,7 +711,7 @@ describe("Absolute-value verification (hand-computed)", () => {
     }));
 
     const ocA = result.periods[0].ocTests.find((t) => t.className === "A")!;
-    const ocB = result.periods[0].ocTests.find((t) => t.className === "B")!;
+    const ocB = result.periods[0].ocTests.find((t) => t.className === "J")!;
 
     expect(ocA.actual).toBeCloseTo(142.857, 1);
     expect(ocA.passing).toBe(true); // 142.86 > 120
@@ -717,7 +728,7 @@ describe("Absolute-value verification (hand-computed)", () => {
       loans: [{ parBalance: 100_000_000, maturityDate: addQuarters("2026-03-09", 20), ratingBucket: "B", spreadBps: 400 }],
       tranches: [
         { className: "A", currentBalance: 70_000_000, spreadBps: 140, seniorityRank: 1, isFloating: true, isIncomeNote: false, isDeferrable: false },
-        { className: "B", currentBalance: 20_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
+        { className: "J", currentBalance: 20_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
         { className: "Sub", currentBalance: 10_000_000, spreadBps: 0, seniorityRank: 3, isFloating: false, isIncomeNote: true, isDeferrable: false },
       ],
       defaultRatesByRating: uniformRates(0),
@@ -730,7 +741,7 @@ describe("Absolute-value verification (hand-computed)", () => {
       ocTriggers: [],
       icTriggers: [
         { className: "A", triggerLevel: 100, rank: 1 },
-        { className: "B", triggerLevel: 100, rank: 2 },
+        { className: "J", triggerLevel: 100, rank: 2 },
       ],
     }));
 
@@ -740,7 +751,7 @@ describe("Absolute-value verification (hand-computed)", () => {
     expect(icA.passing).toBe(true);
 
     // IC_B = (1,875,000 - 125,000) / (857,500 + 325,000) × 100 = 1,750,000 / 1,182,500 × 100 = 148.01
-    const icB = result.periods[0].icTests.find((t) => t.className === "B")!;
+    const icB = result.periods[0].icTests.find((t) => t.className === "J")!;
     expect(icB.actual).toBeCloseTo(148.01, 0);
     expect(icB.passing).toBe(true);
   });
@@ -811,7 +822,7 @@ describe("Absolute-value verification (hand-computed)", () => {
       loans: [{ parBalance: 100_000_000, maturityDate: addQuarters("2026-03-09", 20), ratingBucket: "B", spreadBps: 400 }],
       tranches: [
         { className: "A", currentBalance: 70_000_000, spreadBps: 140, seniorityRank: 1, isFloating: true, isIncomeNote: false, isDeferrable: false },
-        { className: "B", currentBalance: 20_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
+        { className: "J", currentBalance: 20_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
         { className: "Sub", currentBalance: 10_000_000, spreadBps: 0, seniorityRank: 3, isFloating: false, isIncomeNote: true, isDeferrable: false },
       ],
       defaultRatesByRating: uniformRates(0),
@@ -825,6 +836,14 @@ describe("Absolute-value verification (hand-computed)", () => {
       icTriggers: [],
     }));
 
-    expect(result.periods[0].equityDistribution).toBeCloseTo(192_500, -2);
+    // All fees/interest/coupons × Q1_ACTUAL (92/360)
+    const interest = 100_000_000 * 0.075 * Q1_ACTUAL;
+    const trustee = 100_000_000 * 100 / 10000 * Q1_ACTUAL;
+    const hedge = 100_000_000 * 50 / 10000 * Q1_ACTUAL;
+    const senior = 100_000_000 * 0.005 * Q1_ACTUAL;
+    const aDue = 70_000_000 * (3.5 + 1.4) / 100 * Q1_ACTUAL;
+    const bDue = 20_000_000 * (3.5 + 3.0) / 100 * Q1_ACTUAL;
+    const expectedEquity = interest - trustee - hedge - senior - aDue - bDue;
+    expect(result.periods[0].equityDistribution).toBeCloseTo(expectedEquity, -2);
   });
 });

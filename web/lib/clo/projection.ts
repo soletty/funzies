@@ -13,6 +13,9 @@ export interface LoanInput {
   isDelayedDraw?: boolean;
   ddtlSpreadBps?: number;
   drawQuarter?: number;
+  /** Current market price as percentage of par (e.g. 98.5 = 98.5c on the euro).
+   *  Used for A3 call-at-MtM liquidation. Null/undefined = fall back to par (100). */
+  currentPrice?: number | null;
 }
 
 export type DefaultDrawFn = (survivingPar: number, hazardRate: number) => number;
@@ -30,7 +33,13 @@ export interface ProjectionInputs {
   incentiveFeeHurdleIrr: number; // annualized IRR hurdle, e.g. 0.12 for 12%
   postRpReinvestmentPct: number; // % of principal proceeds reinvested post-RP (0-100, typically 0-50)
   callDate: string | null; // optional redemption date — if set, projection stops here and liquidates
-  callPricePct: number; // liquidation price as % of par on call date (e.g. 100 = par, 98 = 2% discount)
+  callPricePct: number; // liquidation price as % (semantics depend on callPriceMode — see below)
+  /** Call liquidation price semantics (A3):
+   *  - 'multiplier': liquidate each position at `currentPrice × callPricePct / 100`.
+   *    callPricePct=100 means "sell at current market"; 95 means "5% haircut on market".
+   *  - 'flat': every position sells at `callPricePct` regardless of its market price.
+   *    Legacy behavior; useful for quick stress ("assume everything sells at 98c"). */
+  callPriceMode: "multiplier" | "flat";
   reinvestmentOcTrigger: { triggerLevel: number; rank: number; diversionPct: number } | null; // Reinvestment OC test — diversionPct % of remaining interest diverted during RP
   tranches: {
     className: string;
@@ -181,6 +190,117 @@ export function quartersBetween(startIso: string, endIso: string): number {
   return Math.ceil(months / 3);
 }
 
+/**
+ * Reinvestment OC Test diversion amount per PPM:
+ *   `raw.constraints.reinvestmentOcTest.diversionAmount` specifies "Interest
+ *   diversion (LESSER OF 50% of residual Interest Proceeds or cure amount)
+ *   during Reinvestment Period".
+ *
+ * During RP, diversion buys collateral → raises numerator. Cure amount solves:
+ *   (numerator + x) / debt ≥ trigger → x = trigger × debt − numerator.
+ *
+ * Returns 0 when (a) no interest to divert, (b) no rated debt, (c) test passes.
+ *
+ * Known approximation: assumes €1 diverted buys €1 of par (par-purchase). Real
+ * reinvestments happen at market prices (typically 95–100%), so €1 of diversion
+ * buys €1/price of par; cure-exact math would be `cureAmount × price`. Tracked
+ * under C1 (reinvestment compliance) for modelling at purchase price.
+ */
+export function computeReinvOcDiversion(
+  availableInterest: number,
+  ocNumerator: number,
+  reinvOcDebt: number,
+  triggerLevelPct: number,
+  diversionPct: number,
+): number {
+  if (availableInterest <= 0) return 0;
+  if (reinvOcDebt <= 0) return 0;
+  const actualPct = (ocNumerator / reinvOcDebt) * 100;
+  if (actualPct >= triggerLevelPct) return 0;
+  const cureAmount = Math.max(0, (triggerLevelPct / 100) * reinvOcDebt - ocNumerator);
+  const maxDiversion = availableInterest * (diversionPct / 100);
+  return Math.min(maxDiversion, cureAmount);
+}
+
+/**
+ * Call-liquidation proceeds per PPM: each position sells at market. Two modes:
+ *   - 'multiplier': effective price = currentPrice × callPricePct/100. The
+ *     default. callPricePct=100 means "sell at current market". callPricePct=95
+ *     means "5% haircut below market" — i.e. stress-test scenario.
+ *   - 'flat': every position sells at callPricePct regardless of its market
+ *     price. Legacy behavior; useful for quick "assume everything at 98c"
+ *     scenarios.
+ *
+ * currentPrice convention (matches resolver contract):
+ *   - `null` / `undefined` → "not observed"; falls back to par (100)
+ *   - `0` → "genuinely worthless" (distressed position with zero recovery
+ *     expected); used as-is, yields 0 liquidation proceeds on that position
+ *   Reinvested positions (carried without a price from the resolver) fall
+ *   through the null path and liquidate at par.
+ *
+ * Unfunded DDTLs are excluded — they have no deployed collateral to liquidate.
+ */
+export function computeCallLiquidation(
+  loanStates: Array<{ survivingPar: number; currentPrice?: number | null; isDelayedDraw?: boolean }>,
+  callPricePct: number,
+  mode: "multiplier" | "flat",
+): number {
+  let total = 0;
+  for (const l of loanStates) {
+    if (l.isDelayedDraw) continue;
+    if (l.survivingPar <= 0) continue;
+    const marketPrice = l.currentPrice != null ? l.currentPrice : 100;
+    const effectivePrice = mode === "flat" ? callPricePct : marketPrice * (callPricePct / 100);
+    total += l.survivingPar * (effectivePrice / 100);
+  }
+  return total;
+}
+
+/**
+ * Day-count fraction between two ISO dates per a named convention.
+ *
+ * Consumers (B3):
+ *   - `runProjection` inner period loop — all interest/fee/coupon accrual.
+ *   - `b3-day-count.test.ts` — first-principles correctness tests (PPM worked
+ *     example, leap year, 30/360 invariance).
+ *   - Several legacy test files (`projection-fixed-rate-ddtl`, `projection-
+ *     systematic-edge-cases`, `projection-waterfall-audit`) — use this to
+ *     compute expected values instead of the old `/ 4` shortcut.
+ *
+ * Conventions supported (per Ares XV PPM Condition 1 "Day count"):
+ *   - 'actual_360': actual days between dates / 360. Used for floating-rate
+ *     tranches, loans, and all management / trustee / hedge fees.
+ *   - '30_360': 30-day-month convention. Used for fixed-rate tranches
+ *     (Class B-2 in Euro XV). Leap-year-neutral and quarter-uniform.
+ *
+ * ISO date inputs must be YYYY-MM-DD. End date is exclusive (standard CLO
+ * convention): Jan 15 → Apr 15 counts as 90 actual days, not 91.
+ *
+ * 30/360 variant: US (Bond Basis) rule. Day-of-month clamps to 30 if the end
+ * date's day > 30 and the start date's day ≥ 30. For the common case (all
+ * mid-month payment dates), every quarter comes out to exactly 90/360 = 0.25.
+ */
+export function dayCountFraction(
+  convention: "actual_360" | "30_360",
+  startIso: string,
+  endIso: string,
+): number {
+  const [sy, sm, sd] = startIso.split("-").map(Number);
+  const [ey, em, ed] = endIso.split("-").map(Number);
+  if (convention === "30_360") {
+    // US 30/360: clamp days. Ref: 2006 ISDA Definitions §4.16(f).
+    const d1 = sd === 31 ? 30 : sd;
+    const d2 = (ed === 31 && d1 >= 30) ? 30 : ed;
+    const days = (ey - sy) * 360 + (em - sm) * 30 + (d2 - d1);
+    return days / 360;
+  }
+  // actual_360
+  const start = Date.UTC(sy, sm - 1, sd);
+  const end = Date.UTC(ey, em - 1, ed);
+  const days = Math.round((end - start) / 86_400_000);
+  return days / 360;
+}
+
 export function addQuarters(dateIso: string, quarters: number): string {
   const d = new Date(dateIso);
   const origDay = d.getUTCDate();
@@ -204,7 +324,7 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
   const {
     initialPar, wacSpreadBps, baseRatePct, baseRateFloorPct, seniorFeePct, subFeePct,
     trusteeFeeBps, hedgeCostBps, incentiveFeePct, incentiveFeeHurdleIrr,
-    postRpReinvestmentPct, callDate, callPricePct, reinvestmentOcTrigger,
+    postRpReinvestmentPct, callDate, callPricePct, callPriceMode, reinvestmentOcTrigger,
     tranches, ocTriggers, icTriggers,
     reinvestmentPeriodEnd, maturityDate, currentDate,
     loans, defaultRatesByRating, cprPct, recoveryPct, recoveryLagMonths,
@@ -214,6 +334,27 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     discountObligationHaircut = 0, longDatedObligationHaircut = 0, impliedOcAdjustment = 0, quartersSinceReport = 0,
     ddtlDrawPercent = 100,
   } = inputs;
+
+  // D1: Class A and Class B are non-deferrable per PPM — if they don't receive
+  // full interest, the deal hits an Event of Default (not PIK). A tranche
+  // incorrectly marked deferrable here would silently compound deferred
+  // interest onto A/B balance and over-report equity — very wrong. Fail fast
+  // so the resolver or user input is caught before it poisons the projection.
+  //
+  // Matching: strip an optional "Class " prefix (case-insensitive), inspect
+  // the first character. Handles "Class A", "Class A-1", "Class B-1", bare
+  // "A", "B-2". Doesn't match "Class C"/"Sub"/synthetic "J" stand-ins.
+  for (const t of tranches) {
+    const core = t.className.trim().replace(/^class\s+/i, "").toUpperCase();
+    const firstLetter = core.charAt(0);
+    if ((firstLetter === "A" || firstLetter === "B") && t.isDeferrable) {
+      throw new Error(
+        `Tranche "${t.className}" is marked isDeferrable=true, but PPM states ` +
+          `Class A/B non-payment of interest is an Event of Default (not deferral). ` +
+          `Check resolver output or tranche input.`,
+      );
+    }
+  }
 
   const maturityQuarters = maturityDate ? Math.max(1, quartersBetween(currentDate, maturityDate)) : CLO_DEFAULTS.defaultMaxTenorYears * 4;
   // If a call date is set, the projection ends at the earlier of call or maturity
@@ -243,6 +384,10 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     isDelayedDraw?: boolean;
     ddtlSpreadBps?: number;
     drawQuarter?: number;
+    /** Per-position market price as % of par. Set from LoanInput.currentPrice on
+     *  initial construction. Reinvested positions default to 100 (just-originated
+     *  at par). Used for A3 call-at-MtM liquidation. */
+    currentPrice?: number | null;
   }
 
   const loanStates: LoanState[] = loans.map((l) => ({
@@ -258,6 +403,7 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     isDelayedDraw: l.isDelayedDraw,
     ddtlSpreadBps: l.ddtlSpreadBps,
     drawQuarter: l.drawQuarter,
+    currentPrice: l.currentPrice,
   }));
 
   // Remove never_draw DDTLs (drawQuarter <= 0) — they never fund and shouldn't appear in the portfolio
@@ -414,6 +560,19 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     const inRP = rpEndDate ? new Date(periodDate) <= rpEndDate : false;
     const isMaturity = q === totalQuarters;
 
+    // B3: period accrual window. Period q runs from addQuarters(currentDate, q-1)
+    // to addQuarters(currentDate, q) — e.g. for currentDate=2026-04-01 and q=1:
+    // Apr 1 → Jul 1. Day-count fractions use these dates with convention-specific
+    // rules (Actual/360 for floating + fees, 30/360 for fixed-rate tranches).
+    const periodStart = addQuarters(currentDate, q - 1);
+    const periodEnd = periodDate;
+    const dayFracActual = dayCountFraction("actual_360", periodStart, periodEnd);
+    const dayFrac30 = dayCountFraction("30_360", periodStart, periodEnd);
+    /** Day-count fraction for a given tranche this period: Actual/360 for
+     *  floating, 30/360 for fixed-rate. */
+    const trancheDayFrac = (t: ProjectionInputs["tranches"][number]): number =>
+      t.isFloating ? dayFracActual : dayFrac30;
+
     // ── 1. Beginning par ──────────────────────────────────────────
     // ── 1b. DDTL draw event (before beginningPar capture) ──────────
     if (hasLoans) {
@@ -535,9 +694,9 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
         if (loan.isDelayedDraw) continue;
         const loanBegPar = loanBeginningPar[i];
         if (loan.isFixedRate) {
-          interestCollected += loanBegPar * (loan.fixedCouponPct ?? 0) / 100 / 4;
+          interestCollected += loanBegPar * (loan.fixedCouponPct ?? 0) / 100 * dayFracActual;
         } else {
-          interestCollected += loanBegPar * (flooredBaseRate + loan.spreadBps / 100) / 100 / 4;
+          interestCollected += loanBegPar * (flooredBaseRate + loan.spreadBps / 100) / 100 * dayFracActual;
         }
       }
       // Q1: initial principal cash earns interest at money market rate (~ESTR) for the quarter.
@@ -545,11 +704,11 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
       if (q === 1 && initialPrincipalCash > 0) {
         // Cash in principal accounts earns MMF/ESTR yield, not EURIBOR. Using the floored
         // base rate as a proxy — ESTR tracks ~10-15bps below 3M EURIBOR, immaterial here.
-        interestCollected += initialPrincipalCash * flooredBaseRate / 100 / 4;
+        interestCollected += initialPrincipalCash * flooredBaseRate / 100 * dayFracActual;
       }
     } else {
       const allInRate = (flooredBaseRate + wacSpreadBps / 100) / 100;
-      interestCollected = beginningPar * allInRate / 4;
+      interestCollected = beginningPar * allInRate * dayFracActual;
     }
 
     // ── 7. Reinvestment ─────────────────────────────────────────
@@ -610,11 +769,11 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     // IC tests must use beginning-of-period balances since interest
     // accrues on the balance before any principal paydown.
     // PPM Steps A-D: Trustee/admin fees paid before senior management fee
-    const trusteeFeeAmount = beginningPar * (trusteeFeeBps / 10000) / 4;
+    const trusteeFeeAmount = beginningPar * (trusteeFeeBps / 10000) * dayFracActual;
     // PPM Step E: Senior collateral management fee
-    const seniorFeeAmount = beginningPar * (seniorFeePct / 100) / 4;
+    const seniorFeeAmount = beginningPar * (seniorFeePct / 100) * dayFracActual;
     // PPM Step F: Hedge payments
-    const hedgeCostAmount = beginningPar * (hedgeCostBps / 10000) / 4;
+    const hedgeCostAmount = beginningPar * (hedgeCostBps / 10000) * dayFracActual;
     const totalSeniorExpenses = trusteeFeeAmount + seniorFeeAmount + hedgeCostAmount;
     const interestAfterFees = Math.max(0, interestCollected - totalSeniorExpenses);
 
@@ -623,7 +782,19 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
       bopTrancheBalances[t.className] = trancheBalances[t.className];
     }
 
-    const liquidationProceeds = isMaturity ? endingPar * (callDate ? callPricePct / 100 : 1) : 0;
+    // A3: on call (callDate set), liquidate each position at its market price
+    // × callPricePct under 'multiplier' semantics, or at a flat callPricePct
+    // under 'flat' semantics. On natural maturity (no callDate), loans redeem
+    // at par so legacy behaviour (endingPar × 100%) is preserved. Aggregate
+    // mode (no loans) falls back to the flat endingPar × callPricePct/100 —
+    // there are no per-position prices to apply.
+    const liquidationProceeds = isMaturity
+      ? (callDate
+          ? (hasLoans
+              ? computeCallLiquidation(loanStates, callPricePct, callPriceMode)
+              : endingPar * (callPricePct / 100))
+          : endingPar)
+      : 0;
     let prelimPrincipal = prepayments + scheduledMaturities + recoveries + q1Cash - reinvestment + liquidationProceeds;
     if (prelimPrincipal < 0) prelimPrincipal = 0;
     if (isMaturity) {
@@ -721,7 +892,7 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     for (const ic of icTriggersByClass) {
       const interestDueAtAndAbove = ocEligibleTranches
         .filter((t) => t.seniorityRank <= ic.rank)
-        .reduce((s, t) => s + bopTrancheBalances[t.className] * trancheCouponRate(t, baseRatePct, baseRateFloorPct) / 4, 0);
+        .reduce((s, t) => s + bopTrancheBalances[t.className] * trancheCouponRate(t, baseRatePct, baseRateFloorPct) * trancheDayFrac(t), 0);
       const actual = interestDueAtAndAbove > 0 ? (interestAfterFees / interestDueAtAndAbove) * 100 : 999;
       const passing = actual >= ic.triggerLevel;
       icResults.push({ className: ic.className, actual, trigger: ic.triggerLevel, passing });
@@ -772,7 +943,7 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     for (let di = 0; di < debtTranches.length; di++) {
       const t = debtTranches[di];
       const rate = trancheCouponRate(t, baseRatePct, baseRateFloorPct);
-      const due = bopTrancheBalances[t.className] * rate / 4;
+      const due = bopTrancheBalances[t.className] * rate * trancheDayFrac(t);
 
       // Step G (PPM): Class X interest, Class X amort, and Class A interest are
       // paid pro rata and pari passu. When we reach Class A's rank, pay all three
@@ -869,24 +1040,24 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
 
         // IC cure: pay down notes to reduce interest due until IC is satisfied.
         // IC = interestAfterFees / interestDue >= trigger
-        // Paying down tranche X reduces interestDue by (paydown * couponRate / 4).
+        // Paying down tranche X reduces interestDue by (paydown * couponRate * dayFrac).
         // Compute iteratively since paydown is sequential (most senior first).
         if (failingIc) {
           const icTriggerRatio = failingIc.triggerLevel / 100;
           const interestDueAtAndAbove = ocEligibleTranches
             .filter((tr) => tr.seniorityRank <= failingIc.rank)
-            .reduce((s, tr) => s + bopTrancheBalances[tr.className] * trancheCouponRate(tr, baseRatePct, baseRateFloorPct) / 4, 0);
+            .reduce((s, tr) => s + bopTrancheBalances[tr.className] * trancheCouponRate(tr, baseRatePct, baseRateFloorPct) * trancheDayFrac(tr), 0);
           const neededInterestDue = interestAfterFees / icTriggerRatio;
           const reductionNeeded = Math.max(0, interestDueAtAndAbove - neededInterestDue);
 
           if (reductionNeeded > 0) {
             // Compute how much principal paydown achieves the needed interest_due reduction.
-            // Pay down most senior tranche first — each € reduces interestDue by couponRate/4.
+            // Pay down most senior tranche first — each € reduces interestDue by couponRate × dayFrac.
             let reductionRemaining = reductionNeeded;
             let icCureAmount = 0;
             for (const tr of ocEligibleTranches.filter((tr) => tr.seniorityRank <= failingIc.rank)) {
               if (reductionRemaining <= 0) break;
-              const couponPerPar = trancheCouponRate(tr, baseRatePct, baseRateFloorPct) / 4;
+              const couponPerPar = trancheCouponRate(tr, baseRatePct, baseRateFloorPct) * trancheDayFrac(tr);
               if (couponPerPar <= 0) continue;
               const trancheAvailable = trancheBalances[tr.className] + deferredBalances[tr.className];
               const paydownForThisTranche = Math.min(reductionRemaining / couponPerPar, trancheAvailable);
@@ -938,28 +1109,31 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
 
     // PPM Step V: Reinvestment OC Test — divert a percentage of remaining interest during RP to buy collateral.
     // Evaluated after standard OC cures which may have bought collateral (updating ocNumerator).
-    let reinvOcFailing = false;
     if (inRP && reinvestmentOcTrigger && availableInterest > 0) {
       const reinvOcDebt = ocEligibleTranches
         .filter((tr) => tr.seniorityRank <= reinvestmentOcTrigger.rank)
         .reduce((s, tr) => s + trancheBalances[tr.className] + deferredBalances[tr.className], 0);
-      const reinvOcActual = reinvOcDebt > 0 ? (ocNumerator / reinvOcDebt) * 100 : 999;
-      reinvOcFailing = reinvOcActual < reinvestmentOcTrigger.triggerLevel;
-    }
-    if (reinvOcFailing && availableInterest > 0) {
-      const diversion = availableInterest * (reinvestmentOcTrigger!.diversionPct / 100);
-      _stepTrace_reinvOcDiversion = diversion;
-      availableInterest -= diversion;
-      currentPar += diversion;
-      if (hasLoans && diversion > 0) {
-        loanStates.push({
-          survivingPar: diversion,
-          ratingBucket: reinvestmentRating,
-          spreadBps: reinvestmentSpreadBps,
-          maturityQuarter: q + reinvestmentTenorQuarters,
-          isFixedRate: false,
-          isDelayedDraw: false,
-        });
+      const diversion = computeReinvOcDiversion(
+        availableInterest,
+        ocNumerator,
+        reinvOcDebt,
+        reinvestmentOcTrigger.triggerLevel,
+        reinvestmentOcTrigger.diversionPct,
+      );
+      if (diversion > 0) {
+        _stepTrace_reinvOcDiversion = diversion;
+        availableInterest -= diversion;
+        currentPar += diversion;
+        if (hasLoans) {
+          loanStates.push({
+            survivingPar: diversion,
+            ratingBucket: reinvestmentRating,
+            spreadBps: reinvestmentSpreadBps,
+            maturityQuarter: q + reinvestmentTenorQuarters,
+            isFixedRate: false,
+            isDelayedDraw: false,
+          });
+        }
       }
     }
 
@@ -968,7 +1142,7 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     else endingPar = currentPar;
 
     // PPM Step W: Subordinated management fee — paid after all debt tranches
-    const subFeeAmount = beginningPar * (subFeePct / 100) / 4;
+    const subFeeAmount = beginningPar * (subFeePct / 100) * dayFracActual;
     availableInterest -= Math.min(subFeeAmount, availableInterest);
 
     // PPM Step BB: Incentive management fee — % of residual when equity IRR > hurdle.

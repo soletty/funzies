@@ -88,7 +88,7 @@ describe("runProjection baseline", () => {
   it("tracks tranche payoff quarters", () => {
     const result = runProjection(makeInputs());
     expect(result.tranchePayoffQuarter).toHaveProperty("A");
-    expect(result.tranchePayoffQuarter).toHaveProperty("B");
+    expect(result.tranchePayoffQuarter).toHaveProperty("J");
     expect(result.tranchePayoffQuarter).toHaveProperty("Sub");
   });
 });
@@ -278,7 +278,7 @@ describe("OC gating diverts cash from equity", () => {
       reinvestmentPeriodEnd: null,
       ocTriggers: [
         { className: "A", triggerLevel: 120, rank: 1 },
-        { className: "B", triggerLevel: 110, rank: 2 },
+        { className: "J", triggerLevel: 110, rank: 2 },
       ],
       icTriggers: [],
     }));
@@ -290,7 +290,7 @@ describe("OC gating diverts cash from equity", () => {
       reinvestmentPeriodEnd: null,
       ocTriggers: [
         { className: "A", triggerLevel: 120, rank: 1 },
-        { className: "B", triggerLevel: 110, rank: 2 },
+        { className: "J", triggerLevel: 110, rank: 2 },
       ],
       icTriggers: [],
     }));
@@ -311,12 +311,12 @@ describe("OC gating diverts cash from equity", () => {
       recoveryPct: 0,
       reinvestmentPeriodEnd: null,
       ocTriggers: [
-        { className: "B", triggerLevel: 200, rank: 2 },
+        { className: "J", triggerLevel: 200, rank: 2 },
       ],
       icTriggers: [],
     }));
     const q1 = result.periods[0];
-    const ocB = q1.ocTests.find((t) => t.className === "B")!;
+    const ocB = q1.ocTests.find((t) => t.className === "J")!;
     expect(ocB.passing).toBe(false);
     expect(q1.equityDistribution).toBeCloseTo(0, -1);
   });
@@ -419,7 +419,7 @@ describe("OC failure causes junior tranche interest shortfall", () => {
       icTriggers: [],
     }));
     const q1 = result.periods[0];
-    const bInterest = q1.trancheInterest.find((t) => t.className === "B")!;
+    const bInterest = q1.trancheInterest.find((t) => t.className === "J")!;
     expect(bInterest.paid).toBe(0);
     expect(bInterest.due).toBeGreaterThan(0);
   });

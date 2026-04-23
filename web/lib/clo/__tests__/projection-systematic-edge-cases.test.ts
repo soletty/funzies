@@ -15,8 +15,12 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { runProjection, addQuarters } from "../projection";
+import { runProjection, addQuarters, dayCountFraction } from "../projection";
 import { uniformRates, makeInputs } from "./test-helpers";
+
+// B3: makeInputs uses currentDate=2026-03-09 → period 1 window is 92 days
+// under Actual/360. Legacy /4-based expected values need updating.
+const Q1_ACTUAL = dayCountFraction("actual_360", "2026-03-09", "2026-06-09");
 
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -35,14 +39,14 @@ describe("A. Aggregate mode (no loans)", () => {
       defaultRatesByRating: uniformRates(10),
       cprPct: 0,
       recoveryPct: 0,
-      ocTriggers: [{ className: "B", triggerLevel: 130, rank: 2 }],
+      ocTriggers: [{ className: "J", triggerLevel: 130, rank: 2 }],
       icTriggers: [],
     });
 
     const result = runProjection(inputs);
     const p1 = result.periods[0];
 
-    const ocB = p1.ocTests.find((t) => t.className === "B")!;
+    const ocB = p1.ocTests.find((t) => t.className === "J")!;
     expect(ocB).toBeDefined();
     // With 10% uniform CDR, par drops → OC may fail at 130 trigger
     // Regardless, the test ran without error in aggregate mode with OC triggers
@@ -58,14 +62,14 @@ describe("A. Aggregate mode (no loans)", () => {
       cprPct: 0,
       recoveryPct: 0,
       baseRatePct: 1.0,
-      icTriggers: [{ className: "B", triggerLevel: 200, rank: 2 }],
+      icTriggers: [{ className: "J", triggerLevel: 200, rank: 2 }],
       ocTriggers: [],
     });
 
     const result = runProjection(inputs);
     const p1 = result.periods[0];
 
-    const icB = p1.icTests.find((t) => t.className === "B")!;
+    const icB = p1.icTests.find((t) => t.className === "J")!;
     expect(icB).toBeDefined();
     // Interest in aggregate: par * allInRate / 4 = 100M * (1+4)/100 / 4 = 1.25M
     // A due = 70M * (1+1.4)/100/4 = 420K, B due = 20M * (1+3)/100/4 = 200K
@@ -83,8 +87,8 @@ describe("A. Aggregate mode (no loans)", () => {
       wacSpreadBps: 400,
     }));
 
-    // Interest = 100M * (2.1 + 4.0)/100 / 4 = 1.525M
-    expect(aggResult.periods[0].interestCollected).toBeCloseTo(1_525_000, -2);
+    // Interest = 100M × (2.1 + 4.0)% × 92/360 (Actual/360, currentDate=2026-03-09)
+    expect(aggResult.periods[0].interestCollected).toBeCloseTo(100_000_000 * (2.1 + 4.0) / 100 * Q1_ACTUAL, -2);
   });
 
   it("A4: aggregate mode reinvestment during RP increases currentPar", () => {
@@ -264,19 +268,19 @@ describe("C. OC/IC cure branch combinations", () => {
       cprPct: 0,
       recoveryPct: 0,
       baseRatePct: 1.0, // low base rate → tight IC
-      ocTriggers: [{ className: "B", triggerLevel: 110, rank: 2 }], // OC passes (par/denom = 100/90 = 111%)
-      icTriggers: [{ className: "B", triggerLevel: 250, rank: 2 }], // IC fails (tight trigger)
+      ocTriggers: [{ className: "J", triggerLevel: 110, rank: 2 }], // OC passes (par/denom = 100/90 = 111%)
+      icTriggers: [{ className: "J", triggerLevel: 250, rank: 2 }], // IC fails (tight trigger)
     });
 
     const result = runProjection(inputs);
     const p1 = result.periods[0];
 
     // OC should pass
-    const ocB = p1.ocTests.find((t) => t.className === "B")!;
+    const ocB = p1.ocTests.find((t) => t.className === "J")!;
     expect(ocB.passing).toBe(true);
 
     // IC should fail
-    const icB = p1.icTests.find((t) => t.className === "B")!;
+    const icB = p1.icTests.find((t) => t.className === "J")!;
     expect(icB.passing).toBe(false);
 
     // Cure should use paydown (not buy collateral) even though we're in RP
@@ -335,12 +339,12 @@ describe("C. OC/IC cure branch combinations", () => {
       recoveryPct: 0,
       tranches: [
         { className: "A", currentBalance: 55_000_000, spreadBps: 140, seniorityRank: 1, isFloating: true, isIncomeNote: false, isDeferrable: false },
-        { className: "B", currentBalance: 15_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
+        { className: "J", currentBalance: 15_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
         { className: "C", currentBalance: 10_000_000, spreadBps: 450, seniorityRank: 3, isFloating: true, isIncomeNote: false, isDeferrable: true },
         { className: "Sub", currentBalance: 20_000_000, spreadBps: 0, seniorityRank: 4, isFloating: false, isIncomeNote: true, isDeferrable: false },
       ],
       ocTriggers: [
-        { className: "B", triggerLevel: 130, rank: 2 },
+        { className: "J", triggerLevel: 130, rank: 2 },
         { className: "C", triggerLevel: 115, rank: 3 },
       ],
       icTriggers: [],
@@ -398,7 +402,7 @@ describe("D. Reinvestment mechanics", () => {
       defaultRatesByRating: uniformRates(0),
       cprPct: 20,
       recoveryPct: 0,
-      ocTriggers: [{ className: "B", triggerLevel: 110, rank: 2 }],
+      ocTriggers: [{ className: "J", triggerLevel: 110, rank: 2 }],
       icTriggers: [],
     });
 
@@ -411,8 +415,8 @@ describe("D. Reinvestment mechanics", () => {
     // After several periods of reinvesting as CCC:
     const midPeriod = 6;
     if (noCCCResult.periods[midPeriod] && cccResult.periods[midPeriod]) {
-      const noCCCOc = noCCCResult.periods[midPeriod].ocTests.find((t) => t.className === "B");
-      const cccOc = cccResult.periods[midPeriod].ocTests.find((t) => t.className === "B");
+      const noCCCOc = noCCCResult.periods[midPeriod].ocTests.find((t) => t.className === "J");
+      const cccOc = cccResult.periods[midPeriod].ocTests.find((t) => t.className === "J");
       if (noCCCOc && cccOc) {
         // CCC haircut should reduce OC ratio
         expect(cccOc.actual).toBeLessThanOrEqual(noCCCOc.actual + 0.01);
@@ -495,13 +499,13 @@ describe("E. PIK interactions", () => {
     const nonCompResult = runProjection(makeInputs({ ...base, deferredInterestCompounds: false }));
 
     // Q1: B endBalance should be the same (first period PIK amount is identical)
-    const compB1 = compResult.periods[0].tranchePrincipal.find((t) => t.className === "B")!;
-    const nonCompB1 = nonCompResult.periods[0].tranchePrincipal.find((t) => t.className === "B")!;
+    const compB1 = compResult.periods[0].tranchePrincipal.find((t) => t.className === "J")!;
+    const nonCompB1 = nonCompResult.periods[0].tranchePrincipal.find((t) => t.className === "J")!;
     expect(compB1.endBalance).toBeCloseTo(nonCompB1.endBalance, 0);
 
     // Q3+: compounding should show higher B endBalance (interest on deferred)
-    const compB3 = compResult.periods[2]?.tranchePrincipal.find((t) => t.className === "B")!;
-    const nonCompB3 = nonCompResult.periods[2]?.tranchePrincipal.find((t) => t.className === "B")!;
+    const compB3 = compResult.periods[2]?.tranchePrincipal.find((t) => t.className === "J")!;
+    const nonCompB3 = nonCompResult.periods[2]?.tranchePrincipal.find((t) => t.className === "J")!;
     if (compB3 && nonCompB3) {
       expect(compB3.endBalance).toBeGreaterThan(nonCompB3.endBalance);
     }
@@ -517,29 +521,32 @@ describe("E. PIK interactions", () => {
       cprPct: 0,
       recoveryPct: 0,
       tranches: [
-        { className: "A", currentBalance: 5_000, spreadBps: 140, seniorityRank: 1, isFloating: true, isIncomeNote: false, isDeferrable: true },
-        { className: "B", currentBalance: 20_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
+        // Synthetic "K" senior: deliberately marked deferrable to exercise
+        // the "bopBalance <= 0.01 / don't PIK onto a zeroed tranche" code
+        // path. Renamed from "A" because D1 enforces A/B non-deferrable.
+        { className: "K", currentBalance: 5_000, spreadBps: 140, seniorityRank: 1, isFloating: true, isIncomeNote: false, isDeferrable: true },
+        { className: "J", currentBalance: 20_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
         { className: "Sub", currentBalance: 79_995_000, spreadBps: 0, seniorityRank: 3, isFloating: false, isIncomeNote: true, isDeferrable: false },
       ],
-      // A is tiny (5K) → paid off immediately from first loan maturity
+      // K is tiny (5K) → paid off immediately from first loan maturity
       loans: [
         { parBalance: 50_000_000, maturityDate: addQuarters("2026-01-15", 1), ratingBucket: "B", spreadBps: 400 },
         { parBalance: 50_000_000, maturityDate: addQuarters("2026-01-15", 20), ratingBucket: "B", spreadBps: 400 },
       ],
-      // Full diversion after A → B gets PIK
-      ocTriggers: [{ className: "A", triggerLevel: 999, rank: 1 }],
+      // Full diversion after K → J gets PIK
+      ocTriggers: [{ className: "K", triggerLevel: 999, rank: 1 }],
       icTriggers: [],
     });
 
     const result = runProjection(inputs);
 
-    // A should be paid off in Q1
-    expect(result.tranchePayoffQuarter["A"]).toBe(1);
+    // K should be paid off in Q1
+    expect(result.tranchePayoffQuarter["K"]).toBe(1);
 
-    // After payoff, A's endBalance should stay at 0 (no PIK added to zeroed tranche)
+    // After payoff, K's endBalance should stay at 0 (no PIK added to zeroed tranche)
     for (let i = 1; i < result.periods.length; i++) {
-      const aBalance = result.periods[i].tranchePrincipal.find((t) => t.className === "A")!;
-      expect(aBalance.endBalance).toBeCloseTo(0, 0);
+      const kBalance = result.periods[i].tranchePrincipal.find((t) => t.className === "K")!;
+      expect(kBalance.endBalance).toBeCloseTo(0, 0);
     }
   });
 
@@ -555,7 +562,7 @@ describe("E. PIK interactions", () => {
       // Tight OC that barely passes initially, then fails as PIK accumulates
       // B denom = A + B = 90M. OC = 100M/90M = 111.1%. Trigger at 111.
       // As B PIKs, denom grows: 90M → 90.325M → ... eventually fails.
-      ocTriggers: [{ className: "B", triggerLevel: 111, rank: 2 }],
+      ocTriggers: [{ className: "J", triggerLevel: 111, rank: 2 }],
       icTriggers: [],
       // Force B to PIK by diverting at rank 1 but with a passable trigger
       // Actually, to get B to PIK, we need diversion. Let's use a different approach:
@@ -572,7 +579,7 @@ describe("E. PIK interactions", () => {
 
     // B should have increasing endBalance due to PIK
     const bBalances = result.periods.slice(0, 5).map(
-      (p) => p.tranchePrincipal.find((t) => t.className === "B")!.endBalance
+      (p) => p.tranchePrincipal.find((t) => t.className === "J")!.endBalance
     );
     // Each period, B balance grows due to PIK of ~307K
     for (let i = 1; i < bBalances.length; i++) {
@@ -699,7 +706,7 @@ describe("G. Reinvestment OC trigger interactions", () => {
       cprPct: 0,
       recoveryPct: 0,
       // Standard OC trigger that fires and buys collateral
-      ocTriggers: [{ className: "B", triggerLevel: 115, rank: 2 }],
+      ocTriggers: [{ className: "J", triggerLevel: 115, rank: 2 }],
       icTriggers: [],
       // Reinvestment OC: same rank but lower trigger — should pass after cure
       reinvestmentOcTrigger: { triggerLevel: 110, rank: 2, diversionPct: 50 },
@@ -819,7 +826,7 @@ describe("H. Fee interactions", () => {
       })),
       tranches: [
         { className: "A", currentBalance: 70_000_000, spreadBps: 140, seniorityRank: 1, isFloating: true, isIncomeNote: false, isDeferrable: false },
-        { className: "B", currentBalance: 20_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
+        { className: "J", currentBalance: 20_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
         { className: "Sub", currentBalance: 10_000_000, spreadBps: 0, seniorityRank: 3, isFloating: false, isIncomeNote: true, isDeferrable: false },
       ],
       reinvestmentPeriodEnd: "2026-01-01",
@@ -828,7 +835,7 @@ describe("H. Fee interactions", () => {
       recoveryPct: 0,
       incentiveFeePct: 20,
       incentiveFeeHurdleIrr: 0.10, // 10% hurdle
-      ocTriggers: [{ className: "B", triggerLevel: 120, rank: 2 }],
+      ocTriggers: [{ className: "J", triggerLevel: 120, rank: 2 }],
       icTriggers: [],
     });
 
@@ -1008,8 +1015,8 @@ describe("J. Loan rating & spread edge cases", () => {
       loans: [{ parBalance: 100_000_000, maturityDate: addQuarters("2026-01-15", 20), ratingBucket: "B", spreadBps: 400 }],
     }));
 
-    // Zero spread: interest = 100M * 2.1% / 4 = 525K
-    expect(zeroSpread.periods[0].interestCollected).toBeCloseTo(525_000, -2);
+    // Zero spread: interest = 100M × 2.1% × 92/360
+    expect(zeroSpread.periods[0].interestCollected).toBeCloseTo(100_000_000 * 2.1 / 100 * Q1_ACTUAL, -2);
     expect(withSpread.periods[0].interestCollected).toBeGreaterThan(
       zeroSpread.periods[0].interestCollected
     );
@@ -1116,12 +1123,12 @@ describe("L. Split tranches at same rank", () => {
       recoveryPct: 0,
       tranches: [
         { className: "A", currentBalance: 55_000_000, spreadBps: 140, seniorityRank: 1, isFloating: true, isIncomeNote: false, isDeferrable: false },
-        { className: "B-1", currentBalance: 12_000_000, spreadBps: 225, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
-        { className: "B-2", currentBalance: 8_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
+        { className: "J-1", currentBalance: 12_000_000, spreadBps: 225, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
+        { className: "J-2", currentBalance: 8_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
         { className: "C", currentBalance: 10_000_000, spreadBps: 450, seniorityRank: 3, isFloating: true, isIncomeNote: false, isDeferrable: true },
         { className: "Sub", currentBalance: 15_000_000, spreadBps: 0, seniorityRank: 4, isFloating: false, isIncomeNote: true, isDeferrable: false },
       ],
-      ocTriggers: [{ className: "B-1", triggerLevel: 200, rank: 2 }], // fails → diversion at rank 2 boundary
+      ocTriggers: [{ className: "J-1", triggerLevel: 200, rank: 2 }], // fails → diversion at rank 2 boundary
       icTriggers: [],
     });
 
@@ -1129,8 +1136,8 @@ describe("L. Split tranches at same rank", () => {
     const p1 = result.periods[0];
 
     // Both B-1 and B-2 should receive interest (diversion happens AFTER both are paid)
-    const b1 = p1.trancheInterest.find((t) => t.className === "B-1")!;
-    const b2 = p1.trancheInterest.find((t) => t.className === "B-2")!;
+    const b1 = p1.trancheInterest.find((t) => t.className === "J-1")!;
+    const b2 = p1.trancheInterest.find((t) => t.className === "J-2")!;
     expect(b1.paid).toBeGreaterThan(0);
     expect(b2.paid).toBeGreaterThan(0);
 
@@ -1150,12 +1157,12 @@ describe("L. Split tranches at same rank", () => {
       baseRatePct: 0.5,
       tranches: [
         { className: "A", currentBalance: 55_000_000, spreadBps: 140, seniorityRank: 1, isFloating: true, isIncomeNote: false, isDeferrable: false },
-        { className: "B-1", currentBalance: 12_000_000, spreadBps: 225, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
-        { className: "B-2", currentBalance: 8_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
+        { className: "J-1", currentBalance: 12_000_000, spreadBps: 225, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
+        { className: "J-2", currentBalance: 8_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
         { className: "Sub", currentBalance: 25_000_000, spreadBps: 0, seniorityRank: 3, isFloating: false, isIncomeNote: true, isDeferrable: false },
       ],
       ocTriggers: [],
-      icTriggers: [{ className: "B-1", triggerLevel: 300, rank: 2 }], // tight IC trigger
+      icTriggers: [{ className: "J-1", triggerLevel: 300, rank: 2 }], // tight IC trigger
     });
 
     const result = runProjection(inputs);
@@ -1192,11 +1199,11 @@ describe("M. Conservation laws", () => {
     reinvestmentOcTrigger: { triggerLevel: 110, rank: 2, diversionPct: 50 },
     ocTriggers: [
       { className: "A", triggerLevel: 125, rank: 1 },
-      { className: "B", triggerLevel: 110, rank: 2 },
+      { className: "J", triggerLevel: 110, rank: 2 },
     ],
     icTriggers: [
       { className: "A", triggerLevel: 120, rank: 1 },
-      { className: "B", triggerLevel: 110, rank: 2 },
+      { className: "J", triggerLevel: 110, rank: 2 },
     ],
   });
 
@@ -1234,7 +1241,7 @@ describe("M. Conservation laws", () => {
     for (const p of realisticResult.periods) {
       if (p.ocTests.length >= 2) {
         const aOc = p.ocTests.find((t) => t.className === "A")!;
-        const bOc = p.ocTests.find((t) => t.className === "B")!;
+        const bOc = p.ocTests.find((t) => t.className === "J")!;
         expect(aOc.actual).toBeGreaterThanOrEqual(bOc.actual - 0.01);
       }
     }
@@ -1260,7 +1267,7 @@ describe("M. Conservation laws", () => {
       recoveryPct: 60,
       tranches: [
         { className: "A", currentBalance: 70_000_000, spreadBps: 140, seniorityRank: 1, isFloating: true, isIncomeNote: false, isDeferrable: false },
-        { className: "B", currentBalance: 20_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: false },
+        { className: "J", currentBalance: 20_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: false },
         { className: "Sub", currentBalance: 10_000_000, spreadBps: 0, seniorityRank: 3, isFloating: false, isIncomeNote: true, isDeferrable: false },
       ],
     });

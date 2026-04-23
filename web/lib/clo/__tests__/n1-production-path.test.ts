@@ -67,71 +67,73 @@ describe("N1 production path — diagnostic table (not an assertion)", () => {
 // ----------------------------------------------------------------------------
 
 describe("N1 production path — pre-fill gap drifts (red by design)", () => {
-  // DEFAULT_ASSUMPTIONS.baseRatePct = 2.1% (static). Fixture EURIBOR = 2.016%.
-  // Error: ~8.4 bps applied to €310M Class A × 1/4 = ~€65K per period on A alone.
+  // Post-B3 drifts are KI-10 (baseRate mispin) + KI-12b (day-count / harness
+  // period mismatch) combined. Neither can be cleanly separated in the
+  // production path without pinning; both will close together when D3 +
+  // KI-12a land. Magnitudes re-measured empirically after B3 ship.
   failsWithMagnitude(
     {
-      ki: "KI-10",
-      closesIn: "Sprint 1 / baseRate pre-fill (D3 family)",
-      expectedDrift: 65100,
+      ki: "KI-10 + KI-12b",
+      closesIn: "Sprint 1 / baseRate pre-fill (D3) + KI-12a harness fix",
+      expectedDrift: 91363.89,
       tolerance: 500,
     },
-    "Class A interest uses stale default baseRate (2.1%) vs observed EURIBOR (2.016%)",
+    "Class A interest: stale baseRate + day-count drift",
     () => drift("classA_interest"),
   );
 
   failsWithMagnitude(
     {
-      ki: "KI-10",
-      closesIn: "Sprint 1 / baseRate pre-fill (D3 family)",
-      expectedDrift: 7087.5,
+      ki: "KI-10 + KI-12b",
+      closesIn: "Sprint 1 / baseRate pre-fill (D3) + KI-12a harness fix",
+      expectedDrift: 10650,
       tolerance: 200,
     },
-    "Class B interest uses stale default baseRate",
+    "Class B interest: stale baseRate + day-count drift",
     () => drift("classB_interest"),
   );
 
   failsWithMagnitude(
     {
-      ki: "KI-10",
-      closesIn: "Sprint 1 / baseRate pre-fill (D3 family)",
-      expectedDrift: 6825,
+      ki: "KI-10 + KI-12b",
+      closesIn: "Sprint 1 / baseRate pre-fill (D3) + KI-12a harness fix",
+      expectedDrift: 10616.67,
       tolerance: 200,
     },
-    "Class C interest uses stale default baseRate",
+    "Class C interest: stale baseRate + day-count drift",
     () => drift("classC_current"),
   );
 
   failsWithMagnitude(
     {
-      ki: "KI-10",
-      closesIn: "Sprint 1 / baseRate pre-fill (D3 family)",
-      expectedDrift: 7218.75,
+      ki: "KI-10 + KI-12b",
+      closesIn: "Sprint 1 / baseRate pre-fill (D3) + KI-12a harness fix",
+      expectedDrift: 12231.77,
       tolerance: 200,
     },
-    "Class D interest uses stale default baseRate",
+    "Class D interest: stale baseRate + day-count drift",
     () => drift("classD_current"),
   );
 
   failsWithMagnitude(
     {
-      ki: "KI-10",
-      closesIn: "Sprint 1 / baseRate pre-fill (D3 family)",
-      expectedDrift: 5381.24,
+      ki: "KI-10 + KI-12b",
+      closesIn: "Sprint 1 / baseRate pre-fill (D3) + KI-12a harness fix",
+      expectedDrift: 11225.17,
       tolerance: 200,
     },
-    "Class E interest uses stale default baseRate",
+    "Class E interest: stale baseRate + day-count drift",
     () => drift("classE_current"),
   );
 
   failsWithMagnitude(
     {
-      ki: "KI-10",
-      closesIn: "Sprint 1 / baseRate pre-fill (D3 family)",
-      expectedDrift: 3150,
+      ki: "KI-10 + KI-12b",
+      closesIn: "Sprint 1 / baseRate pre-fill (D3) + KI-12a harness fix",
+      expectedDrift: 7712.50,
       tolerance: 200,
     },
-    "Class F interest uses stale default baseRate",
+    "Class F interest: stale baseRate + day-count drift",
     () => drift("classF_current"),
   );
 
@@ -179,8 +181,11 @@ describe("N1 production path — sub distribution cascade", () => {
   failsWithMagnitude(
     {
       ki: "KI-13b-productionPath",
-      closesIn: "Progressively as KI-10 / KI-11 / KI-12a close (re-baseline on each — see KI-13 ledger entry)",
-      expectedDrift: 617122.40,
+      closesIn: "Progressively as KI-10 / KI-11 / KI-12a / KI-12b close (re-baseline on each — see KI-13 ledger entry)",
+      // Pre-B3: +€617,122.40. Post-B3: +€645,435.62 — cascade grew by ~€28K
+      // as the six class-interest drifts added to the residual. Re-baselined
+      // per reviewer's KI-13 maintenance protocol.
+      expectedDrift: 645435.62,
       tolerance: 1000,
     },
     "subDistribution massively over-pays engine-side (pre-fill gaps compound)",
