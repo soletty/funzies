@@ -31,6 +31,7 @@ const MONTHS: Record<string, string> = {
 
 // "29-Sep-2032" or "29 Sep 2032" → "2032-09-29"
 // "Dec 15, 2021" → "2021-12-15"
+// "12/15/2021" or "12-15-2021" → "2021-12-15" (US numeric — month-first)
 // "2032-09-29" passes through untouched.
 // Returns null on unparseable input (e.g. empty, "null", unparseable).
 export function parseFlexibleDate(s: string | null | undefined): string | null {
@@ -55,6 +56,20 @@ export function parseFlexibleDate(s: string | null | undefined): string | null {
     const [, mon, day, year] = m2;
     const mm = MONTHS[mon.toLowerCase()];
     if (mm) return `${year}-${mm}-${day.padStart(2, "0")}`;
+  }
+
+  // MM/DD/YYYY or MM-DD-YYYY (US numeric — some trustees use this in
+  // notes_payment_history). Month-first convention; DD-first deals would need
+  // a separate parser. Validates month ≤ 12 to avoid silently mis-parsing
+  // DD/MM/YYYY data.
+  const m3 = trimmed.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if (m3) {
+    const [, month, day, year] = m3;
+    const mNum = Number(month);
+    const dNum = Number(day);
+    if (mNum >= 1 && mNum <= 12 && dNum >= 1 && dNum <= 31) {
+      return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+    }
   }
 
   // Give up — let downstream surface the bad value rather than silently coerce

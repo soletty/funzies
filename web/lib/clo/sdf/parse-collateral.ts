@@ -154,7 +154,15 @@ export function parseCollateralFile(
       discount_amount: parseNumeric(raw.Discount),
       premium_amount: parseNumeric(raw.Premium),
       asset_type: trimOrNull(raw.Security_Type1),
-      is_delayed_draw: /delayed.{0,5}draw/i.test(raw.Security_Type1 ?? "") ? true : null,
+      // DDTL flag — facilities with "Delayed Draw" in either Security_Type1
+      // or Security_Name. SDF data varies by trustee: some put the type in
+      // Security_Type1 ("Delayed Draw Loan"), others fold it into Security_Name
+      // and leave Type1 generic ("Loan"). Match both so neither convention
+      // silently leaks past the engine's DDTL handling.
+      is_delayed_draw: (
+        /delayed.{0,5}draw/i.test(raw.Security_Type1 ?? "") ||
+        /delayed.{0,5}draw/i.test(raw.Security_Name ?? "")
+      ) ? true : null,
       country: trimOrNull(raw.Country_Name),
       country_code: trimOrNull(raw.Country_Code),
       is_fixed_rate: parseCouponType(raw.Coupon_Type),

@@ -40,6 +40,7 @@ import type {
   CloProceeds,
   CloExtractionOverflow,
   EquityInceptionData,
+  CloDeal,
 } from "@/lib/clo/types";
 import { resolveWaterfallInputs } from "@/lib/clo/resolver";
 import type { ResolvedDealData, ResolutionWarning } from "@/lib/clo/resolver-types";
@@ -76,7 +77,20 @@ interface ContextEditorProps {
   holdings?: CloHolding[];
   accountBalances?: CloAccountBalance[];
   parValueAdjustments?: CloParValueAdjustment[];
-  dealDates?: { maturity?: string | null; reinvestmentPeriodEnd?: string | null; reportDate?: string | null };
+  dealDates?: {
+    maturity?: string | null;
+    reinvestmentPeriodEnd?: string | null;
+    reportDate?: string | null;
+    paymentDate?: string | null;
+    closingDate?: string | null;
+    effectiveDate?: string | null;
+    nonCallPeriodEnd?: string | null;
+  };
+  /** Full deal-level metadata captured for context.json verification — lets
+   *  diagnostics see closingDate (IRR anchor default), intexAssumptions (T4
+   *  pre-fill source), and the rest of the deal record without re-querying
+   *  the DB. Null when no deal is associated with the profile. */
+  deal?: CloDeal | null;
   equityInceptionData?: EquityInceptionData | null;
   extractedDistributions?: { date: string; distribution: number }[];
   accruals?: CloAccrual[];
@@ -271,6 +285,7 @@ export default function ContextEditor({
   accountBalances,
   parValueAdjustments,
   dealDates,
+  deal,
   equityInceptionData: initialInceptionData,
   extractedDistributions,
   accruals,
@@ -772,6 +787,10 @@ export default function ContextEditor({
       proceeds: proceeds ?? [],
       overflow: overflow ?? [],
       dealDates: dealDates ?? null,
+      // Full deal-level metadata — exposes closingDate (used as IRR anchor
+      // default by ProjectionModel.tsx), intexAssumptions (T4 pre-fill source),
+      // and the rest of clo_deals.* for diagnostic verification.
+      deal: deal ?? null,
       equityInceptionData: inceptionData ?? null,
       extractedDistributions: extractedDistributions ?? [],
     };

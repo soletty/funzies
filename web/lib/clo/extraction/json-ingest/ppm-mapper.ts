@@ -42,10 +42,12 @@ function mapCapitalStructure(ppm: PpmJson): Record<string, unknown> {
   const deferrableForClass = (className: string): boolean | undefined => {
     const lc = className.toLowerCase().trim();
     if (/sub|subordinated|residual|equity|income/.test(lc)) {
-      const sub = deferralBlock.subordinated_notes?.deferral_permitted;
-      if (sub === true) return true;
-      if (sub === false) return false;
-      // "n/a" or missing → not deferrable in the rated sense
+      // Subordinated/residual notes don't have a stated coupon — the engine's
+      // deferral mechanic (PIK shortfalls onto class balance) is meaningless
+      // for them. Force false regardless of what the LLM extracted from the
+      // PPM's interest_deferral block; misclassification here would cause the
+      // engine to PIK residual shortfalls onto sub-note balance, inflating
+      // book value and IRR by potentially millions.
       return false;
     }
     // Base class: "Class B-1" → "b" → look up "class_b"

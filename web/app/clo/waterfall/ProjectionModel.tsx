@@ -273,6 +273,16 @@ export default function ProjectionModel({
   React.useEffect(() => {
     if (defaultRatesSeeded.current) return;
     if (loanInputs.length === 0) return;
+    // T4 — when Intex assumptions broadcast a flat CDR to every bucket, the
+    // earlier feesInitialized effect already set defaultRates to the Intex
+    // value. Don't stomp it with WARF-seeded per-bucket rates: the Intex
+    // overlay is the higher-precedence source for those fields, and stomping
+    // would silently desync the displayed "Defaults from Intex" badge from
+    // the actual rates applied. User can still touch any slider to override.
+    if (intexAssumptions?.cdrPct != null) {
+      defaultRatesSeeded.current = true;
+      return;
+    }
     const parByBucket: Record<string, number> = {};
     const warfSumByBucket: Record<string, number> = {};
     for (const bucket of RATING_BUCKETS) {
@@ -297,7 +307,7 @@ export default function ProjectionModel({
     }
     setDefaultRates(seeded);
     defaultRatesSeeded.current = true;
-  }, [loanInputs]);
+  }, [loanInputs, intexAssumptions]);
 
   // Slider change handler — updates the rates AND marks every bucket whose
   // value actually changed as overridden (so the engine consumes the slider
@@ -386,10 +396,24 @@ export default function ProjectionModel({
    * first period, missed payments, etc.) is handled correctly.
    */
   const inceptionIrr = useMemo<{
-    irr: number | null;
-    anchorDate: string;
-    anchorPriceCents: number;
-    distributionCount: number;
+    primary: {
+      irr: number | null;
+      anchorDate: string;
+      anchorPriceCents: number;
+      distributionCount: number;
+      isUserOverride: boolean;
+    };
+    /** Counterfactual: when the user has set a purchaseDate/Price, also show
+     *  what the IRR would be at the deal-closing default. Lets partners read
+     *  "secondary-buyer return vs original-investor return" at a glance and
+     *  notice when an upstream-populated purchaseDate is producing surprising
+     *  numbers. Null when no user override is set (primary == default). */
+    counterfactual: {
+      irr: number | null;
+      anchorDate: string;
+      anchorPriceCents: number;
+      distributionCount: number;
+    } | null;
     terminalValue: number;
     terminalDate: string;
   } | null>(() => {
@@ -397,39 +421,49 @@ export default function ProjectionModel({
     const subPar = equityMetrics.subPar;
     if (subPar <= 0) return null;
 
-    // Anchor: user override beats default; default is the deal closing date.
-    const userAnchorDate = equityInceptionData?.purchaseDate ?? null;
-    const userAnchorCents = equityInceptionData?.purchasePriceCents ?? null;
-    const anchorDate = userAnchorDate ?? closingDate ?? null;
-    const anchorPriceCents = userAnchorCents ?? 100;
-    if (!anchorDate) return null;
-
-    const purchasePrice = subPar * (anchorPriceCents / 100);
-    if (purchasePrice <= 0) return null;
-
     const terminalDate = resolved.dates.currentDate;
     const terminalValue = equityMetrics.bookValue;
 
-    // Filter Intex distributions to those strictly between anchor and
-    // terminal — distributions on the anchor date itself are already part of
-    // the cost basis, distributions on or after the terminal date are
-    // captured by the book-value liquidation.
-    const dists = (extractedDistributions ?? [])
-      .filter((d) => d.date > anchorDate && d.date < terminalDate && Number.isFinite(d.distribution))
-      .map((d) => ({ date: d.date, amount: d.distribution }));
+    const computeAt = (anchorDate: string, anchorPriceCents: number) => {
+      const purchasePrice = subPar * (anchorPriceCents / 100);
+      if (purchasePrice <= 0) return null;
+      const dists = (extractedDistributions ?? [])
+        .filter((d) => d.date > anchorDate && d.date < terminalDate && Number.isFinite(d.distribution))
+        .map((d) => ({ date: d.date, amount: d.distribution }));
+      const flows: Array<{ date: string; amount: number }> = [
+        { date: anchorDate, amount: -purchasePrice },
+        ...dists,
+        { date: terminalDate, amount: terminalValue },
+      ];
+      return {
+        irr: calculateIrrFromDatedCashflows(flows),
+        anchorDate,
+        anchorPriceCents,
+        distributionCount: dists.length,
+      };
+    };
 
-    const flows: Array<{ date: string; amount: number }> = [
-      { date: anchorDate, amount: -purchasePrice },
-      ...dists,
-      { date: terminalDate, amount: terminalValue },
-    ];
+    const userAnchorDate = equityInceptionData?.purchaseDate ?? null;
+    const userAnchorCents = equityInceptionData?.purchasePriceCents ?? null;
+    const hasUserOverride = userAnchorDate != null && userAnchorCents != null;
+    const primaryAnchor = userAnchorDate ?? closingDate;
+    const primaryCents = userAnchorCents ?? 100;
+    if (!primaryAnchor) return null;
 
-    const irr = calculateIrrFromDatedCashflows(flows);
+    const primary = computeAt(primaryAnchor, primaryCents);
+    if (!primary) return null;
+
+    // Counterfactual: only render when (a) user override is set AND (b)
+    // we have a closingDate to anchor the default. Skip when both anchors
+    // would be identical (override == closing date at par).
+    let counterfactual = null;
+    if (hasUserOverride && closingDate && (closingDate !== primaryAnchor || primaryCents !== 100)) {
+      counterfactual = computeAt(closingDate, 100);
+    }
+
     return {
-      irr,
-      anchorDate,
-      anchorPriceCents,
-      distributionCount: dists.length,
+      primary: { ...primary, isUserOverride: hasUserOverride },
+      counterfactual,
       terminalValue,
       terminalDate,
     };
@@ -948,7 +982,7 @@ export default function ProjectionModel({
                 letterSpacing: "0.06em",
               }}>
                 Inception IRR <span style={{ fontSize: "0.55rem", fontWeight: 400, letterSpacing: "0.02em", opacity: 0.7 }}>
-                  ({equityInceptionData?.purchaseDate ? "user anchor" : "since closing"})
+                  ({inceptionIrr?.primary.isUserOverride ? "user anchor" : "since closing"})
                 </span>
               </div>
               <div
@@ -961,8 +995,8 @@ export default function ProjectionModel({
                   letterSpacing: "-0.02em",
                 }}
               >
-                {inceptionIrr?.irr != null
-                  ? formatPct(inceptionIrr.irr * 100)
+                {inceptionIrr?.primary.irr != null
+                  ? formatPct(inceptionIrr.primary.irr * 100)
                   : "-- %"}
               </div>
               {inceptionIrr && (
@@ -975,11 +1009,32 @@ export default function ProjectionModel({
                     fontVariantNumeric: "tabular-nums",
                   }}
                 >
-                  Anchored {inceptionIrr.anchorDate} at {inceptionIrr.anchorPriceCents.toFixed(0)}c
+                  Anchored {inceptionIrr.primary.anchorDate} at {inceptionIrr.primary.anchorPriceCents.toFixed(0)}c
                   {" · "}
-                  {inceptionIrr.distributionCount} distribution{inceptionIrr.distributionCount === 1 ? "" : "s"}
+                  {inceptionIrr.primary.distributionCount} distribution{inceptionIrr.primary.distributionCount === 1 ? "" : "s"}
                   {" · "}
                   terminal €{(inceptionIrr.terminalValue / 1_000_000).toFixed(1)}M at {inceptionIrr.terminalDate}
+                </div>
+              )}
+              {/* T3 — counterfactual line: when user override is set, show the
+                  since-closing IRR alongside so partners can compare
+                  secondary-buyer vs original-investor returns. */}
+              {inceptionIrr?.counterfactual && inceptionIrr.counterfactual.irr != null && (
+                <div
+                  style={{
+                    fontSize: "0.6rem",
+                    color: "rgba(255,255,255,0.55)",
+                    marginTop: "0.5rem",
+                    paddingTop: "0.4rem",
+                    borderTop: "1px solid rgba(255,255,255,0.15)",
+                    lineHeight: 1.4,
+                    fontVariantNumeric: "tabular-nums",
+                  }}
+                >
+                  Since closing: <strong style={{ color: "rgba(255,255,255,0.85)" }}>
+                    {formatPct(inceptionIrr.counterfactual.irr * 100)}
+                  </strong>
+                  {" "}({inceptionIrr.counterfactual.anchorDate} at 100c · {inceptionIrr.counterfactual.distributionCount} distributions)
                 </div>
               )}
               {!inceptionIrr && (

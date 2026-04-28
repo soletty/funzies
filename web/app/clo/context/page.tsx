@@ -150,7 +150,16 @@ export default async function ContextPage() {
         holdings={holdings}
         accountBalances={accountBalances}
         parValueAdjustments={parValueAdjustments}
-        dealDates={{ maturity: maturityDate, reinvestmentPeriodEnd, reportDate: reportPeriod?.reportDate ?? null }}
+        dealDates={{
+          maturity: maturityDate,
+          reinvestmentPeriodEnd,
+          reportDate: reportPeriod?.reportDate ?? null,
+          paymentDate: reportPeriod?.paymentDate ?? null,
+          closingDate: deal?.closingDate ?? constraints.keyDates?.originalIssueDate ?? null,
+          effectiveDate: deal?.effectiveDate ?? constraints.keyDates?.currentIssueDate ?? null,
+          nonCallPeriodEnd: deal?.nonCallPeriodEnd ?? constraints.keyDates?.nonCallPeriodEnd ?? null,
+        }}
+        deal={deal ?? null}
         equityInceptionData={profile.equityInceptionData}
         extractedDistributions={extractedDistributions}
         accruals={accruals}
