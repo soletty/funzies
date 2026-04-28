@@ -83,23 +83,31 @@ export async function ingestIntexPastCashflows(
       }
     }
 
-    // Persist deal-level scenario assumptions so the projection model can
-    // pre-fill its sliders with Intex's inputs (CPR/CDR/Recovery/etc.) and
-    // surface a "matches Intex" hint. Stored as a JSONB blob — the consumer
-    // (defaultsFromIntex) reads the typed shape directly.
-    if (parsed.assumptions) {
-      await client.query(
-        `UPDATE clo_deals SET intex_assumptions = $1::jsonb, updated_at = now() WHERE id = $2`,
-        [JSON.stringify(parsed.assumptions), dealId],
-      );
-    }
-
     await client.query("COMMIT");
   } catch (err) {
     await client.query("ROLLBACK");
     throw err;
   } finally {
     client.release();
+  }
+
+  // Persist deal-level scenario assumptions best-effort, AFTER the period
+  // commit. Keeping this outside the transaction means a missing migration
+  // (012_add_intex_assumptions) doesn't roll back 17 periods of cashflow
+  // history — the periods are the load-bearing data; assumptions are a UI
+  // pre-fill nicety.
+  if (parsed.assumptions) {
+    try {
+      await query(
+        `UPDATE clo_deals SET intex_assumptions = $1::jsonb, updated_at = now() WHERE id = $2`,
+        [JSON.stringify(parsed.assumptions), dealId],
+      );
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      result.warnings.push(
+        `intex_assumptions persist failed: ${msg} (run migration 012_add_intex_assumptions.sql)`,
+      );
+    }
   }
 
   return result;
