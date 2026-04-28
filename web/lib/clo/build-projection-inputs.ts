@@ -1,5 +1,6 @@
 import type { ResolvedDealData, ResolutionWarning } from "./resolver-types";
 import type { ProjectionInputs } from "./projection";
+import type { IntexAssumptions } from "./intex/parse-past-cashflows";
 import { CLO_DEFAULTS } from "./defaults";
 import { DEFAULT_RATES_BY_RATING } from "./rating-mapping";
 
@@ -271,6 +272,48 @@ export function defaultsFromResolved(
   }
 
   return base;
+}
+
+/**
+ * T4 — Apply Intex DealCF-MV+ scenario inputs as a higher-precedence overlay
+ * on top of `defaultsFromResolved`. Intex publishes the exact CPR/CDR/Recovery/
+ * reinvestment assumptions used to produce its past-cashflow projection, so
+ * pre-filling the engine with these inputs lets engine output be compared
+ * apples-to-apples against the Intex distributions.
+ *
+ * Coverage (only fields Intex publishes):
+ *   cprPct, recoveryPct, recoveryLagMonths, reinvestmentSpreadBps,
+ *   reinvestmentTenorYears, plus per-rating defaultRates flat-set to cdrPct
+ *   when the user hasn't touched buckets (CDR is a pool aggregate; map flat).
+ *
+ * Returns the input assumptions unchanged when `intex` is null.
+ */
+export function defaultsFromIntex(
+  base: UserAssumptions,
+  intex: IntexAssumptions | null,
+): UserAssumptions {
+  if (!intex) return base;
+  const next: UserAssumptions = { ...base };
+
+  if (intex.cprPct != null) next.cprPct = intex.cprPct;
+  if (intex.recoveryPct != null) next.recoveryPct = intex.recoveryPct;
+  if (intex.recoveryLagMonths != null) next.recoveryLagMonths = intex.recoveryLagMonths;
+  if (intex.reinvestSpreadPct != null) {
+    next.reinvestmentSpreadBps = Math.round(intex.reinvestSpreadPct * 100);
+  }
+  if (intex.reinvestMaturityMonths != null) {
+    next.reinvestmentTenorYears = intex.reinvestMaturityMonths / 12;
+  }
+  // Intex CDR is a pool-level aggregate; broadcast to every rating bucket
+  // when the user hasn't customised them. Per-position WARF stays the
+  // engine default for any bucket the user later touches.
+  if (intex.cdrPct != null) {
+    const rates: Record<string, number> = {};
+    for (const k of Object.keys(next.defaultRates)) rates[k] = intex.cdrPct;
+    next.defaultRates = rates;
+  }
+
+  return next;
 }
 
 /**

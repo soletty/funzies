@@ -23,6 +23,7 @@ export interface SdfCollateralRow {
   discount_amount: number | null;
   premium_amount: number | null;
   asset_type: string | null;
+  is_delayed_draw: boolean | null;
   country: string | null;
   country_code: string | null;
   is_fixed_rate: boolean | null;
@@ -153,6 +154,7 @@ export function parseCollateralFile(
       discount_amount: parseNumeric(raw.Discount),
       premium_amount: parseNumeric(raw.Premium),
       asset_type: trimOrNull(raw.Security_Type1),
+      is_delayed_draw: /delayed.{0,5}draw/i.test(raw.Security_Type1 ?? "") ? true : null,
       country: trimOrNull(raw.Country_Name),
       country_code: trimOrNull(raw.Country_Code),
       is_fixed_rate: parseCouponType(raw.Coupon_Type),

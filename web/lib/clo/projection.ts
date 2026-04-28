@@ -2248,6 +2248,61 @@ export function calculateIrr(cashFlows: number[], periodsPerYear: number = 4): n
   return annualized;
 }
 
+/**
+ * Date-aware IRR using Actual/365 year-fractions, anchored at the first
+ * cashflow's date. Replaces the periodic `calculateIrr` for series where
+ * cashflows aren't on a uniform cadence — e.g., a since-inception sub-note
+ * IRR with a deal-closing anchor, payment-date distributions, and a terminal
+ * value as-of the current determination date.
+ *
+ * Cashflows must be sorted by date; the first row is the investment outflow
+ * (negative amount), the rest are inflows.
+ */
+export function calculateIrrFromDatedCashflows(
+  flows: Array<{ date: string; amount: number }>,
+): number | null {
+  if (flows.length < 2) return null;
+  const hasOut = flows.some((f) => f.amount < 0);
+  const hasIn = flows.some((f) => f.amount > 0);
+  if (!hasOut || !hasIn) return null;
+
+  const t0 = Date.parse(flows[0].date);
+  if (!Number.isFinite(t0)) return null;
+  const years: number[] = flows.map((f) => {
+    const t = Date.parse(f.date);
+    if (!Number.isFinite(t)) return NaN;
+    return (t - t0) / (1000 * 60 * 60 * 24 * 365);
+  });
+  if (years.some((y) => !Number.isFinite(y))) return null;
+
+  let rate = 0.08;
+  let converged = false;
+  for (let iter = 0; iter < 200; iter++) {
+    let npv = 0;
+    let dNpv = 0;
+    for (let i = 0; i < flows.length; i++) {
+      const y = years[i];
+      const discount = Math.pow(1 + rate, y);
+      npv += flows[i].amount / discount;
+      dNpv -= (y * flows[i].amount) / Math.pow(1 + rate, y + 1);
+    }
+    if (Math.abs(dNpv) < 1e-12) break;
+    const newRate = rate - npv / dNpv;
+    if (Math.abs(newRate - rate) < 1e-9) {
+      rate = newRate;
+      converged = true;
+      break;
+    }
+    rate = newRate;
+    if (rate < -0.99) rate = -0.99;
+    if (rate > 10) rate = 10;
+  }
+
+  if (!converged) return null;
+  if (!isFinite(rate) || isNaN(rate)) return null;
+  return rate;
+}
+
 export interface SensitivityRow {
   assumption: string;
   base: string;

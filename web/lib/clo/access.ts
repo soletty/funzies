@@ -263,6 +263,7 @@ function rowToDeal(row: Record<string, unknown>): CloDeal {
     governingDocument: (row.governing_document as string) ?? null,
     governingLaw: (row.governing_law as string) ?? null,
     ppmConstraints: (row.ppm_constraints as Record<string, unknown>) ?? {},
+    intexAssumptions: (row.intex_assumptions as CloDeal["intexAssumptions"]) ?? null,
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
   };

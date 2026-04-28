@@ -13,6 +13,7 @@ import {
   getHoldings,
   getTrades,
   getPanelForUser,
+  getHistoricalSubNoteDistributions,
   rowToProfile,
 } from "@/lib/clo/access";
 import { getBuyListForUser } from "@/lib/clo/buy-list";
@@ -40,7 +41,7 @@ export default async function WaterfallPage() {
   // Fetch report-level data if a deal record exists
   const reportPeriod = deal ? await getLatestReportPeriod(deal.id) : null;
 
-  const [waterfallSteps, tranches, trancheSnapshots, periodData, accountBalances, parValueAdjustments, holdings, trades] =
+  const [waterfallSteps, tranches, trancheSnapshots, periodData, accountBalances, parValueAdjustments, holdings, trades, extractedDistributions] =
     await Promise.all([
       reportPeriod ? getWaterfallSteps(reportPeriod.id) : Promise.resolve([]),
       deal ? getTranches(deal.id) : Promise.resolve([]),
@@ -50,6 +51,7 @@ export default async function WaterfallPage() {
       reportPeriod ? getParValueAdjustments(reportPeriod.id) : Promise.resolve([]),
       reportPeriod ? getHoldings(reportPeriod.id) : Promise.resolve([]),
       reportPeriod ? getTrades(reportPeriod.id) : Promise.resolve([]),
+      deal ? getHistoricalSubNoteDistributions(deal.id) : Promise.resolve([]),
     ]);
 
   const panel = await getPanelForUser(session.user.id);
@@ -140,6 +142,9 @@ export default async function WaterfallPage() {
         resolutionWarnings={resolutionWarnings}
         buyList={buyList}
         equityInceptionData={profile.equityInceptionData}
+        intexAssumptions={deal?.intexAssumptions ?? null}
+        extractedDistributions={extractedDistributions}
+        closingDate={deal?.closingDate ?? constraints.keyDates?.originalIssueDate ?? null}
         waterfallSteps={waterfallSteps}
         accountBalances={accountBalances}
         trades={trades}

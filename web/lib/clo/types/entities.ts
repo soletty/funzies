@@ -1,4 +1,5 @@
 import type { CloDocument, ExtractedConstraints, ExtractedPortfolio } from "./extraction";
+import type { IntexAssumptions } from "../intex/parse-past-cashflows";
 
 export interface CloDeal {
   id: string;
@@ -22,6 +23,7 @@ export interface CloDeal {
   governingDocument: string | null;
   governingLaw: string | null;
   ppmConstraints: Record<string, unknown>;
+  intexAssumptions: IntexAssumptions | null;
   createdAt: string;
   updatedAt: string;
 }

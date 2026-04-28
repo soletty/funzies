@@ -45,11 +45,40 @@ export interface IntexPeriodRow {
   tranches: IntexTrancheSnapshot[];
 }
 
+/**
+ * Scenario inputs Intex carries in the "Assumptions" preamble block (rows
+ * 32-72 of the DealCF-MV+ sheet). These drive the past-cashflow projection
+ * and are the only audit-trail of "what scenario produced these numbers."
+ *
+ * We pre-fill the engine's user-facing sliders from these so engine output
+ * can be compared apples-to-apples against the Intex distributions.
+ */
+export interface IntexAssumptions {
+  scenario: string | null;            // e.g. "MV +"
+  ratesAsOf: string | null;           // e.g. "Apr 20, 2026 04:12:47"
+  cprPct: number | null;              // e.g. 20 (from "20 CPR")
+  cdrPct: number | null;              // e.g. 2  (from "2 CDR")
+  recoveryPct: number | null;         // e.g. 75 (from "75 Percent")
+  recoveryLagMonths: number | null;   // e.g. 0  (from "0 Months")
+  optionalRedemption: string | null;  // e.g. "ReinvEnd+24"
+  reinvestSpreadPct: number | null;   // e.g. 3.625
+  reinvestMaturityMonths: number | null; // e.g. 60
+  reinvestPricePct: number | null;    // e.g. 99.75
+  reinvestRecoveryRatePct: number | null; // e.g. 30
+  collateralLiquidationPricePct: number | null; // e.g. 95.304
+  // Forward EURIBOR curves — comma-separated monthly points
+  euribor1m: number[] | null;
+  euribor2m: number[] | null;
+  euribor3m: number[] | null;
+  euribor6m: number[] | null;
+}
+
 export interface IntexParseResult {
   dealName: string | null;
   dealCode: string | null;
   settlementDate: string | null;
   reportCreated: string | null;
+  assumptions: IntexAssumptions | null;
   periods: IntexPeriodRow[];
 }
 
@@ -153,6 +182,95 @@ function scrapeMetaValue(rows: string[][], key: string): string | null {
   return null;
 }
 
+/** Find the first row whose first cell matches `label` (case-insensitive,
+ *  whitespace-trimmed) and return the first non-empty cell after column 1.
+ *  Returns null when not found. The Intex sheet has the assumptions block
+ *  AFTER the period data (rows 32-72 in the export), so we scan the whole
+ *  file rather than constraining to the preamble. */
+function findAssumptionValue(rows: string[][], label: string): string | null {
+  const want = label.toLowerCase().trim();
+  for (let i = 0; i < rows.length; i++) {
+    const first = (rows[i][0] ?? "").trim().toLowerCase();
+    if (first === want) {
+      for (let j = 2; j < rows[i].length; j++) {
+        const v = (rows[i][j] ?? "").trim();
+        if (v) return v;
+      }
+    }
+  }
+  return null;
+}
+
+/** Parse "20 CPR" / "2 CDR" / "75 Percent" / "0 Months" — return numeric portion. */
+function parseLeadingNumber(s: string | null): number | null {
+  if (!s) return null;
+  const m = s.trim().match(/^(-?\d+(?:\.\d+)?)/);
+  return m ? Number(m[1]) : null;
+}
+
+/** Parse a comma-separated EURIBOR series ("1.996 2.035, ...") into number[]. */
+function parseEuriborSeries(s: string | null): number[] | null {
+  if (!s) return null;
+  // Series uses spaces or commas between values
+  const tokens = s.split(/[\s,]+/).filter((t) => t.length > 0);
+  const nums: number[] = [];
+  for (const t of tokens) {
+    const n = Number(t);
+    if (!Number.isFinite(n)) return null;
+    nums.push(n);
+  }
+  return nums.length > 0 ? nums : null;
+}
+
+function extractAssumptions(rows: string[][]): IntexAssumptions | null {
+  const scenario = findAssumptionValue(rows, "Scenario");
+  const ratesAsOf = findAssumptionValue(rows, "Rates as of");
+  const cprPct = parseLeadingNumber(findAssumptionValue(rows, "Prepay"));
+  const cdrPct = parseLeadingNumber(findAssumptionValue(rows, "Default"));
+  const recoveryPct = parseLeadingNumber(findAssumptionValue(rows, "Recovery"));
+  const recoveryLagMonths = parseLeadingNumber(findAssumptionValue(rows, "Recovery Lag"));
+  const optionalRedemption = findAssumptionValue(rows, "Optional Redemption");
+  // Reinvest fields — labels are indented with leading spaces in the sheet, so
+  // findAssumptionValue trims them away via .trim() in the comparison.
+  const reinvestSpreadPct = parseLeadingNumber(findAssumptionValue(rows, "Spread (%) (1)"));
+  const reinvestMaturityMonths = parseLeadingNumber(findAssumptionValue(rows, "Maturity / Mat. Date (1)"));
+  const reinvestPricePct = parseLeadingNumber(findAssumptionValue(rows, "Price (1)"));
+  const reinvestRecoveryRatePct = parseLeadingNumber(findAssumptionValue(rows, "Rating Agency Recovery Rate (1)"));
+  const collateralLiquidationPricePct = parseLeadingNumber(findAssumptionValue(rows, "Collateral Liquidation Price"));
+  const euribor1m = parseEuriborSeries(findAssumptionValue(rows, "EURIBOR (1mo)"));
+  const euribor2m = parseEuriborSeries(findAssumptionValue(rows, "EURIBOR (2mo)"));
+  const euribor3m = parseEuriborSeries(findAssumptionValue(rows, "EURIBOR (3mo)"));
+  const euribor6m = parseEuriborSeries(findAssumptionValue(rows, "EURIBOR (6mo)"));
+
+  // If literally none of the assumption-block fields parsed, return null so
+  // downstream consumers can distinguish "no assumption block" from "block
+  // present but partially extracted".
+  const present = [scenario, ratesAsOf, cprPct, cdrPct, recoveryPct, recoveryLagMonths,
+                   optionalRedemption, reinvestSpreadPct, reinvestMaturityMonths,
+                   reinvestPricePct, reinvestRecoveryRatePct, collateralLiquidationPricePct,
+                   euribor1m, euribor2m, euribor3m, euribor6m].some((v) => v != null);
+  if (!present) return null;
+
+  return {
+    scenario,
+    ratesAsOf,
+    cprPct,
+    cdrPct,
+    recoveryPct,
+    recoveryLagMonths,
+    optionalRedemption,
+    reinvestSpreadPct,
+    reinvestMaturityMonths,
+    reinvestPricePct,
+    reinvestRecoveryRatePct,
+    collateralLiquidationPricePct,
+    euribor1m,
+    euribor2m,
+    euribor3m,
+    euribor6m,
+  };
+}
+
 export function parseIntexPastCashflows(csvText: string): IntexParseResult {
   const cleaned = csvText.replace(/^﻿/, "");
   const lines = cleaned.split(/\r?\n/);
@@ -187,8 +305,10 @@ export function parseIntexPastCashflows(csvText: string): IntexParseResult {
     }
   }
   if (dataStart < 0) {
-    return { dealName, dealCode, settlementDate, reportCreated, periods: [] };
+    return { dealName, dealCode, settlementDate, reportCreated, assumptions: null, periods: [] };
   }
+
+  const assumptions = extractAssumptions(rows);
 
   const periods: IntexPeriodRow[] = [];
   for (let i = dataStart; i < rows.length; i++) {
@@ -217,5 +337,5 @@ export function parseIntexPastCashflows(csvText: string): IntexParseResult {
     });
   }
 
-  return { dealName, dealCode, settlementDate, reportCreated, periods };
+  return { dealName, dealCode, settlementDate, reportCreated, assumptions, periods };
 }

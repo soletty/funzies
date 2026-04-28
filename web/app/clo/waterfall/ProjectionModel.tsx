@@ -25,13 +25,14 @@ import HarnessPanel from "./HarnessPanel";
 import {
   runProjection,
   validateInputs,
-  calculateIrr,
+  calculateIrrFromDatedCashflows,
   type ProjectionInputs,
   type ProjectionResult,
   type LoanInput,
 } from "@/lib/clo/projection";
 import type { ResolvedDealData, ResolutionWarning } from "@/lib/clo/resolver-types";
-import { buildFromResolved, DEFAULT_ASSUMPTIONS, EMPTY_RESOLVED, defaultsFromResolved, diagnoseFeePrefill } from "@/lib/clo/build-projection-inputs";
+import { buildFromResolved, DEFAULT_ASSUMPTIONS, EMPTY_RESOLVED, defaultsFromResolved, defaultsFromIntex, diagnoseFeePrefill } from "@/lib/clo/build-projection-inputs";
+import type { IntexAssumptions } from "@/lib/clo/intex/parse-past-cashflows";
 import { DEFAULT_RATES_BY_RATING, RATING_BUCKETS, type RatingBucket, warfFactorToAnnualCDRPct } from "@/lib/clo/rating-mapping";
 import { BUCKET_WARF_FALLBACK } from "@/lib/clo/pool-metrics";
 import SuggestAssumptions from "./SuggestAssumptions";
@@ -64,6 +65,18 @@ interface Props {
   resolutionWarnings?: ResolutionWarning[];
   buyList?: BuyListItem[];
   equityInceptionData?: EquityInceptionData | null;
+  // T4 — Intex DealCF-MV+ scenario inputs (CPR/CDR/Recovery/etc). When
+  // present, overlays defaultsFromResolved + trade-calibration so engine
+  // projection runs on the same scenario as Intex's published distributions.
+  intexAssumptions?: IntexAssumptions | null;
+  // T3 — Historical sub-note distributions (Intex via clo_tranche_snapshots).
+  // Replaces equityInceptionData.payments as the cashflow source for the
+  // since-inception IRR; the blob held stale partial values, while these
+  // tie to Intex past distributions to the cent.
+  extractedDistributions?: Array<{ date: string; distribution: number }>;
+  /** T3 — Deal closing/issue date. Used as the default IRR anchor when the
+   *  user hasn't explicitly entered a purchaseDate. */
+  closingDate?: string | null;
   // N1 harness inputs — realized trustee data for the latest period
   waterfallSteps?: CloWaterfallStep[];
   accountBalances?: CloAccountBalance[];
@@ -87,6 +100,9 @@ export default function ProjectionModel({
   resolutionWarnings,
   buyList,
   equityInceptionData,
+  intexAssumptions,
+  extractedDistributions,
+  closingDate,
   waterfallSteps,
   accountBalances,
   trades,
@@ -174,6 +190,10 @@ export default function ProjectionModel({
   // the reinvestment sliders for attribution.
   const [reinvestmentCalibration, setReinvestmentCalibration] =
     useState<ReinvestmentCalibration | null>(null);
+  // T4 — record when Intex assumptions overlaid the pre-fill so the UI can
+  // display "Defaults from Intex (Apr 20 2026 export)" alongside the sliders
+  // and drive the bearish/matching/aggressive comparison badge.
+  const [intexPrefillSource, setIntexPrefillSource] = useState<{ scenario: string | null; ratesAsOf: string | null } | null>(null);
   const feesInitialized = useRef(false);
   React.useEffect(() => {
     if (!resolved || feesInitialized.current) return;
@@ -208,7 +228,28 @@ export default function ProjectionModel({
       setReinvestmentTenorYears(cal.reinvestmentTenorYears);
       setReinvestmentRating(cal.reinvestmentRating);
     }
-  }, [resolved, trancheSnapshots, waterfallSteps, trades, holdings]);
+
+    // T4 — Intex DealCF-MV+ overlay. Highest precedence for the fields it
+    // covers (CPR/CDR/Recovery/recovery-lag/reinvestment spread+tenor) so
+    // engine projection runs on Intex's exact scenario inputs and downstream
+    // distributions are comparable line-by-line.
+    if (intexAssumptions) {
+      const overlay = defaultsFromIntex(d, intexAssumptions);
+      setCprPct(overlay.cprPct);
+      setRecoveryPct(overlay.recoveryPct);
+      setRecoveryLagMonths(overlay.recoveryLagMonths);
+      setReinvestmentSpreadBps(overlay.reinvestmentSpreadBps);
+      setReinvestmentTenorYears(overlay.reinvestmentTenorYears);
+      // CDR is broadcast flat to every rating bucket; flat-set defaultRates.
+      if (intexAssumptions.cdrPct != null) {
+        setDefaultRates(overlay.defaultRates);
+      }
+      setIntexPrefillSource({
+        scenario: intexAssumptions.scenario,
+        ratesAsOf: intexAssumptions.ratesAsOf,
+      });
+    }
+  }, [resolved, trancheSnapshots, waterfallSteps, trades, holdings, intexAssumptions]);
 
   // Pre-fill equity entry price from inception-data purchase cents on first load.
   // Don't overwrite if the user has already touched the slider (non-null state).
@@ -325,21 +366,74 @@ export default function ProjectionModel({
     return { subPar, bookValue, bookValueCents };
   }, [resolved]);
 
-  const inceptionIrr = useMemo(() => {
-    const data = equityInceptionData;
-    if (!data?.purchaseDate || data.purchasePriceCents == null || !equityMetrics) return null;
-    const { payments } = data;
-    if (payments.length === 0) return null;
-    if (payments.some(p => p.distribution == null)) return null;
+  /**
+   * T3 — Since-inception IRR for the sub note position.
+   *
+   * Default semantics: anchor at the deal's closing date with cost basis at
+   * par (100c × originalSubPar), use Intex past distributions (ties to the
+   * cent) as the cashflow series, and place the terminal book value at the
+   * current determination date — not at index `len+1` of an indexed array,
+   * which silently added a phantom quarter of discount under the old
+   * `calculateIrr(_, 4)` periodic-rate path.
+   *
+   * Override semantics: when the user explicitly enters a purchase date AND
+   * price (via the inception form), anchor there instead of the closing
+   * date. Distributions before the override anchor are filtered out (a
+   * secondary buyer didn't earn them).
+   *
+   * Discount: `calculateIrrFromDatedCashflows` uses Actual/365 year-fractions
+   * relative to the anchor, so non-uniform spacing (the deal's irregular
+   * first period, missed payments, etc.) is handled correctly.
+   */
+  const inceptionIrr = useMemo<{
+    irr: number | null;
+    anchorDate: string;
+    anchorPriceCents: number;
+    distributionCount: number;
+    terminalValue: number;
+    terminalDate: string;
+  } | null>(() => {
+    if (!resolved || !equityMetrics) return null;
+    const subPar = equityMetrics.subPar;
+    if (subPar <= 0) return null;
 
-    const purchasePrice = equityMetrics.subPar * data.purchasePriceCents / 100;
+    // Anchor: user override beats default; default is the deal closing date.
+    const userAnchorDate = equityInceptionData?.purchaseDate ?? null;
+    const userAnchorCents = equityInceptionData?.purchasePriceCents ?? null;
+    const anchorDate = userAnchorDate ?? closingDate ?? null;
+    const anchorPriceCents = userAnchorCents ?? 100;
+    if (!anchorDate) return null;
+
+    const purchasePrice = subPar * (anchorPriceCents / 100);
     if (purchasePrice <= 0) return null;
 
-    // Terminal value: current book value (assets - liabilities) as if position were liquidated today
+    const terminalDate = resolved.dates.currentDate;
     const terminalValue = equityMetrics.bookValue;
-    const cashFlows = [-purchasePrice, ...payments.map(p => p.distribution!), terminalValue];
-    return calculateIrr(cashFlows, 4);
-  }, [equityInceptionData, equityMetrics]);
+
+    // Filter Intex distributions to those strictly between anchor and
+    // terminal — distributions on the anchor date itself are already part of
+    // the cost basis, distributions on or after the terminal date are
+    // captured by the book-value liquidation.
+    const dists = (extractedDistributions ?? [])
+      .filter((d) => d.date > anchorDate && d.date < terminalDate && Number.isFinite(d.distribution))
+      .map((d) => ({ date: d.date, amount: d.distribution }));
+
+    const flows: Array<{ date: string; amount: number }> = [
+      { date: anchorDate, amount: -purchasePrice },
+      ...dists,
+      { date: terminalDate, amount: terminalValue },
+    ];
+
+    const irr = calculateIrrFromDatedCashflows(flows);
+    return {
+      irr,
+      anchorDate,
+      anchorPriceCents,
+      distributionCount: dists.length,
+      terminalValue,
+      terminalDate,
+    };
+  }, [equityInceptionData, equityMetrics, resolved, extractedDistributions, closingDate]);
 
   const inputs: ProjectionInputs = useMemo(
     () => {
@@ -628,6 +722,16 @@ export default function ProjectionModel({
             .
           </div>
         )}
+        {intexPrefillSource && intexAssumptions && (
+          <IntexAssumptionStatus
+            source={intexPrefillSource}
+            intex={intexAssumptions}
+            cprPct={cprPct}
+            recoveryPct={recoveryPct}
+            defaultRates={defaultRates}
+            reinvestmentSpreadBps={reinvestmentSpreadBps}
+          />
+        )}
 
         {/* Fees & Expenses — collapsible, pre-filled from PPM extraction */}
         <FeeAssumptions
@@ -820,50 +924,65 @@ export default function ProjectionModel({
               </div>
             </div>
 
-            {/* Inception IRR card */}
+            {/* Inception IRR card — T3: defaults to deal-closing anchor with
+                Intex past distributions; user override via Context still wins. */}
             <div
               style={{
                 padding: "1.25rem",
-                background: equityInceptionData?.purchaseDate
+                background: inceptionIrr
                   ? "linear-gradient(135deg, #059669 0%, #047857 100%)"
                   : "var(--color-surface)",
                 borderRadius: "var(--radius-sm)",
                 textAlign: "center",
                 position: "relative",
                 overflow: "hidden",
-                border: equityInceptionData?.purchaseDate ? "none" : "1px solid var(--color-border)",
+                border: inceptionIrr ? "none" : "1px solid var(--color-border)",
               }}
             >
               <div style={{
                 fontSize: "0.7rem",
                 fontWeight: 500,
-                color: equityInceptionData?.purchaseDate ? "rgba(255,255,255,0.7)" : "var(--color-text-muted)",
+                color: inceptionIrr ? "rgba(255,255,255,0.7)" : "var(--color-text-muted)",
                 marginBottom: "0.35rem",
                 textTransform: "uppercase",
                 letterSpacing: "0.06em",
               }}>
-                Inception IRR <span style={{ fontSize: "0.55rem", fontWeight: 400, letterSpacing: "0.02em", opacity: 0.7 }}>(actual)</span>
+                Inception IRR <span style={{ fontSize: "0.55rem", fontWeight: 400, letterSpacing: "0.02em", opacity: 0.7 }}>
+                  ({equityInceptionData?.purchaseDate ? "user anchor" : "since closing"})
+                </span>
               </div>
               <div
                 style={{
                   fontFamily: "var(--font-display)",
                   fontSize: "1.8rem",
                   fontWeight: 700,
-                  color: equityInceptionData?.purchaseDate ? "#fff" : "var(--color-text-muted)",
+                  color: inceptionIrr ? "#fff" : "var(--color-text-muted)",
                   fontVariantNumeric: "tabular-nums",
                   letterSpacing: "-0.02em",
                 }}
               >
-                {inceptionIrr !== null
-                  ? formatPct(inceptionIrr * 100)
+                {inceptionIrr?.irr != null
+                  ? formatPct(inceptionIrr.irr * 100)
                   : "-- %"}
               </div>
-              {equityInceptionData?.purchaseDate && inceptionIrr === null && (
-                <div style={{ fontSize: "0.6rem", color: "rgba(255,255,255,0.5)", marginTop: "0.2rem" }}>
-                  {equityInceptionData.payments.filter(p => p.distribution != null).length}/{equityInceptionData.payments.length} payments entered
+              {inceptionIrr && (
+                <div
+                  style={{
+                    fontSize: "0.58rem",
+                    color: "rgba(255,255,255,0.7)",
+                    marginTop: "0.4rem",
+                    lineHeight: 1.4,
+                    fontVariantNumeric: "tabular-nums",
+                  }}
+                >
+                  Anchored {inceptionIrr.anchorDate} at {inceptionIrr.anchorPriceCents.toFixed(0)}c
+                  {" · "}
+                  {inceptionIrr.distributionCount} distribution{inceptionIrr.distributionCount === 1 ? "" : "s"}
+                  {" · "}
+                  terminal €{(inceptionIrr.terminalValue / 1_000_000).toFixed(1)}M at {inceptionIrr.terminalDate}
                 </div>
               )}
-              {!equityInceptionData?.purchaseDate && (
+              {!inceptionIrr && (
                 <Link
                   href="/clo/context"
                   style={{ fontSize: "0.65rem", color: "var(--color-accent)", marginTop: "0.2rem", display: "block" }}
@@ -1249,6 +1368,107 @@ export default function ProjectionModel({
             dealDates: { reportDate, paymentDate },
           })}
         />
+      )}
+    </div>
+  );
+}
+
+/**
+ * T4 — Status line under the assumption sliders summarising the Intex pre-fill
+ * and a single bearish/matching/aggressive badge that compares the user's
+ * current slider values against Intex's published scenario.
+ *
+ * Stress score = (user CDR / Intex CDR) - (user Recovery / Intex Recovery).
+ * Positive ⇒ user is more conservative on credit ⇒ "bearish vs Intex".
+ * Negative ⇒ user is more optimistic ⇒ "aggressive vs Intex". Within ±5% of
+ * zero ⇒ "matching Intex".
+ */
+function IntexAssumptionStatus({
+  source,
+  intex,
+  cprPct,
+  recoveryPct,
+  defaultRates,
+  reinvestmentSpreadBps,
+}: {
+  source: { scenario: string | null; ratesAsOf: string | null };
+  intex: IntexAssumptions;
+  cprPct: number;
+  recoveryPct: number;
+  defaultRates: Record<string, number>;
+  reinvestmentSpreadBps: number;
+}) {
+  // User CDR is the simple mean across rating buckets. Intex CDR is a single
+  // pool-level number, so the comparison is mean-vs-pool — not perfect, but
+  // good enough for a stance summary.
+  const userCdrMean = (() => {
+    const vals = Object.values(defaultRates);
+    if (vals.length === 0) return null;
+    return vals.reduce((s, v) => s + v, 0) / vals.length;
+  })();
+
+  let badge: { label: string; tone: "bearish" | "matching" | "aggressive" } | null = null;
+  if (intex.cdrPct != null && intex.recoveryPct != null && userCdrMean != null) {
+    const cdrRatio = userCdrMean / intex.cdrPct;
+    const recRatio = recoveryPct / intex.recoveryPct;
+    const score = cdrRatio - recRatio;
+    if (score > 0.05) badge = { label: "Bearish vs Intex", tone: "bearish" };
+    else if (score < -0.05) badge = { label: "Aggressive vs Intex", tone: "aggressive" };
+    else badge = { label: "Matching Intex", tone: "matching" };
+  }
+
+  const toneColor =
+    badge?.tone === "bearish" ? "#d97706"
+      : badge?.tone === "aggressive" ? "#7c3aed"
+      : "#10b981";
+
+  const dateLabel = source.ratesAsOf?.split(" ")[0] ?? null; // first token = "Apr"
+  const monthYear = source.ratesAsOf?.match(/^([A-Za-z]{3})\s+\d{1,2},?\s+(\d{4})/);
+  const exportLabel = monthYear ? `${monthYear[1]} ${monthYear[2]}` : (dateLabel ?? "Intex");
+
+  const deltas: string[] = [];
+  if (intex.cprPct != null && Math.abs(cprPct - intex.cprPct) > 0.5) {
+    deltas.push(`CPR ${cprPct.toFixed(1)}% vs Intex ${intex.cprPct}%`);
+  }
+  if (intex.cdrPct != null && userCdrMean != null && Math.abs(userCdrMean - intex.cdrPct) > 0.2) {
+    deltas.push(`CDR ${userCdrMean.toFixed(2)}% vs Intex ${intex.cdrPct}%`);
+  }
+  if (intex.recoveryPct != null && Math.abs(recoveryPct - intex.recoveryPct) > 1) {
+    deltas.push(`Recovery ${recoveryPct}% vs Intex ${intex.recoveryPct}%`);
+  }
+  if (intex.reinvestSpreadPct != null) {
+    const intexBps = Math.round(intex.reinvestSpreadPct * 100);
+    if (Math.abs(reinvestmentSpreadBps - intexBps) > 10) {
+      deltas.push(`Reinv spread ${reinvestmentSpreadBps} bps vs Intex ${intexBps} bps`);
+    }
+  }
+
+  return (
+    <div style={{ marginTop: "0.75rem", display: "flex", alignItems: "center", gap: "0.6rem", flexWrap: "wrap" }}>
+      <span style={{ fontSize: "0.7rem", color: "var(--color-text-muted)", opacity: 0.85 }}>
+        Defaults from Intex {source.scenario ? `(${source.scenario}, ` : "("}
+        {exportLabel} export)
+      </span>
+      {badge && (
+        <span
+          style={{
+            fontSize: "0.65rem",
+            fontWeight: 600,
+            textTransform: "uppercase",
+            letterSpacing: "0.04em",
+            color: "#fff",
+            background: toneColor,
+            padding: "0.15rem 0.5rem",
+            borderRadius: "var(--radius-sm)",
+          }}
+        >
+          {badge.label}
+        </span>
+      )}
+      {deltas.length > 0 && (
+        <span style={{ fontSize: "0.65rem", color: "var(--color-text-muted)", opacity: 0.75 }}>
+          {deltas.join(" · ")}
+        </span>
       )}
     </div>
   );

@@ -83,6 +83,17 @@ export async function ingestIntexPastCashflows(
       }
     }
 
+    // Persist deal-level scenario assumptions so the projection model can
+    // pre-fill its sliders with Intex's inputs (CPR/CDR/Recovery/etc.) and
+    // surface a "matches Intex" hint. Stored as a JSONB blob — the consumer
+    // (defaultsFromIntex) reads the typed shape directly.
+    if (parsed.assumptions) {
+      await client.query(
+        `UPDATE clo_deals SET intex_assumptions = $1::jsonb, updated_at = now() WHERE id = $2`,
+        [JSON.stringify(parsed.assumptions), dealId],
+      );
+    }
+
     await client.query("COMMIT");
   } catch (err) {
     await client.query("ROLLBACK");
