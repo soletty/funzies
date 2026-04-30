@@ -181,15 +181,17 @@ export default function ProjectionModel({
   const [ddtlDrawQuarter, setDdtlDrawQuarter] = useState<number>(CLO_DEFAULTS.ddtlDrawQuarter);
   const [ddtlDrawPercent, setDdtlDrawPercent] = useState<number>(CLO_DEFAULTS.ddtlDrawPercent);
   const [equityEntryPriceCents, setEquityEntryPriceCents] = useState<number | null>(null); // null = use book value
-  // Forward IRR anchor: which price anchors the projected return. Default
-  // is "book" (today's mark-to-book). Other options surface only when the
-  // underlying data is available (cost basis from PPM/EquityInceptionData;
-  // custom from the entry-price input).
-  const [forwardAnchor, setForwardAnchor] = useState<"book" | "cost" | "custom">("book");
-  // User-overridable call date for the with-call comparison. `null` means
-  // "use the engine-derived default" (max(NCP, currentDate)). Empty string
-  // means "no call" — collapse to single column.
-  const [userCallDate, setUserCallDate] = useState<string | null>(null);
+  // Forward IRR anchor price (in cents). Free-text input — user types the
+  // entry price they want to evaluate. Empty string means "fall back to
+  // today's book value." The default value is populated once when book
+  // value is first known (see `useEffect` below).
+  const [anchorCentsStr, setAnchorCentsStr] = useState<string>("");
+  // User-overridable call date string. Free-text — user types the date.
+  // Empty string means "use the engine-derived default" (max(NCP,
+  // currentDate)). Populated from the engine default once on first load
+  // so the partner sees a sensible starting value.
+  const [userCallDate, setUserCallDate] = useState<string>("");
+  const forwardInputsInitialized = useRef(false);
   // Post-v6 plan §9 #5 / option (d): there is no toggle. When the deal has
   // an extracted `nonCallPeriodEnd`, the no-call/with-call comparison is
   // displayed side-by-side wherever call-mode matters (Forward IRR rows,
@@ -537,17 +539,26 @@ export default function ProjectionModel({
   // three years ago"); flooring to currentDate answers the partner-
   // relevant question "what if the manager calls today?".
   //
-  // `userCallDate === null` → use engine default. `userCallDate === ""` →
-  // no call (with-call comparison disabled). Any other string → use that
-  // date verbatim.
-  const withCallDate = useMemo<string | null>(() => {
-    if (userCallDate === "") return null;
-    if (userCallDate != null) return userCallDate;
+  // The engine default is max(NCP, currentDate). Used both as the input's
+  // placeholder/initial value AND as the fallback when the user clears
+  // the input.
+  const defaultCallDate = useMemo<string | null>(() => {
     const ncEnd = resolved?.dates.nonCallPeriodEnd ?? null;
     const currentDate = resolved?.dates.currentDate ?? null;
     if (!ncEnd || !currentDate) return null;
     return ncEnd > currentDate ? ncEnd : currentDate;
-  }, [resolved?.dates.nonCallPeriodEnd, resolved?.dates.currentDate, userCallDate]);
+  }, [resolved?.dates.nonCallPeriodEnd, resolved?.dates.currentDate]);
+
+  // Effective with-call date used by the engine. Empty user input falls
+  // back to the engine default; an obviously-malformed string (not
+  // YYYY-MM-DD) falls back too rather than blowing up the projection.
+  const withCallDate = useMemo<string | null>(() => {
+    const trimmed = userCallDate.trim();
+    if (!trimmed) return defaultCallDate;
+    // Loose validation: 10 chars, two dashes, parses to a valid date.
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return defaultCallDate;
+    return trimmed;
+  }, [userCallDate, defaultCallDate]);
 
   const withCallBaseInputs = useMemo<ProjectionInputs | null>(() => {
     if (!noCallBaseInputs || !withCallDate) return null;
@@ -593,48 +604,43 @@ export default function ProjectionModel({
     return runProjection(withCallBaseInputs);
   }, [withCallBaseInputs]);
 
-  // Forward IRR — single-anchor view. The user picks the anchor from a
-  // dropdown ("book", "cost", "custom"); the engine produces one no-call
-  // IRR and (optionally) one with-call IRR for that anchor. Replaces the
-  // prior multi-row layout that displayed all three anchors stacked
-  // simultaneously, which the partner found dense and unhelpful.
-  const anchorOptions = useMemo<Array<{ id: "book" | "cost" | "custom"; label: string; cents: number | null }>>(() => {
-    const options: Array<{ id: "book" | "cost" | "custom"; label: string; cents: number | null }> = [];
-    if (equityMetrics?.bookValueCents != null && !equityMetrics.wipedOut) {
-      options.push({ id: "book", label: "Book", cents: Math.round(equityMetrics.bookValueCents) });
-    }
-    if (
-      equityInceptionData?.purchasePriceCents != null &&
-      equityInceptionData.purchasePriceCents > 0
-    ) {
-      options.push({ id: "cost", label: "Cost basis", cents: equityInceptionData.purchasePriceCents });
-    }
-    if (equityEntryPriceCents != null) {
-      options.push({ id: "custom", label: "Custom", cents: equityEntryPriceCents });
-    }
-    return options;
-  }, [equityMetrics, equityInceptionData, equityEntryPriceCents]);
+  // Forward IRR — single-anchor view. The user types the entry price (in
+  // cents) and call date directly into text inputs. Empty inputs fall
+  // back to today's book value and the engine-default call date. No
+  // dropdowns, no calendar pickers — just numbers.
+  const defaultAnchorCents = useMemo<number | null>(() => {
+    if (!equityMetrics || equityMetrics.wipedOut) return null;
+    return Math.round(equityMetrics.bookValueCents);
+  }, [equityMetrics]);
 
-  // The selected anchor falls back to "book" when the chosen option
-  // isn't available (e.g., user picks "custom" and then clears the
-  // custom-price input). Stable in render — never returns null when at
-  // least book is available.
-  const effectiveAnchor = useMemo<"book" | "cost" | "custom">(() => {
-    if (anchorOptions.find((o) => o.id === forwardAnchor)) return forwardAnchor;
-    return anchorOptions[0]?.id ?? "book";
-  }, [anchorOptions, forwardAnchor]);
+  // Populate the inputs from defaults once on first load. After that,
+  // the user owns the values — clearing the input resets to defaults at
+  // the parse layer (`effectiveAnchorCents` / `withCallDate`).
+  React.useEffect(() => {
+    if (forwardInputsInitialized.current) return;
+    if (defaultAnchorCents != null && defaultCallDate != null) {
+      setAnchorCentsStr(String(defaultAnchorCents));
+      setUserCallDate(defaultCallDate);
+      forwardInputsInitialized.current = true;
+    }
+  }, [defaultAnchorCents, defaultCallDate]);
+
+  const effectiveAnchorCents = useMemo<number | null>(() => {
+    const parsed = parseFloat(anchorCentsStr);
+    if (!isNaN(parsed) && parsed > 0) return parsed;
+    return defaultAnchorCents;
+  }, [anchorCentsStr, defaultAnchorCents]);
 
   const selectedAnchorIrr = useMemo<{ cents: number; noCall: number | null; withCall: number | null | undefined } | null>(() => {
     if (!noCallBaseInputs || !equityMetrics || equityMetrics.wipedOut) return null;
-    const opt = anchorOptions.find((o) => o.id === effectiveAnchor);
-    if (!opt || opt.cents == null) return null;
-    const ep = equityMetrics.subNotePar * (opt.cents / 100);
+    if (effectiveAnchorCents == null || effectiveAnchorCents <= 0) return null;
+    const ep = equityMetrics.subNotePar * (effectiveAnchorCents / 100);
     const noCall = runProjection({ ...noCallBaseInputs, equityEntryPrice: ep }).equityIrr;
     const withCall = withCallBaseInputs
       ? runProjection({ ...withCallBaseInputs, equityEntryPrice: ep }).equityIrr
       : undefined;
-    return { cents: opt.cents, noCall, withCall };
-  }, [noCallBaseInputs, withCallBaseInputs, equityMetrics, anchorOptions, effectiveAnchor]);
+    return { cents: effectiveAnchorCents, noCall, withCall };
+  }, [noCallBaseInputs, withCallBaseInputs, equityMetrics, effectiveAnchorCents]);
 
   // Post-v6 plan §5.1 / §5.4: entry-price-vs-IRR sweep. Two columns
   // (no-call IRR / with-call IRR per price point) per option (d) — the
@@ -1277,70 +1283,76 @@ export default function ProjectionModel({
                 </span>
               </div>
               {selectedAnchorIrr ? (
-                <div style={{ display: "flex", flexDirection: "column", gap: "0.7rem" }}>
-                  {/* Controls row: anchor selector + call date input. */}
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.7rem", color: "#fff" }}>
+                  {/* Controls row: free-text price + free-text call date.
+                      Text inputs (not number/date types) so the user just
+                      types — no spinner buttons, no native calendar
+                      popup. Empty input falls back to defaults via the
+                      parse layer above. */}
                   <div style={{ display: "flex", gap: "0.6rem", flexWrap: "wrap" }}>
-                    <label style={{ display: "flex", flexDirection: "column", gap: "0.2rem", flex: "1 1 6rem" }}>
-                      <span style={{ fontSize: "0.55rem", color: "rgba(255,255,255,0.6)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                        Anchor
-                      </span>
-                      <select
-                        value={effectiveAnchor}
-                        onChange={(e) => setForwardAnchor(e.target.value as "book" | "cost" | "custom")}
-                        style={{
-                          fontSize: "0.78rem",
-                          padding: "0.25rem 0.4rem",
-                          background: "rgba(255,255,255,0.12)",
-                          color: "#fff",
-                          border: "1px solid rgba(255,255,255,0.18)",
-                          borderRadius: "0.2rem",
-                          fontFamily: "inherit",
-                        }}
-                      >
-                        {anchorOptions.map((opt) => (
-                          <option key={opt.id} value={opt.id} style={{ color: "#000" }}>
-                            {opt.label} ({opt.cents}c)
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label style={{ display: "flex", flexDirection: "column", gap: "0.2rem", flex: "1 1 7rem" }}>
-                      <span style={{ fontSize: "0.55rem", color: "rgba(255,255,255,0.6)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                        Call date
+                    <label style={{ display: "flex", flexDirection: "column", gap: "0.2rem", flex: "1 1 6rem", color: "#fff" }}>
+                      <span style={{ fontSize: "0.55rem", color: "rgba(255,255,255,0.7)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                        Entry price (cents)
                       </span>
                       <input
-                        type="date"
-                        value={withCallDate ?? ""}
-                        min={resolved?.dates.currentDate ?? undefined}
-                        onChange={(e) => setUserCallDate(e.target.value || "")}
+                        type="text"
+                        inputMode="decimal"
+                        value={anchorCentsStr}
+                        onChange={(e) => setAnchorCentsStr(e.target.value)}
+                        placeholder={defaultAnchorCents != null ? String(defaultAnchorCents) : ""}
                         style={{
-                          fontSize: "0.78rem",
-                          padding: "0.25rem 0.4rem",
-                          background: "rgba(255,255,255,0.12)",
+                          fontSize: "0.85rem",
+                          padding: "0.3rem 0.45rem",
+                          background: "rgba(255,255,255,0.14)",
                           color: "#fff",
-                          border: "1px solid rgba(255,255,255,0.18)",
+                          border: "1px solid rgba(255,255,255,0.25)",
                           borderRadius: "0.2rem",
                           fontFamily: "inherit",
-                          colorScheme: "dark",
+                          fontVariantNumeric: "tabular-nums",
+                          width: "100%",
+                          boxSizing: "border-box",
+                        }}
+                      />
+                    </label>
+                    <label style={{ display: "flex", flexDirection: "column", gap: "0.2rem", flex: "1 1 7rem", color: "#fff" }}>
+                      <span style={{ fontSize: "0.55rem", color: "rgba(255,255,255,0.7)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                        Call date (YYYY-MM-DD)
+                      </span>
+                      <input
+                        type="text"
+                        value={userCallDate}
+                        onChange={(e) => setUserCallDate(e.target.value)}
+                        placeholder={defaultCallDate ?? "YYYY-MM-DD"}
+                        style={{
+                          fontSize: "0.85rem",
+                          padding: "0.3rem 0.45rem",
+                          background: "rgba(255,255,255,0.14)",
+                          color: "#fff",
+                          border: "1px solid rgba(255,255,255,0.25)",
+                          borderRadius: "0.2rem",
+                          fontFamily: "inherit",
+                          fontVariantNumeric: "tabular-nums",
+                          width: "100%",
+                          boxSizing: "border-box",
                         }}
                       />
                     </label>
                   </div>
-                  {/* IRR values: no-call always shown; called shown when the
-                      with-call comparison is active. */}
-                  <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontVariantNumeric: "tabular-nums" }}>
+                  {/* IRR values: explicit white color on every text node so
+                      browser default styles can't bleed in. */}
+                  <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontVariantNumeric: "tabular-nums", color: "#fff" }}>
                     <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", fontSize: "0.78rem" }}>
-                      <span style={{ color: "rgba(255,255,255,0.85)" }}>Held to maturity</span>
-                      <strong style={{ fontFamily: "var(--font-display)", fontSize: "1.1rem", letterSpacing: "-0.02em" }}>
+                      <span style={{ color: "#fff", opacity: 0.85 }}>Held to maturity</span>
+                      <strong style={{ color: "#fff", fontFamily: "var(--font-display)", fontSize: "1.1rem", letterSpacing: "-0.02em" }}>
                         {selectedAnchorIrr.noCall != null ? formatPct(selectedAnchorIrr.noCall * 100) : "—"}
                       </strong>
                     </div>
                     {withCallDate && selectedAnchorIrr.withCall !== undefined && (
                       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", fontSize: "0.78rem" }}>
-                        <span style={{ color: "rgba(255,255,255,0.85)" }}>
+                        <span style={{ color: "#fff", opacity: 0.85 }}>
                           If called {formatCallDate(withCallDate)}
                         </span>
-                        <strong style={{ fontFamily: "var(--font-display)", fontSize: "1.1rem", letterSpacing: "-0.02em" }}>
+                        <strong style={{ color: "#fff", fontFamily: "var(--font-display)", fontSize: "1.1rem", letterSpacing: "-0.02em" }}>
                           {selectedAnchorIrr.withCall != null ? formatPct(selectedAnchorIrr.withCall * 100) : "—"}
                         </strong>
                       </div>
@@ -1363,16 +1375,17 @@ export default function ProjectionModel({
                       <div
                         style={{
                           fontSize: "0.6rem",
-                          color: "rgba(255,255,255,0.7)",
+                          color: "#fff",
+                          opacity: 0.75,
                           marginTop: "0.2rem",
                           paddingTop: "0.4rem",
                           borderTop: "1px solid rgba(255,255,255,0.18)",
                           lineHeight: 1.4,
                         }}
                       >
-                        Buy at <strong style={{ color: "rgba(255,255,255,0.9)" }}>{renderPrice(fv10NoCall)}</strong> for 10% IRR (no call)
+                        Buy at <strong style={{ color: "#fff" }}>{renderPrice(fv10NoCall)}</strong> for 10% IRR (no call)
                         {fv10WithCall && (
-                          <> · <strong style={{ color: "rgba(255,255,255,0.9)" }}>{renderPrice(fv10WithCall)}</strong> if called</>
+                          <> · <strong style={{ color: "#fff" }}>{renderPrice(fv10WithCall)}</strong> if called</>
                         )}
                       </div>
                     );
