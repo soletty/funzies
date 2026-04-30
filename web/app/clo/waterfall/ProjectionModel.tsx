@@ -1460,11 +1460,12 @@ export default function ProjectionModel({
                   : null;
                 const fmtIrr = (v: number | null): string => v != null ? formatPct(v * 100) : "—";
                 return (
-                  <div style={{ display: "flex", flexDirection: "column" }}>
+                  <div style={{ display: "flex", flexDirection: "column", color: "#fff" }}>
                     {dealLifetime && dealLifetime.markToBookIrr != null ? (
                       <>
                         <div
                           style={{
+                            color: "#fff",
                             fontFamily: "var(--font-display)",
                             fontSize: "1.6rem",
                             fontWeight: 700,
@@ -1475,12 +1476,12 @@ export default function ProjectionModel({
                         >
                           {fmtIrr(dealLifetime.markToBookIrr)}
                         </div>
-                        <div style={{ fontSize: "0.6rem", color: "rgba(255,255,255,0.7)", marginTop: "0.25rem", lineHeight: 1.4 }}>
+                        <div style={{ color: "#fff", opacity: 0.7, fontSize: "0.6rem", marginTop: "0.25rem", lineHeight: 1.4 }}>
                           Mark-to-book since closing ({dealLifetime.anchorDate} at {dealLifetime.anchorPriceCents.toFixed(0)}c)
                         </div>
                       </>
                     ) : (
-                      <div style={{ fontSize: "0.78rem", color: "rgba(255,255,255,0.85)" }}>
+                      <div style={{ color: "#fff", opacity: 0.85, fontSize: "0.78rem" }}>
                         No closing-date anchor available.
                       </div>
                     )}
@@ -1493,17 +1494,18 @@ export default function ProjectionModel({
                           display: "flex",
                           flexDirection: "column",
                           gap: "0.15rem",
+                          color: "#fff",
                         }}
                       >
                         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: "0.5rem" }}>
-                          <span style={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.85)" }}>
+                          <span style={{ color: "#fff", opacity: 0.85, fontSize: "0.7rem" }}>
                             Since you bought
                           </span>
-                          <strong style={{ fontFamily: "var(--font-display)", fontSize: "1rem", letterSpacing: "-0.02em", fontVariantNumeric: "tabular-nums" }}>
+                          <strong style={{ color: "#fff", fontFamily: "var(--font-display)", fontSize: "1rem", letterSpacing: "-0.02em", fontVariantNumeric: "tabular-nums" }}>
                             {fmtIrr(yourPosition.markToBookIrr)}
                           </strong>
                         </div>
-                        <div style={{ fontSize: "0.55rem", color: "rgba(255,255,255,0.55)", lineHeight: 1.4 }}>
+                        <div style={{ color: "#fff", opacity: 0.55, fontSize: "0.55rem", lineHeight: 1.4 }}>
                           Mark-to-book at {yourPosition.anchorDate} ({yourPosition.anchorPriceCents.toFixed(0)}c) · {yourPosition.distributionCount} realized
                         </div>
                       </div>
