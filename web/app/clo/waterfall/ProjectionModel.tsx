@@ -1249,7 +1249,11 @@ export default function ProjectionModel({
                   ))}
                   {/* Fair value @ 10% row: side-by-side prices when both
                       runs converged. Lower price = higher implied yield
-                      = "more conservative" for the buyer. */}
+                      = more conservative for the buyer. Conservative side
+                      renders bold/full opacity; the higher side dims
+                      (matching SideBySideIrr's weight/opacity encoding).
+                      The single card-level legend below the rows
+                      explains the convention. */}
                   {fairValues && (() => {
                     const fv10NoCall = fairValues.find((fv) => fv.hurdle === 0.10) ?? null;
                     const fv10WithCall = fairValuesWithCall?.find((fv) => fv.hurdle === 0.10) ?? null;
@@ -1264,29 +1268,23 @@ export default function ProjectionModel({
                     const withCallPrice = fv10WithCall?.status === "converged" ? fv10WithCall.priceCents : null;
                     const noCallLower = noCallPrice != null && withCallPrice != null && noCallPrice < withCallPrice;
                     const withCallLower = noCallPrice != null && withCallPrice != null && withCallPrice < noCallPrice;
-                    const conservativeMarker = (
-                      <span style={{ fontSize: "0.6rem", fontWeight: 400, opacity: 0.75, marginLeft: "0.15rem" }}>(more conservative)</span>
-                    );
+                    const sideStyle = (isConservative: boolean, isDimmed: boolean): React.CSSProperties => ({
+                      fontFamily: "var(--font-display)",
+                      fontSize: "1rem",
+                      letterSpacing: "-0.02em",
+                      fontWeight: isConservative ? 700 : 500,
+                      opacity: isDimmed ? 0.55 : 1,
+                    });
                     return (
                       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", fontSize: "0.78rem", gap: "0.4rem" }}>
                         <span style={{ color: "rgba(255,255,255,0.85)" }}>
                           @ fair value-10%
                         </span>
                         {fv10WithCall ? (
-                          <span style={{ display: "inline-flex", alignItems: "baseline", gap: "0.3rem", flexWrap: "wrap", justifyContent: "flex-end" }}>
-                            <span style={{ display: "inline-flex", alignItems: "baseline" }}>
-                              <strong style={{ fontFamily: "var(--font-display)", fontSize: "1rem", letterSpacing: "-0.02em" }}>
-                                {renderPrice(fv10NoCall)}
-                              </strong>
-                              {noCallLower && conservativeMarker}
-                            </span>
-                            <span style={{ opacity: 0.5 }}>{"·"}</span>
-                            <span style={{ display: "inline-flex", alignItems: "baseline" }}>
-                              <strong style={{ fontFamily: "var(--font-display)", fontSize: "1rem", letterSpacing: "-0.02em" }}>
-                                {renderPrice(fv10WithCall)}
-                              </strong>
-                              {withCallLower && conservativeMarker}
-                            </span>
+                          <span style={{ display: "inline-flex", alignItems: "baseline", gap: "0.3rem", justifyContent: "flex-end" }}>
+                            <span style={sideStyle(noCallLower, withCallLower)}>{renderPrice(fv10NoCall)}</span>
+                            <span style={{ opacity: 0.4 }}>{"·"}</span>
+                            <span style={sideStyle(withCallLower, noCallLower)}>{renderPrice(fv10WithCall)}</span>
                           </span>
                         ) : (
                           <strong style={{ fontFamily: "var(--font-display)", fontSize: "1rem", letterSpacing: "-0.02em" }}>
@@ -1312,6 +1310,25 @@ export default function ProjectionModel({
                     >
                       <span>@ custom ({equityEntryPriceCents}c)</span>
                       <SideBySideIrr noCall={customEntryIrr.noCall} withCall={customEntryIrr.withCall} />
+                    </div>
+                  )}
+                  {/* Single card-level legend explaining the conservative
+                      encoding. Replaces the per-row "(more conservative)"
+                      text that previously repeated 3-5x and forced row
+                      wrapping. Only renders when there's a with-call
+                      companion to compare against. */}
+                  {withCallBaseInputs && (
+                    <div
+                      style={{
+                        fontSize: "0.55rem",
+                        fontWeight: 400,
+                        color: "rgba(255,255,255,0.55)",
+                        marginTop: "0.5rem",
+                        textAlign: "right",
+                        letterSpacing: "0.02em",
+                      }}
+                    >
+                      bold = more conservative
                     </div>
                   )}
                 </div>
@@ -1448,6 +1465,23 @@ export default function ProjectionModel({
                         {formatPct(inceptionIrr.counterfactual.markToBookIrr * 100)}
                       </strong>
                       {" "}at {inceptionIrr.counterfactual.anchorDate} · 100c
+                    </div>
+                  )}
+                  {/* Mark-to-model row may show two columns when a with-call
+                      companion exists. Single legend explains the encoding —
+                      identical convention to the Forward IRR card. */}
+                  {inceptionIrrWithCall && (
+                    <div
+                      style={{
+                        fontSize: "0.55rem",
+                        fontWeight: 400,
+                        color: "rgba(255,255,255,0.55)",
+                        marginTop: "0.4rem",
+                        textAlign: "right",
+                        letterSpacing: "0.02em",
+                      }}
+                    >
+                      bold = more conservative
                     </div>
                   )}
                 </div>

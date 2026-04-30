@@ -9,16 +9,31 @@ import { formatPct } from "./helpers";
  * "wiped out" / "no forward data"), or `null` (renders as "—"). The
  * `withCall` parameter can additionally be `undefined`, which means "no
  * with-call companion exists for this deal" and triggers single-column
- * graceful degradation. The "(more conservative)" marker only appears when
- * both sides are numeric (status text or null are incomparable). This
- * reverses the regression introduced by the original (d) ship where
- * non-computed mark-to-model statuses degraded to "— · —" with no
- * indication of why; status text now propagates through the cell.
+ * graceful degradation.
+ *
+ * Conservative encoding: when both sides are numeric, the lower side
+ * renders at full strength (bold, full opacity) and the higher side is
+ * dimmed (regular weight, ~0.55 opacity). Status text and `null` are
+ * incomparable and render at full strength on both sides. The single
+ * card-level "(lower = conservative)" legend lives in the consumer
+ * (Forward IRR / Since-inception card footers); this component does not
+ * repeat the legend per row.
+ *
+ * Earlier iterations carried an inline "(more conservative)" text marker
+ * on the lower side; that produced 3-5 repetitions per card and forced
+ * row wrapping on narrow widths. Removed in favor of the weight/opacity
+ * contrast above.
  *
  * Extracted from `ProjectionModel.tsx` to enable render-state tests
  * (`__tests__/SideBySideIrr.test.tsx`).
  */
 export type IrrCellValue = number | string | null;
+
+const VALUE_BASE_STYLE: React.CSSProperties = {
+  fontFamily: "var(--font-display)",
+  fontSize: "1rem",
+  letterSpacing: "-0.02em",
+};
 
 export function SideBySideIrr({
   noCall,
@@ -34,32 +49,26 @@ export function SideBySideIrr({
   };
   if (withCall === undefined) {
     return (
-      <strong style={{ fontFamily: "var(--font-display)", fontSize: "1rem", letterSpacing: "-0.02em" }}>
+      <strong style={VALUE_BASE_STYLE}>
         {fmt(noCall)}
       </strong>
     );
   }
   const bothNumeric = typeof noCall === "number" && typeof withCall === "number";
+  // Conservative = lower numeric value. When sides aren't comparable
+  // (status text, null, or equal numbers) both render at full strength.
   const noCallLower = bothNumeric && (noCall as number) < (withCall as number);
   const withCallLower = bothNumeric && (withCall as number) < (noCall as number);
-  const conservativeMarker = (
-    <span style={{ fontSize: "0.6rem", fontWeight: 400, opacity: 0.75, marginLeft: "0.15rem" }}>(more conservative)</span>
+  const renderSide = (v: IrrCellValue, isConservative: boolean, isDimmed: boolean) => (
+    <span style={{ ...VALUE_BASE_STYLE, fontWeight: isConservative ? 700 : 500, opacity: isDimmed ? 0.55 : 1 }}>
+      {fmt(v)}
+    </span>
   );
   return (
-    <span style={{ display: "inline-flex", alignItems: "baseline", gap: "0.3rem", flexWrap: "wrap", justifyContent: "flex-end" }}>
-      <span style={{ display: "inline-flex", alignItems: "baseline" }}>
-        <strong style={{ fontFamily: "var(--font-display)", fontSize: "1rem", letterSpacing: "-0.02em" }}>
-          {fmt(noCall)}
-        </strong>
-        {noCallLower && conservativeMarker}
-      </span>
-      <span style={{ opacity: 0.5 }}>{"·"}</span>
-      <span style={{ display: "inline-flex", alignItems: "baseline" }}>
-        <strong style={{ fontFamily: "var(--font-display)", fontSize: "1rem", letterSpacing: "-0.02em" }}>
-          {fmt(withCall)}
-        </strong>
-        {withCallLower && conservativeMarker}
-      </span>
+    <span style={{ display: "inline-flex", alignItems: "baseline", gap: "0.3rem", justifyContent: "flex-end" }}>
+      {renderSide(noCall, noCallLower, withCallLower)}
+      <span style={{ opacity: 0.4 }}>{"·"}</span>
+      {renderSide(withCall, withCallLower, noCallLower)}
     </span>
   );
 }

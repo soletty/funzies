@@ -39,24 +39,37 @@ describe("SideBySideIrr render states", () => {
       expect(html).toContain("·");
     });
 
-    it("marks the lower side as (more conservative) when both are numeric", () => {
-      // No-call is lower → no-call gets the marker.
+    it("encodes the lower (conservative) side with bold weight; higher side is dimmed", () => {
+      // No-call is lower → no-call gets bold (700); with-call dims (opacity 0.55).
       const noCallLowerHtml = renderToStaticMarkup(
         <SideBySideIrr noCall={0.10} withCall={0.15} />,
       );
-      expect(noCallLowerHtml).toContain("(more conservative)");
-      // With-call is lower → with-call gets the marker.
+      expect(noCallLowerHtml).toMatch(/font-weight:\s*700[^"]*"[^>]*>10\.00%/);
+      expect(noCallLowerHtml).toMatch(/font-weight:\s*500[^"]*"[^>]*>15\.00%/);
+      expect(noCallLowerHtml).toMatch(/opacity:\s*0\.55[^"]*"[^>]*>15\.00%/);
+      // With-call is lower → with-call gets bold; no-call dims.
       const withCallLowerHtml = renderToStaticMarkup(
         <SideBySideIrr noCall={0.18} withCall={0.12} />,
       );
-      expect(withCallLowerHtml).toContain("(more conservative)");
+      expect(withCallLowerHtml).toMatch(/font-weight:\s*700[^"]*"[^>]*>12\.00%/);
+      expect(withCallLowerHtml).toMatch(/opacity:\s*0\.55[^"]*"[^>]*>18\.00%/);
     });
 
-    it("does not mark either side when noCall === withCall", () => {
+    it("does not encode either side as conservative when noCall === withCall", () => {
       const html = renderToStaticMarkup(
         <SideBySideIrr noCall={0.13} withCall={0.13} />,
       );
-      // Strict less-than → equal values produce no marker.
+      // Equal values: neither side is "lower" → both render with regular
+      // weight (500) at full opacity. No bold (700), no dim (0.55).
+      expect(html).not.toMatch(/font-weight:\s*700/);
+      expect(html).not.toMatch(/opacity:\s*0\.55/);
+    });
+
+    it("does not include the legacy '(more conservative)' inline text", () => {
+      // Replaced by weight/opacity encoding + a single card-level legend.
+      const html = renderToStaticMarkup(
+        <SideBySideIrr noCall={0.10} withCall={0.15} />,
+      );
       expect(html).not.toContain("(more conservative)");
     });
   });
@@ -73,24 +86,24 @@ describe("SideBySideIrr render states", () => {
       expect(occurrences.length).toBe(2);
     });
 
-    it("does not mark either column as conservative when status is text", () => {
+    it("does not encode either column as conservative when status is text", () => {
       const html = renderToStaticMarkup(
         <SideBySideIrr noCall="wiped out" withCall="wiped out" />,
       );
-      // Status text is incomparable — no numeric ordering, no marker.
-      expect(html).not.toContain("(more conservative)");
+      // Status text is incomparable — no numeric ordering, no bold/dim.
+      expect(html).not.toMatch(/font-weight:\s*700/);
+      expect(html).not.toMatch(/opacity:\s*0\.55/);
     });
 
     it("supports mixed status / numeric (no-realized-data on one side, computed on the other)", () => {
-      // Edge case: with-call companion has different status than no-call.
-      // Each column carries its own status independently.
       const html = renderToStaticMarkup(
         <SideBySideIrr noCall="no forward data" withCall={0.12} />,
       );
       expect(html).toContain("no forward data");
       expect(html).toContain("12");
-      // Mixed types are not comparable → no marker.
-      expect(html).not.toContain("(more conservative)");
+      // Mixed types are not comparable → no encoding.
+      expect(html).not.toMatch(/font-weight:\s*700/);
+      expect(html).not.toMatch(/opacity:\s*0\.55/);
     });
 
     it("renders 'no forward data' text", () => {
@@ -126,11 +139,12 @@ describe("SideBySideIrr render states", () => {
       expect(html).toContain("—");
     });
 
-    it("never renders (more conservative) marker in single-column mode", () => {
+    it("never applies dim/bold conservative encoding in single-column mode", () => {
       const html = renderToStaticMarkup(
         <SideBySideIrr noCall={0.125} withCall={undefined} />,
       );
-      expect(html).not.toContain("(more conservative)");
+      // Single column has no comparison → no bold/dim.
+      expect(html).not.toMatch(/opacity:\s*0\.55/);
     });
   });
 
