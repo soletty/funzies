@@ -123,29 +123,40 @@ export function computeInceptionIrr(input: InceptionIrrInput): InceptionIrrResul
   const terminalDate = input.currentDate;
   const terminalValue = input.equityBookValue;
 
-  // Inverse-case guard: any historical distribution dated after currentDate
-  // would silently corrupt the mark-to-model series (realized stream past
-  // the boundary that forward distributions are supposed to start from).
-  // Throw rather than coerce — the data is wrong upstream.
-  for (const d of input.historicalDistributions) {
+  // Boundary policy. The original implementation threw on
+  // `historical.date > currentDate` because such a row is upstream-
+  // inconsistent: bookValue at currentDate already includes the equity
+  // claim that the post-currentDate trustee distribution paid out, so
+  // putting both in the IRR series double-counts. The throw was correct
+  // economically but crashed the page (production: trustee paid
+  // 2026-04-15; resolved currentDate = 2026-04-01).
+  //
+  // Production fix: filter rather than throw. Post-currentDate historical
+  // rows are dropped from the realized stream; forward distributions
+  // dated at-or-before currentDate are similarly dropped. Both warn to
+  // the console so the upstream alignment issue stays visible to ops
+  // without 500-ing the partner-facing surface.
+  const filteredHistoricalDistributions = input.historicalDistributions.filter((d) => {
     if (d.date > terminalDate) {
-      throw new Error(
-        `Mark-to-model: historical distribution dated ${d.date} is after currentDate ${terminalDate}. ` +
-          `Refusing to build a mixed realized/forward series with future-dated realized data.`,
+      console.warn(
+        `[inception-irr] dropping historical distribution dated ${d.date} (after currentDate ${terminalDate}). ` +
+          `Upstream: resolved.dates.currentDate has not advanced past the latest trustee payment.`,
       );
+      return false;
     }
-  }
-  // Forward distributions must all be strictly after currentDate.
-  if (input.forwardDistributions) {
-    for (const d of input.forwardDistributions) {
-      if (d.date <= terminalDate) {
-        throw new Error(
-          `Mark-to-model: forward distribution dated ${d.date} is not after currentDate ${terminalDate}. ` +
-            `Forward stream must start strictly after the realized boundary.`,
-        );
-      }
-    }
-  }
+    return true;
+  });
+  const filteredForwardDistributions = input.forwardDistributions
+    ? input.forwardDistributions.filter((d) => {
+        if (d.date <= terminalDate) {
+          console.warn(
+            `[inception-irr] dropping forward distribution dated ${d.date} (not after currentDate ${terminalDate}).`,
+          );
+          return false;
+        }
+        return true;
+      })
+    : null;
 
   const userAnchorDate = input.userAnchor?.date ?? null;
   const userAnchorCents = input.userAnchor?.priceCents ?? null;
@@ -158,7 +169,7 @@ export function computeInceptionIrr(input: InceptionIrrInput): InceptionIrrResul
     const purchasePrice = input.subNotePar * (anchorPriceCents / 100);
     if (purchasePrice <= 0) return null;
 
-    const realizedDists = input.historicalDistributions
+    const realizedDists = filteredHistoricalDistributions
       .filter((d) => d.date > anchorDate && d.date < terminalDate && Number.isFinite(d.distribution))
       .map((d) => ({ date: d.date, amount: d.distribution }));
 
@@ -186,8 +197,8 @@ export function computeInceptionIrr(input: InceptionIrrInput): InceptionIrrResul
     // Mark-to-model: cost basis + realized + forward-projected distributions
     // (no terminal — forward stream extends through maturity, terminal value
     // embedded in the final period's distribution).
-    const forwardDists = input.forwardDistributions
-      ? input.forwardDistributions
+    const forwardDists = filteredForwardDistributions
+      ? filteredForwardDistributions
           .filter((d) => Number.isFinite(d.amount))
           .map((d) => ({ date: d.date, amount: d.amount }))
       : [];
@@ -198,7 +209,7 @@ export function computeInceptionIrr(input: InceptionIrrInput): InceptionIrrResul
     if (input.equityWipedOut) {
       markToModelIrr = null;
       markToModelStatus = "wiped_out";
-    } else if (input.forwardDistributions === null) {
+    } else if (filteredForwardDistributions === null) {
       markToModelIrr = null;
       markToModelStatus = "no_forward_data";
     } else if (realizedDists.length === 0) {

@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { computeInceptionIrr, type InceptionIrrInput } from "../services/inception-irr";
 
 const SUB_PAR = 10_000_000;
@@ -192,26 +192,41 @@ describe("computeInceptionIrr — three IRR modes (post-v6 plan §3.2)", () => {
     expect(r!.primary.markToModelIrr!).toBeGreaterThan(r!.primary.markToBookIrr!);
   });
 
-  it("inverse-case error: historical distribution dated after currentDate throws", () => {
-    expect(() =>
-      computeInceptionIrr(baseInput({
-        historicalDistributions: [
-          { date: "2022-07-15", distribution: 200_000 },
-          { date: "2027-01-01", distribution: 300_000 }, // after currentDate=2026-04-01
-        ],
-      })),
-    ).toThrow(/historical distribution dated 2027-01-01 is after currentDate/);
+  it("post-currentDate historical distribution is dropped with a console warn (no throw)", () => {
+    // Production crash repro: trustee paid after the engine's currentDate.
+    // Filtering rather than throwing keeps the partner-facing surface
+    // alive; the warning makes the upstream alignment issue visible to ops.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const r = computeInceptionIrr(baseInput({
+      historicalDistributions: [
+        { date: "2022-07-15", distribution: 200_000 },
+        { date: "2027-01-01", distribution: 300_000 }, // after currentDate=2026-04-01
+      ],
+    }));
+    expect(r).not.toBeNull();
+    // The post-currentDate row was dropped from the realized stream.
+    // The pre-currentDate row remains, so distributionCount = 1.
+    expect(r!.primary.distributionCount).toBe(1);
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringMatching(/2027-01-01.*after currentDate.*2026-04-01/),
+    );
+    warn.mockRestore();
   });
 
-  it("inverse-case error: forward distribution dated on or before currentDate throws", () => {
-    expect(() =>
-      computeInceptionIrr(baseInput({
-        forwardDistributions: [
-          { date: "2026-04-01", amount: 100_000 }, // == currentDate (not strictly after)
-          { date: "2027-01-15", amount: 500_000 },
-        ],
-      })),
-    ).toThrow(/forward distribution dated 2026-04-01 is not after currentDate/);
+  it("forward distribution dated on or before currentDate is dropped with a console warn", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const r = computeInceptionIrr(baseInput({
+      forwardDistributions: [
+        { date: "2026-04-01", amount: 100_000 }, // == currentDate (not strictly after)
+        { date: "2027-01-15", amount: 500_000 },
+      ],
+    }));
+    expect(r).not.toBeNull();
+    expect(r!.primary.forwardDistributionCount).toBe(1);
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringMatching(/forward distribution dated 2026-04-01.*not after currentDate/),
+    );
+    warn.mockRestore();
   });
 
   it("counterfactual anchor also carries all three modes", () => {
