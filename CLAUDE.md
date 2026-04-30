@@ -8,6 +8,40 @@ post-commit merge behavior).
 
 ---
 
+## Correctness is the only metric (CLO and any other financial-model work)
+
+This is a financial model. Partner-facing IRR, NAV, OC ratios, and waterfall
+amounts are relied upon. A "mostly right" number is the most expensive
+failure mode the model can produce — silent and trust-eroding.
+
+When working on the CLO product (`web/lib/clo/**`, `web/app/clo/**`,
+`web/docs/clo-model-known-issues.md`), or any other code that touches cash
+flows, IRR, NAV, accruals, or valuation:
+
+- **Never include time or effort estimates** in plans, paths-to-close, fix-
+  order recommendations, KI ledger entries, or PR descriptions. Effort is
+  irrelevant noise that biases the conversation toward triage thinking
+  instead of "what is the precise wrong number, where, why, and what is the
+  precise correct behavior."
+- **Sort fixes by correctness leverage**: how many wrong numbers does this
+  fix; how silent is the current bug; how does it interact with downstream
+  invariants (waterfall ordering, sign convention, day-count, fee base).
+  Never sort by "what's faster."
+- **Verify every code claim against the actual file before stating it as
+  fact.** When auditing, every "current behavior" sentence in the ledger or
+  in a write-up must be traceable to a `file:line` you have read. Do not
+  paraphrase or infer.
+- **When in doubt about a candidate KI**, mark it tentative with the
+  specific verification that would resolve it, rather than asserting it as
+  real or rejecting it as false. The ledger is allowed to carry honest
+  uncertainty; it is not allowed to carry confident-but-wrong claims.
+- **The ledger ↔ test bijection is load-bearing.** Every documented
+  magnitude must trace to a `failsWithMagnitude` marker (or equivalent
+  pinned assertion); every marker must trace to a ledger entry. New KI
+  entries ship with their marker test in the same change.
+
+---
+
 ## Engine-as-Source-of-Truth (CLO modeling)
 
 The CLO modeling code is partitioned into five layers. Each layer has a
