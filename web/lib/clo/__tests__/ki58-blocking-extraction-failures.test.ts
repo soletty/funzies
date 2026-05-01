@@ -289,6 +289,26 @@ describe("Pattern B (silent acceptance of sentinel value)", () => {
     expectGateThrows(resolved, warnings);
   });
 
+  it("fee bps heuristic (resolver.ts:482) — rate > 5 with null rateUnit guesses bps → blocking", () => {
+    const raw = loadRaw();
+    // Trip the heuristic: senior mgmt fee with rate > 5 and rateUnit null.
+    // Without rateUnit the resolver guesses bps; the wrong-direction guess
+    // produces a 100× silent error. New behavior refuses rather than guess.
+    const seniorFee = (raw.constraints.fees as any[]).find((f: any) => {
+      const n = (f.name ?? "").toLowerCase();
+      return n.includes("senior") && (n.includes("mgmt") || n.includes("management"));
+    });
+    expect(seniorFee).toBeDefined();
+    seniorFee.rate = "10";
+    seniorFee.rateUnit = null;
+    const { resolved, warnings } = runResolver(raw);
+    const w = warnings.find((w) =>
+      w.field === "fees.seniorFeePct" && w.message.includes("no rateUnit"),
+    );
+    expectBlockingError(w, "fees.seniorFeePct (bps heuristic)");
+    expectGateThrows(resolved, warnings);
+  });
+
   it("ocTriggers empty (resolver.ts:374) — no OC triggers in compliance OR PPM → blocking", () => {
     const raw = loadRaw();
     // Drop every OC test the resolver's `isOcTest` predicate would match

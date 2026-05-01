@@ -477,9 +477,17 @@ function resolveFees(constraints: ExtractedConstraints, warnings: ResolutionWarn
         return r / 100;
       }
       if (unit === "pct_pa") return r;
-      // No explicit unit — use heuristic: management fees > 5 are almost certainly bps
+      // No explicit unit — heuristic-only path. The wrong guess produces a 100×
+      // error in fee accrual (rate of 6 read as bps becomes 0.06%, when the deal
+      // genuinely paid 6% p.a.). Refuse rather than apply the heuristic silently;
+      // partner sets rateUnit explicitly upstream and re-runs.
       if (r > 5) {
-        warnings.push({ field: fieldName, message: `Fee rate ${r} looks like bps (no rateUnit), converting to ${r / 100}%`, severity: "warn", blocking: false });
+        warnings.push({
+          field: fieldName,
+          message: `Fee rate ${r} extracted with no rateUnit — heuristic would treat it as bps and convert to ${r / 100}%, but this is a guess. Wrong-direction interpretation produces a 100× error in fee accrual. Set rateUnit explicitly ("bps_pa" or "pct_pa") in the source data.`,
+          severity: "error",
+          blocking: true,
+        });
         return r / 100;
       }
       return r;
