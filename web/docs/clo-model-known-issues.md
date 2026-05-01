@@ -1050,32 +1050,54 @@ Option (a) preserves per-source granularity in the harness output (partner can s
 
 **PPM reference:** Generic. The `buildFromResolved` blocking-warning gate (`web/lib/clo/build-projection-inputs.ts`) refuses the projection when any `ResolutionWarning` carries `blocking: true`, and the `severity: "error"` resolver sites that silently fell back to a "common default" or sentinel value have all been flipped to emit `blocking: true` (canonical inventory: `web/lib/clo/__tests__/ki58-blocking-extraction-failures.test.ts`, one `it()` per site). The criterion for "this warning should block" is: (a) the warning fires on a missing per-deal computational input that downstream waterfall arithmetic depends on, AND (b) the resolver currently leaves a fallback / sentinel value in `ResolvedDealData` that the engine would consume.
 
-**Current engine behavior:** ~25 `severity: "warn"` warning sites in `resolver.ts` (grep `severity: "warn"`). Each was originally written as advisory — partner sees a yellow banner but the projection runs. The warn sites were not individually re-audited against the blocking-gate criterion above when the error sites were flipped, so any warn site that actually meets both (a) and (b) is currently a silent fallback the partner cannot see.
+**Current engine behavior:** ~25 `severity: "warn"` warning sites in `resolver.ts` (grep `severity: "warn"`). Each was originally written as advisory — partner sees a yellow banner but the projection runs. Audit (May 2026) classifies the sites:
 
-The audit candidates most likely to meet the criterion, surfaced by name from a quick scan (not yet verified, intentionally tentative per the project rule):
+*Confirmed blocking promotions — silent fallback at the resolver, value flows into engine arithmetic:*
 
-- `resolver.ts:400` — "No OC triggers found in compliance tests or PPM" → warning emitted but the resolver continues with an empty `ocTriggers: []`. On a deal with extracted-but-empty triggers, the engine never fires the diversion / EoD logic. Catastrophic if extraction silently returns no rows.
-- `resolver.ts:983-986` — Fixed-rate loan with no `allInRate`: falls back to `spreadBps` proxy or WAC spread. On a fixed-rate loan whose true coupon diverges from the WAC proxy, every per-period coupon accrual is wrong by the divergence × loan par.
-- `resolver.ts:994-1008` — DDTL parent-facility match failure: falls back to WAC spread or "largest par" tiebreaker. Same per-loan magnitude as the fixed-rate fallback when the actual DDTL spread is materially different from WAC.
-- `resolver.ts:1212` — `deferredInterestCompounds` defaults to `true` ("standard convention") on any deal with deferrable tranches but no PIK-compounding info. On a deferred tranche where the indenture specifies no compounding, every period's PIK accrual over-states the deferred balance.
-- `resolver.ts:504` — Fee rate "looks like bps" guess (no `rateUnit`): converts via division-by-100. Wrong unit guess produces 100× error in fee accrual on the next deal.
+- `resolver.ts:374` — "No OC triggers found in compliance tests or PPM" → resolver returns `ocTriggers: []`. Engine never fires class-OC tests, never diverts, never detects EoD on class paths. Catastrophic on a deal whose extraction silently returns no trigger rows.
+- `resolver.ts:474` — Fee rate `> 5` heuristic in `toPctPa` when `rateUnit` is null → assigns `r/100` to `seniorFeePct` / `subFeePct`. Wrong unit guess produces a 100× silent error in fee accrual on the next deal.
+- `resolver.ts:526` — Trustee fee found in PPM but `parseFloat("per agreement") = NaN` → `trusteeFeeBps` stays at the `CLO_DEFAULTS` zero. Engine accrues no trustee fee per period; partner sees `€0` trustee fee on every period of a deal that genuinely has one. Same shape as the already-blocking senior/sub mgmt fee zero-on-recognized-name sites at L543/553. (Discovered in this audit; not in the original candidate list.)
+- `resolver.ts:1014` — Fixed-rate loan with no `allInRate`: `fixedCouponPct = spreadBps / 100`. Engine's per-period coupon accrual is wrong by `(true_coupon − spread/100) × par`.
+- `resolver.ts:1017` — Same loan also missing `spreadBps`: falls back to pool WAC. Magnitude unbounded; on a fixed-rate bond paying 8% with WAC of 4%, the engine accrues at 4%.
+- `resolver.ts:1039` — DDTL holding with no matching parent facility: `ddtlSpreadBps = wacSpreadBps`. On draw, the synthesized loan accrues at WAC instead of its true facility spread.
+- `resolver.ts:1243` — Deferrable tranches present, no PIK-compounding info → defaults to `true` ("standard convention"). On a deal whose indenture specifies `false`, every period over-states the deferred balance.
 
-The remaining warn sites (trigger-level conversions, "unusually high" sanity checks, citation provenance gaps, etc.) likely fall on the advisory side — they're either lossless transformations or partner-noise — but each needs the same audit-against-criterion before a `blocking: true` decision.
+*One absent-gate addition (not a warn site to flip — a missing block to add):*
 
-**PPM-correct behavior:** Each warn site that meets the criterion is promoted to `severity: "error", blocking: true` and gets a per-site marker test alongside the existing eight in `web/lib/clo/__tests__/ki58-blocking-extraction-failures.test.ts`. The remaining sites stay advisory.
+- `resolver.ts:404-416` IC trigger band — sibling shape to the already-blocking OC-trigger 10-90% gate at L388-397. A misextracted IC trigger of 50% (extractor read column 4 instead of 5) currently flows through unchanged because the IC block has no `>= 10 && < 90` branch. IC triggers are typically 100–200%; a 50% trigger means actual ratio of ~150% always passes, IC test silently always-on, no diversion ever fires. Add the sibling gate with `severity: "error", blocking: true`.
 
-**Quantitative magnitude:** Per-site, silent on Euro XV today (extraction succeeds at every site), portability-conditional on the next deal. Per-candidate magnitudes are TBD pending the audit; the framework expectation is they fall in the same €100K-€1M/year-of-fake-equity range as the eight already-flipped sites.
+*One absent-gate addition at the reinvestment OC fall-through (resolver-layer fix per Engine-as-Source-of-Truth — keeps the engine's contract clean, no new field on `ProjectionInputs`):*
 
-**Deferral rationale:** Filed as a follow-up to the blocking-gate mechanism PR rather than rolled in to keep that PR's diff scoped to the eight verified sites. Closing each candidate is a one-line resolver edit + one marker test, no new mechanism. Latent because Euro XV's extraction succeeds at every candidate site today.
+- `resolver.ts` after L978 — engine `projection.ts:2505` gates reinvestment-OC diversion behind `if (inRP && reinvestmentOcTrigger && availableInterest > 0)`. When `reinvestmentOcTrigger == null`, the entire diversion block is silently skipped — no warning, no log, no banner. Three independent resolver fall-through paths (L943 compliance, L951 PPM `reinvOcRaw.trigger` filtered out at L958 if implausibly low, L973 most-junior-class fallback) can all miss, leaving the field null. Add a post-L978 check `if (!reinvestmentOcTrigger && (complianceReinvOc != null || reinvOcRaw != null))` — fires when the deal's PPM mentioned a reinvestment OC test (compliance test OR PPM raw source) but no fall-through path produced a usable trigger. Emit `severity: "error", blocking: true`. This catches the residual non-portability shape that the L374 promotion does not subsume (class triggers exist but all `< 103` AND PPM reinvOc trigger also `< 103`).
+
+*Subsumed candidate (does not flip on its own — covered by the additions above):*
+
+- `resolver.ts:958` — Reinvestment OC PPM trigger `< 103%` gets ignored. The catastrophic sub-case "no class triggers at all" is fully subsumed by the L374 promotion; the narrow non-portability sub-case "class triggers exist but all `< 103`" that survives is caught by the new post-L978 blocking site above. Site 958 itself stays advisory (it's a filter-out, not a fallback) — the structural fix is at the fall-through, not at the filter.
+
+The remaining non-blocking sites (lossless ratio→percentage conversions, bounds sanity checks, filter-out heuristics for misextracted rows, display-only re-derivations, conservative caps at zero, the concentration-vocabulary carve-out at L1483, the currency carve-out at L1533 per CLAUDE.md principle 3) are advisory by criterion and stay `blocking: false`.
+
+**PPM-correct behavior:** Type system enforces the audit structurally. `ResolutionWarning.blocking?: boolean` is promoted to a discriminated union:
+
+```
+| { severity: "info" | "warn"; blocking: false; ... }
+| { severity: "error"; blocking: boolean; ... }
+```
+
+This forbids `{ severity: "warn", blocking: true }` (impossible — yellow advisory banner with a refused projection is contradictory UX), allows `{ severity: "error", blocking: false }` (display-only red-flag carve-out at L1483), allows `{ severity: "error", blocking: true }` (normal blocker). Every `warnings.push({...})` site must declare its blocking decision explicitly; future contributors cannot omit the field.
+
+**Quantitative magnitude:** Per-site, silent on Euro XV today (extraction succeeds at every site, resolver populates `reinvestmentOcTrigger` via the L943 compliance path), portability-conditional on the next deal. Per-site magnitudes range from per-period (fee/coupon accrual sites: 474, 526, 1014, 1017, 1039) to deal-lifetime (374 disables every class-OC test for the projection horizon; 1243 compounds across every PIK period; new IC gate disables every IC test; new reinvOC fall-through disables every diversion that should have fired). Each falls in the same €100K–€1M/year-of-fake-equity range as the already-blocking sites.
+
+**Deferral rationale:** Originally filed as a follow-up to the blocking-gate mechanism PR rather than rolled in to keep that PR's diff scoped to the verified sites. Closing each candidate is mechanical: per-site flip + marker test. Latent because Euro XV's extraction succeeds at every candidate site today.
 
 **Path to close:**
-1. For each warn site listed above (and any others surfaced by re-scan), construct a synthetic raw fixture missing the field and verify whether (a) the resolver continues with a fallback / sentinel and (b) the engine consumes that value into a partner-facing computation. Sites that fail both checks are advisory and stay warn.
-2. For sites that fail only check (a) but not (b) (computational input not yet consumed): document the engine-side gating that prevents consumption and stay warn.
-3. For sites that meet the criterion: flip to `severity: "error", blocking: true`; add a marker test in `ki58-blocking-extraction-failures.test.ts`.
-4. **Tighten the type-system surface so future `warnings.push({...})` emissions cannot silently regress.** Promote `ResolutionWarning.blocking?: boolean` to required (`blocking: boolean`) in `web/lib/clo/resolver-types.ts`. This is structurally the same audit as steps 1-3 — every existing `warnings.push({...})` site needs to declare its blocking decision explicitly, which requires re-running the same "computational vs advisory" check against each one. The "broad churn" of touching every existing warning push is the audit; the structural rule is the deliverable. Without this step, a future contributor adding a new warning at a fallback site could omit the field entirely and silently produce a non-blocking warning. The bijection AST scan in `incomplete-data-banner-bijection.test.ts` cannot catch the omission (it only flags divergent inline filters, not absent fields).
-5. After all sites are audited and the type is required, remove KI-59 from the ledger per the closed=deleted doctrine.
 
-**Test:** No active marker. Per-site marker tests land in `ki58-blocking-extraction-failures.test.ts` as each candidate flips. Until then, this entry's open status is its own audit reminder.
+Type-first sequence — the type tightening IS the audit, performed once rather than twice:
+
+1. Promote `ResolutionWarning` to the discriminated union above. TypeScript errors at every existing `warnings.push({...})` site that lacks the `blocking` field. Add `blocking: false` to all 35 such sites (25 `severity: "warn"` + 9 `severity: "info"` in `resolver.ts`, plus 1 `warnings.push` in `build-projection-inputs.ts:377`). The L1483 vocab-drift carve-out already declares `blocking: false` and needs no edit; L1533 (currency) gains `blocking: false` in the sweep alongside the other advisory sites. Update `incomplete-data-banner-bijection.test.ts:120-127` to use the carve-out shape (`severity: "error", blocking: false`) instead of the now-illegal `severity: "warn", blocking: true` combo — the test's intent ("predicate uses `blocking` literally, not severity") is preserved by the rewrite. One commit, mechanical sweep recording current verdicts; commit message annotates that the `blocking: false` annotations at the seven about-to-flip warn sites are interim state pending steps 2.1-2.9.
+2. Per-site flip + marker test, one commit each, in `ki58-blocking-extraction-failures.test.ts`. Nine commits total: 374, 474, 526, 1014, 1017, 1039, 1243, the absent-gate insertion at L408-415 (IC band) modeled on the OC band sibling, and the post-L978 reinvestment-OC fall-through gate.
+3. After all sites are audited and the discriminated union is in place, remove KI-59 (entry + index pointer + anchor) per the closed=deleted doctrine. The marker tests in `ki58-blocking-extraction-failures.test.ts`, the discriminated union in `resolver-types.ts`, and the bijection scan in `incomplete-data-banner-bijection.test.ts` are the durable structural record — no prose entry adds future value.
+
+**Test:** No active marker on the entry itself. Per-site marker tests land in `ki58-blocking-extraction-failures.test.ts` as each flip commits (9 new tests). Until then, this entry's open status is its own audit reminder.
 
 ---
 
