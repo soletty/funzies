@@ -108,7 +108,7 @@ function dedupTriggers(triggers: { className: string; triggerLevel: number; sour
       warnings.push({
         field: `trigger.${t.className}`,
         message: `Duplicate trigger for ${t.className}: ${existing.triggerLevel}% vs ${t.triggerLevel}% — keeping ${Math.max(existing.triggerLevel, t.triggerLevel)}%`,
-        severity: "warn",
+        severity: "warn", blocking: false,
       });
       if (t.triggerLevel > existing.triggerLevel) {
         byClass.set(key, t);
@@ -171,7 +171,7 @@ function resolveTranches(
           warnings.push({
             field: `${t.className}.amortisationPerPeriod`,
             message: `Compliance report principal paid (${snapshotAmort.toLocaleString()}) differs from PPM schedule (${ppmAmort.toLocaleString()}) — using compliance report`,
-            severity: "info",
+            severity: "info", blocking: false,
             resolvedFrom: "snapshot",
           });
         }
@@ -180,7 +180,7 @@ function resolveTranches(
         // Defense-in-depth: if spread looks like a percentage (< 20) after DB read, convert.
         // This should not fire if ingestion is correct — if it does, log a warning.
         if (spreadBps > 0 && spreadBps < 20 && !isSub) {
-          warnings.push({ field: `${t.className}.spreadBps`, message: `Spread ${spreadBps} looks like percentage (not bps) — converting to ${Math.round(spreadBps * 100)} bps. Check ingestion.`, severity: "warn" });
+          warnings.push({ field: `${t.className}.spreadBps`, message: `Spread ${spreadBps} looks like percentage (not bps) — converting to ${Math.round(spreadBps * 100)} bps. Check ingestion.`, severity: "warn", blocking: false });
           spreadBps = Math.round(spreadBps * 100);
         }
         if (spreadBps === 0 && !isSub) {
@@ -195,7 +195,7 @@ function resolveTranches(
           warnings.push({
             field: `${t.className}.spreadBps`,
             message: `Using PPM spread (${ppmSpreadByClass.get(key)} bps) — DB tranche has null`,
-            severity: "info",
+            severity: "info", blocking: false,
             resolvedFrom: "ppm_constraints",
           });
         }
@@ -299,7 +299,7 @@ function mergeTriggersPerClass(
       warnings.push({
         field: `${testType}Trigger.${ppm.className}`,
         message: `${testType} trigger for ${ppm.className} not found in compliance report — using PPM value (${ppm.triggerLevel})`,
-        severity: "info",
+        severity: "info", blocking: false,
         resolvedFrom: "ppm_constraints",
       });
     }
@@ -355,7 +355,7 @@ function resolveTriggers(
         warnings.push({
           field: `coverageTest.${e.class}`,
           message: `PPM coverage test for ${e.class} has parValueRatio ${v}% — implausibly low for a class PV trigger (minimum is ~103% for Class F). Likely the EoD threshold (102.5%) misassigned to a class column. Ignoring.`,
-          severity: "warn",
+          severity: "warn", blocking: false,
         });
         return false;
       }
@@ -371,7 +371,7 @@ function resolveTriggers(
   const icRaw = mergeTriggersPerClass(icFromTests, icFromPpm, "IC", warnings);
 
   if (ocRaw.length === 0) {
-    warnings.push({ field: "ocTriggers", message: "No OC triggers found in compliance tests or PPM", severity: "warn" });
+    warnings.push({ field: "ocTriggers", message: "No OC triggers found in compliance tests or PPM", severity: "warn", blocking: false });
   }
 
   const oc: ResolvedTrigger[] = dedupTriggers(ocRaw, warnings).map(t => {
@@ -384,7 +384,7 @@ function resolveTriggers(
     // safer than perpetually-failing, which would wipe out equity).
     if (triggerLevel > 0 && triggerLevel < 10) {
       triggerLevel = triggerLevel * 100;
-      warnings.push({ field: `ocTrigger.${t.className}`, message: `OC trigger ${t.triggerLevel} looks like a ratio, converting to ${triggerLevel}%`, severity: "warn" });
+      warnings.push({ field: `ocTrigger.${t.className}`, message: `OC trigger ${t.triggerLevel} looks like a ratio, converting to ${triggerLevel}%`, severity: "warn", blocking: false });
     } else if (triggerLevel >= 10 && triggerLevel < 90) {
       warnings.push({
         field: `ocTrigger.${t.className}`,
@@ -396,7 +396,7 @@ function resolveTriggers(
       });
     }
     if (triggerLevel > 200) {
-      warnings.push({ field: `ocTrigger.${t.className}`, message: `OC trigger ${triggerLevel}% for ${t.className} seems unusually high`, severity: "warn" });
+      warnings.push({ field: `ocTrigger.${t.className}`, message: `OC trigger ${triggerLevel}% for ${t.className} seems unusually high`, severity: "warn", blocking: false });
     }
     return { className: t.className, triggerLevel, rank: resolveRank(t.className), testType: "OC" as const, source: t.source };
   });
@@ -407,10 +407,10 @@ function resolveTriggers(
     // typically 100-200%. Values >= 10 are treated as percentages.
     if (triggerLevel > 0 && triggerLevel < 10) {
       triggerLevel = triggerLevel * 100;
-      warnings.push({ field: `icTrigger.${t.className}`, message: `IC trigger ${t.triggerLevel} looks like a ratio, converting to ${triggerLevel}%`, severity: "warn" });
+      warnings.push({ field: `icTrigger.${t.className}`, message: `IC trigger ${t.triggerLevel} looks like a ratio, converting to ${triggerLevel}%`, severity: "warn", blocking: false });
     }
     if (triggerLevel > 500) {
-      warnings.push({ field: `icTrigger.${t.className}`, message: `IC trigger ${triggerLevel}% for ${t.className} seems unusually high`, severity: "warn" });
+      warnings.push({ field: `icTrigger.${t.className}`, message: `IC trigger ${triggerLevel}% for ${t.className} seems unusually high`, severity: "warn", blocking: false });
     }
     return { className: t.className, triggerLevel, rank: resolveRank(t.className), testType: "IC" as const, source: t.source };
   });
@@ -434,7 +434,7 @@ function resolveTriggers(
       warnings.push({
         field: "eventOfDefaultTest",
         message: `EoD trigger mismatch: compliance reports ${eodLevel}%, PPM constraint reports ${constraintTrigger}%. Using compliance value.`,
-        severity: "warn",
+        severity: "warn", blocking: false,
       });
     }
   } else if (constraintTrigger != null) {
@@ -465,13 +465,13 @@ function resolveFees(constraints: ExtractedConstraints, warnings: ResolutionWarn
     // Helper: convert rate to percentage, handling bps_pa unit or heuristic fallback
     const toPctPa = (r: number, fieldName: string): number => {
       if (unit === "bps_pa") {
-        warnings.push({ field: fieldName, message: `Converted ${r} bps to ${r / 100}% (rateUnit: bps_pa)`, severity: "info" });
+        warnings.push({ field: fieldName, message: `Converted ${r} bps to ${r / 100}% (rateUnit: bps_pa)`, severity: "info", blocking: false });
         return r / 100;
       }
       if (unit === "pct_pa") return r;
       // No explicit unit — use heuristic: management fees > 5 are almost certainly bps
       if (r > 5) {
-        warnings.push({ field: fieldName, message: `Fee rate ${r} looks like bps (no rateUnit), converting to ${r / 100}%`, severity: "warn" });
+        warnings.push({ field: fieldName, message: `Fee rate ${r} looks like bps (no rateUnit), converting to ${r / 100}%`, severity: "warn", blocking: false });
         return r / 100;
       }
       return r;
@@ -485,17 +485,17 @@ function resolveFees(constraints: ExtractedConstraints, warnings: ResolutionWarn
       // Trustee fees are in bps — if unit says pct_pa, convert
       if (unit === "pct_pa") {
         trusteeFeeBps = rate * 100;
-        warnings.push({ field: "fees.trusteeFeeBps", message: `Converted trustee fee ${rate}% to ${rate * 100} bps (rateUnit: pct_pa)`, severity: "info" });
+        warnings.push({ field: "fees.trusteeFeeBps", message: `Converted trustee fee ${rate}% to ${rate * 100} bps (rateUnit: pct_pa)`, severity: "info", blocking: false });
       } else {
         trusteeFeeBps = rate;
       }
       if (trusteeFeeBps > 50) {
-        warnings.push({ field: "fees.trusteeFeeBps", message: `Trustee fee ${trusteeFeeBps} bps seems unusually high`, severity: "warn" });
+        warnings.push({ field: "fees.trusteeFeeBps", message: `Trustee fee ${trusteeFeeBps} bps seems unusually high`, severity: "warn", blocking: false });
       }
     } else if (name.includes("incentive") || name.includes("performance")) {
       incentiveFeePct = rate;
       if (rate > 50) {
-        warnings.push({ field: "fees.incentiveFeePct", message: `Incentive fee ${rate}% seems unusually high`, severity: "warn" });
+        warnings.push({ field: "fees.incentiveFeePct", message: `Incentive fee ${rate}% seems unusually high`, severity: "warn", blocking: false });
       }
       const hurdleRaw = parseFloat(fee.hurdleRate ?? "");
       if (!isNaN(hurdleRaw) && hurdleRaw > 0) {
@@ -523,7 +523,7 @@ function resolveFees(constraints: ExtractedConstraints, warnings: ResolutionWarn
     const n = (f.name ?? "").toLowerCase();
     return n.includes("trustee") || n.includes("admin");
   })) {
-    warnings.push({ field: "fees.trusteeFeeBps", message: "Trustee/admin fee found in PPM but rate is 'per agreement' — set manually from the compliance report fee schedule (typically 1-5 bps).", severity: "warn" });
+    warnings.push({ field: "fees.trusteeFeeBps", message: "Trustee/admin fee found in PPM but rate is 'per agreement' — set manually from the compliance report fee schedule (typically 1-5 bps).", severity: "warn", blocking: false });
   }
 
   // Sanity: every CLO has a Senior Collateral Management Fee (~0.10-0.20% p.a.)
@@ -682,7 +682,7 @@ export function resolveWaterfallInputs(
       warnings.push({
         field: `${t.className}`,
         message: `Duplicate tranche "${t.className}" (source: ${t.source}) merged with "${existing.className}" (source: ${existing.source})`,
-        severity: "info",
+        severity: "info", blocking: false,
       });
     } else {
       seenClasses.set(key, tranches.length);
@@ -693,7 +693,7 @@ export function resolveWaterfallInputs(
   // --- Pool Summary ---
   const pool = complianceData?.poolSummary;
   const { bps: wacSpreadBps, fix: wacFix } = normalizeWacSpread(pool?.wacSpread ?? null);
-  if (wacFix) warnings.push({ field: wacFix.field, message: wacFix.message, severity: "info", resolvedFrom: `${wacFix.before} → ${wacFix.after}` });
+  if (wacFix) warnings.push({ field: wacFix.field, message: wacFix.message, severity: "info", blocking: false, resolvedFrom: `${wacFix.before} → ${wacFix.after}` });
 
   // Derive fallbacks from holdings when compliance_summary / CQ tests didn't populate.
   // Numeric zero is treated as "unset" for counts + WARF so the fallbacks kick in.
@@ -815,7 +815,7 @@ export function resolveWaterfallInputs(
     warnings.push({
       field: "poolSummary.pct*",
       message: `${rawPctNullCount}/7 pool composition pct fields null in upstream extraction; resolver re-derived from concentrations. Verify ingest is reading the concentration table correctly.`,
-      severity: "warn",
+      severity: "warn", blocking: false,
     });
   }
 
@@ -952,18 +952,18 @@ export function resolveWaterfallInputs(
     let triggerLevel = parseFloat(reinvOcRaw.trigger);
     if (!isNaN(triggerLevel) && triggerLevel > 0) {
       if (triggerLevel < 10) {
-        warnings.push({ field: "reinvestmentOcTrigger", message: `Reinvestment OC trigger ${triggerLevel} looks like a ratio, converting to ${triggerLevel * 100}%`, severity: "warn" });
+        warnings.push({ field: "reinvestmentOcTrigger", message: `Reinvestment OC trigger ${triggerLevel} looks like a ratio, converting to ${triggerLevel * 100}%`, severity: "warn", blocking: false });
         triggerLevel = triggerLevel * 100;
       }
       if (triggerLevel < 103) {
         warnings.push({
           field: "reinvestmentOcTrigger",
           message: `PPM reinvestmentOcTest.trigger is ${triggerLevel}% — implausibly low (typical range 103-106%). Likely the §10(a)(iv) EoD threshold (102.5%) misassigned. Ignoring PPM value.`,
-          severity: "warn",
+          severity: "warn", blocking: false,
         });
       } else {
         if (triggerLevel > 200) {
-          warnings.push({ field: "reinvestmentOcTrigger", message: `Reinvestment OC trigger ${triggerLevel}% seems unusually high`, severity: "warn" });
+          warnings.push({ field: "reinvestmentOcTrigger", message: `Reinvestment OC trigger ${triggerLevel}% seems unusually high`, severity: "warn", blocking: false });
         }
         reinvestmentOcTrigger = { triggerLevel, rank: mostJuniorOcRank, diversionPct };
       }
@@ -1011,10 +1011,10 @@ export function resolveWaterfallInputs(
         fixedCouponPct = h.allInRate;
       } else if (h.spreadBps != null) {
         fixedCouponPct = h.spreadBps / 100;
-        warnings.push({ field: "fixedCouponPct", message: `Fixed-rate loan "${h.obligorName ?? "unknown"}" has no allInRate — using spreadBps (${h.spreadBps}) as coupon proxy (${fixedCouponPct}%).`, severity: "warn" });
+        warnings.push({ field: "fixedCouponPct", message: `Fixed-rate loan "${h.obligorName ?? "unknown"}" has no allInRate — using spreadBps (${h.spreadBps}) as coupon proxy (${fixedCouponPct}%).`, severity: "warn", blocking: false });
       } else {
         fixedCouponPct = wacSpreadBps / 100;
-        warnings.push({ field: "fixedCouponPct", message: `Fixed-rate loan "${h.obligorName ?? "unknown"}" has no allInRate or spreadBps — falling back to WAC spread as coupon (${fixedCouponPct}%).`, severity: "warn" });
+        warnings.push({ field: "fixedCouponPct", message: `Fixed-rate loan "${h.obligorName ?? "unknown"}" has no allInRate or spreadBps — falling back to WAC spread as coupon (${fixedCouponPct}%).`, severity: "warn", blocking: false });
       }
     }
 
@@ -1022,7 +1022,7 @@ export function resolveWaterfallInputs(
     if (isDdtl) {
       const candidates = nonDdtlHoldings.filter(c => c.obligorName != null && c.obligorName === h.obligorName);
       if (candidates.length > 1) {
-        warnings.push({ field: "ddtlSpreadBps", message: `DDTL "${h.obligorName ?? "unknown"}" matched ${candidates.length} parent facilities — using largest par with closest maturity as tiebreaker.`, severity: "warn" });
+        warnings.push({ field: "ddtlSpreadBps", message: `DDTL "${h.obligorName ?? "unknown"}" matched ${candidates.length} parent facilities — using largest par with closest maturity as tiebreaker.`, severity: "warn", blocking: false });
       }
       if (candidates.length > 0) {
         const ddtlMaturity = h.maturityDate ?? fallbackMaturity;
@@ -1036,7 +1036,7 @@ export function resolveWaterfallInputs(
         ddtlSpreadBps = parent.spreadBps ?? wacSpreadBps;
       } else {
         ddtlSpreadBps = wacSpreadBps;
-        warnings.push({ field: "ddtlSpreadBps", message: `DDTL "${h.obligorName ?? "unknown"}" has no matching parent facility — using WAC spread (${wacSpreadBps} bps).`, severity: "warn" });
+        warnings.push({ field: "ddtlSpreadBps", message: `DDTL "${h.obligorName ?? "unknown"}" has no matching parent facility — using WAC spread (${wacSpreadBps} bps).`, severity: "warn", blocking: false });
       }
     }
 
@@ -1209,11 +1209,11 @@ export function resolveWaterfallInputs(
     const implied = totalPrincipalBalance + principalAccountCash - defaultedHaircut - discountObligationHaircut - longDatedObligationHaircut - totalPar;
     if (implied < -100) {
       // Only warn if the residual is meaningfully negative (not just floating point noise)
-      warnings.push({ field: "impliedOcAdjustment", message: `Adjusted CPA reconciliation has negative residual (${Math.round(implied).toLocaleString()}). Unmodeled trustee adjustments may be inflating the Adjusted CPA. OC adjustment set to 0.`, severity: "info" });
+      warnings.push({ field: "impliedOcAdjustment", message: `Adjusted CPA reconciliation has negative residual (${Math.round(implied).toLocaleString()}). Unmodeled trustee adjustments may be inflating the Adjusted CPA. OC adjustment set to 0.`, severity: "info", blocking: false });
     } else if (implied < 0) {
       // Negligible negative residual (rounding) — reconciliation effectively closes. No warning.
     } else if (implied > totalPar * 0.05) {
-      warnings.push({ field: "impliedOcAdjustment", message: `Derived OC adjustment (${Math.round(implied).toLocaleString()}) is >5% of par — likely includes adjustments beyond unfunded revolvers. Capping at 0.`, severity: "warn" });
+      warnings.push({ field: "impliedOcAdjustment", message: `Derived OC adjustment (${Math.round(implied).toLocaleString()}) is >5% of par — likely includes adjustments beyond unfunded revolvers. Capping at 0.`, severity: "warn", blocking: false });
     } else {
       impliedOcAdjustment = implied;
     }
@@ -1240,7 +1240,7 @@ export function resolveWaterfallInputs(
   if (typeof rawCompounds === "boolean") {
     deferredInterestCompounds = rawCompounds;
   } else if (tranches.some(t => t.isDeferrable)) {
-    warnings.push({ field: "deferredInterestCompounds", message: "Deal has deferrable tranches but no PIK compounding info extracted — assuming deferred interest compounds (standard convention). Set manually if different.", severity: "warn" });
+    warnings.push({ field: "deferredInterestCompounds", message: "Deal has deferrable tranches but no PIK compounding info extracted — assuming deferred interest compounds (standard convention). Set manually if different.", severity: "warn", blocking: false });
   }
 
   // --- Quality & Concentration Tests ---
@@ -1440,7 +1440,7 @@ export function resolveWaterfallInputs(
       warnings.push({
         field: "holdings.duplicateClusters",
         message: `${totalWithKeys} raw holdings collapse to ${uniquePairs} unique (obligor, facilityCode) pairs — ${pairDelta} rows are purchase-lot fragments. Of those, ${strictRows} row(s) in ${strictClusters} cluster(s) are identical on (obligor, facilityCode, parBalance). Pool totals include all rows; per-facility consumers should aggregate by (obligorName, facilityCode) and sum par.`,
-        severity: "info",
+        severity: "info", blocking: false,
       });
     }
   }
@@ -1461,7 +1461,7 @@ export function resolveWaterfallInputs(
       warnings.push({
         field: "complianceTests.uncomputedTests",
         message: `${uncomputed.length} test(s) have an actual value but no trigger and are not marked passing — consumers filtering on triggerLevel != null will hide them. Examples: ${names}`,
-        severity: "warn",
+        severity: "warn", blocking: false,
       });
     }
   }
@@ -1532,7 +1532,7 @@ export function resolveWaterfallInputs(
     warnings.push({
       field: "currency",
       message: "Deal currency could not be determined from dealCurrency or holdings. UI will display a 'Set deal currency' banner. Multi-currency modeling tracked under KI-38.",
-      severity: "warn",
+      severity: "warn", blocking: false,
     });
   } else {
     currency = currency.toUpperCase();

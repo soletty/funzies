@@ -383,6 +383,7 @@ export function diagnoseFeePrefill(
         `row for admin expenses, or set adminFeeBps manually to match the PPM "per ` +
         `agreement" rate.`,
       severity: "warn",
+      blocking: false,
       resolvedFrom: `stepB present (${(stepB.amountPaid ?? 0).toFixed(0)}) / stepC missing`,
     });
   }

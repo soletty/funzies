@@ -215,20 +215,29 @@ export interface ResolvedLoan {
 
 export type WarningSeverity = "info" | "warn" | "error";
 
-export interface ResolutionWarning {
-  field: string;
-  message: string;
-  severity: WarningSeverity;
-  resolvedFrom?: string;
-  // True when this warning indicates a missing computational input that
-  // must prevent the projection from running. The `buildFromResolved`
-  // gate throws `IncompleteDataError` if any warning carries
-  // `blocking: true`, regardless of severity. Orthogonal to severity:
-  // a `severity: "error"` warning may be advisory (`blocking: false`,
-  // e.g. concentration vocabulary mismatch) or load-bearing
-  // (`blocking: true`, e.g. missing diversion %).
-  blocking?: boolean;
-}
+// Discriminated union: every site must declare its blocking decision
+// explicitly. `severity: "info" | "warn"` cannot be blocking (yellow
+// advisory banner with a refused projection is contradictory UX);
+// `severity: "error"` may be either blocking (the gate refuses) or
+// non-blocking (display-only red flag, e.g. concentration vocabulary
+// drift). The `buildFromResolved` gate at `selectBlockingWarnings`
+// uses `blocking === true` as its sole predicate; severity is purely
+// presentational.
+export type ResolutionWarning =
+  | {
+      field: string;
+      message: string;
+      severity: "info" | "warn";
+      blocking: false;
+      resolvedFrom?: string;
+    }
+  | {
+      field: string;
+      message: string;
+      severity: "error";
+      blocking: boolean;
+      resolvedFrom?: string;
+    };
 
 export interface ValidationError {
   field: string;

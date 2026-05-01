@@ -1,5 +1,5 @@
 /**
- * KI-58 — DATA INCOMPLETE banner ↔ blocking-warning bijection.
+ * DATA INCOMPLETE banner ↔ blocking-warning bijection.
  *
  * Mechanically binds the UI's banner-row source to the engine-side
  * `buildFromResolved` gate. The bijection has three legs:
@@ -90,16 +90,16 @@ function findDivergentBlockingFilters(sf: ReturnType<Project["getSourceFile"]>):
   return offenders;
 }
 
-describe("KI-58 — selectBlockingWarnings (the single predicate)", () => {
+describe("selectBlockingWarnings (the single predicate)", () => {
   it("returns empty when input is empty", () => {
     expect(selectBlockingWarnings([])).toEqual([]);
   });
 
   it("returns empty when no warning carries blocking: true", () => {
     const ws: ResolutionWarning[] = [
-      { field: "a", message: "x", severity: "warn" },
-      { field: "b", message: "y", severity: "error" },
-      { field: "c", message: "z", severity: "info" },
+      { field: "a", message: "x", severity: "warn", blocking: false },
+      { field: "b", message: "y", severity: "error", blocking: false },
+      { field: "c", message: "z", severity: "info", blocking: false },
       { field: "d", message: "w", severity: "error", blocking: false },
     ];
     expect(selectBlockingWarnings(ws)).toEqual([]);
@@ -107,23 +107,30 @@ describe("KI-58 — selectBlockingWarnings (the single predicate)", () => {
 
   it("returns exactly the blocking subset, preserving order", () => {
     const ws: ResolutionWarning[] = [
-      { field: "a", message: "x", severity: "warn" },
+      { field: "a", message: "x", severity: "warn", blocking: false },
       { field: "b", message: "y", severity: "error", blocking: true },
-      { field: "c", message: "z", severity: "info" },
-      { field: "d", message: "w", severity: "warn", blocking: true },
+      { field: "c", message: "z", severity: "info", blocking: false },
+      { field: "d", message: "w", severity: "error", blocking: true },
       { field: "e", message: "v", severity: "error", blocking: false },
     ];
     const out = selectBlockingWarnings(ws);
     expect(out.map((w) => w.field)).toEqual(["b", "d"]);
   });
 
-  it("treats severity as orthogonal to blocking (warn+blocking IS blocking)", () => {
+  it("predicate uses blocking literally, not severity (severity=error alone does not block)", () => {
+    // Pre-discriminated-union, this test constructed `severity: "warn", blocking: true`
+    // to prove the predicate uses `blocking === true` strict equality and not
+    // `severity === "error"`. The discriminated union (KI-59 close) now forbids
+    // that combo at the type level, so the test inverts: construct the carve-out
+    // shape `severity: "error", blocking: false` (the real-world combo at the
+    // resolver's concentration-vocabulary site) and prove the predicate does NOT
+    // select it. Same intent: severity is presentational; blocking is the gate.
     const ws: ResolutionWarning[] = [
-      { field: "warn-blocking", message: "x", severity: "warn", blocking: true },
-      { field: "error-advisory", message: "y", severity: "error", blocking: false },
+      { field: "error-advisory", message: "x", severity: "error", blocking: false },
+      { field: "error-blocking", message: "y", severity: "error", blocking: true },
     ];
     const out = selectBlockingWarnings(ws);
-    expect(out.map((w) => w.field)).toEqual(["warn-blocking"]);
+    expect(out.map((w) => w.field)).toEqual(["error-blocking"]);
   });
 
   it("uses strict equality on `=== true` — only literal boolean true blocks", () => {
@@ -144,7 +151,7 @@ describe("KI-58 — selectBlockingWarnings (the single predicate)", () => {
   });
 });
 
-describe("KI-58 — buildFromResolved gate uses the same predicate", () => {
+describe("buildFromResolved gate uses the same predicate", () => {
   it("does not throw when no warnings provided", () => {
     expect(() =>
       buildFromResolved(EMPTY_RESOLVED, DEFAULT_ASSUMPTIONS),
@@ -153,8 +160,8 @@ describe("KI-58 — buildFromResolved gate uses the same predicate", () => {
 
   it("does not throw when warnings exist but none are blocking", () => {
     const ws: ResolutionWarning[] = [
-      { field: "a", message: "advisory", severity: "warn" },
-      { field: "b", message: "advisory", severity: "error" },
+      { field: "a", message: "advisory", severity: "warn", blocking: false },
+      { field: "b", message: "advisory", severity: "error", blocking: false },
     ];
     expect(() =>
       buildFromResolved(EMPTY_RESOLVED, DEFAULT_ASSUMPTIONS, ws),
@@ -177,10 +184,10 @@ describe("KI-58 — buildFromResolved gate uses the same predicate", () => {
 
   it("error.errors equals selectBlockingWarnings(input) — exact bijection", () => {
     const ws: ResolutionWarning[] = [
-      { field: "a", message: "advisory", severity: "warn" },
+      { field: "a", message: "advisory", severity: "warn", blocking: false },
       { field: "b", message: "missing", severity: "error", blocking: true },
-      { field: "c", message: "advisory", severity: "info" },
-      { field: "d", message: "missing", severity: "warn", blocking: true },
+      { field: "c", message: "advisory", severity: "info", blocking: false },
+      { field: "d", message: "missing", severity: "error", blocking: true },
     ];
     try {
       buildFromResolved(EMPTY_RESOLVED, DEFAULT_ASSUMPTIONS, ws);
@@ -193,7 +200,7 @@ describe("KI-58 — buildFromResolved gate uses the same predicate", () => {
   });
 });
 
-describe("KI-58 — UI surfaces drive the banner from the same predicate", () => {
+describe("UI surfaces drive the banner from the same predicate", () => {
   it("ProjectionModel.tsx imports selectBlockingWarnings (no inline replacement)", () => {
     // Distinct from the divergent-filter scan below: this confirms the file
     // actually wires the helper in. The cross-file scan would pass if a UI
