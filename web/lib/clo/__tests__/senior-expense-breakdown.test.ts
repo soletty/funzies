@@ -52,25 +52,25 @@ describe("sumSeniorExpensesPreOverflow", () => {
 });
 
 describe("applySeniorExpensesToAvailable", () => {
-  it("ample-cash path: deducts sum, returns full breakdown in actualDeducted", () => {
+  it("ample-cash path: deducts sum, returns full breakdown in paid", () => {
     const b = breakdown(); // sum = 600
-    const { remainingAvailable, actualDeducted } = applySeniorExpensesToAvailable(b, 1000);
+    const { remainingAvailable, paid } = applySeniorExpensesToAvailable(b, 1000);
     expect(remainingAvailable).toBeCloseTo(400, 10);
-    expect(actualDeducted.taxes).toBe(b.taxes);
-    expect(actualDeducted.issuerProfit).toBe(b.issuerProfit);
-    expect(actualDeducted.trusteeCapped).toBe(b.trusteeCapped);
-    expect(actualDeducted.adminCapped).toBe(b.adminCapped);
-    expect(actualDeducted.seniorMgmt).toBe(b.seniorMgmt);
-    expect(actualDeducted.hedge).toBe(b.hedge);
+    expect(paid.taxes).toBe(b.taxes);
+    expect(paid.issuerProfit).toBe(b.issuerProfit);
+    expect(paid.trusteeCapped).toBe(b.trusteeCapped);
+    expect(paid.adminCapped).toBe(b.adminCapped);
+    expect(paid.seniorMgmt).toBe(b.seniorMgmt);
+    expect(paid.hedge).toBe(b.hedge);
     // Overflow fields zeroed — Y/Z computed separately on residual interest.
-    expect(actualDeducted.trusteeOverflow).toBe(0);
-    expect(actualDeducted.adminOverflow).toBe(0);
+    expect(paid.trusteeOverflow).toBe(0);
+    expect(paid.adminOverflow).toBe(0);
   });
 
-  it("round-trip: actualDeducted under ample cash equals input field-by-field", () => {
+  it("round-trip: paid under ample cash equals input field-by-field", () => {
     const b = breakdown({ taxes: 12.34, issuerProfit: 250, trusteeCapped: 7.5 });
-    const { actualDeducted } = applySeniorExpensesToAvailable(b, 10_000);
-    expect(sumSeniorExpensesPreOverflow(actualDeducted)).toBeCloseTo(
+    const { paid } = applySeniorExpensesToAvailable(b, 10_000);
+    expect(sumSeniorExpensesPreOverflow(paid)).toBeCloseTo(
       sumSeniorExpensesPreOverflow(b),
       10,
     );
@@ -79,29 +79,29 @@ describe("applySeniorExpensesToAvailable", () => {
   it("tight cash: truncates in PPM order, later steps get 0 once cash exhausted", () => {
     const b = breakdown(); // taxes=100, issuerProfit=250, trusteeCapped=50, ...
     // 120 covers taxes (100) + 20 of issuer profit; everything after that = 0.
-    const { remainingAvailable, actualDeducted } = applySeniorExpensesToAvailable(b, 120);
+    const { remainingAvailable, paid } = applySeniorExpensesToAvailable(b, 120);
     expect(remainingAvailable).toBe(0);
-    expect(actualDeducted.taxes).toBe(100);
-    expect(actualDeducted.issuerProfit).toBe(20);
-    expect(actualDeducted.trusteeCapped).toBe(0);
-    expect(actualDeducted.adminCapped).toBe(0);
-    expect(actualDeducted.seniorMgmt).toBe(0);
-    expect(actualDeducted.hedge).toBe(0);
+    expect(paid.taxes).toBe(100);
+    expect(paid.issuerProfit).toBe(20);
+    expect(paid.trusteeCapped).toBe(0);
+    expect(paid.adminCapped).toBe(0);
+    expect(paid.seniorMgmt).toBe(0);
+    expect(paid.hedge).toBe(0);
   });
 
   it("zero available: every deduction is 0; remaining stays 0", () => {
     const b = breakdown();
-    const { remainingAvailable, actualDeducted } = applySeniorExpensesToAvailable(b, 0);
+    const { remainingAvailable, paid } = applySeniorExpensesToAvailable(b, 0);
     expect(remainingAvailable).toBe(0);
-    expect(sumSeniorExpensesPreOverflow(actualDeducted)).toBe(0);
+    expect(sumSeniorExpensesPreOverflow(paid)).toBe(0);
   });
 
   it("preserves PPM strict order: A.i (taxes) consumed before A.ii (issuerProfit)", () => {
     // available = 50; taxes alone = 100. Taxes get all 50; issuerProfit (next
     // in line) gets 0 even though it's smaller than taxes.
     const b = breakdown({ taxes: 100, issuerProfit: 30 });
-    const { actualDeducted } = applySeniorExpensesToAvailable(b, 50);
-    expect(actualDeducted.taxes).toBe(50);
-    expect(actualDeducted.issuerProfit).toBe(0);
+    const { paid } = applySeniorExpensesToAvailable(b, 50);
+    expect(paid.taxes).toBe(50);
+    expect(paid.issuerProfit).toBe(0);
   });
 });

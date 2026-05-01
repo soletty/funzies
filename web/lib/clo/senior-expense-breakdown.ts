@@ -45,22 +45,30 @@ export function sumSeniorExpensesPreOverflow(x: SeniorExpenseBreakdown): number 
 
 /** Deduct the pre-overflow senior expenses from an `available` cash pool, in
  *  strict PPM order (A.i → A.ii → B → C → E → F). Returns the remaining
- *  available cash AND the actual amounts deducted (which match the input
+ *  available cash AND the per-bucket paid amounts (which match the input
  *  values 1:1 when `available` is sufficient, else truncate when cash runs
  *  out in an unusual distress scenario).
  *
- *  The `actualDeducted` return matches the breakdown shape so callers can
- *  drive stepTrace emission from a single object.
+ *  The `paid` return matches the breakdown shape so callers can drive
+ *  stepTrace emission from a single object. CALLERS MUST CONSUME `paid`
+ *  for partner-visible trace emission — emitting the input `x` (requested)
+ *  overstates payment under stress and breaks the invariant
+ *  `Σ stepTrace.*(interest waterfall) ≤ interestCollected`. The two return
+ *  keys are asymmetric on purpose: `remainingAvailable` is the cash-flow
+ *  output (consumed by the next waterfall step); `paid` is the trace
+ *  output (consumed by `PeriodStepTrace`). The loud name is so the next
+ *  reviewer notices if a destructure picks up `remainingAvailable` and
+ *  silently drops `paid`.
  *
  *  Under normal-mode inputs (`available >= sum`), returns `available − sum`
- *  AND `actualDeducted` equals the input breakdown field-by-field (with
- *  overflow fields ZERO — overflow is computed separately on residual
- *  interest AFTER tranche interest, a different code path).
+ *  AND `paid` equals the input breakdown field-by-field (with overflow
+ *  fields ZERO — overflow is computed separately on residual interest
+ *  AFTER tranche interest, a different code path).
  */
 export function applySeniorExpensesToAvailable(
   x: SeniorExpenseBreakdown,
   available: number,
-): { remainingAvailable: number; actualDeducted: SeniorExpenseBreakdown } {
+): { remainingAvailable: number; paid: SeniorExpenseBreakdown } {
   let remaining = available;
 
   const taxesPaid = Math.min(x.taxes, remaining);
@@ -78,7 +86,7 @@ export function applySeniorExpensesToAvailable(
 
   return {
     remainingAvailable: remaining,
-    actualDeducted: {
+    paid: {
       taxes: taxesPaid,
       issuerProfit: issuerProfitPaid,
       trusteeCapped: trusteeCappedPaid,

@@ -144,6 +144,29 @@ export function buildPeriodTraceLines(period: PeriodResult): PeriodTraceLine[] {
     section: "interest",
   });
 
+  // PPM step (G) — Class X (or any amortising-tranche) scheduled amort
+  // paid from the interest pool, pari-passu with Class A interest. Order
+  // matters: this row appears BEFORE the tranche-interest loop because
+  // PPM step G processes Class X amort + Class A interest as a single
+  // pari-passu disbursement (proportional shortfall split when residual
+  // interest is insufficient). Rendering them adjacent reflects the
+  // shared-step economic relationship; a partner reviewing a shortfall
+  // period sees the two flows together rather than amort buried below
+  // all subordinate-tranche interest. Per-tranche details are also
+  // exposed on `period.tranchePrincipal[*].paidFromInterest`; this
+  // aggregate row is the canonical interest-section presentation.
+  lines.push({
+    label: "Class X amort (from interest)",
+    ppmStep: "G",
+    amount: t.classXAmortFromInterest,
+    engineField: "classXAmortFromInterest",
+    indent: 1,
+    severity: "fee",
+    outflow: true,
+    muted: t.classXAmortFromInterest === 0,
+    section: "interest",
+  });
+
   // PPM steps (G)→(S): tranche interest pari-passu loop.
   // Per-tranche rows from period.trancheInterest (already engine-emitted).
   for (const ti of period.trancheInterest) {
@@ -286,16 +309,20 @@ export function buildPeriodTraceLines(period: PeriodResult): PeriodTraceLine[] {
     section: "principal",
   });
 
-  // Tranche principal payments (excluding amortising — those are emitted in
-  // the interest section by the engine. We use a heuristic: if the tranche
-  // also has interest paid and a principal entry > 0, it's likely amortising.
-  // The cleaner fix is for the engine to expose isAmortising on tranchePrincipal
-  // entries; that's deferred to a future engine instrumentation pass.)
+  // Tranche principal payments — render the PRINCIPAL-POOL portion only.
+  // For amortising tranches in non-maturity periods, all paid is from the
+  // interest pool (`paidFromInterest === paid`), so the principal-section
+  // entry is zero and the row is muted/hidden. At maturity, an amortising
+  // tranche may receive both step-G amort (from interest) and principal-
+  // waterfall paydown (from principal); the principal-section row shows
+  // only the latter. Aggregate sum invariant:
+  // `Σ paidFromInterest === stepTrace.classXAmortFromInterest`.
   for (const tp of period.tranchePrincipal) {
-    if (tp.paid === 0) continue;
+    const paidFromPrincipal = tp.paid - tp.paidFromInterest;
+    if (paidFromPrincipal <= 0.01) continue;
     lines.push({
       label: `${tp.className} principal`,
-      amount: tp.paid,
+      amount: paidFromPrincipal,
       indent: 1,
       severity: "fee",
       outflow: true,

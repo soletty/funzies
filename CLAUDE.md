@@ -359,23 +359,22 @@ and a partner-facing aggregator will surface the lie. The
 `architecture-boundary.test.ts` AST guard scopes the UI side; the
 engine side is enforced by code review against this rule.
 
-**Current open violation of the actually-paid invariant:** KI-49
-documents seven `stepTrace` fields (sub mgmt fee + six senior
-expense buckets) that emit requested amounts even when interest is
-exhausted. Until KI-49 closes, any partner-visible aggregator that
-sums these fields under stress will overstate fees and understate
-the equity residual. New aggregators should be reviewed against the
-KI-49 list explicitly.
-
 **Why:** the April 2026 incident (described in the
 Engine-as-Source-of-Truth section above) required three-agent
 cross-validation against trustee PDFs, SDF CSVs, and the Intex DealCF
 export to diagnose a four-line UI back-derivation that produced €0
-instead of €1.80M. KI-49 is the same shape displaced one layer deeper
-— engine emits requested-not-paid for seven trace fields, so the
-partner-visible trace overstates fees and understates the equity
-residual under stress. Same failure mode, same silent erosion of
-trust. See KI-49.
+instead of €1.80M. The same failure shape recurs at the engine layer
+whenever a `stepTrace` field emits the requested amount of a fee or
+expense rather than the truncated paid amount: under stress where
+`availableInterest` is exhausted partway through the waterfall,
+`Σ stepTrace.*(interest buckets)` exceeds `interestCollected` and any
+partner-visible aggregator overstates fees / understates the equity
+residual. The discipline is structural: every fee or expense field on
+`PeriodStepTrace` must be sourced from the truncated-paid value
+(helper return like `applySeniorExpensesToAvailable.paid`, or a
+captured `Math.min(requested, available)` local), never from the
+pre-truncation requested object. Reviewers MUST grep new `stepTrace`
+field assignments for this shape before approval.
 
 ### 5. Boundaries assert sign and scale
 

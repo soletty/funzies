@@ -38,8 +38,6 @@ Categorized so a partner reading cold can separate "what's still wrong" from "wh
 - [KI-34 — Non-call period not enforced; user-typed pre-NCP call dates pass through](#ki-34)
 - [KI-35 — Partial DDTL draw silently discards the un-drawn commitment](#ki-35)
 - [KI-40 — `diversionPct = 50%` silent fallback on extraction failure](#ki-40)
-- [KI-42 — `failsWithMagnitude` discipline gap on day-count residuals (`adminFeesPaid`, `trusteeFeesPaid`)](#ki-42)
-- [KI-49 — `stepTrace` emits requested fee amounts, not actually-paid, when interest is exhausted (sub mgmt + 6 senior expenses, normal mode only)](#ki-49)
 
 ### Latent — currently inactive on Euro XV; emerges on portability or stress
 *Distinct from "Deferred" (those are intentional design choices about mechanics that exist in the indenture but the model elects not to simulate). "Latent" entries are unmodeled or hardcoded paths whose current Euro XV magnitude happens to be zero, but which will produce wrong numbers the moment a deal hits the triggering condition (different deal structure, different PPM, non-zero balance, FX exposure, etc.). Treat each as a real bug whose materiality is data-dependent, not a deliberate scope decision.*
@@ -54,10 +52,10 @@ Categorized so a partner reading cold can separate "what's still wrong" from "wh
 - [KI-38 — FX / multi-currency unmodeled; `native_currency` parsed and discarded](#ki-38)
 - [KI-39 — Intex past-cashflows parser hardcoded for Euro XV's tranche structure](#ki-39)
 - [KI-41 — `incentiveFeeHurdleIrr = 12%` silent fallback on extraction failure](#ki-41)
-- [KI-48 — `period-trace-lines` amortising-tranche heuristic is described in a comment but never implemented](#ki-48)
 - [KI-50 — `parseNumeric` strips commas without locale awareness — European-format numbers parse wrong](#ki-50)
 - [KI-51 — `normalizeComplianceTestType` derives `isPassing` as `actual >= trigger` for all tests, including lower-is-better (WARF, WAL, concentration)](#ki-51)
 - [KI-54 — D1 deferrable-A/B guard is name-based; non-A/B-named senior with `isDeferrable=true` slips through](#ki-54)
+- [KI-56 — N1 harness step-G sharing: `classA_interest` bucket compares against trustee[g] which on a Class X-bearing deal includes Class X amort](#ki-56)
 
 ### Deferred — intentionally not modeled, magnitude known
 - [KI-02 — Step (D) Expense Reserve top-up](#ki-02)
@@ -76,6 +74,7 @@ Categorized so a partner reading cold can separate "what's still wrong" from "wh
 ### Design decisions — documented for audit clarity (not open issues)
 - [KI-19 — NR positions proxied to Caa2 for WARF (Moody's convention)](#ki-19)
 
+<a id="ki-44"></a>
 *KI-44 (proposed during 2026-04-30 audit, not added): a candidate raised that `parse-collateral.ts:209-210` writes absolute `Market_Value` into the percent-shaped `current_price` column, with the bug masked on Euro XV by Asset Level enrichment. Verified not a bug. Two pieces of evidence: (i) `ENRICHMENT_COLUMNS` at `sdf/ingest.ts:450` lists only `current_price`, not `market_value` — Asset Level cannot overwrite `market_value`; (ii) every fixture row shows `marketValue == currentPrice` (e.g. 80.097, 99.823, 91.797) which is consistent only with `raw.Market_Value` being itself percent-shaped. If `raw.Market_Value` were absolute, the two columns would diverge after enrichment because only `current_price` gets overwritten. Conclusion: `raw.Market_Value` is percent-shaped despite the misleading column name; parser is correct; consumers are correct. Disposition: not added to ledger. A future verification against the SDF spec would close the question definitively.*
 
 ---
@@ -199,6 +198,12 @@ The genuine latent risk this entry tracks: under deferred-interest stress, defer
 - `c3-senior-expenses-cap.test.ts` — base case (no overflow), high-fee overflow (50 bps + 20 bps cap → 30 bps overflow), extreme cap (1 bps), overflow-limited-by-residual, backward-compatibility (undefined cap = unbounded).
 - `d3-defaults-from-resolved.test.ts` — `trusteeFeeBps` + `adminFeeBps` separately back-derived; sum matches pre-C3 combined extraction; `seniorExpensesCapBps` derivation from Q1 observed.
 - `b2-post-acceleration.test.ts` — under acceleration (PPM 10(b)) trustee + admin pay uncapped; regression guard asserts `stepTrace.adminFeesPaid / trusteeOnly = adminFeeBps / trusteeFeeBps` exactly.
+
+**Day-count residual markers (registered via `failsWithMagnitude`, close with KI-12a harness fix):**
+- `n1-correctness.test.ts > KI-08-dayCountResidual-trustee` — `expectedDrift: 13, tolerance: 5`.
+- `n1-correctness.test.ts > KI-08-dayCountResidual-admin` — `expectedDrift: 709, tolerance: 50`.
+
+Both markers track the 91/360-vs-90/360 day-count residual exposed by the harness period mismatch (sibling mechanism to the six KI-12b class-interest markers); they re-baseline or remove together when KI-12a lands.
 
 **Cascade re-baselines**: KI-13a adjusted by the C3 split preserving aggregate behavior; `stepTrace.trusteeFeesPaid` currently bundles steps (B)+(C)+(Y)+(Z) to preserve the N1 harness bucket semantics. Split-out fields (`adminFeesPaid`, `trusteeOverflowPaid`, `adminOverflowPaid`) are additive diagnostic fields — the harness will be un-aggregated in a follow-up (see task #48).
 
@@ -1080,141 +1085,6 @@ The fallback is gated on `else if (incentiveFePct > 0)`. When extraction yields 
 
 ---
 
-<a id="ki-42"></a>
-### [KI-42] `failsWithMagnitude` discipline gap on day-count residuals (`adminFeesPaid`, `trusteeFeesPaid`)
-
-**Context:** The ledger's stated discipline is *"Ledger ↔ test is a bijection: when a fix lands, the marker must be removed AND this entry moved to Closed."* The bijection is enforced via `failsWithMagnitude` markers carrying a `ki:` field that links each documented drift to a ledger entry. KI-08's body documents the €722 day-count residual on the combined trustee + admin fees (€13 trustee + €709 admin under the C3 split). Both numbers are pinned in the test file — but via plain `toBeCloseTo`, not `failsWithMagnitude`.
-
-**Current behavior:** `web/lib/clo/__tests__/n1-correctness.test.ts:151-156`:
-
-```
-it("trusteeFeesPaid (PPM step B): KI-08 pre-fill closed, residual is day-count only", () => {
-  expect(drift("trusteeFeesPaid")).toBeCloseTo(13, -1); // ±€5
-});
-it("adminFeesPaid (PPM step C): KI-08 pre-fill closed, residual is day-count only", () => {
-  expect(drift("adminFeesPaid")).toBeCloseTo(709, -2); // ±€50
-});
-```
-
-Both assertions pin a numeric drift; neither is registered through `failsWithMagnitude`. There is no `ki:` field linking these residuals to KI-08 (or KI-12b, since the residual mechanism is the 91/360 vs 90/360 day-count difference). When KI-16 closes and the cap-mechanic refactor changes the trustee/admin fee base, nothing in the marker registry forces these numbers to be re-baselined alongside the cascade markers.
-
-**Correct behavior:** Both lines should use `failsWithMagnitude({ ki: "KI-08-dayCountResidual", closesIn: "KI-12a harness fix", expectedDrift: 709, tolerance: 50 }, ...)` (and similarly for trustee at €13 ± €5). The marker provides automatic re-baseline tracking and integrates with the ledger's index of cascade dependencies.
-
-**Quantitative magnitude:** This is a discipline / bookkeeping issue, not a model-correctness issue. The numbers are right; the assertion mechanism is just outside the bijection. Materiality is in the medium-term: any future PR that touches KI-08, KI-12a, or KI-12b must remember to re-baseline these two lines manually. Manual processes silently rot.
-
-**Deferral rationale:** Cleanup. No PPM mechanic is at stake.
-
-**Path to close:**
-1. Convert the two assertions in `n1-correctness.test.ts:151-156` from `toBeCloseTo` to `failsWithMagnitude` calls with `ki: "KI-08-dayCountResidual-trustee"` and `ki: "KI-08-dayCountResidual-admin"`, both with `closesIn: "KI-12a harness fix"`.
-2. Update the KI-08 body to reference the two new markers under its **Tests:** section.
-3. Add a check (or comment in the helper) that any `n1-correctness` per-bucket assertion **inside the "currently broken buckets" describe block** outside `failsWithMagnitude` is a regression — the registry should be the only place pinned drifts live. The "engine-does-not-model steps" describe block at lines 301-321 legitimately uses `toBeCloseTo` for closed KIs (KI-01, KI-09 tied-out tests assert €250 / €6,202 — not pinned drift), and that pattern is correct.
-
-**Test:** Self-referential — the bijection itself is the test. The fix is the marker conversion above.
-
----
-
-<a id="ki-48"></a>
-### [KI-48] `period-trace-lines` amortising-tranche heuristic is described in a comment but never implemented
-
-**PPM reference:** Class X (and analogous amortising tranches) — principal pays from the interest waterfall on a fixed schedule, not from the principal waterfall. Rendering the row in the Principal section double-counts.
-
-**Current engine behavior:** `web/app/clo/waterfall/period-trace-lines.ts:289-304`:
-
-```
-// Tranche principal payments (excluding amortising — those are emitted in
-// the interest section by the engine. We use a heuristic: if the tranche
-// also has interest paid and a principal entry > 0, it's likely amortising.
-// The cleaner fix is for the engine to expose isAmortising on tranchePrincipal
-// entries; that's deferred to a future engine instrumentation pass.)
-for (const tp of period.tranchePrincipal) {
-  if (tp.paid === 0) continue;
-  lines.push({
-    label: `${tp.className} principal`,
-    amount: tp.paid,
-    indent: 1,
-    severity: "fee",
-    outflow: true,
-    section: "principal",
-  });
-}
-```
-
-The comment describes a heuristic ("if the tranche also has interest paid and a principal entry > 0, it's likely amortising — skip it"). The code itself only filters `tp.paid === 0`. No interest-also-paid check is applied. Amortising-tranche principal is rendered in the Principal section, where it is also counted by the interest-section emission upstream.
-
-The engine's `ProjectionInputs.tranches[i]` carries `isAmortising` (`projection.ts:128`); `period.tranchePrincipal[i]` does not — the entry shape is `{ className, paid, endBalance }` only. The audit comment ("deferred to a future engine instrumentation pass") accurately describes what's missing.
-
-**PPM-correct behavior:** The Principal section row should be skipped for any tranche where `t.isAmortising && period.trancheInterest[i].paid > 0` (i.e., the amortisation already flowed through the interest waterfall). The cleaner long-term fix is to extend `period.tranchePrincipal[i]` with `isAmortising: boolean` so the renderer doesn't have to cross-reference two arrays.
-
-**Quantitative magnitude:** Zero on Euro XV (no amortising tranches in the current capital structure — Class X is not present). Latent on any deal whose capital structure includes Class X or any other amortising tranche. Display-side double-count; engine numbers are correct.
-
-**Deferral rationale:** Display heuristic gap — engine truth is intact.
-
-**Path to close:**
-1. Either (a) implement the heuristic the comment describes by checking `period.trancheInterest[i].paid > 0` alongside `tp.paid > 0` for the same tranche, OR (b) extend `period.tranchePrincipal[i]` with `isAmortising: boolean` and filter on that. Option (b) is cleaner — the tranche metadata is in the engine, and surfacing it on the per-period entry removes the cross-array lookup.
-2. Update `period-trace-lines.ts:289-304` to use the new field; remove the stale comment.
-3. Add a unit test in `app/clo/waterfall/__tests__/period-trace-lines.test.ts` asserting that an amortising tranche with paid interest AND paid principal renders only ONE row (in the interest section).
-
-**Test:** No active marker on Euro XV (no amortising tranches). After the fix, the new unit test pins the behavior on a synthetic period with `t.isAmortising: true`.
-
----
-
-<a id="ki-49"></a>
-### [KI-49] `stepTrace` emits requested fee amounts, not actually-paid amounts, when interest is exhausted (sub mgmt + six senior expenses, normal mode only)
-
-**Scope correction (2026-04-30):** This entry was originally framed as a sub-mgmt-fee-only bug. Independent re-review found the same shape across the six senior-expense `stepTrace` fields. The "handled correctly by `applySeniorExpensesToAvailable` per KI-21 Scope 2" claim in the prior version was wrong — see verification below. The fix described here covers all seven emission points.
-
-**PPM reference:** Steps (A.i) Taxes through (X) Sub Mgmt Fee — paid sequentially out of `availableInterest`. Under stress, residual interest can be insufficient before the entire sequence is paid; each unpaid step is a shortfall that does not flow.
-
-**Current engine behavior:** Verified across two surfaces.
-
-1. **Sub Mgmt Fee** (`projection.ts:2341-2342`) truncates correctly on cash:
-   ```
-   const subFeeAmount = beginningPar * (subFeePct / 100) * dayFracActual;
-   availableInterest -= Math.min(subFeeAmount, availableInterest);
-   ```
-   But the `stepTrace` emission at `projection.ts:2465` reads `subMgmtFeePaid: subFeeAmount` — the **requested**, uncapped amount. Under stress (interest exhausted before step X), the trace overstates what was paid.
-
-2. **Six senior-expense fields** (`projection.ts:2103-2106` and `:2451-2463`) have the same shape:
-   ```
-   ({ remainingAvailable: availableInterest } = applySeniorExpensesToAvailable(
-     seniorExpenseBreakdown,
-     availableInterest,
-   ));
-   ```
-   The destructure discards `actualDeducted` (which the helper computes — verified by reading the helper at `senior-expense-breakdown.ts`). The `stepTrace` then emits the **requested** values from `seniorExpenseBreakdown.*`:
-   - `taxes: seniorExpenseBreakdown.taxes` (PPM A.i)
-   - `issuerProfit: seniorExpenseBreakdown.issuerProfit` (PPM A.ii)
-   - `trusteeFeesPaid: seniorExpenseBreakdown.trusteeCapped` (PPM B, post-cap, pre-truncation)
-   - `adminFeesPaid: seniorExpenseBreakdown.adminCapped` (PPM C, post-cap, pre-truncation)
-   - `seniorMgmtFeePaid: seniorExpenseBreakdown.seniorMgmt` (PPM E)
-   - `hedgePaymentPaid: seniorExpenseBreakdown.hedge` (PPM F)
-
-   Under stress (interest exhausted partway through A→F), the fields late in the sequence emit values that exceed what was actually deducted from `availableInterest`. Cash flow is correct (the helper truncates internally); only the trace emission lies.
-
-**Bug is normal-mode only.** The accelerated-mode executor (`projection.ts:733-737`) computes truncated payable amounts via `pay(input.<bucket>)` for each senior-expense field and the sub mgmt fee, and the period emission at `:1888` correctly forwards them via `accelResult.<field>Paid`. Under acceleration, the trace matches the cash. The bug is exclusive to the normal-mode period loop's emission block.
-
-**PPM-correct behavior:** Each `stepTrace` field emits the **actually-paid** amount; under stress, paid < requested and the difference is a shortfall. Either:
-- Capture the truncated value into per-bucket locals and emit those.
-- Add `*Shortfall` fields per bucket so the trace shows requested AND paid (post-fix invariant: `paid + shortfall === requested` per field).
-- Reuse the helper's `actualDeducted` return — propagate proportionally to each bucket per its share of the requested amount in PPM order.
-
-**Quantitative magnitude:** Zero on Euro XV base case (interest is sufficient through step X — every bucket paid in full). Activates under stress where rated-tranche interest, OC cures, reinvestment OC diversion, and senior expenses sum to more than `interestCollected`. Bounded per bucket by the requested fee. The UI's per-period waterfall trace, partner-export PDF, and any downstream aggregator that sums `stepTrace.*` to reconcile against `interestCollected` will show fees > interest under stress, an obvious tell-tale once it fires.
-
-**Deferral rationale:** Trace correctness gap. Cash flows downstream of `availableInterest` are right (they consume the truncated amount); only the partner-visible trace emission lies.
-
-**Path to close:**
-1. At `projection.ts:2103-2106`, destructure both `remainingAvailable` AND `actualDeducted` from `applySeniorExpensesToAvailable`. Either expose per-bucket paid values from the helper directly (preferred — single source for truncation order), or apply the cumulative-truncation logic in PPM order locally to derive per-bucket paid.
-2. At `projection.ts:2341-2342`, capture `const subFeePaid = Math.min(subFeeAmount, availableInterest)` and use it in both the deduction and the trace emission.
-3. Update the `stepTrace` emission at lines 2451-2465 to use the truncated values for all seven fields (taxes, issuerProfit, trusteeFeesPaid, adminFeesPaid, seniorMgmtFeePaid, hedgePaymentPaid, subMgmtFeePaid).
-4. Add `*Shortfall: number` siblings to `PeriodStepTrace` for the seven fields so partner-visible trace can render both requested and paid.
-5. Code-side comment cleanup ships in same PR: the stale `// PPM Step W: Subordinated management fee` comment at `projection.ts:2340` should read `// PPM Step X` (`ppm-step-map.ts:171` confirms the bucket maps to `["x.1", "x.2", "x.3"]`; the engine type docstring at `projection.ts:241` also says step X). Confined to the comment line; no functional change.
-6. Re-run the N1 harness — Euro XV base case should be unaffected (shortfall = 0 across all seven fields).
-7. Add a synthetic-stress test in `n1-correctness.test.ts` (or `projection-edge-cases.test.ts`) asserting on a high-fee / low-interest period: `paid + shortfall === requested` per field, and `Σpaid ≤ interestCollected`. Also assert acceleration-mode trace matches cash on the same scenario (no regression).
-
-**Test:** No active marker on Euro XV. The synthetic-stress test above pins it.
-
----
-
 <a id="ki-50"></a>
 ### [KI-50] `parseNumeric` strips commas without locale awareness — European-format numbers parse wrong
 
@@ -1322,6 +1192,37 @@ A senior tranche named e.g. `K-1`, `X-1`, `Mezz-1`, or any non-A/B-prefixed lett
 3. Flip the KI-54 marker test in `d1-ab-deferral-assertion.test.ts` from `not.toThrow()` to `toThrow()`.
 
 **Test:** Marker test in `web/lib/clo/__tests__/d1-ab-deferral-assertion.test.ts` — `KI-54: non-A/B-named senior with isDeferrable=true silently passes D1`. Currently asserts `not.toThrow()` (documenting the bug); flips to `toThrow()` when the rank-based fix lands.
+
+---
+
+<a id="ki-56"></a>
+### [KI-56] N1 harness step-G sharing: `classA_interest` bucket compares against trustee[g] which on a Class X-bearing deal includes Class X amort
+
+**PPM reference:** PPM Condition 7 / step (G) — interest waterfall pari-passu disbursement to Class A interest AND Class X scheduled amortisation. Trustees report a single line for step (g) summing both flows; the engine emits them separately into `stepTrace.classA_interest` (via `trancheInterest[]`) and `stepTrace.classXAmortFromInterest`.
+
+**Current engine behavior:** `web/lib/clo/ppm-step-map.ts:149-195` (the `ENGINE_BUCKET_TO_PPM` map) maps `classA_interest: ["g"]`. The new `classXAmortFromInterest` bucket is mapped to `[]` (audit-metric, no PPM steps) as an interim measure documented inline in that file. The harness at `backtest-harness.ts:197-221` iterates buckets and sums trustee amounts at each bucket's mapped steps, comparing against the engine value.
+
+On Euro XV (no Class X tranche), the harness behavior is correct: `classXAmortFromInterest` engine value is 0; trustee step-(g) row reports only Class A interest; `classA_interest` ties to trustee[g]; `classXAmortFromInterest` ties to its empty-mapping zero comparison. No false delta.
+
+On a future deal whose capital structure includes Class X (or any other amortising tranche): trustee step-(g) reports the SUM of Class A interest + Class X amort. The engine's `classA_interest` bucket would then compare against `trustee[g] = classA_interest_actual + classX_amort_actual`, producing a spurious delta of approximately `classX_amort_actual` per period — flagged by the harness as a `classA_interest` failure even though the engine is emitting the right number into the right bucket.
+
+**PPM-correct behavior:** The harness must compare `(engine.classA_interest + engine.classXAmortFromInterest)` against `trustee[g]`, OR split the trustee step-(g) row by sub-type (Class A interest line vs Class X amort line) — the latter requires per-row trustee data that may not be reliably parseable across all trustees / vintages. Two options for the bucket map:
+- **(a)** `classXAmortFromInterest: ["g"]` alongside `classA_interest: ["g"]`, and update the harness loop to sum trustee[g] across BOTH engine buckets when comparing — turns the 1:1 bucket-step relationship into 1-many on step g.
+- **(b)** Merge `classA_interest` + `classXAmortFromInterest` into a combined `stepG_interest` bucket whose engine value is `trancheInterest["Class A"].paid + classXAmortFromInterest`, restoring 1:1.
+
+Option (a) preserves per-source granularity in the harness output (partner can see separately how much was Class A interest vs Class X amort) but requires harness logic changes. Option (b) is simpler but loses the per-source split.
+
+**Quantitative magnitude:** Zero on Euro XV. On a Class X-bearing deal, magnitude per period equals the Class X amort schedule paid in that period — typically 0.5%-1% of original Class X par per quarter, e.g. €500K/quarter on a €5M Class X amortising over 10 quarters. Compounds to a `classA_interest` bucket failure equal to total Class X amort over the harness period.
+
+**Deferral rationale:** Latent. Euro XV has no Class X. Filing per the discipline so the issue is captured before the first Class X-bearing deal is ingested into the harness — at which point the false `classA_interest` delta would be the harness's loudest failure and could be misread as an engine-side bug.
+
+**Path to close:**
+1. Decide between option (a) and option (b) above. Recommend (b) for simplicity if the partner-facing harness table doesn't need per-source breakdown; (a) if it does.
+2. If (a): change `ppm-step-map.ts` mapping to `classXAmortFromInterest: ["g"]`, and update the harness comparison loop at `backtest-harness.ts:197-221` to sum across all buckets sharing a step. Update the reverse-lookup `ppmStepToEngineBucket` to handle 1-many or document it as 1-of-many.
+3. If (b): rename `classA_interest` to `stepG_interest`, change `extractEngineBuckets` to populate from `trancheInterestByClass.get("Class A") + p.stepTrace.classXAmortFromInterest`, drop `classXAmortFromInterest` from `EngineBucket`. Update `STEP_TOLERANCES_TARGET` accordingly.
+4. Add a marker test that constructs a synthetic harness scenario with a Class X tranche (using a synthetic trustee distribution row at step g containing both Class A interest and Class X amort), and asserts the bucket comparison succeeds. Pre-fix the marker would assert the spurious delta; post-fix it flips to assertion of correctness.
+
+**Test:** No active marker on Euro XV (no Class X). After the fix, the synthetic harness scenario above pins it.
 
 ---
 

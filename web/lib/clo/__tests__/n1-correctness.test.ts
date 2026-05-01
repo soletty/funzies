@@ -141,19 +141,31 @@ describe("N1 correctness — green buckets (engine ties out to trustee)", () => 
 // ----------------------------------------------------------------------------
 
 describe("N1 correctness — currently broken buckets (documented in KI ledger)", () => {
+  // Discipline: every per-bucket drift assertion in this block must register
+  // through `failsWithMagnitude` with a `ki:` field. Plain `toBeCloseTo` /
+  // `toBe` on a pinned drift breaks the ledger ↔ test bijection — a future
+  // PR closing the upstream KI cannot find this site by marker grep, and
+  // re-baselining becomes a manual hunt. The "green buckets" block above and
+  // the "engine-does-not-model" block below legitimately use plain
+  // assertions (drift = 0 or pinned to a closed-KI tie-out); this block
+  // does not.
+  //
   // KI-08 pre-fill closed by D3 + Sprint 3 C3 split separates PPM step (B)
   // trustee from step (C) admin. Total day-count residual is ~€722 (engine
   // 91/360 vs trustee 90/360); split allocates ~€13 to trustee (0.097 bps
   // of combined 5.24) and ~€709 to admin (5.147 bps of combined 5.24).
-  // Both below material tolerance — KI-08 pre-fill + split mechanics closed;
-  // KI-16 tracks the three remaining unverified assumptions (cap default,
-  // 2× heuristic, pro-rata overflow allocation).
-  it("trusteeFeesPaid (PPM step B): KI-08 pre-fill closed, residual is day-count only", () => {
-    expect(drift("trusteeFeesPaid")).toBeCloseTo(13, -1); // ±€5
-  });
-  it("adminFeesPaid (PPM step C): KI-08 pre-fill closed, residual is day-count only", () => {
-    expect(drift("adminFeesPaid")).toBeCloseTo(709, -2); // ±€50
-  });
+  // Both close together when KI-12a harness period mismatch lands — same
+  // 91/360-vs-90/360 mechanism as the six KI-12b class-interest markers.
+  failsWithMagnitude(
+    { ki: "KI-08-dayCountResidual-trustee", closesIn: "KI-12a harness fix", expectedDrift: 13, tolerance: 5 },
+    "trusteeFeesPaid (PPM step B) KI-08 day-count residual",
+    () => drift("trusteeFeesPaid"),
+  );
+  failsWithMagnitude(
+    { ki: "KI-08-dayCountResidual-admin", closesIn: "KI-12a harness fix", expectedDrift: 709, tolerance: 50 },
+    "adminFeesPaid (PPM step C) KI-08 day-count residual",
+    () => drift("adminFeesPaid"),
+  );
 
   // KI-12b: class-interest day-count drift under harness period mismatch. Each
   // tranche accrues one extra day of interest (91/360 vs 90/360) because

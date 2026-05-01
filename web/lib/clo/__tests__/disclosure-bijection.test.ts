@@ -21,6 +21,13 @@ const SCAN_FILES: string[] = [
   "web/app/clo/waterfall/ModelAssumptions.tsx",
   "web/app/clo/waterfall/CurrencyContext.tsx",
   "web/lib/clo/ppm-step-map.ts",
+  // CLAUDE.md is at repo root (outside web/). It carries KI annotations in
+  // the Engine-as-Source-of-Truth and "Recurring failure modes" sections;
+  // when a KI closes those references must be removed (per "closed =
+  // deleted, reference invariants directly" doctrine). Adding to scan
+  // catches stale references that would otherwise escape CI because
+  // CLAUDE.md is not in any other test surface.
+  "CLAUDE.md",
 ];
 
 function parseLedgerAnchors(): Set<string> {

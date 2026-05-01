@@ -132,6 +132,7 @@ export type EngineBucket =
   | "supplementalReserve"   // step bb   — NOT EMITTED by engine (KI-05)
   | "incentiveFeePaid"      // step cc
   | "subDistribution"       // step dd   (from stepTrace.equityFromInterest)
+  | "classXAmortFromInterest" // step g (shared with classA_interest on a Class X-bearing deal). Treated as audit metric on Euro XV (no Class X → engine emits 0). Portability: the harness's classA_interest comparison against trustee[g] currently assumes step-g = Class A interest only; on a deal with Class X, trustee[g] sums Class A interest + Class X amort and the existing classA_interest bucket would diverge from trustee[g] by exactly classXAmortFromInterest. Resolution requires either (a) splitting trustee[g] by row type (data-dependent, may not be reliably present), or (b) merging classA_interest + classXAmortFromInterest into a combined "stepG" bucket. Filed as candidate KI for resolution before any Class X-bearing deal lands.
   | "reinvestmentBlockedCompliance"; // C1 — no direct PPM step; trustee doesn't report a bucket for "manager chose not to reinvest due to compliance". Displayed in the harness table with Infinity tolerance for audit visibility.
 
 /** Maps each engine bucket to the PPM step codes it covers. The harness sums
@@ -177,6 +178,15 @@ export const ENGINE_BUCKET_TO_PPM: Record<EngineBucket, readonly PpmInterestStep
   supplementalReserve: ["bb"],
   incentiveFeePaid: ["cc"],
   subDistribution: ["dd"],
+  // Step G shared with classA_interest on Class X-bearing deals. Mapped to
+  // []-empty (audit metric) on Euro XV: engine emits 0 (no isAmortising
+  // tranche), trustee has no separate row for Class X amort because there
+  // is no Class X. The harness compares engine 0 vs trustee 0 (no PPM
+  // codes mapped, equivalent to constant 0). On portability to a Class X
+  // deal, this must change to ["g"] and the classA_interest comparison
+  // logic needs adjustment to avoid double-counting trustee[g]. See
+  // EngineBucket type comment for resolution options.
+  classXAmortFromInterest: [],
   // C1 — No PPM step for "manager chose not to reinvest". Trustee doesn't
   // report a row for this; harness compares engine-emitted blocked amount
   // against a constant 0 (trustee has no analogue) with Infinity tolerance.

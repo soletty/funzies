@@ -52,6 +52,7 @@ export const STEP_TOLERANCES_TARGET: Record<EngineBucket, number> = {
   trusteeOverflow: Infinity,         // step y        — only fires when observed > cap
   adminOverflow: Infinity,           // step z        — only fires when observed > cap
   reinvestmentBlockedCompliance: Infinity, // C1 — no trustee analogue; audit-only visibility
+  classXAmortFromInterest: Infinity, // step g — audit metric until Class X-bearing deal lands; current []-empty mapping compares against trustee 0 (zero on Euro XV which has no Class X). See ppm-step-map.ts notes.
 
   // --- Steps the engine DOES model; tight TARGET tolerances (fail-loud) ---
   // These are POST-CLOSURE targets (what we'd expect once day-count and
@@ -327,6 +328,13 @@ function extractEngineBuckets(p: PeriodResult): Partial<Record<EngineBucket, num
     // C1 — reinvestment blocked by compliance enforcement. No trustee step;
     // actual will be 0 (no PPM codes), engine projects the block amount.
     reinvestmentBlockedCompliance: p.stepTrace.reinvestmentBlockedCompliance,
+
+    // Class X (or any amortising-tranche) scheduled amort paid from the
+    // interest pool at PPM step G, pari-passu with Class A interest.
+    // Treated as audit metric until a Class X-bearing deal lands and the
+    // step-g sharing with classA_interest is properly resolved (see
+    // ppm-step-map.ts comments). Zero on Euro XV.
+    classXAmortFromInterest: p.stepTrace.classXAmortFromInterest,
   };
 }
 

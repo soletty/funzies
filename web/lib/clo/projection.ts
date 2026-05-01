@@ -245,6 +245,7 @@ export interface ProjectionInputs {
  *    - reinvOcDiversion       → PPM step (W) (Reinvestment OC Test diversion)
  *    - equityFromInterest     → PPM step (DD) (interest residual to sub notes)
  *    - equityFromPrincipal    → Principal waterfall residual to sub notes
+ *    - classXAmortFromInterest → PPM step (G) (Class X amort paid from interest pool, pari-passu with Class A interest)
  *    - deferredAccrualByTranche → PPM steps (K)/(N)/(Q)/(T) PIK additions this period
  */
 export interface PeriodStepTrace {
@@ -292,6 +293,14 @@ export interface PeriodStepTrace {
   adminOverflowPaid: number;
   equityFromInterest: number;
   equityFromPrincipal: number;
+  /** PPM step (G) — Class X (or other amortising-tranche) scheduled
+   *  amortization paid from the interest pool, pari-passu with Class A
+   *  interest. The engine consumes this amount from `availableInterest`
+   *  at the step G site; partner-visible aggregators must include it
+   *  when reconciling interest-side flows against `interestCollected`,
+   *  or `Σ stepTrace.*(interest waterfall) ≤ interestCollected` is
+   *  unsound. Zero on deals with no `isAmortising: true` tranche. */
+  classXAmortFromInterest: number;
   deferredAccrualByTranche: Record<string, number>;
   /** C1 — Reinvestment amount blocked this period because the purchase would
    *  have caused the Moody's WARF trigger to breach. Zero when no enforcement
@@ -361,7 +370,16 @@ export interface PeriodResult {
   beginningLiabilities: number;
   endingLiabilities: number;
   trancheInterest: { className: string; due: number; paid: number }[];
-  tranchePrincipal: { className: string; paid: number; endBalance: number }[];
+  /** Per-tranche principal-side state. `paid` is the TOTAL paid to the
+   *  tranche this period (sum of amort-from-interest at step G + principal-
+   *  pool paydowns post-step-G). `paidFromInterest` is the portion sourced
+   *  from the interest pool at step G — non-zero only for amortising
+   *  tranches in periods where amort fires. Partner-visible UIs that
+   *  organize the trace by source pool (interest vs principal sections)
+   *  must subtract `paidFromInterest` from `paid` to avoid double-rendering
+   *  the same dollars in both sections. Aggregate sum across tranches:
+   *  `Σ paidFromInterest === stepTrace.classXAmortFromInterest`. */
+  tranchePrincipal: { className: string; paid: number; paidFromInterest: number; endBalance: number }[];
   ocTests: { className: string; actual: number; trigger: number; passing: boolean }[];
   icTests: { className: string; actual: number; trigger: number; passing: boolean }[];
   /** B1 — EoD test per period (null if deal has no separately-tracked EoD). */
@@ -1452,6 +1470,9 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     // directly at emission.
     const _stepTrace_ocCureDiversions: Array<{ rank: number; mode: "reinvest" | "paydown"; amount: number }> = [];
     let _stepTrace_reinvOcDiversion = 0;
+    let _stepTrace_classXAmortFromInterest = 0;
+    const _amortFromInterestByTranche: Record<string, number> = {};
+    for (const t of debtTranches) _amortFromInterestByTranche[t.className] = 0;
     const _stepTrace_deferredAccrualByTranche: Record<string, number> = {};
     for (const t of debtTranches) _stepTrace_deferredAccrualByTranche[t.className] = 0;
 
@@ -1738,6 +1759,27 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     // (via applySeniorExpensesToAvailable below). Trustee/admin overflow at
     // steps Y/Z is computed separately on residual interest after tranche
     // interest, so it's set later (see `trusteeOverflowPaid` block).
+    //
+    // Consumer asymmetry (intentional, do not "fix"): the IC numerator
+    // below uses requested (`sumSeniorExpensesPreOverflow(seniorExpenseBreakdown)`)
+    // while stepTrace emission uses paid (the `paid` return of
+    // applySeniorExpensesToAvailable). The IC denominator at the IC test
+    // below is contractual interest due (par × coupon × dayfrac, not
+    // actually-paid tranche interest), so the numerator is contractual for
+    // dimensional symmetry — IC is a forward-looking compliance ratio of
+    // contractual obligations, not a backward-looking cash report. This
+    // matches the canonical CLO-market reading of IC tests.
+    //
+    // Caveat: PPM language varies. A deal whose PPM explicitly defines
+    // the IC numerator as "Interest Proceeds minus actually-paid senior
+    // expenses" would require switching the consumer to `paid`. We have
+    // not verified Euro XV's specific PPM clause; on portability to a
+    // new deal, re-confirm the IC definition and adjust if needed.
+    //
+    // Numerical equivalence under the floor at the next line means the
+    // output is identical today; the comment is documentation-only for
+    // now, but flips to load-bearing the moment either the floor is
+    // removed (see comment there) or a per-deal IC definition diverges.
     const seniorExpenseBreakdown: SeniorExpenseBreakdown = {
       taxes: taxesAmount,
       issuerProfit: issuerProfitPaid,
@@ -1749,11 +1791,13 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
       adminOverflow: 0,
     };
     const totalSeniorExpenses = sumSeniorExpensesPreOverflow(seniorExpenseBreakdown);
-    // Heuristic-as-value triage (Phase 8): category β — accounting convention.
-    // Used as the IC test denominator base (line ~1820); when senior expenses
-    // exceed interest collected (extreme uncapped-fee scenarios), the denominator
-    // is reported as 0, not negative. Cap mechanics upstream (cappedRatio above)
-    // make this defensive in practice.
+    // The Math.max(0, …) floor here is load-bearing for the requested-vs-paid
+    // equivalence noted above: under stress where requested > available, paid
+    // = available (truncated by the helper), so available − paid = 0; without
+    // this floor, available − requested would go negative and the two
+    // formulations would diverge in the IC numerator. If you remove the
+    // floor (e.g., to throw on < 0 as a stricter invariant), the IC consumer
+    // must switch to `seniorExpensesApplied.paid` to preserve the equivalence.
     const interestAfterFees = Math.max(0, interestCollected - totalSeniorExpenses);
 
     const bopTrancheBalances: Record<string, number> = {};
@@ -1886,6 +1930,11 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
         tranchePrincipal: accelResult.trancheDistributions.map((d) => ({
           className: d.className,
           paid: d.principalPaid,
+          // Acceleration: amortising tranches are excluded from the accel
+          // waterfall (`runPostAccelerationWaterfall` filters !isAmortising).
+          // Step-G amort lane doesn't apply post-breach. Zero per the
+          // stepTrace.classXAmortFromInterest = 0 invariant.
+          paidFromInterest: 0,
           endBalance: d.endBalance,
         })),
         // OC / IC / EoD tests emitted empty under acceleration — PPM-correct,
@@ -1941,6 +1990,11 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
           // because under acceleration all cash is pooled before distribution.
           equityFromInterest: equityDistributionAccel,
           equityFromPrincipal: 0,
+          // Acceleration pools interest+principal into a single sequential
+          // P+I distribution by seniority — there's no separate "amort
+          // from interest" lane to expose. Step G's normal-mode pari-passu
+          // mechanic doesn't apply post-breach. Emit 0 to satisfy the type.
+          classXAmortFromInterest: 0,
           // Deferred-accrual map empty under acceleration — deferred interest
           // does NOT PIK post-breach (PPM 10(b)); unpaid interest becomes a
           // shortfall captured in accelResult.interestShortfall instead.
@@ -2133,11 +2187,17 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     // PPM Steps (A)(i) → (F): senior expenses deducted in strict PPM order
     // (taxes → issuer profit → trustee capped → admin capped → senior mgmt
     // → hedge). Single helper drives this AND the IC numerator above from
-    // the same `seniorExpenseBreakdown` object — see KI-21 Scope 2.
-    ({ remainingAvailable: availableInterest } = applySeniorExpensesToAvailable(
+    // the same `seniorExpenseBreakdown` object — see KI-21 Scope 2. The
+    // `paid` return is consumed by stepTrace emission below (post-truncation
+    // values per partner-visible "actually paid" semantic); the IC numerator
+    // above keeps the requested-deducted reading on purpose — see comment
+    // at the IC numerator construction.
+    const seniorExpensesApplied = applySeniorExpensesToAvailable(
       seniorExpenseBreakdown,
       availableInterest,
-    ));
+    );
+    availableInterest = seniorExpensesApplied.remainingAvailable;
+    const seniorExpensesPaid = seniorExpensesApplied.paid;
 
     // Capture residual at this point for stepTrace.availableForTranches —
     // the amount entering the tranche-interest pari-passu loop (PPM step G
@@ -2184,6 +2244,8 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
             const amortPay = amt * ratio;
             trancheBalances[cls] -= amortPay;
             principalPaid[cls] += amortPay;
+            _stepTrace_classXAmortFromInterest += amortPay;
+            _amortFromInterestByTranche[cls] = (_amortFromInterestByTranche[cls] ?? 0) + amortPay;
           }
           const interestPay = due * ratio;
           availableInterest = 0;
@@ -2195,6 +2257,8 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
             trancheBalances[cls] -= amt;
             availableInterest -= amt;
             principalPaid[cls] += amt;
+            _stepTrace_classXAmortFromInterest += amt;
+            _amortFromInterestByTranche[cls] = (_amortFromInterestByTranche[cls] ?? 0) + amt;
           }
           // Class A interest falls through to normal payment below
         }
@@ -2371,9 +2435,13 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     if (hasLoans) endingPar = loanStates.filter(l => !l.isDelayedDraw).reduce((s, l) => s + l.survivingPar, 0);
     else endingPar = currentPar;
 
-    // PPM Step W: Subordinated management fee — paid after all debt tranches
+    // PPM Step X: Subordinated management fee — paid after all debt tranches.
+    // Capture the truncated paid amount so stepTrace emits "actually paid";
+    // the requested `subFeeAmount` overstates payment under stress when
+    // `availableInterest` is exhausted before reaching this step.
     const subFeeAmount = beginningPar * (subFeePct / 100) * dayFracActual;
-    availableInterest -= Math.min(subFeeAmount, availableInterest);
+    const subFeePaid = Math.min(subFeeAmount, availableInterest);
+    availableInterest -= subFeePaid;
 
     // C3 — PPM Steps (Y) trustee-overflow + (Z) admin-overflow.
     // Senior Expenses Cap deferred any trustee+admin above the cap to
@@ -2412,10 +2480,15 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     const tranchePrincipal: PeriodResult["tranchePrincipal"] = [];
     for (const t of sortedTranches) {
       if (t.isIncomeNote) {
-        tranchePrincipal.push({ className: t.className, paid: 0, endBalance: trancheBalances[t.className] });
+        tranchePrincipal.push({ className: t.className, paid: 0, paidFromInterest: 0, endBalance: trancheBalances[t.className] });
         continue;
       }
-      tranchePrincipal.push({ className: t.className, paid: principalPaid[t.className], endBalance: trancheBalances[t.className] + deferredBalances[t.className] });
+      tranchePrincipal.push({
+        className: t.className,
+        paid: principalPaid[t.className],
+        paidFromInterest: _amortFromInterestByTranche[t.className] ?? 0,
+        endBalance: trancheBalances[t.className] + deferredBalances[t.className],
+      });
 
       if (trancheBalances[t.className] + deferredBalances[t.className] <= 0.01 && tranchePayoffQuarter[t.className] === null) {
         tranchePayoffQuarter[t.className] = q;
@@ -2482,27 +2555,35 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
       equityDistribution,
       defaultsByRating,
       stepTrace: {
-        taxes: seniorExpenseBreakdown.taxes,
-        issuerProfit: seniorExpenseBreakdown.issuerProfit, // PPM A.ii
+        // Post-truncation paid amounts (consumed from `seniorExpensesPaid`
+        // and `subFeePaid` above). Per the actually-paid invariant: every
+        // fee/expense field on PeriodStepTrace must be sourced from the
+        // truncated paid value, never the pre-truncation requested object,
+        // or `Σ stepTrace.*(interest waterfall) ≤ interestCollected` breaks
+        // and partner-visible aggregators overstate fees. trusteeOverflow /
+        // adminOverflow already use truncated locals from the Y/Z block.
+        taxes: seniorExpensesPaid.taxes,
+        issuerProfit: seniorExpensesPaid.issuerProfit, // PPM A.ii
         // Each field maps to exactly one PPM step so the N1 harness ties
         // engine-emission to trustee-reported on a per-step basis. Pre-C3
         // `trusteeFeesPaid` bundled (B)+(C)+(Y)+(Z); the split lets us
         // distinguish trustee vs admin drift (and in/out of cap) under
         // both normal and accelerated paths.
-        trusteeFeesPaid: seniorExpenseBreakdown.trusteeCapped, // PPM (B)
-        adminFeesPaid: seniorExpenseBreakdown.adminCapped,     // PPM (C)
-        trusteeOverflowPaid,                                   // PPM (Y)
-        adminOverflowPaid,                                     // PPM (Z)
-        seniorMgmtFeePaid: seniorExpenseBreakdown.seniorMgmt,
-        hedgePaymentPaid: seniorExpenseBreakdown.hedge,
+        trusteeFeesPaid: seniorExpensesPaid.trusteeCapped, // PPM (B)
+        adminFeesPaid: seniorExpensesPaid.adminCapped,     // PPM (C)
+        trusteeOverflowPaid,                               // PPM (Y)
+        adminOverflowPaid,                                 // PPM (Z)
+        seniorMgmtFeePaid: seniorExpensesPaid.seniorMgmt,
+        hedgePaymentPaid: seniorExpensesPaid.hedge,
         availableForTranches,
-        subMgmtFeePaid: subFeeAmount,
+        subMgmtFeePaid: subFeePaid,
         incentiveFeeFromInterest,
         incentiveFeeFromPrincipal,
         ocCureDiversions: _stepTrace_ocCureDiversions,
         reinvOcDiversion: _stepTrace_reinvOcDiversion,
         equityFromInterest,
         equityFromPrincipal,
+        classXAmortFromInterest: _stepTrace_classXAmortFromInterest,
         deferredAccrualByTranche: _stepTrace_deferredAccrualByTranche,
         reinvestmentBlockedCompliance,
       },

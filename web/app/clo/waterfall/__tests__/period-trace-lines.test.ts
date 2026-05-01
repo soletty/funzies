@@ -208,3 +208,64 @@ describe("engine-ui invariants: helper output matches engine on every row", () =
     expect(ddLine!.amount).toBeGreaterThan(0);
   });
 });
+
+describe("buildPeriodTraceLines — amortising-tranche source-pool split", () => {
+  // Amortising tranche (Class X) consumes from the interest pool at PPM step
+  // G, pari-passu with Class A interest. The renderer must:
+  //  (a) emit a row in the INTEREST section showing the amort-from-interest
+  //      flow (sourced from `stepTrace.classXAmortFromInterest`)
+  //  (b) NOT also emit a Class X row in the PRINCIPAL section showing the
+  //      same dollars (which would silently double-render the amort)
+  // Per-tranche split is exposed via `tranchePrincipal[i].paidFromInterest`,
+  // which the renderer subtracts from `paid` to get the principal-pool-only
+  // portion. In non-maturity periods, an amortising tranche has
+  // `paid === paidFromInterest` so principal-pool portion is 0 → row hidden.
+  const inputsWithAmort = makeSimpleInputs({
+    tranches: [
+      { className: "X", currentBalance: 5_000_000, spreadBps: 50, seniorityRank: 1, isFloating: true, isIncomeNote: false, isDeferrable: false, isAmortising: true, amortisationPerPeriod: 500_000 },
+      { className: "A", currentBalance: 60_000_000, spreadBps: 140, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: false },
+      { className: "J", currentBalance: 15_000_000, spreadBps: 250, seniorityRank: 3, isFloating: true, isIncomeNote: false, isDeferrable: true },
+      { className: "Sub", currentBalance: 20_000_000, spreadBps: 0, seniorityRank: 4, isFloating: false, isIncomeNote: true, isDeferrable: false },
+    ],
+    ocTriggers: [
+      { className: "A", triggerLevel: 120, rank: 2 },
+      { className: "J", triggerLevel: 110, rank: 3 },
+    ],
+    icTriggers: [
+      { className: "A", triggerLevel: 120, rank: 2 },
+      { className: "J", triggerLevel: 110, rank: 3 },
+    ],
+  });
+  const result = runProjection(inputsWithAmort);
+  const period = result.periods[0];
+  const lines = buildPeriodTraceLines(period);
+
+  it("emits Class X amort row in interest section, populated from classXAmortFromInterest", () => {
+    const interestSection = lines.filter((l) => l.section === "interest");
+    const amortRow = interestSection.find((l) => l.engineField === "classXAmortFromInterest");
+    expect(amortRow, "interest section must have a row sourced from classXAmortFromInterest").toBeDefined();
+    expect(amortRow!.amount).toBe(period.stepTrace.classXAmortFromInterest);
+    expect(amortRow!.amount).toBeGreaterThan(0);
+  });
+
+  it("does NOT emit a Class X row in principal section (amort already shown in interest section)", () => {
+    const principalSection = lines.filter((l) => l.section === "principal");
+    const xPrincipalRow = principalSection.find((l) => l.label.startsWith("X principal"));
+    // Class X tranchePrincipal entry: paid > 0 (from amort), but
+    // paidFromInterest === paid → paid - paidFromInterest === 0 → row hidden
+    // by the renderer's `if (paidFromPrincipal <= 0.01) continue` filter.
+    expect(
+      xPrincipalRow,
+      "principal section must NOT render Class X row in non-maturity period — the amort dollars are already shown in the interest section",
+    ).toBeUndefined();
+  });
+
+  it("tranchePrincipal aggregate: Σ paidFromInterest === stepTrace.classXAmortFromInterest", () => {
+    // Engine invariant the renderer depends on: the per-tranche sum must
+    // equal the aggregate field. If the engine emits divergent values,
+    // the renderer would either over- or under-render in the interest
+    // section.
+    const sum = period.tranchePrincipal.reduce((s, tp) => s + tp.paidFromInterest, 0);
+    expect(sum).toBeCloseTo(period.stepTrace.classXAmortFromInterest, 2);
+  });
+});
