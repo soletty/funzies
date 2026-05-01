@@ -156,14 +156,24 @@ export function aggregateQualityMetrics(
 ): QualityMetricsAggregates {
   const dealCurrency = opts.dealCurrency ?? null;
 
-  // Caller-side invariant — defaulted positions are EXCLUDED from `loans` by
-  // `projection.ts` (filter on `survivingPar > 0 && !isDefaulted`) before this
-  // helper is called. PPM Condition 1 / definitions ("Caa Obligations", PDF
-  // p. 138) explicitly excludes Defaulted Obligations from the per-agency Caa
-  // and Fitch CCC concentration sets, so the caller-side filter satisfies the
-  // PPM exclusion. KI-18 entry's earlier path-to-close said "include
-  // defaulteds in Caa bucket" — that was wrong; the implementation here is
-  // PPM-correct, the path-to-close has been corrected.
+  // Caller-side invariant — defaulted positions are EXCLUDED from `loans`
+  // implicitly. The engine moves par from `survivingPar` into
+  // `defaultedParPending` on each default event, so a fully-defaulted loan
+  // has `survivingPar = 0` and drops out of `projection.ts`'s
+  // `survivingPar > 0` filter at the call site. There is NO explicit
+  // `!isDefaulted` field on `LoanState` — `LoanState` carries
+  // `defaultedParPending: number`, not an `isDefaulted: boolean`. PPM
+  // Condition 1 ("Caa Obligations", PDF p. 138) excludes Defaulted
+  // Obligations from the per-agency Caa and Fitch CCC sets, and the
+  // implicit filter satisfies the PPM exclusion for FULL defaults.
+  //
+  // PARTIAL defaults are a known semantic gap tracked as KI-61: a loan
+  // with `survivingPar > 0` AND `defaultedParPending > 0` retains its
+  // surviving piece in the concentration denominator, while PPM treats
+  // the obligor's whole position as a Defaulted Obligation. The current
+  // implementation matches PPM intent for full defaults but treats the
+  // surviving piece of a partial default as performing collateral. See
+  // KI-61 for the verification path.
 
   let totalPar = 0;
   let warfSum = 0;

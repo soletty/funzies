@@ -26,7 +26,7 @@ Categorized so a partner reading cold can separate "what's still wrong" from "wh
 - [KI-08 — `trusteeFeesPaid` bundled steps B+C (PARTIAL: pre-fill D3 + cap mechanics C3 shipped; KI-16 PPM verifications remain)](#ki-08)
 - [KI-12a — Senior / sub management fee base discrepancy](#ki-12a)
 - [KI-16 — KI-08 closure assumptions pending PPM verification](#ki-16)
-- [KI-18 — pctCccAndBelow coarse-bucket collapse (±3pp vs trustee per-agency max)](#ki-18)
+- [KI-18 — pctCccAndBelow per-agency rollup ships; ~1.3pp residual from per-position rating extraction coverage gap](#ki-18)
 - [KI-20 — D2 legacy escape-hatch on 6 test-factory sites](#ki-20)
 - [KI-21 — Parallel implementations of same calculation (PARTIAL — Scope 1+2 closed; Scope 3 accel + T=0 remains)](#ki-21)
 - [KI-23 — Industry taxonomy missing on BuyListItem + ResolvedLoan blocks industry-cap filtering](#ki-23)
@@ -50,6 +50,7 @@ Categorized so a partner reading cold can separate "what's still wrong" from "wh
 - [KI-51 — `normalizeComplianceTestType` derives `isPassing` as `actual >= trigger` for all tests, including lower-is-better (WARF, WAL, concentration)](#ki-51)
 - [KI-56 — N1 harness step-G sharing: `classA_interest` bucket compares against trustee[g] which on a Class X-bearing deal includes Class X amort](#ki-56)
 - [KI-60 — Three independent `normalizeClassName` implementations with divergent output shapes (sibling pattern to KI-21)](#ki-60)
+- [KI-61 — Partial-default Caa/CCC concentration gap: surviving piece of partially-defaulted loan retained in denominator vs PPM whole-obligor exclusion (TENTATIVE — pending PPM read)](#ki-61)
 
 ### Deferred — intentionally not modeled, magnitude known
 - [KI-02 — Step (D) Expense Reserve top-up](#ki-02)
@@ -409,7 +410,7 @@ The Class A/B/C/D/E/F interest tie-outs currently pass at |drift| < €1 under l
 
 **PPM reference:** Condition 1 / definitions — "Caa Obligation", "CCC Obligation". Separate per-agency definitions (Moody's Caa1/Caa2/Caa3 + Ca + C, and Fitch CCC+/CCC/CCC-/CC/C). The trustee's "Caa and below" concentration test takes the **max across agencies** — a position counted by either rating agency flips it into the bucket. Per PPM definition (PDF p. 138), defaulted obligations are EXCLUDED from the Caa Obligations set.
 
-**Current engine behavior:** `computePoolQualityMetrics` in `pool-metrics.ts` now computes per-agency Caa/CCC rollups (`isMoodysCaaOrBelow`, `isFitchCccOrBelow` from `rating-mapping.ts`) and takes max across agencies via `pctCccAndBelow = max(pctMoodysCaa, pctFitchCcc)` — the per-agency methodology required by the path-to-close. Defaulted positions are excluded by the upstream caller (`projection.ts` filters by `survivingPar > 0` AND `!isDefaulted` before passing into `computePoolQualityMetrics`); this matches PPM convention. **However**, ~6% of Euro XV loan positions have `moodysRatingFinal === null && fitchRatingFinal === null` (per-agency rating extraction missing); these fall through to the coarse `ratingBucket === "CCC"` legacy path. The C2 parity tolerance currently sits at **±2pp** (`c2-quality-forward-projection.test.ts:100`) to absorb the resulting ~1.3pp residual drift.
+**Current engine behavior:** `computePoolQualityMetrics` in `pool-metrics.ts` now computes per-agency Caa/CCC rollups (`isMoodysCaaOrBelow`, `isFitchCccOrBelow` from `rating-mapping.ts`) and takes max across agencies via `pctCccAndBelow = max(pctMoodysCaa, pctFitchCcc)` — the per-agency methodology required by the path-to-close. Defaulted positions are excluded **implicitly**: the engine moves par from `LoanState.survivingPar` into `LoanState.defaultedParPending` on default, so the `survivingPar > 0` filter at `projection.ts:1387` naturally drops fully-defaulted loans before they reach the helper. There is no explicit `!isDefaulted` boolean on `LoanState` — only `defaultedParPending: number`. The implicit filter is PPM-correct for FULL defaults (Caa Obligations, PDF p. 138). PARTIAL defaults are a separate known gap tracked as **KI-61** — a loan with `survivingPar > 0 && defaultedParPending > 0` retains its surviving piece in the concentration denominator while PPM would classify the whole obligor position as a Defaulted Obligation. **Additionally**, ~6% of Euro XV loan positions have `moodysRatingFinal === null && fitchRatingFinal === null` (per-agency rating extraction missing); these fall through to the coarse `ratingBucket === "CCC"` legacy path. The C2 parity tolerance currently sits at **±2pp** (`c2-quality-forward-projection.test.ts:100`) to absorb the resulting ~1.3pp residual drift.
 
 **Why the entry stays open:** the path-to-close required tightening the C2 parity tolerance to ±0.1pp. ±2pp is a partial close — the per-agency methodology landed, but the residual extraction-coverage gap is still wide enough that the original ±3pp bug magnitude is within the test's tolerance. Deleting the entry while ±2pp tolerance is in place would be a fake-close (the assertion would pass even if the old methodology were reinstated). The remaining work is per-position rating extraction, NOT pool-metrics arithmetic.
 
@@ -419,7 +420,7 @@ The Class A/B/C/D/E/F interest tie-outs currently pass at |drift| < €1 under l
 
 **Path to close (revised):** (a) Improve per-loan rating extraction such that `moodysRatingFinal` and `fitchRatingFinal` are populated for ≥95% of positions on Euro XV. The remaining 5% legacy-bucket fallback is acceptable. (b) Tighten the C2 parity tolerance from ±2pp to ±0.1pp once coverage is sufficient. (c) Document the bijection between the per-agency rollup (used by C1 enforcement) and the legacy aggregate `pctCccAndBelow` (used for partner-facing display) so neither drifts independently.
 
-**Defaulted-position semantics correction:** an earlier draft of this entry's path-to-close said "include defaulted positions in Caa bucket." That was wrong — per PPM PDF p. 138 the Caa Obligations definition explicitly EXCLUDES Defaulted Obligations. The current implementation is PPM-correct (caller pre-filter + LML exclusion in the pool-metrics loop). The invariant lives at the call site as a comment.
+**Defaulted-position semantics correction:** an earlier draft of this entry's path-to-close said "include defaulted positions in Caa bucket." That was wrong — per PPM PDF p. 138 the Caa Obligations definition explicitly EXCLUDES Defaulted Obligations. The current implementation is PPM-correct **for full defaults** via the implicit `survivingPar > 0` exit at `projection.ts:1387` plus LML exclusion inside the pool-metrics loop. The invariant lives at the call site as a comment in `pool-metrics.ts:159-176`. The partial-default case is NOT handled by this filter and is tracked separately as KI-61.
 
 **Test:** `c2-quality-forward-projection.test.ts:100` — current tolerance ±2pp on `pctCccAndBelow` is the ledger anchor for the residual extraction-coverage gap. Tighten to ±0.1pp on closure.
 
@@ -1037,6 +1038,29 @@ So **no current cross-normalizer site exists**, but the architectural shape is f
 7. Flip the marker test from asserting `.not.toBe(...)` (current divergence) to asserting `.toBe(...)` (consolidated convergence) — or delete the test and replace with a focused unit test of the canonical normalizer's behavior.
 
 **Test:** `web/lib/clo/__tests__/normalize-classname-divergence.test.ts` — `KI-60: triple normalizeClassName divergence (locks current bug)`. Two assertions: `intexNormalize("Class A-1") !== apiNormalize("Class A-1")` and `intexNormalize("Sub Notes") !== apiNormalize("Sub Notes")`. Plain `it()` (structural divergence, not a numeric drift). When the consolidation lands, the `.not.toBe` flips to `.toBe` (or the test is deleted). If the consolidation deletes one of the imports, the test file becomes uncompilable — same closure signal at the type level.
+
+---
+
+<a id="ki-61"></a>
+### [KI-61] Partial-default Caa/CCC concentration gap — surviving piece of partially-defaulted loan retained in denominator vs PPM whole-obligor exclusion (TENTATIVE)
+
+**Status:** Tentative pending PPM read of the Caa/CCC Obligations definition's treatment of partial recoveries, plus an engine trace confirming the partial-default state shape.
+
+**PPM reference:** Condition 1 / definitions — "Caa Obligations" (PDF p. 138), "CCC Obligations" (PDF p. 127). Both definitions exclude "Defaulted Obligations" categorically. Whether a position with `survivingPar > 0` AND `defaultedParPending > 0` is classified as a Defaulted Obligation in its entirety, or only its defaulted portion is excluded, is the open question.
+
+**Current engine behavior:** `LoanState` in `projection.ts:1135-1175` carries `survivingPar: number` and `defaultedParPending: number` — no boolean `isDefaulted` flag. On default, par migrates from `survivingPar` to `defaultedParPending` (in whole or in part depending on the default-draw model). The per-period `computeQualityMetrics` filter at `projection.ts:1387` keeps only loans with `survivingPar > 0`, so a fully-defaulted loan exits cleanly. A PARTIALLY defaulted loan, however, retains its surviving piece in the concentration denominator (`concDenom`) AND in the per-agency Caa/CCC numerator if its rating still maps Caa/CCC. PPM intent for partial recoveries is the trigger for this entry.
+
+**PPM-correct behavior (tentative):** if PPM treats any loan with non-zero defaulted balance as a Defaulted Obligation, the engine must skip the entire loan (both surviving and pending portions) from the concentration denominator and numerators, not just the defaulted portion. The fix would be a `defaultedParPending > 0` guard in the `computeQualityMetrics` filter (or an `isDefaultedObligor` derived predicate at the LoanState level).
+
+**Quantitative magnitude:** Zero on Euro XV today (the fixture has no partial defaults; `preExistingDefaultedPar` is fully recovered/written-off). Emerges on (a) any deal with reported partial recoveries, (b) any forward-projection scenario where a defaulted loan recovers fractionally and the recovery lag spans multiple quarters with surviving par on the books, or (c) a stress scenario where the engine's default-draw model produces fractional defaults across the pool.
+
+**Impact on compliance enforcement:** Affects `pctMoodysCaa`, `pctFitchCcc`, and the C1 reinvestment compliance gate's Caa/CCC predicates (which read these from the same per-period helper). Could over-state or under-state the concentration depending on whether the partially-defaulted loan's rating is Caa/CCC. Worst-case shape: a deal with multiple partially-defaulted Caa-rated loans during the recovery lag would report concentration above the 7.5% trigger when PPM math says they should be excluded entirely — engine permits a reinvestment that PPM would block, or vice versa.
+
+**Path to close:** (a) Read PPM Condition 1 "Defaulted Obligations" definition (PDF index TBD) to determine partial-recovery treatment. (b) Trace the engine's partial-default state: does `defaultedParPending > 0` always co-occur with full `survivingPar = 0`, or do partial defaults leave both > 0 simultaneously? Look at the default-draw site (`projection.ts` Monte Carlo loop) and the recovery pipeline. (c) If PPM excludes the whole obligor, add `defaultedParPending > 0` as a skip condition in `computeQualityMetrics` at `projection.ts:1387` (and the parallel filter in `maxCompliantReinvestment`). If PPM admits the surviving piece, retain current behavior and tighten this entry to a "verified, no action" closure.
+
+**Why the entry stays open until PPM read:** the partial-default semantics question is silent today on Euro XV (zero magnitude) but load-bearing on portability and stress scenarios. CLAUDE.md doctrine: "honest uncertainty" is allowed in the ledger; "confident-but-wrong" claims are not. This entry quarantines the question until the PPM read resolves the path-to-close.
+
+**Test:** `web/lib/clo/__tests__/ki61-partial-default-concentration.test.ts` — pending. Marker test should construct a synthetic LoanState with `survivingPar > 0 && defaultedParPending > 0` AND ratingBucket === "CCC", run `computeQualityMetrics`, and assert the loan IS counted in `pctMoodysCaa` numerator under current behavior. When KI-61 closes against PPM-says-exclude, the assertion flips to `.not.toBeIncluded`. Until the marker test ships, the entry is doubly tentative — no test pin, no path-to-close anchor.
 
 ---
 
