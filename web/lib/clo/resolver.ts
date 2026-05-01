@@ -1279,7 +1279,12 @@ export function resolveWaterfallInputs(
   if (typeof rawCompounds === "boolean") {
     deferredInterestCompounds = rawCompounds;
   } else if (tranches.some(t => t.isDeferrable)) {
-    warnings.push({ field: "deferredInterestCompounds", message: "Deal has deferrable tranches but no PIK compounding info extracted — assuming deferred interest compounds (standard convention). Set manually if different.", severity: "warn", blocking: false });
+    warnings.push({
+      field: "deferredInterestCompounds",
+      message: "Deal has deferrable tranches but PIK compounding info was not extracted as a boolean — engine would default to `true` (compound deferred interest). On a deal whose indenture specifies non-compounding, every period over-states the deferred balance, and the over-statement compounds across periods. Refuse and set interestMechanics.deferredInterestCompounds explicitly upstream.",
+      severity: "error",
+      blocking: true,
+    });
   }
 
   // --- Quality & Concentration Tests ---

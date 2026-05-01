@@ -289,6 +289,29 @@ describe("Pattern B (silent acceptance of sentinel value)", () => {
     expectGateThrows(resolved, warnings);
   });
 
+  it("deferredInterestCompounds (resolver.ts:1282) — deferrable tranches with non-boolean PIK info → blocking", () => {
+    const raw = loadRaw();
+    // Euro XV's tranches have isDeferrable:null today even though the PPM
+    // semantically marks class C-F as deferrable (`interest_deferral`
+    // sub-object) — the fixture didn't propagate to per-tranche flags.
+    // Inject isDeferrable:true on Class C to satisfy the `.some()` predicate;
+    // ALSO inject a non-boolean deferredInterestCompounds so the typeof
+    // guard at L1279 fails and the warn branch fires.
+    const classC = (raw.tranches as any[]).find(
+      (t: any) => (t.className ?? "").toLowerCase().includes("class c"),
+    );
+    expect(classC, "fixture should have a Class C tranche").toBeDefined();
+    classC.isDeferrable = true;
+    raw.constraints.interestMechanics = {
+      ...(raw.constraints.interestMechanics ?? {}),
+      deferredInterestCompounds: "unknown",
+    };
+    const { resolved, warnings } = runResolver(raw);
+    const w = warnings.find((w) => w.field === "deferredInterestCompounds");
+    expectBlockingError(w, "deferredInterestCompounds");
+    expectGateThrows(resolved, warnings);
+  });
+
   it("DDTL no parent (resolver.ts:1073) — DDTL holding with no matching parent facility → blocking", () => {
     const raw = loadRaw();
     // Euro XV has zero DDTL holdings (verified by grep). Convert an active
