@@ -14,7 +14,7 @@ Each entry carries:
 - **Path to close** — specific code changes + corresponding test. No effort estimate.
 - **Test** — forward-pointer(s) to the `failsWithMagnitude` marker(s) asserting the current documented magnitude. Ledger ↔ test is a bijection: when a fix lands, the marker must be removed AND this entry moved to Closed. New KI entries SHIP with their marker test in the same change.
 
-Updated per sprint. Entries are closed (marked `[CLOSED]`) when the corresponding fix ships and is verified in the N1 harness.
+Updated per sprint. Entries are closed by deleting the entry, its index pointer, and its anchor entirely once the corresponding fix ships and is verified in the N1 harness — no `[CLOSED]` marker is left behind. The entry's `failsWithMagnitude` marker test is removed (or its assertion flipped from "documents the bug" to "asserts the fix") in the same change. Codebase rationale that the closed entry used to provide is described directly in code via inline invariant comments (no orphan KI-XX cross-references), so the bijection scan in `web/lib/clo/__tests__/disclosure-bijection.test.ts` flips loud on any stale reference.
 
 ---
 
@@ -37,7 +37,7 @@ Categorized so a partner reading cold can separate "what's still wrong" from "wh
 - [KI-33 — Reinvestment loan synthesis assumes par-purchase (€1 diverted = €1 par)](#ki-33)
 - [KI-34 — Non-call period not enforced; user-typed pre-NCP call dates pass through](#ki-34)
 - [KI-35 — Partial DDTL draw silently discards the un-drawn commitment](#ki-35)
-- [KI-40 — `diversionPct = 50%` silent fallback on extraction failure](#ki-40)
+- [KI-58 — Silent computational extraction failures (umbrella) — eight resolver sites substitute a "common default" or accept a sentinel; subsumes the closed KI-40 and KI-41](#ki-58)
 
 ### Latent — currently inactive on Euro XV; emerges on portability or stress
 *Distinct from "Deferred" (those are intentional design choices about mechanics that exist in the indenture but the model elects not to simulate). "Latent" entries are unmodeled or hardcoded paths whose current Euro XV magnitude happens to be zero, but which will produce wrong numbers the moment a deal hits the triggering condition (different deal structure, different PPM, non-zero balance, FX exposure, etc.). Treat each as a real bug whose materiality is data-dependent, not a deliberate scope decision.*
@@ -50,12 +50,12 @@ Categorized so a partner reading cold can separate "what's still wrong" from "wh
 - [KI-36 — Per-tranche `payment_frequency` and `day_count_convention` extracted but not consumed](#ki-36)
 - [KI-37 — Loan-level `floorRate`, `pikAmount`, `creditWatch`, `isCovLite` extracted but unused by engine](#ki-37)
 - [KI-38 — FX / multi-currency unmodeled; `native_currency` parsed and discarded](#ki-38)
-- [KI-39 — Intex past-cashflows parser hardcoded for Euro XV's tranche structure](#ki-39)
-- [KI-41 — `incentiveFeeHurdleIrr = 12%` silent fallback on extraction failure](#ki-41)
-- [KI-50 — `parseNumeric` strips commas without locale awareness — European-format numbers parse wrong](#ki-50)
 - [KI-51 — `normalizeComplianceTestType` derives `isPassing` as `actual >= trigger` for all tests, including lower-is-better (WARF, WAL, concentration)](#ki-51)
 - [KI-54 — D1 deferrable-A/B guard is name-based; non-A/B-named senior with `isDeferrable=true` slips through](#ki-54)
 - [KI-56 — N1 harness step-G sharing: `classA_interest` bucket compares against trustee[g] which on a Class X-bearing deal includes Class X amort](#ki-56)
+- [KI-57 — Resolver assigns DISTINCT `seniorityRank` to pari-passu tranches; engine pari-passu absorption depends on equal ranks](#ki-57)
+- [KI-59 — Audit `severity: "warn"` resolver sites under the same silent-wrong-on-portability lens that produced KI-58](#ki-59)
+- [KI-60 — Three independent `normalizeClassName` implementations with divergent output shapes (sibling pattern to KI-21)](#ki-60)
 
 ### Deferred — intentionally not modeled, magnitude known
 - [KI-02 — Step (D) Expense Reserve top-up](#ki-02)
@@ -974,161 +974,6 @@ No FX rate is ingested. The engine does not consume `currency` anywhere — `web
 
 ---
 
-<a id="ki-39"></a>
-### [KI-39] Intex past-cashflows parser hardcoded for Euro XV's tranche structure
-
-**PPM reference:** The Intex DealCF past-cashflows export is a flat-CSV format with per-tranche column blocks. Block widths and class names are deal-specific.
-
-**Current engine behavior — worse than parser-side error: persistent DB corruption.** `web/lib/clo/intex/parse-past-cashflows.ts:88-99`:
-
-```
-const TRANCHE_BLOCKS: Array<{ className: string; start: number; floating: boolean }> = [
-  { className: "Class A",            start: 39, floating: true  },
-  { className: "Class B-1",          start: 50, floating: true  },
-  { className: "Class B-2",          start: 61, floating: false }, // 10-col (no rate reset)
-  { className: "Class C",            start: 71, floating: true  },
-  { className: "Class D",            start: 82, floating: true  },
-  { className: "Class E",            start: 93, floating: true  },
-  { className: "Class F",            start: 104, floating: true },
-  { className: "Subordinated Notes", start: 115, floating: false }, // 10-col
-];
-```
-
-Column starts (39, 50, 61, 71, 82, 93, 104, 115), block widths (11 cols for floating, 10 for fixed), and class names are hardcoded for Euro XV's specific structure. There is no schema-mismatch warning. Any deal whose Intex export has a different tranche structure — additional or missing class, pari-passu Class A-1+A-2 split, all-floating structure, etc. — will silently mis-read columns starting at the divergence point. **Worse: the downstream ingest path at `web/lib/clo/intex/ingest.ts:67-83` then INSERTs phantom tranche rows into `clo_tranches` for any class name not already present, and overwrites `clo_tranche_snapshots` with the misaligned data — marking it `data_source = 'intex_past_cashflows'` (treated as authoritative trustee history). The corruption is persistent in the database, not transient.**
-
-**PPM-correct behavior:** Schema-aware parsing. The Intex export carries per-tranche column headers; the parser should use those to locate tranche blocks dynamically rather than baking offsets.
-
-**Quantitative magnitude:** Zero today — only Euro XV uses this parser. Critical the moment a second deal lands. Catastrophic in a partner-facing context: silent column misalignment produces plausible-looking trustee numbers that are wrong by amounts that grow with how many columns past the divergence the parser reads.
-
-**Deferral rationale:** Hardcoded for the only deal in production. Tagged Latent because the bug is silent until a second deal arrives, at which point it becomes critical.
-
-**Path to close:**
-1. Drive `TRANCHE_BLOCKS` from the Intex export's header row rather than from constants.
-2. Validate that the discovered tranche structure matches `ResolvedDealData.tranches` — fail loud on mismatch.
-3. Test against a synthetic Intex export with a different tranche structure (e.g. Class A-1 + A-2 + B + C + D + E without Class F) to confirm dynamic detection.
-
-**Test:** No active marker on Euro XV. Pre-condition for onboarding any second deal: this parser must be schema-driven and fail loud on schema mismatch, not silently produce wrong numbers. **This is the single highest-priority portability item in the ledger.**
-
----
-
-<a id="ki-40"></a>
-### [KI-40] `diversionPct = 50%` silent fallback on extraction failure
-
-**PPM reference:** Condition 3.3 / Condition 7 — Reinvestment OC Test diversion. Real deals carry varying diversion percentages: 50% is most common in European CLOs but 30%, 40%, and 100% all appear.
-
-**Current engine behavior:** `web/lib/clo/resolver.ts:809-820`:
-
-```
-let diversionPct = 50; // common default
-if (reinvOcRaw?.diversionAmount) {
-  const pctMatch = reinvOcRaw.diversionAmount.match(/(\d+(?:\.\d+)?)\s*%/);
-  if (pctMatch) {
-    diversionPct = parseFloat(pctMatch[1]);
-  } else {
-    warnings.push({ field: "reinvestmentOcTrigger.diversionPct", message: `Could not parse diversion percentage from "${reinvOcRaw.diversionAmount}" — defaulting to 50%`, severity: "warn" });
-  }
-} else if (reinvOcRaw?.trigger) {
-  warnings.push({ field: "reinvestmentOcTrigger.diversionPct", message: `Reinvestment OC trigger found but no diversion amount specified — defaulting to 50%`, severity: "warn" });
-```
-
-When PPM extraction fails to surface a diversion amount, the resolver falls back to 50% with a `warn`-severity warning — and continues using the value. The engine has no way to distinguish "PPM specifies 50%" from "PPM doesn't say and we guessed 50%".
-
-**PPM-correct behavior:** Each deal's diversion percentage extracted from its PPM. Failure to extract is a fatal data-completeness error, not a recoverable fallback.
-
-**Quantitative magnitude:** Zero on Euro XV (extraction succeeds at 50%). Material on any deal where extraction fails AND the actual diversion is not 50%. A 100%-diversion deal modeled as 50% over-states equity distributions during diverted periods by 50% of the diverted amount; a 30%-diversion deal modeled as 50% under-states.
-
-**Deferral rationale:** Engineering judgment on the part of the original implementer that "common default" is preferable to a hard error. That judgment is wrong for a financial model — silent fallback to a wrong value is the most expensive failure mode.
-
-**Path to close:**
-1. Promote the warning at `resolver.ts:817` and `:820` from `severity: "warn"` to `severity: "error"`.
-2. Surface the error in the UI: when `diversionPct` was inferred from a fallback, the projection should refuse to run (or run with a banner-level "DATA INCOMPLETE" warning that the partner cannot dismiss).
-3. Decide: do we run with the 50% fallback under a banner, or refuse to run? Lean toward refuse-to-run for financial-model correctness.
-4. Add a resolver test asserting that a fixture with no extracted diversion amount surfaces an error-severity warning AND that the projection-build path respects the error.
-
-**Test:** No active marker on Euro XV (extraction succeeds). When the policy lands, add a resolver test pinning the error-severity behavior on a synthetic raw with no `reinvOcRaw.diversionAmount`.
-
----
-
-<a id="ki-41"></a>
-### [KI-41] `incentiveFeeHurdleIrr = 12%` silent fallback on extraction failure
-
-**PPM reference:** Condition 1 ("Incentive Collateral Management Fee") / Subordinated Management Fee mechanics. Each deal's IRR hurdle is PPM-specified.
-
-**Current engine behavior:** `web/lib/clo/resolver.ts:509-517`:
-
-```
-const hurdleRaw = parseFloat(fee.hurdleRate ?? "");
-if (!isNaN(hurdleRaw) && hurdleRaw > 0) {
-  incentiveFeeHurdleIrr = hurdleRaw > 1 ? hurdleRaw / 100 : hurdleRaw;
-} else if (incentiveFeePct > 0) {
-  // Standard European CLO equity hurdle is ~12% IRR. Using 0% would mean
-  // the incentive fee fires on any positive return, which is too aggressive.
-  incentiveFeeHurdleIrr = 0.12;
-  warnings.push({ field: "fees.incentiveFeeHurdleIrr", message: `Incentive fee present (${incentiveFeePct}%) but no hurdle rate found — assuming 12% IRR hurdle. ...`, severity: "error", resolvedFrom: "not extracted → defaulted to 12%" });
-}
-```
-
-The fallback is gated on `else if (incentiveFePct > 0)`. When extraction yields a non-finite hurdle AND an incentive fee was extracted (`incentiveFeePct > 0`), the resolver pushes an `error`-severity warning AND continues with `0.12` (12% IRR). When no incentive fee was extracted at all, the resolver leaves `incentiveFeeHurdleIrr` at 0 and emits no warning — the engine's incentive-fee solver then no-ops via the `incentiveFeePct > 0 && incentiveFeeHurdleIrr > 0` gate at `projection.ts:2366` / `:2397`. Verified Euro XV path: `d3-defaults-from-resolved.test.ts:48` confirms `expect(d.incentiveFeeHurdleIrr).toBeCloseTo(12, 6)` — Euro XV extracts to 12% from `hurdleRate: "12%"` (fixture `euro-xv-q1.json:8226`), so the fallback is not triggered today.
-
-**PPM-correct behavior:** Hurdle is per-deal PPM-defined. A hard error on extraction failure prevents the model from running with a wrong hurdle. The IRR hurdle directly affects the incentive-fee circular solver — wrong hurdle → wrong incentive-fee threshold → wrong sub-distribution residual.
-
-**Quantitative magnitude:** Zero on Euro XV (extraction succeeds). Material on any deal where extraction fails and the actual hurdle is not 12%. A deal with a 15% hurdle modeled as 12% has the incentive fee firing earlier in the equity-cash-flow series → over-states sub-distribution diversion to incentive fee → under-states equity residual. A deal with a 10% hurdle modeled as 12% goes the other way.
-
-**Deferral rationale:** Same shape as KI-40 — silent fallback on extraction failure with a "common default" heuristic. Same reasoning applies: this is wrong for a financial model.
-
-**Path to close:**
-1. The warning is already `severity: "error"` (good); but the resolver continues using 0.12. Decide: run with the fallback under a banner, or refuse to run? Lean toward refuse-to-run.
-2. If runs are refused, the resolver should surface a typed exception that the projection-build path handles by showing a "DATA INCOMPLETE" message.
-3. If runs continue (under banner), the partner-facing surfaces (PDF export, share links, dashboards) should mark the deal "uses fallback hurdle" until extraction is re-run.
-
-**Test:** No active marker on Euro XV (extraction succeeds). When the policy lands, add a resolver test on a synthetic raw with no `incentiveFee.hurdleIrr`.
-
----
-
-<a id="ki-50"></a>
-### [KI-50] `parseNumeric` strips commas without locale awareness — European-format numbers parse wrong
-
-**Context:** SDF (Standard Distribution File) and trustee reports are produced by administrators who localize their output. American format uses `,` as thousands separator and `.` as decimal (`1,500,000.00`). European/continental format uses `.` as thousands separator and `,` as decimal (`1.500.000,00`).
-
-**Current engine behavior:** `web/lib/clo/sdf/csv-utils.ts:60-69`:
-
-```
-export function parseNumeric(value: string | undefined | null): number | null {
-  if (value == null || value.trim() === "") return null;
-  let cleaned = value.trim();
-  const isNegative = cleaned.startsWith("(") && cleaned.endsWith(")");
-  if (isNegative) cleaned = cleaned.slice(1, -1);
-  cleaned = cleaned.replace(/,/g, "");
-  const num = parseFloat(cleaned);
-  if (isNaN(num)) return null;
-  return isNegative ? -num : num;
-}
-```
-
-The `replace(/,/g, "")` strips ALL commas regardless of role. Behavior:
-
-- American format `"1,500,000.00"` → strip commas → `"1500000.00"` → `parseFloat` returns `1500000` ✓
-- European format `"1.500.000,00"` → `replace(/,/g, "")` strips the decimal comma (the function makes no distinction between thousands-separator commas and decimal commas) → `"1.500.000.00"` → `parseFloat` greedily parses up to the second `.` → returns `1.5`. **A 1,000,000× error on every numeric column from a European-format trustee report.**
-- Currency-prefixed `"€1,234.56"` → comma stripped → `"€1234.56"` → `parseFloat` cannot parse leading non-numeric → `NaN` → returns `null`. Silent data loss.
-
-The resolver has `normalizeNumericString` for some fields with locale handling, but `parseNumeric` is the front door for the SDF parsers (`parse-collateral`, `parse-notes`, `parse-asset-level`, `parse-test-results`, `parse-accounts`).
-
-**PPM-correct behavior:** Locale-aware numeric parsing. Either (a) detect the format from the file (if `,` appears more often than `.`, treat `,` as thousands; otherwise treat `,` as decimal), or (b) take the locale as an ingest-time parameter from the trustee/administrator metadata.
-
-**Quantitative magnitude:** Zero on Euro XV today (BNY trustee reports use American format). Catastrophic on any trustee whose reports use European decimal format — silent 1,000,000× errors on every par balance, market value, principal balance, and account balance. Currency-prefixed values silently disappear.
-
-**Deferral rationale:** Latent. Critical the moment a non-American-format trustee report is ingested.
-
-**Path to close:**
-1. Replace `parseNumeric` at `csv-utils.ts:60-69` with a locale-detecting version. Detection heuristic: count `,` and `.` occurrences; if `,` count > `.` count, treat `,` as thousands and `.` as decimal (American); if reversed, vice versa (European); if equal, accept both formats by stripping the non-decimal separator only after detecting the trailing decimal candidate.
-2. Strip leading currency symbols (`€`, `$`, `£`) before parsing.
-3. Add unit tests covering: American thousands, European thousands, European decimal-only ("1,5"), currency-prefixed, parens-as-negative interaction with European format ("(1.500,00)").
-4. Add an ingestion-gate validator that flags any numeric column where the parsed magnitude is suspiciously small (e.g., par balance < €1,000) — likely a locale mis-parse.
-
-**Test:** No active marker on Euro XV. After the fix, parser unit tests pin the locale handling. Add a fixture-regeneration honesty guard that runs the parser against synthetic European-format SDF rows.
-
----
-
 <a id="ki-51"></a>
 ### [KI-51] `normalizeComplianceTestType` derives `isPassing` as `actual >= trigger` for all tests, including lower-is-better
 
@@ -1225,4 +1070,201 @@ Option (a) preserves per-source granularity in the harness output (partner can s
 **Test:** No active marker on Euro XV (no Class X). After the fix, the synthetic harness scenario above pins it.
 
 ---
+
+<a id="ki-57"></a>
+### [KI-57] Resolver assigns DISTINCT `seniorityRank` to pari-passu tranches; engine pari-passu absorption depends on equal ranks
+
+**PPM reference:** Pari-passu tranches share waterfall priority — the interest waterfall pays them at the same step (cash split pro-rata under shortfall), and OC/IC tests bucket them together. Common shapes: split A-1 + A-2 senior structures (BSL); split B-1 + B-2 mezzanine (Euro XV's Class B is itself a B-1 + B-2 pair).
+
+**Current write-site behavior — three sites assign rank from loop index, never preserving equal-rank semantics:**
+- `web/lib/clo/extraction/persist-ppm.ts:171-172` — `setClauses.push("seniority_rank = $...")` with `values.push(i + 1)` over the PPM tranche-array iteration.
+- `web/lib/clo/extraction/runner.ts:1279-1280` — same shape: `seniority_rank = COALESCE(seniority_rank, $...)` with `values.push(i + 1)`.
+- `web/lib/clo/extraction/runner.ts:546` — same idx-based assignment in the legacy enrichment path.
+
+**Current resolver behavior — both paths inherit idx-based ranks:**
+- `web/lib/clo/resolver.ts:226` (DB-derived, when `dbTranches.length > 0`) — `seniorityRank: t.seniorityRank ?? 99`. Reads whatever the write sites stored.
+- `web/lib/clo/resolver.ts:286` (PPM-derived fallback) — `seniorityRank: idx + 1` directly from `sortedEntries.map((e, idx) => ...)`.
+
+The `classOrder` helper at `resolver.ts:251-258` maps "A-1", "A-2", "A-3" all to letter-bucket rank 1 for sort ordering — but the output rank comes from the array index after the sort, never from the bucket. Pari-passu information is lost at every layer.
+
+**Engine behavior — correct given correct input, but the input is never correct:** `web/lib/clo/projection.ts:748-755` explicitly groups by equal `seniorityRank` for pari-passu absorption. The comment reads *"Group by seniorityRank so pari passu classes (e.g., B-1 + B-2) absorb together."* The engine handles pari-passu correctly when ranks ARE equal, but the resolver never produces equal ranks, so the absorption code path never fires.
+
+**PPM-correct behavior:** Pari-passu tranches must share `seniorityRank`. Implementation options: (a) detect via class-name structural prefix (A-1, A-2, A-3 all share stem "A" → all share rank 1; B-1, B-2 → both rank 2), (b) extract pari-passu flags directly from the PPM where the source carries them, (c) use the existing `classOrder` letter-bucket as the assigned rank rather than the post-sort index.
+
+**Quantitative magnitude (tentative — pending stress-scenario measurement):**
+- **Euro XV base case (no cash shortage):** zero engine drift on per-period interest. Sequential vs pari-passu produces identical per-class amounts when cash is plentiful. N1 harness confirms `classB_interest` ties within €1, masking the rank-grouping non-firing.
+- **Euro XV under stress** (synthetic high-CDR + low-recovery scenario where Class B interest cannot be paid in full): engine pays B-1 to exhaustion before B-2, when economically the shortfall should split pro-rata between B-1 and B-2 by balance. Magnitude scales with cash shortfall × the B-1/B-2 balance ratio. Not yet measured against a synthetic stress fixture — that measurement is a precondition for closing the entry.
+- **Forward A-1/A-2-split deal:** same shape applied to senior debt — A-2 starves before A-1 takes a haircut. Material in any partner-facing IRR or NAV computation under scenarios that breach Class A interest coverage.
+- **OC/IC test bucketing:** the rank-`<=`-filter at `projection.ts:1316-1317` and `:2108-2109` filters tranches by `seniorityRank <= oc.rank`. On Euro XV this happens to produce the right buckets because compliance trigger ranks are also assigned via idx+1 logic; two parallel idx+1 errors line up. On a future deal where compliance triggers are extracted differently, the buckets diverge silently.
+
+**Deferral rationale:** Latent on Euro XV base case; emerges under stress and on future split-tranche deals. Multi-layer fix (three write sites + resolver PPM-derived path + downstream verification of OC/IC bucketing). Filed per the CLAUDE.md discovery rule mid-task on a sibling investigation.
+
+**Path to close:**
+1. Decide the canonical rank-assignment rule (option a, b, or c above). Option (c) reuses existing logic and is the smallest delta.
+2. Update the three write sites in `extraction/` to produce equal ranks for pari-passu groups.
+3. Update the resolver PPM-derived path at `resolver.ts:286` to match.
+4. Re-baseline any test that depends on Euro XV's current B-1=2, B-2=3 layout.
+5. Add a stress-scenario projection test that exercises the engine's existing rank-grouping code at `projection.ts:748-755` under cash shortfall, verifying pari-passu absorption fires (this is the magnitude-pinning measurement).
+6. Verify the OC/IC compliance-trigger filter (`projection.ts:1316-1317, 2108-2109`) still produces the right buckets — may require a corresponding fix on compliance-trigger rank attribution.
+7. Flip the marker test from `[1, 2, 3]` to `[1, 1, 2]` (A-1 and A-2 share rank 1 post-fix; B becomes rank 2).
+
+**Test:** `web/lib/clo/__tests__/resolver-pari-passu-rank.test.ts` — `KI-57: assigns SEQUENTIAL ranks [1, 2, 3] across pari-passu A-1 + A-2 + B (locks current bug)`. Plain `it()` assertion (not `failsWithMagnitude` — this is a structural rank assignment, not a numeric drift). The marker uses three tranches (the pari-passu pair plus a non-pari-passu Class B) so the assertion discriminates idx+1 from any monotone scheme that would coincidentally produce `[1, 2]` on a two-element input. When the fix lands, the assertion flips from `[1, 2, 3]` to `[1, 1, 2]` in the same change.
+
+---
+
+<a id="ki-58"></a>
+### [KI-58] Silent computational extraction failures (umbrella) — resolver substitutes a "common default" or accepts a sentinel value where extraction missed, partner sees a plausible-but-wrong number with no banner
+
+**PPM reference:** Each per-deal computational input has its own PPM clause (diversion %, incentive hurdle, senior/sub mgmt fee %, OC trigger thresholds, tranche spread, pool par, deal maturity). The umbrella claim is structural, not clause-specific: when extraction misses any of these, the resolver currently chooses to continue (with a fallback or sentinel) rather than block. Per CLAUDE.md § "Recurring failure modes" principle 3, that choice is wrong for a financial model — the cost of a partner seeing a plausible-but-wrong number is much higher than the cost of a partner seeing a "DATA INCOMPLETE" banner.
+
+**Two failure shapes — every site below is one of these two:**
+
+- **Pattern A — silent fallback to a common-default value:** the resolver substitutes a guess that is correct for the most common European CLO and continues. On any deal whose value diverges from the guess (and where extraction missed), the engine runs on the wrong number.
+- **Pattern B — silent acceptance of a sentinel value:** the resolver leaves the field at zero (or in an out-of-range band), warns at error severity, and continues. The engine then runs with the sentinel as if it were the real input, silently producing a wrong projection (€0 fees, no diversion firing, all-zero pool, etc.).
+
+The bijection between the two patterns and concrete sites is mechanical (line numbers point to the `warnings.push({...})` call where each `blocking: true` lives):
+
+| Site | Pattern | Field | Sentinel / fallback |
+| --- | --- | --- | --- |
+| `resolver.ts:858` (parse-fail) + `:871` (no-amount) | A | `reinvestmentOcTrigger.diversionPct` | `50` (% — common European CLO diversion) |
+| `resolver.ts:517` | A | `fees.incentiveFeeHurdleIrr` | `0.12` (12% IRR — common European CLO equity hurdle) |
+| `resolver.ts:806` | A | `dates.maturity` | `currentDate + CLO_DEFAULTS.defaultMaxTenorYears` |
+| `resolver.ts:186` (DB path) + `:260` (PPM path) | B | `tranches[i].spreadBps` (non-sub tranche) | `0` (spread accepted as-is) |
+| `resolver.ts:395` | B | `ocTriggers[i].triggerLevel` (in 10–90 % no-man's-land) | implausible value left in place |
+| `resolver.ts:551` | B | `fees.seniorFeePct` | `0` |
+| `resolver.ts:564` | B | `fees.subFeePct` | `0` |
+| `resolver.ts:736` | B | `poolSummary.totalPar` | `0` |
+
+**Existing carve-out (display-only, not part of this umbrella):** `resolver.ts:1431` is `severity: "error"` for the concentration letter-prefix vocabulary mismatch. That field is display-only — it does not enter `ProjectionInputs` or any waterfall computation; the partner sees an out-of-date taxonomy in the concentration table, not a wrong number. To make the carve-out mechanical (rather than a comment explaining "this one's different"), this entry adds a `blocking` flag orthogonal to severity. The umbrella sites all carry `blocking: true`; `:1431` carries `blocking: false`.
+
+**Current engine behavior (post-fix, this PR):** all eight sites emit `severity: "error", blocking: true`. The `buildFromResolved` gate at `web/lib/clo/build-projection-inputs.ts` calls `selectBlockingWarnings(warnings)` and throws `IncompleteDataError` if any blocking warning is present — the engine never receives a `ProjectionInputs` constructed from a resolved object that carries any blocking warning. The UI's `incompleteDataErrors` derived memo uses the same predicate (mechanically bound by the bijection test in `web/lib/clo/__tests__/incomplete-data-banner-bijection.test.ts`); when `incompleteDataErrors.length > 0` the projection panels are not rendered and a non-dismissible DATA INCOMPLETE banner enumerates the missing fields. The Switch Simulator tab carries a parallel gate. `applySwitch` itself accepts `warnings` and threads them to `buildFromResolved` so the gate fires for any future caller too.
+
+**Pre-fix engine behavior (for posterity, what the umbrella was filed against):** one of the eight sites was at `severity: "warn"` — the diversion-% site (whose two push statements at `:858`/`:871` were both warn). The other seven were already `severity: "error"` but the resolver appended each warning to the `warnings: ResolutionWarning[]` array and returned; nothing downstream gated on `severity === "error"`, so the engine received a fully-shaped `ResolvedDealData` with the fallback / sentinel value in place and ran it. The only pre-fix difference between the warn site and the seven error sites was whether the partner-facing warnings panel surfaced the issue prominently — neither severity blocked the projection.
+
+**PPM-correct behavior:** When extraction misses a computational field, the projection refuses to run. The UI renders a non-dismissible "DATA INCOMPLETE" banner enumerating each missing field. The partner cannot see a plausible-but-wrong number because there is no number to see — only the banner.
+
+**Quantitative magnitude (per site, per pattern):** every figure below is **tentative — portability-conditional with no active `failsWithMagnitude` marker.** Euro XV's extraction succeeds at all eight sites today, so the harness shows zero drift; magnitudes are derived from Euro XV's *actual* fixture parameters as a stand-in for "what magnitude of fake equity Euro XV would have shown if its own extraction had missed any one of these fields." A future regression test that stresses extraction (e.g. against synthetic raws with the field deliberately removed) would convert these from tentative to pinned. The per-site marker tests in `web/lib/clo/__tests__/ki58-blocking-extraction-failures.test.ts` pin the *guard-fires-with-blocking-true* invariant, not the *partner-facing magnitude* invariant — that's a deliberate scope decision (the guard's correctness is what matters; the magnitude is documented for triage / partner-comms purposes only).
+
+- **Pattern A — diversion %:** zero on Euro XV (extraction succeeds at 50%). On a 100%-diversion deal modeled as 50%: equity distributions during diverted periods over-stated by 50% of the diverted amount. On a 30%-diversion deal modeled as 50%: equity distributions during diverted periods under-stated by 20% of the diverted amount.
+- **Pattern A — incentive hurdle:** zero on Euro XV (extraction succeeds at 12% from `hurdleRate: "12%"` in `euro-xv-q1.json:8226`). On a 15%-hurdle deal modeled as 12%: incentive fee fires earlier, over-stating sub-distribution diversion → under-stating equity residual. On a 10%-hurdle deal: fires later, the other direction. Magnitude scales with `incentiveFeePct × residual-equity-cash-flow ÷ hurdle-difference-window`.
+- **Pattern A — maturity fallback:** zero on Euro XV (`maturity` extracts cleanly). On a deal whose extraction misses: projection horizon set to `currentDate + CLO_DEFAULTS.defaultMaxTenorYears` instead of the actual indenture maturity → wrong number of forward periods → wrong cumulative interest, wrong final principal redemption, wrong forward IRR by an amount that scales with `(fallback − actual)` years × per-period interest accrual.
+- **Pattern B — spread = 0 (pinned to Euro XV tranche stack):** silent-wrong per tranche on which extraction returned 0 or null. Single-tranche miss magnitudes (annual under-bill of debt interest — equivalent magnitude of over-stated equity residual) using the fixture's true spreads:
+  - Class A (€310,000,000 × 95 bps) = €2,945,000/yr (~€736K/quarter)
+  - Class B-1 (€33,750,000 × 170 bps) = €573,750/yr
+  - Class B-2 (€15,000,000 × 195 bps) = €292,500/yr
+  - Class C (€32,500,000 × 210 bps) = €682,500/yr
+  - Class D (€34,375,000 × 315 bps) = €1,082,813/yr
+  - Class E (€25,625,000 × 611 bps) = €1,565,688/yr
+  - Class F (€15,000,000 × 885 bps) = €1,327,500/yr
+  - Total all-tranche-miss ceiling (all seven debt tranches extracted as 0): ~€8,469,750/yr of fake equity. The most-material single miss is Class A at ~€2.94M/yr (60% of the senior debt stack carries it).
+- **Pattern B — OC trigger 10-90 %:** the band is, by construction, wrong in both directions (×100 too high, as-is too low). The resolver explicitly leaves it as-is on the reasoning that "perpetually-passing is safer than perpetually-failing." Result: the OC test never fails → the diversion mechanism never fires → on a deal where the trigger should be tripping, equity distributions over-stated by the un-diverted amount per period. Pure portability magnitude — Euro XV's actual OC triggers are ~105-130% (well outside the 10-90 band), so the magnitude is conditional on a different deal's extraction landing in-band.
+- **Pattern B — senior/sub fee % = 0 (pinned to Euro XV `totalPar = €491,406,828.93` × actual rates `seniorFeePct = 0.15%`, `subFeePct = 0.35%`):**
+  - `seniorFeePct = 0` (true 0.15% missed): 0.15% × €491.4M = €737,110/yr of un-billed Senior CMF → equivalent fake equity (~€184,278/quarter).
+  - `subFeePct = 0` (true 0.35% missed): 0.35% × €491.4M = €1,719,924/yr of un-billed Sub CMF → equivalent fake equity (~€429,981/quarter).
+  - Both are silent on Euro XV today (extraction succeeds at the true rates).
+- **Pattern B — totalPar = 0:** projection runs on an empty pool — every flow is zero, every IRR is zero, every OC ratio is undefined or infinite. Catastrophically wrong but visible to a partner only as "all numbers look strange," not as a banner saying "we don't have your pool data." Not a clean dollar magnitude — the failure mode is structural (100% of partner-facing numbers wrong by 100%).
+
+Pattern A magnitudes are conditional on a counterfactual (extraction missed AND the deal's true value diverges from the fallback). Pattern B magnitudes above are pinned to Euro XV's *actual* fixture parameters, treated as a stand-in for "what the next-deal-shaped portfolio looks like" — i.e., what magnitude of fake equity Euro XV would have shown if its own extraction had missed any one of these fields. Every magnitude is portability-conditional — Euro XV's extraction succeeds at all eight sites today, so the harness shows zero drift. The risk is that the next deal's extraction fails at any one of them, and the model produces a confidently-wrong number with no surface-level signal to the partner.
+
+**Deferral rationale:** Engineering judgement on the part of the original implementer — for each site individually — that "common default" or "log and continue" is preferable to a hard error. The judgement is wrong for a financial model. The judgement also accumulates: each site individually looks like a 1-in-N tail risk; eight sites together is closer to 1-in-(N/8). And the sites are correlated — extraction failures tend to come in clusters (a parser regression, a malformed PPM, a missing PDF page) rather than as singletons, so a deal that misses one is more likely to miss several.
+
+**Path to close — single mechanism (`blocking: true` flag + `IncompleteDataError` gate + UI banner) wired to all eight sites in this PR:**
+
+1. **Type extension.** Add `blocking?: boolean` (optional, defaults `false`) to `ResolutionWarning` in `web/lib/clo/resolver-types.ts`. Orthogonal to `severity`. The vocabulary is then: `warn`, `error` (advisory), `error + blocking: true` (refuses to run).
+2. **Gate.** Add `IncompleteDataError extends Error` carrying `errors: ResolutionWarning[]` payload. In `buildFromResolved` (`web/lib/clo/build-projection-inputs.ts`), gate at the top: `if (warnings.some(w => w.blocking)) throw new IncompleteDataError(warnings.filter(w => w.blocking))`. Engine never receives an `inputs` constructed from a blocking-warning-bearing resolved.
+3. **UI surface.** `ProjectionModel.tsx` wraps `runProjection` in a try/catch for `IncompleteDataError`; renders a non-dismissible red banner enumerating each `field` and `message` from the payload. No projection rendered while a blocking warning is active.
+4. **Bijection test.** New `web/lib/clo/__tests__/incomplete-data-banner-bijection.test.ts` asserting every `blocking: true` warning produces a banner row, and no banner row exists without a backing warning. Same template as `disclosure-bijection.test.ts` — the UI surface is mechanically bound to the engine-side gate.
+5. **Per-site flips.** Each of the eight sites in the table above promotes its warning to `severity: "error", blocking: true`. The gate at step 2 is the load-bearing mechanism — production paths never construct a `ProjectionInputs` from a resolved object that carries any blocking warning, regardless of what value the resolver left in the field. The pre-existing fallback / sentinel value stays in the resolved object so non-engine consumers (debug serialization, type-safety) don't see NaN; the gate intercepts before the engine can consume. The display-only carve-out at `:1376` becomes explicit `severity: "error", blocking: false`.
+6. **Per-site marker tests.** Each site gets a resolver test pinning `(severity: "error", blocking: true)` on a synthetic raw fixture missing the field, plus a `buildFromResolved` test pinning the `IncompleteDataError` throw on the same fixture. The bijection between umbrella table and marker tests is the audit-time equivalent of the disclosure-bijection check.
+7. **CLAUDE.md.** The "Current open violations of the prescriptive form" sub-paragraph in principle 3 closes (rewritten to "now mechanically enforced by the `buildFromResolved` blocking-warning gate; the umbrella table in KI-58 is the load-bearing inventory, marker tests pin the bijection").
+
+The mechanism (`blocking` + gate + banner) is single-shipping; once it lands, future silent-fallback sites surfaced by audit (KI-59 catches the `severity: "warn"` half of the same shape) close by adding a row to the umbrella table and flipping the warning's `blocking` field — no new mechanism needed.
+
+**Test (umbrella):** Per-site marker tests are the bijection. Until the per-site flips ship in this PR's commits, the umbrella's open status is its own marker — the bijection-coverage test (`incomplete-data-banner-bijection.test.ts`, added in this PR) refuses to pass with zero registered blocking warnings, so an unfinished per-site rollout fails CI.
+
+**Subsumes:** the previously-standalone KI-40 (diversion %) and KI-41 (incentive hurdle) entries — both folded into the umbrella table above and deleted from the standalone-entry list per the closed=deleted doctrine. Their marker tests are the corresponding rows in `web/lib/clo/__tests__/ki58-blocking-extraction-failures.test.ts`.
+
+---
+
+<a id="ki-59"></a>
+### [KI-59] Audit `severity: "warn"` resolver sites under the same silent-wrong-on-portability lens that produced KI-58
+
+**PPM reference:** Generic — same shape as KI-58 but applied to the `severity: "warn"` half of `resolver.ts`. KI-58 closed the eight `severity: "error"` sites that were also silent-wrong on portability; this entry tracks the audit of the warn sites that may share the shape but were not in scope when KI-58 shipped.
+
+**Current engine behavior:** ~25 `severity: "warn"` warning sites in `resolver.ts` (grep `severity: "warn"`). Each was originally written as advisory — partner sees a yellow banner but the projection runs. The KI-58 audit established the criterion for when a warning should instead block: it must (a) feed into a per-deal computational input that downstream waterfall arithmetic depends on, and (b) leave the resolver in a state where the engine consumes a fallback / sentinel value rather than refusing to run. The warn sites were not individually re-audited against this criterion when KI-58 shipped.
+
+The audit candidates most likely to share KI-58's shape, surfaced by name from a quick scan (not yet verified, intentionally tentative per the project rule):
+
+- `resolver.ts:400` — "No OC triggers found in compliance tests or PPM" → warning emitted but the resolver continues with an empty `ocTriggers: []`. On a deal with extracted-but-empty triggers, the engine never fires the diversion / EoD logic. Catastrophic if extraction silently returns no rows.
+- `resolver.ts:983-986` — Fixed-rate loan with no `allInRate`: falls back to `spreadBps` proxy or WAC spread. On a fixed-rate loan whose true coupon diverges from the WAC proxy, every per-period coupon accrual is wrong by the divergence × loan par.
+- `resolver.ts:994-1008` — DDTL parent-facility match failure: falls back to WAC spread or "largest par" tiebreaker. Same per-loan magnitude as the fixed-rate fallback when the actual DDTL spread is materially different from WAC.
+- `resolver.ts:1212` — `deferredInterestCompounds` defaults to `true` ("standard convention") on any deal with deferrable tranches but no PIK-compounding info. On a deferred tranche where the indenture specifies no compounding, every period's PIK accrual over-states the deferred balance.
+- `resolver.ts:504` — Fee rate "looks like bps" guess (no `rateUnit`): converts via division-by-100. Wrong unit guess produces 100× error in fee accrual on the next deal.
+
+The remaining warn sites (trigger-level conversions, "unusually high" sanity checks, citation provenance gaps, etc.) likely fall on the advisory side — they're either lossless transformations or partner-noise — but each needs the same audit-against-criterion before a `blocking: true` decision.
+
+**PPM-correct behavior:** Each warn site that meets the KI-58 criterion (computational input + silent fallback) is promoted to `severity: "error", blocking: true`, gets a per-site marker test, and is added to the KI-58 umbrella table. The remaining sites stay advisory and are documented here as audit-clear.
+
+**Quantitative magnitude:** Per-site, the magnitudes follow the KI-58 framework — silent on Euro XV today (extraction succeeds at every site), portability-conditional on the next deal. Per-candidate magnitudes are TBD pending the audit; the framework expectation is they fall in the same €100K-€1M/year-of-fake-equity range as the KI-58 sites.
+
+**Deferral rationale:** Filed as a follow-up to KI-58 rather than rolled in to keep the KI-58 PR's diff scoped to the eight verified sites. The mechanism (`blocking` field + gate + banner) is already shipped; closing each KI-59 site is a one-line resolver edit + one marker test row + one umbrella table entry, no new mechanism. Latent because Euro XV's extraction succeeds at every candidate site today.
+
+**Path to close:**
+1. For each warn site listed above (and any others surfaced by re-scan), construct a synthetic raw fixture missing the field and verify whether (a) the resolver continues with a fallback / sentinel and (b) the engine consumes that value into a partner-facing computation. Sites that fail both checks are advisory and stay warn.
+2. For sites that fail only check (a) but not (b) (computational input not yet consumed): document the engine-side gating that prevents consumption and stay warn.
+3. For sites that meet the KI-58 criterion: flip to `severity: "error", blocking: true`; add a row to the KI-58 umbrella table; add a marker test in `ki58-blocking-extraction-failures.test.ts`.
+4. **Tighten the type-system surface so future `warnings.push({...})` emissions cannot silently regress.** Promote `ResolutionWarning.blocking?: boolean` to required (`blocking: boolean`) in `web/lib/clo/resolver-types.ts`. This is structurally the same audit as steps 1-3 — every existing `warnings.push({...})` site needs to declare its blocking decision explicitly, which requires re-running the same "computational vs advisory" check against each one. The "broad churn" of touching every existing warning push is the audit; the structural rule is the deliverable. Without this step, a future contributor adding a new warning at a fallback site could omit the field entirely and silently produce a non-blocking warning — exactly the failure shape KI-58 closed for the existing sites. The bijection AST scan in `incomplete-data-banner-bijection.test.ts` cannot catch the omission (it only flags divergent inline filters, not absent fields).
+5. After all sites are audited and the type is required, document the audit-clear set in this entry (or close KI-59 if every candidate either flipped or was documented advisory) and remove KI-59 from the ledger per closed=deleted.
+
+**Test:** No active marker. Per-site marker tests land in `ki58-blocking-extraction-failures.test.ts` as each candidate flips. Until then, this entry's open status is its own audit reminder.
+
+---
+
+<a id="ki-60"></a>
+### [KI-60] Three independent `normalizeClassName` implementations with divergent output shapes — sibling pattern to KI-21 (parallel-implementation drift)
+
+**Context:** Three separate `normalizeClassName` functions exist across the codebase, each with a different output shape on the same input. Same shape as the (now closed) KI-21 Scope 1 quality-metric drift — three implementations of the "same" logic that diverge silently. KI-21 was retired by extracting a single canonical helper; KI-60 awaits the same treatment.
+
+**Current behavior — three implementations, three output shapes:**
+
+| File | Sub aliasing | "Class A-1" → | "Sub Notes" → |
+|---|---|---|---|
+| `web/lib/clo/intex/parse-past-cashflows.ts:207-220` (exported, used by intex parser + ingest) | "Subordinated" / "Sub" / "Equity" / "Income Note" → `"sub"` | `"a-1"` (lowercase, no prefix) | `"sub"` |
+| `web/lib/clo/sdf/parse-notes.ts:54-73` (private, used inside parse-notes only) | Only `includes("Subordinated")` collapses to `"Subordinated Notes"` — there is **no** alias path for the literal `"Sub Notes"` / `"Sub"` / `"Equity"` / `"Income Note"` shapes. | `"Class A-1"` (mixed case, prefix preserved) | `"Class Sub"` — verified by tracing: `includes("Subordinated")` → false (substring missing); `match(/^([A-Z][A-Z0-9-]*)/)` captures `"Sub"`; returns `"Class Sub"`. The literal substring `"Subordinated"` is required for the verbatim alias branch to fire. |
+| `web/lib/clo/api.ts:418-424` (exported, used by `app/api/clo/waterfall/check-data/route.ts:164,176`) | Alias map: SUB / SUBORD / SUB-NOTES / SUBORDINATED-NOTES → `"SUBORDINATED"`; EQ / EQUITY-NOTES → `"EQUITY"`; MEZZ → `"MEZZANINE"`; INCOME / INCOME-NOTES / RESIDUAL → `"INCOME-NOTE"` | `"A-1"` (UPPERCASE, no prefix) | `"SUBORDINATED"` |
+
+The three live in three layers (source-data, source-data, route-handler) and were written independently. Each works self-consistently within its own caller's `Map<normalizedKey, X>` builds and lookups — but any cross-normalizer build/lookup pair would silently miss.
+
+**PPM-correct behavior:** A single canonical normalizer (per CLAUDE.md layering: ideally in the source-data layer, exported and consumed by all downstream sites). The choice of casing is mechanical (lowercase or UPPERCASE — pick one and migrate). The choice of subordinated-aliasing is more substantive: the sub-collapse style (intex's `"sub"`) is simpler; the alias-map style (api's `"SUBORDINATED"` / `"EQUITY"` / `"MEZZANINE"` / `"INCOME-NOTE"`) preserves more granularity for downstream consumers that want to distinguish equity vs subordinated. The PPM correctness question is whether ANY downstream consumer DOES distinguish those — if yes, alias-map shape wins; if no, sub-collapse wins.
+
+**Quantitative magnitude:** Tentative. Currently zero observable drift on Euro XV: each normalizer is used self-consistently within its own caller. The latent risk is the next developer adding a `Map<className, X>` who imports one normalizer for the build and another for the lookup — silent miss, no warning, no test. Same shape and the same materiality argument as the (closed) KI-21 Scope 1 incident.
+
+**Verification chain (file:line):**
+- `intex/parse-past-cashflows.ts:207` exports `normalizeClassName` (returns `"a-1"` / `"sub"`).
+- `intex/ingest.ts:4,49,80` uses the parser's normalizer for both build and lookup. ✓ self-consistent.
+- `sdf/parse-notes.ts:54` private (not exported). Used at `parse-notes.ts:115` to populate `class_name` field on parsed SDF notes. Output style `"Class A-1"` flows into the DB row's `clo_tranches.class_name` column.
+- `api.ts:418` exports `normalizeClassName` (returns `"A-1"` / `"SUBORDINATED"`).
+- `app/api/clo/waterfall/check-data/route.ts:164` builds `tranchesWithSnapshots` Set with api's normalizer; `:176` reads with same. ✓ self-consistent.
+
+**The shipped data** (`clo_tranches.class_name` populated by the SDF path at parse-notes:115) carries the parse-notes shape (`"Class A-1"` style). The intex parser then runs `intex/parse-past-cashflows.ts:283 normalizeClassName(t.className)` on that string when building `dealByNorm` — and on the CSV's group-row cells when walking. Same input shape, same normalizer → consistent. ✓.
+
+But — the api.ts route reads `clo_tranches.class_name` ("Class A-1") and runs api's normalizer over it ("A-1"). It then compares against another normalized value (also api's normalizer). Self-consistent. ✓.
+
+So **no current cross-normalizer site exists**, but the architectural shape is fragile.
+
+**Deferral rationale:** Latent. Multi-file consolidation requires deciding the canonical case (UPPERCASE per api.ts is the most permissive — preserves alias-map granularity; lowercase per intex is the simplest), then migrating each call site, then deleting the duplicates. Each migration is a Map-lookup correctness surface where casing changes can silently break extant lookups. Deserves its own focused PR with the discipline of `git grep`-driven call-site review, not a close-out batch.
+
+**Path to close:**
+1. Decide the canonical normalizer's location and shape. Recommended: lift to `web/lib/clo/normalize-class-name.ts` (top of the source-data layer); pick UPPERCASE + alias-map shape (api.ts's), since it preserves the most granularity. The intex parser's `lowercase + sub-collapse` shape loses the `"EQUITY"` / `"SUBORDINATED"` distinction — that distinction is needed for any consumer that wants to badge tranches differently.
+2. Re-implement the parser's `looksLikeTrancheName` to admit cells matching the canonical (case-insensitive at the input boundary).
+3. Migrate `intex/ingest.ts:49,80` to the canonical normalizer. Re-run intex tests.
+4. Migrate `app/api/clo/waterfall/check-data/route.ts:164,176` to the canonical normalizer (no behavior change — already aligned).
+5. Migrate `sdf/parse-notes.ts:54-73` to the canonical normalizer. The `class_name` column shape on `clo_tranches` rows changes from `"Class A-1"` to `"A-1"` — backfill migration required, OR keep parse-notes-shape as the persisted shape and apply canonical normalization at read time. Decide based on which call sites are easier to migrate.
+6. Delete the two non-canonical implementations. Confirm zero remaining `normalizeClassName` definitions outside the canonical file.
+7. Flip the marker test from asserting `.not.toBe(...)` (current divergence) to asserting `.toBe(...)` (consolidated convergence) — or delete the test and replace with a focused unit test of the canonical normalizer's behavior.
+
+**Test:** `web/lib/clo/__tests__/normalize-classname-divergence.test.ts` — `KI-60: triple normalizeClassName divergence (locks current bug)`. Two assertions: `intexNormalize("Class A-1") !== apiNormalize("Class A-1")` and `intexNormalize("Sub Notes") !== apiNormalize("Sub Notes")`. Plain `it()` (structural divergence, not a numeric drift). When the consolidation lands, the `.not.toBe` flips to `.toBe` (or the test is deleted). If the consolidation deletes one of the imports, the test file becomes uncompilable — same closure signal at the type level.
+
+---
+
 

@@ -359,7 +359,6 @@ export default function ContextEditor({
           `${json.periodsUpdated} updated`,
           `${json.snapshotsUpserted} tranche snapshots`,
         ];
-        if (json.tranchesCreated?.length) parts.push(`new tranches: ${json.tranchesCreated.join(", ")}`);
         setIntexMessage(parts.join(" · ") + ". Reload the page to see the history.");
       }
     } catch (err) {

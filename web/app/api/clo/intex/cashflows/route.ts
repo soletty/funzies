@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth-helpers";
 import { query } from "@/lib/db";
 import { ingestIntexPastCashflows } from "@/lib/clo/intex/ingest";
+import { IntexSchemaMismatchError } from "@/lib/clo/intex/parse-past-cashflows";
 
 const MAX_BYTES = 10 * 1024 * 1024; // 10MB
 
@@ -44,6 +45,19 @@ export async function POST(request: NextRequest) {
     const result = await ingestIntexPastCashflows(dealId, csvText);
     return NextResponse.json(result);
   } catch (err) {
+    if (err instanceof IntexSchemaMismatchError) {
+      // Schema mismatch is a client-correctable condition (wrong CSV for
+      // this deal, or deal tranches not yet ingested). Surface the
+      // structured diff so the partner sees exactly what's wrong.
+      return NextResponse.json(
+        {
+          error: "Intex CSV tranche structure does not match this deal",
+          detail: err.message,
+          diff: err.diff,
+        },
+        { status: 422 }
+      );
+    }
     console.error("Intex ingest failed:", err);
     return NextResponse.json(
       { error: "Ingestion failed", detail: err instanceof Error ? err.message : String(err) },

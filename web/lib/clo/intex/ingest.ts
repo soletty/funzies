@@ -1,5 +1,12 @@
 import { getClient, query } from "../../db";
-import { parseIntexPastCashflows, type IntexParseResult, type IntexPeriodRow } from "./parse-past-cashflows";
+import {
+  parseIntexPastCashflows,
+  normalizeClassName,
+  IntexSchemaMismatchError,
+  type IntexParseResult,
+  type IntexPeriodRow,
+  type DealTrancheInfo,
+} from "./parse-past-cashflows";
 
 export interface IntexIngestResult {
   dealName: string | null;
@@ -7,35 +14,52 @@ export interface IntexIngestResult {
   periodsInserted: number;
   periodsUpdated: number;
   snapshotsUpserted: number;
-  tranchesCreated: string[];
   skipped: Array<{ periodIndex: number; date: string; reason: string }>;
   warnings: string[];
-}
-
-/** Normalize class name for fuzzy matching against existing clo_tranches.class_name.
- *  Matches the resolver's normClass logic: strip "class " prefix, collapse separators. */
-function normalizeClassName(s: string): string {
-  const lower = s.toLowerCase().trim();
-  if (lower.includes("subordinated") || lower === "sub" || lower.includes("equity") || lower.includes("income note")) {
-    return "sub";
-  }
-  const stripped = lower.replace(/^class\s+/, "").replace(/[-\s]+notes?$/, "").trim();
-  const match = stripped.match(/^([a-z](?:[-\s]?[0-9]+)?)\b/);
-  return match ? match[1].replace(/\s+/g, "-") : stripped;
 }
 
 export async function ingestIntexPastCashflows(
   dealId: string,
   csvText: string,
 ): Promise<IntexIngestResult> {
-  const parsed: IntexParseResult = parseIntexPastCashflows(csvText);
+  // Load the deal's tranches first — both as authority for the parser's
+  // schema-driven discovery and as the lookup table for per-snapshot
+  // routing later. is_floating drives per-block width discovery; the parser
+  // throws IntexSchemaMismatchError if the CSV's group-row doesn't match.
+  const existingTranches = await query<{ id: string; class_name: string; is_floating: boolean | null }>(
+    `SELECT id, class_name, is_floating FROM clo_tranches WHERE deal_id = $1`,
+    [dealId]
+  );
+  if (existingTranches.length === 0) {
+    // dealId omitted from the diff intentionally — the partner-facing 422
+    // body should not echo internal row identifiers. The actionable signal
+    // is in the message: "ingest SDF/PPM first."
+    throw new IntexSchemaMismatchError({
+      kind: "deal_has_no_tranches",
+      message: `This deal has no tranches recorded yet. Ingest the SDF / PPM tranche structure before importing Intex past cashflows.`,
+    });
+  }
+  const dealTranches: DealTrancheInfo[] = existingTranches.map(t => ({
+    className: t.class_name,
+    // Default to floating when DB has null. Parser will throw width mismatch
+    // if the discovered block width disagrees with this assumption — that's
+    // the fail-loud signal that the SDF/PPM ingest didn't populate is_floating.
+    isFloating: t.is_floating ?? true,
+  }));
+  const trancheIdByNormName = new Map<string, string>();
+  for (const t of existingTranches) {
+    trancheIdByNormName.set(normalizeClassName(t.class_name), t.id);
+  }
+
+  // Parse and validate. Throws IntexSchemaMismatchError BEFORE any DB write
+  // on a structural mismatch — caller (API route) catches and returns 422.
+  const parsed: IntexParseResult = parseIntexPastCashflows(csvText, dealTranches);
   const result: IntexIngestResult = {
     dealName: parsed.dealName,
     periodsParsed: parsed.periods.length,
     periodsInserted: 0,
     periodsUpdated: 0,
     snapshotsUpserted: 0,
-    tranchesCreated: [],
     skipped: [],
     warnings: [],
   };
@@ -43,16 +67,6 @@ export async function ingestIntexPastCashflows(
   if (parsed.periods.length === 0) {
     result.warnings.push("No period rows found in the CSV — check that the file is the Intex 'DealCF-MV+' export.");
     return result;
-  }
-
-  // Load existing tranches once; build a normalized-name lookup.
-  const existingTranches = await query<{ id: string; class_name: string }>(
-    `SELECT id, class_name FROM clo_tranches WHERE deal_id = $1`,
-    [dealId]
-  );
-  const trancheIdByNormName = new Map<string, string>();
-  for (const t of existingTranches) {
-    trancheIdByNormName.set(normalizeClassName(t.class_name), t.id);
   }
 
   const client = await getClient();
@@ -66,16 +80,20 @@ export async function ingestIntexPastCashflows(
 
       for (const snap of period.tranches) {
         const normName = normalizeClassName(snap.className);
-        let trancheId = trancheIdByNormName.get(normName);
+        const trancheId = trancheIdByNormName.get(normName);
         if (!trancheId) {
-          const inserted = await client.query<{ id: string }>(
-            `INSERT INTO clo_tranches (id, deal_id, class_name)
-             VALUES (gen_random_uuid(), $1, $2) RETURNING id`,
-            [dealId, snap.className]
-          );
-          trancheId = inserted.rows[0].id;
-          trancheIdByNormName.set(normName, trancheId);
-          result.tranchesCreated.push(snap.className);
+          // Unreachable: snap.className is sourced from discoveredTranches,
+          // which the parser builds from dealTranches itself, which built
+          // trancheIdByNormName from the same DB rows. If this fires the
+          // assumption that "validated parse output round-trips through
+          // normalizeClassName" has broken — surface loudly rather than
+          // silently inserting a phantom row.
+          throw new IntexSchemaMismatchError({
+            kind: "post_validation_unmatched_tranche",
+            className: snap.className,
+            normalizedAs: normName,
+            message: `Snapshot for tranche "${snap.className}" (normalized "${normName}") has no matching clo_tranches row even though parse-time validation passed. Refusing to insert a phantom row; investigate normalization mismatch.`,
+          });
         }
 
         await upsertTrancheSnapshot(client, trancheId, periodId, snap);
