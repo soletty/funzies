@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import type { ResolvedDealData, ResolvedLoan } from "@/lib/clo/resolver-types";
+import type { ResolvedDealData, ResolvedLoan, ResolutionWarning } from "@/lib/clo/resolver-types";
 import { runProjection } from "@/lib/clo/projection";
 import { applySwitch } from "@/lib/clo/switch-simulator";
 import { DEFAULT_ASSUMPTIONS, type UserAssumptions } from "@/lib/clo/build-projection-inputs";
@@ -21,6 +21,11 @@ interface Props {
   sellLoan: LoanDescription;
   buyLoan: LoanDescription;
   assumptions?: UserAssumptions;
+  // KI-58 — caller threads resolver warnings so applySwitch's gate
+  // fires on blocking warnings. Optional for callers that don't have
+  // warnings available; the gate then bypasses (matching prior
+  // behaviour). Pass when known.
+  resolutionWarnings?: ResolutionWarning[];
 }
 
 function parseSpread(s: string): number {
@@ -48,7 +53,7 @@ function formatDelta(before: number | null, after: number | null): { text: strin
   };
 }
 
-export default function SwitchWaterfallImpact({ resolved, sellLoan, buyLoan, assumptions }: Props) {
+export default function SwitchWaterfallImpact({ resolved, sellLoan, buyLoan, assumptions, resolutionWarnings }: Props) {
   const [sellPrice, setSellPrice] = useState(100);
   const [buyPrice, setBuyPrice] = useState(100);
   const [expanded, setExpanded] = useState(false);
@@ -81,8 +86,9 @@ export default function SwitchWaterfallImpact({ resolved, sellLoan, buyLoan, ass
       resolved,
       { sellLoanIndex: sellIndex, sellParAmount: resolved.loans[sellIndex].parBalance, buyLoan: buyResolvedLoan, sellPrice, buyPrice },
       assumptions ?? DEFAULT_ASSUMPTIONS,
+      resolutionWarnings,
     );
-  }, [resolved, sellIndex, buyResolvedLoan, sellPrice, buyPrice, assumptions]);
+  }, [resolved, sellIndex, buyResolvedLoan, sellPrice, buyPrice, assumptions, resolutionWarnings]);
 
   const baseResult = useMemo(() => (switchResult ? runProjection(switchResult.baseInputs) : null), [switchResult]);
   const switchedResult = useMemo(() => (switchResult ? runProjection(switchResult.switchedInputs) : null), [switchResult]);

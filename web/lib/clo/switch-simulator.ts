@@ -1,4 +1,4 @@
-import type { ResolvedDealData, ResolvedLoan } from "./resolver-types";
+import type { ResolvedDealData, ResolvedLoan, ResolutionWarning } from "./resolver-types";
 import type { ProjectionInputs } from "./projection";
 import { buildFromResolved, type UserAssumptions } from "./build-projection-inputs";
 import {
@@ -54,11 +54,23 @@ export function applySwitch(
   resolved: ResolvedDealData,
   params: SwitchParams,
   assumptions: UserAssumptions,
+  // KI-58 — when threaded, the resolver's warnings flow into the
+  // buildFromResolved gate calls below; a blocking warning therefore
+  // throws IncompleteDataError out of applySwitch instead of silently
+  // running the switch on sentinel data. Optional (mirrors
+  // buildFromResolved's contract) so existing 3-arg callers are not
+  // broken; the protection only fires when the caller passes warnings.
+  // Today's two production callers (SwitchSimulator + SwitchWaterfallImpact)
+  // do thread; the test fixture caller does not (it constructs a hand-
+  // crafted resolved with no warnings, so there's nothing to gate on).
+  // Any new caller must thread warnings or accept that the gate is
+  // bypassed for that call path.
+  warnings?: ResolutionWarning[],
 ): SwitchResult {
   const { sellLoanIndex, sellParAmount, buyLoan, sellPrice: _sellPrice, buyPrice: _buyPrice } = params;
   const sellLoan = resolved.loans[sellLoanIndex];
 
-  const baseInputs = buildFromResolved(resolved, assumptions);
+  const baseInputs = buildFromResolved(resolved, assumptions, warnings);
 
   // Build switched loan pool
   const switchedLoans = [...resolved.loans];
@@ -121,7 +133,7 @@ export function applySwitch(
     },
   };
 
-  const switchedInputs = buildFromResolved(switchedResolved, assumptions);
+  const switchedInputs = buildFromResolved(switchedResolved, assumptions, warnings);
 
   return {
     baseInputs,

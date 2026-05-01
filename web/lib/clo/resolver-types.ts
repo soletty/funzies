@@ -218,6 +218,14 @@ export interface ResolutionWarning {
   message: string;
   severity: WarningSeverity;
   resolvedFrom?: string;
+  // True when this warning indicates a missing computational input that
+  // must prevent the projection from running (KI-58). The
+  // `buildFromResolved` gate throws `IncompleteDataError` if any warning
+  // carries `blocking: true`, regardless of severity. Orthogonal to
+  // severity: a `severity: "error"` warning may be advisory
+  // (`blocking: false`, e.g. concentration vocabulary mismatch) or
+  // load-bearing (`blocking: true`, e.g. missing diversion %).
+  blocking?: boolean;
 }
 
 export interface ValidationError {

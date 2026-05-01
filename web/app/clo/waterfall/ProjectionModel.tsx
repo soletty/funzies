@@ -41,7 +41,7 @@ import {
   applyOptionalRedemptionCall,
 } from "@/lib/clo/services";
 import type { ResolvedDealData, ResolutionWarning } from "@/lib/clo/resolver-types";
-import { buildFromResolved, DEFAULT_ASSUMPTIONS, EMPTY_RESOLVED, defaultsFromResolved, defaultsFromIntex, diagnoseFeePrefill } from "@/lib/clo/build-projection-inputs";
+import { buildFromResolved, DEFAULT_ASSUMPTIONS, EMPTY_RESOLVED, selectBlockingWarnings, defaultsFromResolved, defaultsFromIntex, diagnoseFeePrefill } from "@/lib/clo/build-projection-inputs";
 import type { IntexAssumptions } from "@/lib/clo/intex/parse-past-cashflows";
 import { DEFAULT_RATES_BY_RATING, RATING_BUCKETS, type RatingBucket, warfFactorToAnnualCDRPct } from "@/lib/clo/rating-mapping";
 import { BUCKET_WARF_FALLBACK } from "@/lib/clo/pool-metrics";
@@ -391,46 +391,79 @@ export default function ProjectionModel({
     };
   }, [resolved?.loans]);
 
+  // KI-58 — partner-facing surface for the buildFromResolved gate.
+  // Any resolution warning marked `blocking: true` (e.g. missing
+  // `diversionPct`, missing `maturity`, sentinel `seniorFeePct = 0` etc.)
+  // refuses the projection: the engine never receives an inputs object
+  // built from a fallback / sentinel value. The DATA INCOMPLETE banner
+  // below renders these errors instead of the projection table.
+  //
+  // Bijection-by-construction: this memo MUST call `selectBlockingWarnings`
+  // — the same predicate the engine-side `buildFromResolved` gate uses.
+  // A divergent inline `.filter(w => w.blocking ...)` here would let the
+  // banner and the gate disagree on what counts as blocking, defeating
+  // the umbrella's mechanical-bind guarantee. The bijection test
+  // (`incomplete-data-banner-bijection.test.ts`) asserts via AST that
+  // this file references `selectBlockingWarnings`.
+  const incompleteDataErrors = useMemo<ResolutionWarning[]>(
+    () => selectBlockingWarnings(resolutionWarnings ?? []),
+    [resolutionWarnings],
+  );
+
   const inputs: ProjectionInputs = useMemo(
     () => {
+      // KI-58 — short-circuit on blocking warnings before calling the
+      // engine. The render path below already gates the projection
+      // panels on incompleteDataErrors.length === 0 (so partners never
+      // see zero-valued numbers next to the DATA INCOMPLETE banner),
+      // but returning a sane no-op inputs keeps any non-projection
+      // consumer of `inputs` (validation hooks, etc.) from crashing.
+      if (incompleteDataErrors.length > 0) {
+        return buildFromResolved(EMPTY_RESOLVED, DEFAULT_ASSUMPTIONS);
+      }
       const resolvedData = resolved ?? EMPTY_RESOLVED;
-      return buildFromResolved(resolvedData, {
-        baseRatePct,
-        baseRateFloorPct,
-        defaultRates: defaultRates,
-        overriddenBuckets: Array.from(overriddenBuckets),
-        cprPct,
-        recoveryPct,
-        recoveryLagMonths,
-        reinvestmentSpreadBps,
-        reinvestmentTenorYears,
-        reinvestmentRating: reinvestmentRating === "auto" ? null : reinvestmentRating,
-        cccBucketLimitPct,
-        cccMarketValuePct,
-        deferredInterestCompounds: resolved?.deferredInterestCompounds ?? true,
-        postRpReinvestmentPct,
-        hedgeCostBps,
-        callMode,
-        callDate,
-        callPricePct,
-        callPriceMode,
-        seniorFeePct,
-        subFeePct,
-        taxesBps,
-        issuerProfitAmount,
-        trusteeFeeBps,
-        adminFeeBps,
-        seniorExpensesCapBps,
-        incentiveFeePct,
-        incentiveFeeHurdleIrr,
-        ddtlDrawAssumption,
-        ddtlDrawQuarter,
-        ddtlDrawPercent,
-        equityEntryPriceCents,
-      });
+      return buildFromResolved(
+        resolvedData,
+        {
+          baseRatePct,
+          baseRateFloorPct,
+          defaultRates: defaultRates,
+          overriddenBuckets: Array.from(overriddenBuckets),
+          cprPct,
+          recoveryPct,
+          recoveryLagMonths,
+          reinvestmentSpreadBps,
+          reinvestmentTenorYears,
+          reinvestmentRating: reinvestmentRating === "auto" ? null : reinvestmentRating,
+          cccBucketLimitPct,
+          cccMarketValuePct,
+          deferredInterestCompounds: resolved?.deferredInterestCompounds ?? true,
+          postRpReinvestmentPct,
+          hedgeCostBps,
+          callMode,
+          callDate,
+          callPricePct,
+          callPriceMode,
+          seniorFeePct,
+          subFeePct,
+          taxesBps,
+          issuerProfitAmount,
+          trusteeFeeBps,
+          adminFeeBps,
+          seniorExpensesCapBps,
+          incentiveFeePct,
+          incentiveFeeHurdleIrr,
+          ddtlDrawAssumption,
+          ddtlDrawQuarter,
+          ddtlDrawPercent,
+          equityEntryPriceCents,
+        },
+        resolutionWarnings,
+      );
     },
     [
-      resolved, baseRatePct, baseRateFloorPct, defaultRates, overriddenBuckets, cprPct, recoveryPct, recoveryLagMonths,
+      resolved, resolutionWarnings, incompleteDataErrors,
+      baseRatePct, baseRateFloorPct, defaultRates, overriddenBuckets, cprPct, recoveryPct, recoveryLagMonths,
       reinvestmentSpreadBps, reinvestmentTenorYears, reinvestmentRating, cccBucketLimitPct, cccMarketValuePct,
       seniorFeePct, subFeePct, taxesBps, issuerProfitAmount, trusteeFeeBps, adminFeeBps, seniorExpensesCapBps,
       hedgeCostBps, incentiveFeePct, incentiveFeeHurdleIrr, postRpReinvestmentPct,
@@ -443,17 +476,22 @@ export default function ProjectionModel({
   // from resolved.fees. trusteeFeeBps intentionally NOT pinned (circular).
   const engineMathInputs: ProjectionInputs | undefined = useMemo(() => {
     if (!resolved) return undefined;
+    if (incompleteDataErrors.length > 0) return undefined; // KI-58 gate
     const observedBaseRate = trancheSnapshots.find(s => s && s.currentIndexRate != null)?.currentIndexRate;
     if (observedBaseRate == null) return undefined;
-    return buildFromResolved(resolved, {
-      ...DEFAULT_ASSUMPTIONS,
-      baseRatePct: observedBaseRate,
-      seniorFeePct: resolved.fees.seniorFeePct,
-      subFeePct: resolved.fees.subFeePct,
-      incentiveFeePct: resolved.fees.incentiveFeePct,
-      incentiveFeeHurdleIrr: resolved.fees.incentiveFeeHurdleIrr * 100,
-    });
-  }, [resolved, trancheSnapshots]);
+    return buildFromResolved(
+      resolved,
+      {
+        ...DEFAULT_ASSUMPTIONS,
+        baseRatePct: observedBaseRate,
+        seniorFeePct: resolved.fees.seniorFeePct,
+        subFeePct: resolved.fees.subFeePct,
+        incentiveFeePct: resolved.fees.incentiveFeePct,
+        incentiveFeeHurdleIrr: resolved.fees.incentiveFeeHurdleIrr * 100,
+      },
+      resolutionWarnings,
+    );
+  }, [resolved, trancheSnapshots, resolutionWarnings, incompleteDataErrors]);
 
   const userAssumptions: UserAssumptions = useMemo(() => ({
     baseRatePct,
@@ -763,6 +801,52 @@ export default function ProjectionModel({
     <DealCurrencyProvider currency={dealCurrency}>
     <div className="wf-section" style={{ marginTop: "2.5rem" }}>
       <MissingCurrencyBanner />
+
+      {/* KI-58 — DATA INCOMPLETE banner. Renders one row per blocking
+          ResolutionWarning. The projection panels below are gated on
+          `incompleteDataErrors.length === 0`, so when this banner shows
+          there are no projection numbers next to it — refusing to render
+          a projection is the entire point. Bijection asserted by
+          `incomplete-data-banner-bijection.test.ts`. */}
+      {incompleteDataErrors.length > 0 && (
+        <div
+          data-testid="incomplete-data-banner"
+          role="alert"
+          aria-live="assertive"
+          style={{
+            padding: "1rem 1.25rem",
+            border: "2px solid var(--color-low-border)",
+            borderRadius: "var(--radius-sm)",
+            background: "var(--color-low-bg)",
+            marginBottom: "1.5rem",
+            color: "var(--color-low)",
+            fontSize: "0.85rem",
+            lineHeight: 1.5,
+          }}
+        >
+          <div style={{ fontWeight: 700, fontSize: "0.95rem", marginBottom: "0.5rem", letterSpacing: "0.01em" }}>
+            DATA INCOMPLETE — projection refused
+          </div>
+          <div style={{ marginBottom: "0.5rem" }}>
+            {incompleteDataErrors.length} required field
+            {incompleteDataErrors.length === 1 ? " is" : "s are"} missing from
+            extraction. The model cannot run until {incompleteDataErrors.length === 1 ? "it is" : "they are"} resolved
+            — substituting a default would risk a confidently-wrong partner-facing number.
+          </div>
+          <ul style={{ margin: 0, paddingLeft: "1.1rem" }}>
+            {incompleteDataErrors.map((w, i) => (
+              <li
+                key={`incomplete-${i}-${w.field}`}
+                data-field={w.field}
+                style={{ marginBottom: "0.2rem" }}
+              >
+                <strong>{w.field}:</strong> {w.message}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <div
         style={{
           display: "flex",
@@ -810,7 +894,12 @@ export default function ProjectionModel({
         ))}
       </div>
 
-      {activeTab === "projection" && (<>
+      {/* KI-58 — when blocking warnings exist, the DATA INCOMPLETE banner
+          above is the entire surface. We do NOT render the projection
+          panels (zero-valued numbers next to the banner are exactly the
+          partner-confusing failure mode this umbrella exists to prevent).
+          The Switch tab has its own gate above. */}
+      {activeTab === "projection" && incompleteDataErrors.length === 0 && (<>
       {/* Validation gate */}
       {validationErrors.length > 0 && (
         <div
@@ -1824,7 +1913,30 @@ export default function ProjectionModel({
       )}
       </>)}
 
-      {activeTab === "switch" && resolved && (
+      {activeTab === "switch" && resolved && incompleteDataErrors.length > 0 && (
+        <div
+          style={{
+            padding: "1rem 1.25rem",
+            border: "2px solid var(--color-low-border)",
+            borderRadius: "var(--radius-sm)",
+            background: "var(--color-low-bg)",
+            marginBottom: "1.5rem",
+            color: "var(--color-low)",
+            fontSize: "0.85rem",
+            lineHeight: 1.5,
+          }}
+        >
+          <div style={{ fontWeight: 700, fontSize: "0.95rem", marginBottom: "0.5rem", letterSpacing: "0.01em" }}>
+            Switch Simulator unavailable — extraction incomplete
+          </div>
+          <div>
+            The switch simulator requires the same per-deal inputs as the projection. Resolve the {incompleteDataErrors.length} missing field
+            {incompleteDataErrors.length === 1 ? "" : "s"} listed in the DATA INCOMPLETE banner above, then return to this tab.
+          </div>
+        </div>
+      )}
+
+      {activeTab === "switch" && resolved && incompleteDataErrors.length === 0 && (
         <div>
           <SwitchSimulator
             resolved={resolved}
@@ -1832,6 +1944,7 @@ export default function ProjectionModel({
             buyList={buyList ?? []}
             userAssumptions={userAssumptions}
             prefill={switchPrefill}
+            resolutionWarnings={resolutionWarnings}
           />
           {/* Assumptions — identical to Projection tab */}
           <div

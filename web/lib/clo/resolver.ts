@@ -207,6 +207,8 @@ function resolveTranches(
             field: `${t.className}.spreadBps`,
             message: `No spread found for ${t.className} in DB or PPM constraints`,
             severity: "error",
+            // KI-58.
+            blocking: true,
           });
         }
         if (t.spreadBps == null && ppmSpreadByClass.has(key)) {
@@ -275,6 +277,8 @@ function resolveTranches(
         field: `${className}.spreadBps`,
         message: `No spread found for ${className} in PPM constraints`,
         severity: "error",
+        // KI-58 — sibling of the DB-path zero-spread guard above.
+        blocking: true,
       });
     }
 
@@ -402,7 +406,15 @@ function resolveTriggers(
       triggerLevel = triggerLevel * 100;
       warnings.push({ field: `ocTrigger.${t.className}`, message: `OC trigger ${t.triggerLevel} looks like a ratio, converting to ${triggerLevel}%`, severity: "warn" });
     } else if (triggerLevel >= 10 && triggerLevel < 90) {
-      warnings.push({ field: `ocTrigger.${t.className}`, message: `OC trigger ${triggerLevel}% for ${t.className} is implausible — no CLO OC trigger is 10-90%. Check extraction and set manually.`, severity: "error" });
+      warnings.push({
+        field: `ocTrigger.${t.className}`,
+        message: `OC trigger ${triggerLevel}% for ${t.className} is implausible — no CLO OC trigger is 10-90%. Check extraction and set manually.`,
+        severity: "error",
+        // KI-58 — the "perpetually-passing" reasoning above is fine
+        // for the warning shape but wrong as a run-with-it choice;
+        // refuse instead.
+        blocking: true,
+      });
     }
     if (triggerLevel > 200) {
       warnings.push({ field: `ocTrigger.${t.className}`, message: `OC trigger ${triggerLevel}% for ${t.className} seems unusually high`, severity: "warn" });
@@ -513,7 +525,16 @@ function resolveFees(constraints: ExtractedConstraints, warnings: ResolutionWarn
         // Standard European CLO equity hurdle is ~12% IRR. Using 0% would mean
         // the incentive fee fires on any positive return, which is too aggressive.
         incentiveFeeHurdleIrr = 0.12;
-        warnings.push({ field: "fees.incentiveFeeHurdleIrr", message: `Incentive fee present (${incentiveFeePct}%) but no hurdle rate found — assuming 12% IRR hurdle. This directly affects equity IRR calculation. Set manually if different.`, severity: "error", resolvedFrom: "not extracted → defaulted to 12%" });
+        warnings.push({
+          field: "fees.incentiveFeeHurdleIrr",
+          message: `Incentive fee present (${incentiveFeePct}%) but no hurdle rate found — assuming 12% IRR hurdle. This directly affects equity IRR calculation. Set manually if different.`,
+          severity: "error",
+          resolvedFrom: "not extracted → defaulted to 12%",
+          // KI-58 — value still set to 0.12 so non-engine reads (debug
+          // serialization, type-safety) don't see undefined; gate refuses
+          // before the engine consumes.
+          blocking: true,
+        });
       }
     }
   }
@@ -541,6 +562,8 @@ function resolveFees(constraints: ExtractedConstraints, warnings: ResolutionWarn
         ? `Senior Management Fee entry found but rate extracted as 0 — likely a PPM extraction regression (LLM returned rate=null or "per_agreement"). Check raw.constraints.fees. Typical Senior CMF is 0.10-0.20% p.a. — set manually.`
         : `No Senior Management Fee found in extracted constraints.fees[]. PPM extraction may have dropped the row. Typical Senior CMF is 0.10-0.20% p.a. — set manually.`,
       severity: "error",
+      // KI-58.
+      blocking: true,
     });
   }
   if (subFeePct === 0) {
@@ -550,6 +573,8 @@ function resolveFees(constraints: ExtractedConstraints, warnings: ResolutionWarn
         ? `Subordinated Management Fee entry found but rate extracted as 0 — likely a PPM extraction regression. Typical Sub CMF is 0.30-0.50% p.a. — set manually.`
         : `No Subordinated Management Fee found in extracted constraints.fees[]. Typical Sub CMF is 0.30-0.50% p.a. — set manually.`,
       severity: "error",
+      // KI-58.
+      blocking: true,
     });
   }
 
@@ -712,7 +737,14 @@ export function resolveWaterfallInputs(
   };
 
   if (poolSummary.totalPar === 0) {
-    warnings.push({ field: "poolSummary.totalPar", message: "Total par is 0 — no pool summary data", severity: "error" });
+    warnings.push({
+      field: "poolSummary.totalPar",
+      message: "Total par is 0 — no pool summary data",
+      severity: "error",
+      // KI-58 — empty pool produces an all-zero projection that's
+      // visible only as "everything is strange"; refuse instead.
+      blocking: true,
+    });
   }
 
   // F3 canary — extracted pool.pct* fields are silent-null when extraction
@@ -773,7 +805,14 @@ export function resolveWaterfallInputs(
   if (!resolvedMaturity) {
     const fallbackYear = new Date().getFullYear() + CLO_DEFAULTS.defaultMaxTenorYears;
     resolvedMaturity = `${fallbackYear}-01-15`;
-    warnings.push({ field: "dates.maturity", message: `No maturity date found — using fallback ${resolvedMaturity} (current date + ${CLO_DEFAULTS.defaultMaxTenorYears} years). Set maturity manually.`, severity: "error" });
+    warnings.push({
+      field: "dates.maturity",
+      message: `No maturity date found — using fallback ${resolvedMaturity} (current date + ${CLO_DEFAULTS.defaultMaxTenorYears} years). Set maturity manually.`,
+      severity: "error",
+      // KI-58 — fallback horizon ≠ true maturity → wrong period count
+      // and wrong cumulative interest; refuse.
+      blocking: true,
+    });
   }
 
   const dates: ResolvedDates = {
@@ -814,10 +853,22 @@ export function resolveWaterfallInputs(
     if (pctMatch) {
       diversionPct = parseFloat(pctMatch[1]);
     } else {
-      warnings.push({ field: "reinvestmentOcTrigger.diversionPct", message: `Could not parse diversion percentage from "${reinvOcRaw.diversionAmount}" — defaulting to 50%`, severity: "warn" });
+      warnings.push({
+        field: "reinvestmentOcTrigger.diversionPct",
+        message: `Could not parse diversion percentage from "${reinvOcRaw.diversionAmount}" — defaulting to 50%`,
+        severity: "error",
+        // KI-58.
+        blocking: true,
+      });
     }
   } else if (reinvOcRaw?.trigger) {
-    warnings.push({ field: "reinvestmentOcTrigger.diversionPct", message: `Reinvestment OC trigger found but no diversion amount specified — defaulting to 50%`, severity: "warn" });
+    warnings.push({
+      field: "reinvestmentOcTrigger.diversionPct",
+      message: `Reinvestment OC trigger found but no diversion amount specified — defaulting to 50%`,
+      severity: "error",
+      // KI-58 — sibling of the parse-failure path above.
+      blocking: true,
+    });
   }
 
   const mostJuniorOcRank = ocTriggers.length > 0
@@ -1374,6 +1425,13 @@ export function resolveWaterfallInputs(
         field: "concentrationJoin.vocabulary",
         message: `Concentration letter-prefix join matched only ${matchedLetters} of ${concCount} CONCENTRATION tests. The "(a)", "(b)", "(p)(i)" naming convention may have changed. Sample names: ${samples}`,
         severity: "error",
+        // KI-58 carve-out: this field is display-only — it does not enter
+        // ProjectionInputs or any waterfall computation. The partner sees
+        // an out-of-date concentration taxonomy in the table, never a
+        // wrong number. Explicit `blocking: false` so the umbrella's
+        // "all error sites except this one block" is mechanical, not
+        // a comment-explained exception.
+        blocking: false,
       });
     }
   }

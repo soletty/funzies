@@ -381,10 +381,50 @@ export function diagnoseFeePrefill(
   return warnings;
 }
 
+/**
+ * Single source of truth for "which warnings refuse the projection."
+ * The buildFromResolved gate uses this; the UI's DATA INCOMPLETE banner
+ * also uses this. Bijection-by-construction: the gate's input set IS the
+ * banner's row set. Drift (one filters, the other doesn't) is impossible
+ * because the predicate lives in one place. Enforced by the AST-scan
+ * test in `incomplete-data-banner-bijection.test.ts`.
+ */
+export function selectBlockingWarnings(
+  warnings: ResolutionWarning[],
+): ResolutionWarning[] {
+  return warnings.filter((w) => w.blocking === true);
+}
+
+/**
+ * Thrown by `buildFromResolved` when any `ResolutionWarning` carries
+ * `blocking: true` — i.e. an extraction-side gap whose downstream
+ * arithmetic the engine cannot perform without a wrong number (KI-58).
+ * Caller (UI layer) catches this and renders a "DATA INCOMPLETE" banner
+ * enumerating the blocking warnings rather than running the projection.
+ */
+export class IncompleteDataError extends Error {
+  constructor(public readonly errors: ResolutionWarning[]) {
+    super(
+      `Projection refused: ${errors.length} blocking warning(s) — ${errors.map((e) => e.field).join(", ")}`,
+    );
+    this.name = "IncompleteDataError";
+  }
+}
+
 export function buildFromResolved(
   resolved: ResolvedDealData,
   userAssumptions: UserAssumptions,
+  warnings: ResolutionWarning[] = [],
 ): ProjectionInputs {
+  // KI-58 gate: any extraction-side warning marked `blocking: true`
+  // refuses to construct ProjectionInputs. The engine never receives an
+  // inputs object built from a fallback / sentinel value where extraction
+  // missed a load-bearing field.
+  const blocking = selectBlockingWarnings(warnings);
+  if (blocking.length > 0) {
+    throw new IncompleteDataError(blocking);
+  }
+
   // Resolve DDTL draw quarter from user assumption
   const ddtlDrawQuarter = userAssumptions.ddtlDrawAssumption === 'never_draw'
     ? 0

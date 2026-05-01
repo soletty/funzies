@@ -292,8 +292,13 @@ tranche is named "Class A-1", "A-1A", or any other non-literal "Class
 A", the pre-fix forward block returned `undefined` from the find, the
 denominator collapsed to zero, and EoD detection was silently disabled
 — the test always passed. This is the failure shape: silent on Euro
-XV, catastrophic on the next deal. See KI-39, KI-30, KI-41 for sibling
-instances.
+XV, catastrophic on the next deal. The same shape recurs across the
+ledger anywhere a parser hardcodes a column offset to a deal-specific
+header layout, anywhere a constant ("CCC = 7.5%", "incentive hurdle =
+12%") is treated as universal rather than per-deal extracted, and
+anywhere a class-name string match selects a tranche instead of a
+seniority-rank predicate. KI-30 (CCC threshold) is the canonical
+in-flight sibling.
 
 ### 2. Partner-facing claims are mechanically bound to engine state
 
@@ -309,8 +314,13 @@ that contradicted shipped engine state (e.g. "No Senior Expenses Cap"
 while the cap had been live since C3). `ppm-step-map.ts` labelled four
 buckets `NOT EMITTED` after the closures shipped. Documentation drifts
 away from code unless something mechanically binds them — that bind is
-now `web/lib/clo/__tests__/disclosure-bijection.test.ts`. See KI-42 for
-the analogous discipline gap on `failsWithMagnitude` markers.
+now `web/lib/clo/__tests__/disclosure-bijection.test.ts`. The same
+shape recurs at the test layer: every documented magnitude in the
+ledger must trace to a `failsWithMagnitude` marker (with `ki:` field),
+never a plain `toBeCloseTo` / `toBe` assertion — without the marker, a
+future PR closing the upstream KI cannot find the assertion site by
+grep, and re-baselining becomes a manual hunt that breaks the ledger ↔
+test bijection.
 
 ### 3. Silent fallbacks on extraction failures are bugs, not defaults
 
@@ -333,18 +343,33 @@ only when (a) the missing field cannot affect any computation and
 Anything that touches a flow, a ratio, a fee base, or a date schedule
 is computational and blocks.
 
-**Current open violations of the prescriptive form:** KI-40
-(diversion %) and KI-41 (incentive hurdle) still fall back silently
-to a "common default" — they should block per this rule but
-currently warn. Closing each requires either real extraction or
-the block-and-banner pattern.
+**Mechanical enforcement:** the resolver emits `ResolutionWarning`
+with `severity: "error"` AND `blocking: true` on every site that
+silently falls back to a "common default" or accepts a sentinel value
+on a missing computational input. `buildFromResolved` (in
+`web/lib/clo/build-projection-inputs.ts`) gates at the top via
+`selectBlockingWarnings` and throws `IncompleteDataError` if any
+blocking warning is present, refusing to construct `ProjectionInputs`.
+The UI catches the error and renders a non-dismissible "DATA
+INCOMPLETE" banner enumerating each missing field. Bijection: the
+gate's input set IS the banner's row set (single shared predicate),
+asserted by `incomplete-data-banner-bijection.test.ts`.
 
 **Why:** a 100%-diversion deal modeled with the 50% fallback
 over-states equity distributions by 50% of every diverted period. A
 15%-hurdle deal modeled with the 12% fallback fires the incentive fee
-earlier than it should. Both are silent today on Euro XV (extraction
-succeeds); both are catastrophic on the next deal where extraction
-misses. See KI-40, KI-41, KI-30.
+earlier than it should. A `seniorFeePct = 0` accepted silently on a
+deal whose true rate is 0.15% leaves €700K-€800K/year of fake equity
+in the projection. All silent on Euro XV today (extraction succeeds);
+all catastrophic on the next deal where extraction misses. The
+umbrella inventory of every site under this rule is in
+`web/docs/clo-model-known-issues.md` § KI-58, with one row per
+site mapped to one marker test in
+`web/lib/clo/__tests__/ki58-blocking-extraction-failures.test.ts` —
+adding a new fallback site means adding both a row to the umbrella
+table and a marker test in the same change. KI-30 (CCC threshold)
+is the canonical in-flight sibling that has not yet adopted this
+pattern (still hardcoded, not yet PPM-extracted).
 
 ### 4. Display equals engine output. Always.
 
@@ -389,15 +414,21 @@ re-interpretation is the failure shape behind nearly half this
 ledger. Add boundary unit tests on every parser and on every resolver
 field with a documented invariant.
 
-**Why:** `parseNumeric` in the SDF parser strips commas without locale
-awareness — a European-format `"1.500.000,00"` parses as `1.5`, a
-1,000,000× error (KI-50). `normalizeComplianceTestType` derives
-`isPassing` as `actual >= trigger` for all directions, including
-lower-is-better tests like WARF (KI-51). The disputed KI-44 candidate
-turned on whether `Market_Value` was percent or absolute — verifiable
-only by reading the spec, the parser, and the consumer together; the
-type system carried no invariant. See KI-50, KI-51, KI-08
-sign-convention block.
+**Why:** SDF-parser locale-blindness is the canonical instance — a
+`parseNumeric` helper that strips commas without distinguishing
+thousands separators from decimal separators turns the European-format
+string `"1.500.000,00"` into `1.5`, a 1,000,000× error that the
+downstream type system has no signal to catch because the boundary
+took an opaque `string` and emitted a `number`. `normalizeComplianceTestType`
+derives `isPassing` as `actual >= trigger` for all directions
+(including lower-is-better tests like WARF), again because the
+boundary type carries no direction invariant — see KI-51 for the
+in-flight tracking. The disputed KI-44 audit candidate (whether
+`Market_Value` was percent or absolute) was verifiable only by reading
+the spec, the parser, and the consumer together; the type system
+carried no invariant — closed not-a-bug, but the audit cost reflected
+the type-system gap. Sign convention has the same shape — see KI-08
+for the bundled steps B+C cascade.
 
 ### 6. Missing memoization deps are silent
 

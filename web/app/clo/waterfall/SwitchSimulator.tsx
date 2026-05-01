@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo, useCallback } from "react";
-import type { ResolvedDealData, ResolvedLoan } from "@/lib/clo/resolver-types";
+import type { ResolvedDealData, ResolvedLoan, ResolutionWarning } from "@/lib/clo/resolver-types";
 import type { BuyListItem, CloHolding } from "@/lib/clo/types";
 import type { UserAssumptions } from "@/lib/clo/build-projection-inputs";
 import { applySwitch } from "@/lib/clo/switch-simulator";
@@ -26,6 +26,14 @@ interface Props {
   buyList: BuyListItem[];
   userAssumptions: UserAssumptions;
   prefill?: SwitchPrefill | null;
+  // KI-58 — caller threads resolver warnings through to applySwitch so
+  // the buildFromResolved gate fires here too. The partner-facing
+  // ProjectionModel doesn't render this component when blocking
+  // warnings exist (the Switch tab renders the DATA INCOMPLETE banner
+  // instead), but defence-in-depth: if a future caller renders us
+  // anyway, applySwitch's gate will throw rather than silently
+  // computing on sentinel data.
+  resolutionWarnings?: ResolutionWarning[];
 }
 
 function formatDelta(before: number | null, after: number | null): { text: string; color: string } {
@@ -54,7 +62,7 @@ function useFormatAmountDelta(): (before: number, after: number) => { text: stri
   );
 }
 
-export function SwitchSimulator({ resolved, holdings, buyList, userAssumptions, prefill }: Props) {
+export function SwitchSimulator({ resolved, holdings, buyList, userAssumptions, prefill, resolutionWarnings }: Props) {
   const formatAmount = useFormatAmount();
   const formatAmountDelta = useFormatAmountDelta();
   const [sellLoanIndex, setSellLoanIndex] = useState<number | null>(null);
@@ -137,11 +145,16 @@ export function SwitchSimulator({ resolved, holdings, buyList, userAssumptions, 
 
   const { switchResult, baseResult, switchedResult } = useMemo(() => {
     if (sellLoanIndex === null) return { switchResult: null, baseResult: null, switchedResult: null };
-    const sr = applySwitch(resolved, { sellLoanIndex, sellParAmount, buyLoan, sellPrice, buyPrice }, userAssumptions);
+    const sr = applySwitch(
+      resolved,
+      { sellLoanIndex, sellParAmount, buyLoan, sellPrice, buyPrice },
+      userAssumptions,
+      resolutionWarnings,
+    );
     const br = runProjection(sr.baseInputs);
     const swr = runProjection(sr.switchedInputs);
     return { switchResult: sr, baseResult: br, switchedResult: swr };
-  }, [resolved, sellLoanIndex, sellParAmount, buyLoan, sellPrice, buyPrice, userAssumptions]);
+  }, [resolved, sellLoanIndex, sellParAmount, buyLoan, sellPrice, buyPrice, userAssumptions, resolutionWarnings]);
 
   const inputStyle: React.CSSProperties = {
     width: "100%", padding: "0.4rem 0.5rem", borderRadius: "var(--radius-sm)",
