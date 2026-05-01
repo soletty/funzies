@@ -289,6 +289,30 @@ describe("Pattern B (silent acceptance of sentinel value)", () => {
     expectGateThrows(resolved, warnings);
   });
 
+  it("DDTL no parent (resolver.ts:1073) — DDTL holding with no matching parent facility → blocking", () => {
+    const raw = loadRaw();
+    // Euro XV has zero DDTL holdings (verified by grep). Convert an active
+    // non-DDTL holding to DDTL and give it a unique obligor name (no other
+    // holding shares it), so the resolver's parent-match (filter by
+    // obligorName equality on funded holdings) returns empty and falls
+    // through to the WAC-spread substitution.
+    const holding = (raw.holdings as any[]).find(
+      (h: any) =>
+        !h.isDelayedDraw &&
+        !h.isDefaulted &&
+        (h.parBalance ?? 0) > 0,
+    );
+    expect(holding, "fixture should have an active non-DDTL holding").toBeDefined();
+    holding.isDelayedDraw = true;
+    holding.obligorName = "KI59_TEST_OBLIGOR_NO_PARENT_MATCH";
+    const { resolved, warnings } = runResolver(raw);
+    const w = warnings.find((w) =>
+      w.field === "ddtlSpreadBps" && w.message.includes("no matching parent"),
+    );
+    expectBlockingError(w, "ddtlSpreadBps (no parent)");
+    expectGateThrows(resolved, warnings);
+  });
+
   it("fixedCouponPct from WAC (resolver.ts:1046) — fixed-rate loan with no allInRate or spreadBps → blocking", () => {
     const raw = loadRaw();
     // Same fixture shape as the spreadBps-proxy marker but ALSO null

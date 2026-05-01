@@ -1070,7 +1070,12 @@ export function resolveWaterfallInputs(
         ddtlSpreadBps = parent.spreadBps ?? wacSpreadBps;
       } else {
         ddtlSpreadBps = wacSpreadBps;
-        warnings.push({ field: "ddtlSpreadBps", message: `DDTL "${h.obligorName ?? "unknown"}" has no matching parent facility — using WAC spread (${wacSpreadBps} bps).`, severity: "warn", blocking: false });
+        warnings.push({
+          field: "ddtlSpreadBps",
+          message: `DDTL "${h.obligorName ?? "unknown"}" has no matching parent facility (no funded holding shares its obligorName) — engine would assign the pool WAC (${wacSpreadBps} bps) as the draw spread. On a deal where the DDTL's true facility spread diverges from WAC, every period after draw accrues at the wrong rate; magnitude is per-loan and unbounded. Refuse and verify the parent-facility obligorName upstream.`,
+          severity: "error",
+          blocking: true,
+        });
       }
     }
 
