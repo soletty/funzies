@@ -362,14 +362,16 @@ earlier than it should. A `seniorFeePct = 0` accepted silently on a
 deal whose true rate is 0.15% leaves €700K-€800K/year of fake equity
 in the projection. All silent on Euro XV today (extraction succeeds);
 all catastrophic on the next deal where extraction misses. The
-umbrella inventory of every site under this rule is in
-`web/docs/clo-model-known-issues.md` § KI-58, with one row per
-site mapped to one marker test in
-`web/lib/clo/__tests__/ki58-blocking-extraction-failures.test.ts` —
-adding a new fallback site means adding both a row to the umbrella
-table and a marker test in the same change. KI-30 (CCC threshold)
-is the canonical in-flight sibling that has not yet adopted this
-pattern (still hardcoded, not yet PPM-extracted).
+canonical inventory of every site under this rule lives in
+`web/lib/clo/__tests__/ki58-blocking-extraction-failures.test.ts`
+(one `it()` block per site) and is independently verifiable via
+`grep "blocking: true" web/lib/clo/resolver.ts` — adding a new
+fallback site means flipping its warning to `blocking: true` and
+adding a marker test in the same change. KI-30 (CCC threshold) is
+the canonical in-flight sibling that has not yet adopted this
+pattern (still hardcoded, not yet PPM-extracted); the audit of
+`severity: "warn"` resolver sites that may share the same shape
+is tracked under KI-59.
 
 ### 4. Display equals engine output. Always.
 

@@ -37,7 +37,6 @@ Categorized so a partner reading cold can separate "what's still wrong" from "wh
 - [KI-33 — Reinvestment loan synthesis assumes par-purchase (€1 diverted = €1 par)](#ki-33)
 - [KI-34 — Non-call period not enforced; user-typed pre-NCP call dates pass through](#ki-34)
 - [KI-35 — Partial DDTL draw silently discards the un-drawn commitment](#ki-35)
-- [KI-58 — Silent computational extraction failures (umbrella) — eight resolver sites substitute a "common default" or accept a sentinel; subsumes the closed KI-40 and KI-41](#ki-58)
 
 ### Latent — currently inactive on Euro XV; emerges on portability or stress
 *Distinct from "Deferred" (those are intentional design choices about mechanics that exist in the indenture but the model elects not to simulate). "Latent" entries are unmodeled or hardcoded paths whose current Euro XV magnitude happens to be zero, but which will produce wrong numbers the moment a deal hits the triggering condition (different deal structure, different PPM, non-zero balance, FX exposure, etc.). Treat each as a real bug whose materiality is data-dependent, not a deliberate scope decision.*
@@ -54,7 +53,7 @@ Categorized so a partner reading cold can separate "what's still wrong" from "wh
 - [KI-54 — D1 deferrable-A/B guard is name-based; non-A/B-named senior with `isDeferrable=true` slips through](#ki-54)
 - [KI-56 — N1 harness step-G sharing: `classA_interest` bucket compares against trustee[g] which on a Class X-bearing deal includes Class X amort](#ki-56)
 - [KI-57 — Resolver assigns DISTINCT `seniorityRank` to pari-passu tranches; engine pari-passu absorption depends on equal ranks](#ki-57)
-- [KI-59 — Audit `severity: "warn"` resolver sites under the same silent-wrong-on-portability lens that produced KI-58](#ki-59)
+- [KI-59 — Audit remaining `severity: "warn"` resolver fallback sites against the blocking-gate criterion](#ki-59)
 - [KI-60 — Three independent `normalizeClassName` implementations with divergent output shapes (sibling pattern to KI-21)](#ki-60)
 
 ### Deferred — intentionally not modeled, magnitude known
@@ -1112,88 +1111,14 @@ The `classOrder` helper at `resolver.ts:251-258` maps "A-1", "A-2", "A-3" all to
 
 ---
 
-<a id="ki-58"></a>
-### [KI-58] Silent computational extraction failures (umbrella) — resolver substitutes a "common default" or accepts a sentinel value where extraction missed, partner sees a plausible-but-wrong number with no banner
-
-**PPM reference:** Each per-deal computational input has its own PPM clause (diversion %, incentive hurdle, senior/sub mgmt fee %, OC trigger thresholds, tranche spread, pool par, deal maturity). The umbrella claim is structural, not clause-specific: when extraction misses any of these, the resolver currently chooses to continue (with a fallback or sentinel) rather than block. Per CLAUDE.md § "Recurring failure modes" principle 3, that choice is wrong for a financial model — the cost of a partner seeing a plausible-but-wrong number is much higher than the cost of a partner seeing a "DATA INCOMPLETE" banner.
-
-**Two failure shapes — every site below is one of these two:**
-
-- **Pattern A — silent fallback to a common-default value:** the resolver substitutes a guess that is correct for the most common European CLO and continues. On any deal whose value diverges from the guess (and where extraction missed), the engine runs on the wrong number.
-- **Pattern B — silent acceptance of a sentinel value:** the resolver leaves the field at zero (or in an out-of-range band), warns at error severity, and continues. The engine then runs with the sentinel as if it were the real input, silently producing a wrong projection (€0 fees, no diversion firing, all-zero pool, etc.).
-
-The bijection between the two patterns and concrete sites is mechanical (line numbers point to the `warnings.push({...})` call where each `blocking: true` lives):
-
-| Site | Pattern | Field | Sentinel / fallback |
-| --- | --- | --- | --- |
-| `resolver.ts:861` (parse-fail) + `:870` (no-amount) | A | `reinvestmentOcTrigger.diversionPct` | `50` (% — common European CLO diversion) |
-| `resolver.ts:536` | A | `fees.incentiveFeeHurdleIrr` | `0.12` (12% IRR — common European CLO equity hurdle) |
-| `resolver.ts:814` | A | `dates.maturity` | `currentDate + CLO_DEFAULTS.defaultMaxTenorYears` |
-| `resolver.ts:211` (DB path) + `:281` (PPM path) | B | `tranches[i].spreadBps` (non-sub tranche) | `0` (spread accepted as-is) |
-| `resolver.ts:416` | B | `ocTriggers[i].triggerLevel` (in 10–90 % no-man's-land) | implausible value left in place |
-| `resolver.ts:566` | B | `fees.seniorFeePct` | `0` |
-| `resolver.ts:577` | B | `fees.subFeePct` | `0` |
-| `resolver.ts:746` | B | `poolSummary.totalPar` | `0` |
-
-**Existing carve-out (display-only, not part of this umbrella):** `resolver.ts:1434` is `severity: "error"` for the concentration letter-prefix vocabulary mismatch. That field is display-only — it does not enter `ProjectionInputs` or any waterfall computation; the partner sees an out-of-date taxonomy in the concentration table, not a wrong number. To make the carve-out mechanical (rather than a comment explaining "this one's different"), this entry adds a `blocking` flag orthogonal to severity. The umbrella sites all carry `blocking: true`; `:1434` carries `blocking: false`.
-
-**Current engine behavior (post-fix, this PR):** all eight sites emit `severity: "error", blocking: true`. The `buildFromResolved` gate at `web/lib/clo/build-projection-inputs.ts` calls `selectBlockingWarnings(warnings)` and throws `IncompleteDataError` if any blocking warning is present — the engine never receives a `ProjectionInputs` constructed from a resolved object that carries any blocking warning. The UI's `incompleteDataErrors` derived memo uses the same predicate (mechanically bound by the bijection test in `web/lib/clo/__tests__/incomplete-data-banner-bijection.test.ts`); when `incompleteDataErrors.length > 0` the projection panels are not rendered and a non-dismissible DATA INCOMPLETE banner enumerates the missing fields. The Switch Simulator tab carries a parallel gate. `applySwitch` itself accepts `warnings` and threads them to `buildFromResolved` so the gate fires for any future caller too.
-
-**Pre-fix engine behavior (for posterity, what the umbrella was filed against):** one of the eight sites was at `severity: "warn"` — the diversion-% site (whose two push statements at `:861`/`:870` were both warn). The other seven were already `severity: "error"` but the resolver appended each warning to the `warnings: ResolutionWarning[]` array and returned; nothing downstream gated on `severity === "error"`, so the engine received a fully-shaped `ResolvedDealData` with the fallback / sentinel value in place and ran it. The only pre-fix difference between the warn site and the seven error sites was whether the partner-facing warnings panel surfaced the issue prominently — neither severity blocked the projection.
-
-**PPM-correct behavior:** When extraction misses a computational field, the projection refuses to run. The UI renders a non-dismissible "DATA INCOMPLETE" banner enumerating each missing field. The partner cannot see a plausible-but-wrong number because there is no number to see — only the banner.
-
-**Quantitative magnitude (per site, per pattern):** every figure below is **tentative — portability-conditional with no active `failsWithMagnitude` marker.** Euro XV's extraction succeeds at all eight sites today, so the harness shows zero drift; magnitudes are derived from Euro XV's *actual* fixture parameters as a stand-in for "what magnitude of fake equity Euro XV would have shown if its own extraction had missed any one of these fields." A future regression test that stresses extraction (e.g. against synthetic raws with the field deliberately removed) would convert these from tentative to pinned. The per-site marker tests in `web/lib/clo/__tests__/ki58-blocking-extraction-failures.test.ts` pin the *guard-fires-with-blocking-true* invariant, not the *partner-facing magnitude* invariant — that's a deliberate scope decision (the guard's correctness is what matters; the magnitude is documented for triage / partner-comms purposes only).
-
-- **Pattern A — diversion %:** zero on Euro XV (extraction succeeds at 50%). On a 100%-diversion deal modeled as 50%: equity distributions during diverted periods over-stated by 50% of the diverted amount. On a 30%-diversion deal modeled as 50%: equity distributions during diverted periods under-stated by 20% of the diverted amount.
-- **Pattern A — incentive hurdle:** zero on Euro XV (extraction succeeds at 12% from `hurdleRate: "12%"` in `euro-xv-q1.json:8226`). On a 15%-hurdle deal modeled as 12%: incentive fee fires earlier, over-stating sub-distribution diversion → under-stating equity residual. On a 10%-hurdle deal: fires later, the other direction. Magnitude scales with `incentiveFeePct × residual-equity-cash-flow ÷ hurdle-difference-window`.
-- **Pattern A — maturity fallback:** zero on Euro XV (`maturity` extracts cleanly). On a deal whose extraction misses: projection horizon set to `currentDate + CLO_DEFAULTS.defaultMaxTenorYears` instead of the actual indenture maturity → wrong number of forward periods → wrong cumulative interest, wrong final principal redemption, wrong forward IRR by an amount that scales with `(fallback − actual)` years × per-period interest accrual.
-- **Pattern B — spread = 0 (pinned to Euro XV tranche stack):** silent-wrong per tranche on which extraction returned 0 or null. Single-tranche miss magnitudes (annual under-bill of debt interest — equivalent magnitude of over-stated equity residual) using the fixture's true spreads:
-  - Class A (€310,000,000 × 95 bps) = €2,945,000/yr (~€736K/quarter)
-  - Class B-1 (€33,750,000 × 170 bps) = €573,750/yr
-  - Class B-2 (€15,000,000 × 195 bps) = €292,500/yr
-  - Class C (€32,500,000 × 210 bps) = €682,500/yr
-  - Class D (€34,375,000 × 315 bps) = €1,082,813/yr
-  - Class E (€25,625,000 × 611 bps) = €1,565,688/yr
-  - Class F (€15,000,000 × 885 bps) = €1,327,500/yr
-  - Total all-tranche-miss ceiling (all seven debt tranches extracted as 0): ~€8,469,750/yr of fake equity. The most-material single miss is Class A at ~€2.94M/yr (60% of the senior debt stack carries it).
-- **Pattern B — OC trigger 10-90 %:** the band is, by construction, wrong in both directions (×100 too high, as-is too low). The resolver explicitly leaves it as-is on the reasoning that "perpetually-passing is safer than perpetually-failing." Result: the OC test never fails → the diversion mechanism never fires → on a deal where the trigger should be tripping, equity distributions over-stated by the un-diverted amount per period. Pure portability magnitude — Euro XV's actual OC triggers are ~105-130% (well outside the 10-90 band), so the magnitude is conditional on a different deal's extraction landing in-band.
-- **Pattern B — senior/sub fee % = 0 (pinned to Euro XV `totalPar = €491,406,828.93` × actual rates `seniorFeePct = 0.15%`, `subFeePct = 0.35%`):**
-  - `seniorFeePct = 0` (true 0.15% missed): 0.15% × €491.4M = €737,110/yr of un-billed Senior CMF → equivalent fake equity (~€184,278/quarter).
-  - `subFeePct = 0` (true 0.35% missed): 0.35% × €491.4M = €1,719,924/yr of un-billed Sub CMF → equivalent fake equity (~€429,981/quarter).
-  - Both are silent on Euro XV today (extraction succeeds at the true rates).
-- **Pattern B — totalPar = 0:** projection runs on an empty pool — every flow is zero, every IRR is zero, every OC ratio is undefined or infinite. Catastrophically wrong but visible to a partner only as "all numbers look strange," not as a banner saying "we don't have your pool data." Not a clean dollar magnitude — the failure mode is structural (100% of partner-facing numbers wrong by 100%).
-
-Pattern A magnitudes are conditional on a counterfactual (extraction missed AND the deal's true value diverges from the fallback). Pattern B magnitudes above are pinned to Euro XV's *actual* fixture parameters, treated as a stand-in for "what the next-deal-shaped portfolio looks like" — i.e., what magnitude of fake equity Euro XV would have shown if its own extraction had missed any one of these fields. Every magnitude is portability-conditional — Euro XV's extraction succeeds at all eight sites today, so the harness shows zero drift. The risk is that the next deal's extraction fails at any one of them, and the model produces a confidently-wrong number with no surface-level signal to the partner.
-
-**Deferral rationale:** Engineering judgement on the part of the original implementer — for each site individually — that "common default" or "log and continue" is preferable to a hard error. The judgement is wrong for a financial model. The judgement also accumulates: each site individually looks like a 1-in-N tail risk; eight sites together is closer to 1-in-(N/8). And the sites are correlated — extraction failures tend to come in clusters (a parser regression, a malformed PPM, a missing PDF page) rather than as singletons, so a deal that misses one is more likely to miss several.
-
-**Path to close — single mechanism (`blocking: true` flag + `IncompleteDataError` gate + UI banner) wired to all eight sites in this PR:**
-
-1. **Type extension.** Add `blocking?: boolean` (optional, defaults `false`) to `ResolutionWarning` in `web/lib/clo/resolver-types.ts`. Orthogonal to `severity`. The vocabulary is then: `warn`, `error` (advisory), `error + blocking: true` (refuses to run).
-2. **Gate.** Add `IncompleteDataError extends Error` carrying `errors: ResolutionWarning[]` payload. In `buildFromResolved` (`web/lib/clo/build-projection-inputs.ts`), gate at the top: `if (warnings.some(w => w.blocking)) throw new IncompleteDataError(warnings.filter(w => w.blocking))`. Engine never receives an `inputs` constructed from a blocking-warning-bearing resolved.
-3. **UI surface.** `ProjectionModel.tsx` wraps `runProjection` in a try/catch for `IncompleteDataError`; renders a non-dismissible red banner enumerating each `field` and `message` from the payload. No projection rendered while a blocking warning is active.
-4. **Bijection test.** New `web/lib/clo/__tests__/incomplete-data-banner-bijection.test.ts` asserting every `blocking: true` warning produces a banner row, and no banner row exists without a backing warning. Same template as `disclosure-bijection.test.ts` — the UI surface is mechanically bound to the engine-side gate.
-5. **Per-site flips.** Each of the eight sites in the table above promotes its warning to `severity: "error", blocking: true`. The gate at step 2 is the load-bearing mechanism — production paths never construct a `ProjectionInputs` from a resolved object that carries any blocking warning, regardless of what value the resolver left in the field. The pre-existing fallback / sentinel value stays in the resolved object so non-engine consumers (debug serialization, type-safety) don't see NaN; the gate intercepts before the engine can consume. The display-only carve-out at `:1434` becomes explicit `severity: "error", blocking: false`.
-6. **Per-site marker tests.** Each site gets a resolver test pinning `(severity: "error", blocking: true)` on a synthetic raw fixture missing the field, plus a `buildFromResolved` test pinning the `IncompleteDataError` throw on the same fixture. The bijection between umbrella table and marker tests is the audit-time equivalent of the disclosure-bijection check.
-7. **CLAUDE.md.** The "Current open violations of the prescriptive form" sub-paragraph in principle 3 closes (rewritten to "now mechanically enforced by the `buildFromResolved` blocking-warning gate; the umbrella table in KI-58 is the load-bearing inventory, marker tests pin the bijection").
-
-The mechanism (`blocking` + gate + banner) is single-shipping; once it lands, future silent-fallback sites surfaced by audit (KI-59 catches the `severity: "warn"` half of the same shape) close by adding a row to the umbrella table and flipping the warning's `blocking` field — no new mechanism needed.
-
-**Test (umbrella):** Per-site marker tests are the bijection. Until the per-site flips ship in this PR's commits, the umbrella's open status is its own marker — the bijection-coverage test (`incomplete-data-banner-bijection.test.ts`, added in this PR) refuses to pass with zero registered blocking warnings, so an unfinished per-site rollout fails CI.
-
-**Subsumes:** the previously-standalone KI-40 (diversion %) and KI-41 (incentive hurdle) entries — both folded into the umbrella table above and deleted from the standalone-entry list per the closed=deleted doctrine. Their marker tests are the corresponding rows in `web/lib/clo/__tests__/ki58-blocking-extraction-failures.test.ts`.
-
----
-
 <a id="ki-59"></a>
-### [KI-59] Audit `severity: "warn"` resolver sites under the same silent-wrong-on-portability lens that produced KI-58
+### [KI-59] Audit remaining `severity: "warn"` resolver fallback sites against the blocking-gate criterion
 
-**PPM reference:** Generic — same shape as KI-58 but applied to the `severity: "warn"` half of `resolver.ts`. KI-58 closed the eight `severity: "error"` sites that were also silent-wrong on portability; this entry tracks the audit of the warn sites that may share the shape but were not in scope when KI-58 shipped.
+**PPM reference:** Generic. The `buildFromResolved` blocking-warning gate (`web/lib/clo/build-projection-inputs.ts`) refuses the projection when any `ResolutionWarning` carries `blocking: true`, and the eight `severity: "error"` resolver sites that silently fell back to a "common default" or sentinel value have all been flipped to emit `blocking: true`. The criterion for "this warning should block" is: (a) the warning fires on a missing per-deal computational input that downstream waterfall arithmetic depends on, AND (b) the resolver currently leaves a fallback / sentinel value in `ResolvedDealData` that the engine would consume.
 
-**Current engine behavior:** ~25 `severity: "warn"` warning sites in `resolver.ts` (grep `severity: "warn"`). Each was originally written as advisory — partner sees a yellow banner but the projection runs. The KI-58 audit established the criterion for when a warning should instead block: it must (a) feed into a per-deal computational input that downstream waterfall arithmetic depends on, and (b) leave the resolver in a state where the engine consumes a fallback / sentinel value rather than refusing to run. The warn sites were not individually re-audited against this criterion when KI-58 shipped.
+**Current engine behavior:** ~25 `severity: "warn"` warning sites in `resolver.ts` (grep `severity: "warn"`). Each was originally written as advisory — partner sees a yellow banner but the projection runs. The warn sites were not individually re-audited against the blocking-gate criterion above when the eight error sites were flipped, so any warn site that actually meets both (a) and (b) is currently a silent fallback the partner cannot see.
 
-The audit candidates most likely to share KI-58's shape, surfaced by name from a quick scan (not yet verified, intentionally tentative per the project rule):
+The audit candidates most likely to meet the criterion, surfaced by name from a quick scan (not yet verified, intentionally tentative per the project rule):
 
 - `resolver.ts:400` — "No OC triggers found in compliance tests or PPM" → warning emitted but the resolver continues with an empty `ocTriggers: []`. On a deal with extracted-but-empty triggers, the engine never fires the diversion / EoD logic. Catastrophic if extraction silently returns no rows.
 - `resolver.ts:983-986` — Fixed-rate loan with no `allInRate`: falls back to `spreadBps` proxy or WAC spread. On a fixed-rate loan whose true coupon diverges from the WAC proxy, every per-period coupon accrual is wrong by the divergence × loan par.
@@ -1203,18 +1128,18 @@ The audit candidates most likely to share KI-58's shape, surfaced by name from a
 
 The remaining warn sites (trigger-level conversions, "unusually high" sanity checks, citation provenance gaps, etc.) likely fall on the advisory side — they're either lossless transformations or partner-noise — but each needs the same audit-against-criterion before a `blocking: true` decision.
 
-**PPM-correct behavior:** Each warn site that meets the KI-58 criterion (computational input + silent fallback) is promoted to `severity: "error", blocking: true`, gets a per-site marker test, and is added to the KI-58 umbrella table. The remaining sites stay advisory and are documented here as audit-clear.
+**PPM-correct behavior:** Each warn site that meets the criterion is promoted to `severity: "error", blocking: true` and gets a per-site marker test alongside the existing eight in `web/lib/clo/__tests__/ki58-blocking-extraction-failures.test.ts`. The remaining sites stay advisory.
 
-**Quantitative magnitude:** Per-site, the magnitudes follow the KI-58 framework — silent on Euro XV today (extraction succeeds at every site), portability-conditional on the next deal. Per-candidate magnitudes are TBD pending the audit; the framework expectation is they fall in the same €100K-€1M/year-of-fake-equity range as the KI-58 sites.
+**Quantitative magnitude:** Per-site, silent on Euro XV today (extraction succeeds at every site), portability-conditional on the next deal. Per-candidate magnitudes are TBD pending the audit; the framework expectation is they fall in the same €100K-€1M/year-of-fake-equity range as the eight already-flipped sites.
 
-**Deferral rationale:** Filed as a follow-up to KI-58 rather than rolled in to keep the KI-58 PR's diff scoped to the eight verified sites. The mechanism (`blocking` field + gate + banner) is already shipped; closing each KI-59 site is a one-line resolver edit + one marker test row + one umbrella table entry, no new mechanism. Latent because Euro XV's extraction succeeds at every candidate site today.
+**Deferral rationale:** Filed as a follow-up to the blocking-gate mechanism PR rather than rolled in to keep that PR's diff scoped to the eight verified sites. Closing each candidate is a one-line resolver edit + one marker test, no new mechanism. Latent because Euro XV's extraction succeeds at every candidate site today.
 
 **Path to close:**
 1. For each warn site listed above (and any others surfaced by re-scan), construct a synthetic raw fixture missing the field and verify whether (a) the resolver continues with a fallback / sentinel and (b) the engine consumes that value into a partner-facing computation. Sites that fail both checks are advisory and stay warn.
 2. For sites that fail only check (a) but not (b) (computational input not yet consumed): document the engine-side gating that prevents consumption and stay warn.
-3. For sites that meet the KI-58 criterion: flip to `severity: "error", blocking: true`; add a row to the KI-58 umbrella table; add a marker test in `ki58-blocking-extraction-failures.test.ts`.
-4. **Tighten the type-system surface so future `warnings.push({...})` emissions cannot silently regress.** Promote `ResolutionWarning.blocking?: boolean` to required (`blocking: boolean`) in `web/lib/clo/resolver-types.ts`. This is structurally the same audit as steps 1-3 — every existing `warnings.push({...})` site needs to declare its blocking decision explicitly, which requires re-running the same "computational vs advisory" check against each one. The "broad churn" of touching every existing warning push is the audit; the structural rule is the deliverable. Without this step, a future contributor adding a new warning at a fallback site could omit the field entirely and silently produce a non-blocking warning — exactly the failure shape KI-58 closed for the existing sites. The bijection AST scan in `incomplete-data-banner-bijection.test.ts` cannot catch the omission (it only flags divergent inline filters, not absent fields).
-5. After all sites are audited and the type is required, document the audit-clear set in this entry (or close KI-59 if every candidate either flipped or was documented advisory) and remove KI-59 from the ledger per closed=deleted.
+3. For sites that meet the criterion: flip to `severity: "error", blocking: true`; add a marker test in `ki58-blocking-extraction-failures.test.ts`.
+4. **Tighten the type-system surface so future `warnings.push({...})` emissions cannot silently regress.** Promote `ResolutionWarning.blocking?: boolean` to required (`blocking: boolean`) in `web/lib/clo/resolver-types.ts`. This is structurally the same audit as steps 1-3 — every existing `warnings.push({...})` site needs to declare its blocking decision explicitly, which requires re-running the same "computational vs advisory" check against each one. The "broad churn" of touching every existing warning push is the audit; the structural rule is the deliverable. Without this step, a future contributor adding a new warning at a fallback site could omit the field entirely and silently produce a non-blocking warning. The bijection AST scan in `incomplete-data-banner-bijection.test.ts` cannot catch the omission (it only flags divergent inline filters, not absent fields).
+5. After all sites are audited and the type is required, remove KI-59 from the ledger per the closed=deleted doctrine.
 
 **Test:** No active marker. Per-site marker tests land in `ki58-blocking-extraction-failures.test.ts` as each candidate flips. Until then, this entry's open status is its own audit reminder.
 
