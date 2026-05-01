@@ -6,6 +6,7 @@ import AttachmentWidget, { type AttachedFile } from "@/components/AttachmentWidg
 import BuyListLoanSelector from "./BuyListLoanSelector";
 import PortfolioHoldingSelector from "./PortfolioHoldingSelector";
 import type { BuyListItem, CloHolding } from "@/lib/clo/types";
+import { currencySymbol } from "@/app/clo/waterfall/helpers";
 
 type AnalysisType = "buy" | "switch";
 
@@ -72,7 +73,9 @@ export default function AnalysisForm() {
     const ratingParts = [item.moodysRating, item.spRating].filter(Boolean);
     setters.setRating(ratingParts.join("/"));
     setters.setMaturity(item.maturityDate ?? "");
-    setters.setFacilitySize(item.facilitySize != null ? `$${item.facilitySize.toLocaleString()}` : "");
+    // BuyListItem carries no currency field; render the number without a
+    // symbol so a user on a non-USD deal isn't shown the wrong currency.
+    setters.setFacilitySize(item.facilitySize != null ? item.facilitySize.toLocaleString() : "");
     setters.setLeverage(item.leverage != null ? `${item.leverage}x` : "");
     setters.setInterestCoverage(item.interestCoverage != null ? `${item.interestCoverage}x` : "");
     setters.setCovenantsSummary(item.isCovLite ? "Covenant-lite" : "");
@@ -111,7 +114,7 @@ export default function AnalysisForm() {
     const ratingParts = [h.moodysRating, h.spRating].filter(Boolean);
     setters.setRating(ratingParts.join("/"));
     setters.setMaturity(h.maturityDate ?? "");
-    setters.setFacilitySize(h.parBalance != null ? `$${h.parBalance.toLocaleString()}` : "");
+    setters.setFacilitySize(h.parBalance != null ? `${currencySymbol(h.currency)}${h.parBalance.toLocaleString()}` : "");
     setters.setCovenantsSummary(h.isCovLite ? "Covenant-lite" : "");
   }
 

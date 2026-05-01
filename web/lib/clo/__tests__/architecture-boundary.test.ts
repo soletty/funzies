@@ -102,6 +102,47 @@ const RULES: Rule[] = [
     rationale:
       "UI re-deriving equity book value. Read from result.initialState.equityBookValue.",
   },
+  {
+    // Catches hardcoded currency symbols in partner-facing UI. Per CLAUDE.md
+    // principle 1 (don't overfit a single deal). Use useFormatAmount()
+    // inside a DealCurrencyProvider tree, or formatAmount(val, currency)
+    // with currency threaded explicitly.
+    //
+    // Detection narrowed to the actual bug shape (symbol adjacent to a
+    // rendering context) rather than every occurrence of the chars, because
+    // `$` collides with JS template substitution syntax `${...}`, SQL
+    // parameter placeholders `$1`, and regex char classes `[$.]`. We flag:
+    //   - €/£/¥ in any rendered string/JSX (no other meaning in code)
+    //   - `$` ONLY when it's the entire content of a JSX-rendered string
+    //     literal, the leading char before a `${expr}` substitution
+    //     (TemplateHead = "$"), or directly preceding `{` in JsxText.
+    // Legitimate uses (currencySymbol mapping table, documentation prose,
+    // input placeholders, SQL params) opt out via arch-boundary-allow comment.
+    id: "ui-hardcodes-currency-symbol",
+    scope: /web\/(app|components)\/clo\/.*\.(ts|tsx)$/,
+    detect: (node) => {
+      const UNAMBIGUOUS = /[€£¥]/;
+      // For `$`: only flag when it's the trailing char of a template-head
+      // (i.e. `\`$${val}…\``) or when the entire literal is just `$`.
+      const dollarBugShape = (text: string): boolean =>
+        text.endsWith("$") || text === "$";
+      if (Node.isJsxText(node)) {
+        const t = node.getText();
+        return UNAMBIGUOUS.test(t) || /\$\{/.test(t);
+      }
+      if (Node.isStringLiteral(node) || Node.isNoSubstitutionTemplateLiteral(node)) {
+        const t = node.getLiteralText();
+        return UNAMBIGUOUS.test(t) || dollarBugShape(t);
+      }
+      if (Node.isTemplateHead(node) || Node.isTemplateMiddle(node) || Node.isTemplateTail(node)) {
+        const t = node.getLiteralText();
+        return UNAMBIGUOUS.test(t) || dollarBugShape(t);
+      }
+      return false;
+    },
+    rationale:
+      "Hardcoded currency symbol in UI. Use useFormatAmount() or formatAmount(val, currency) with currency from useDealCurrency()/resolved.currency. Add `// arch-boundary-allow: ui-hardcodes-currency-symbol` for legitimate uses (symbol mapping, documentation prose, input placeholders).",
+  },
 ];
 
 function hasAllowComment(node: Node, ruleId: string): boolean {

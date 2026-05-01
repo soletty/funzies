@@ -4,6 +4,8 @@ import React, { useState } from "react";
 import { SliderInput } from "./SliderInput";
 import { CitationTooltip } from "@/components/clo/CitationTooltip";
 import type { Citation } from "@/lib/clo/resolver-types";
+import { useDealCurrency } from "./CurrencyContext";
+import { currencySymbol } from "./helpers";
 
 export function FeeAssumptions({
   seniorFeePct, onSeniorFeeChange,
@@ -47,6 +49,7 @@ export function FeeAssumptions({
   onDdtlDrawPercentChange: (v: number) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const sym = currencySymbol(useDealCurrency());
 
   return (
     <div style={{ marginTop: "0.75rem", border: "1px solid var(--color-border-light)", borderRadius: "var(--radius-sm)", background: "var(--color-surface)" }}>
@@ -194,7 +197,7 @@ export function FeeAssumptions({
               )}
               {portfolioInfo.hasDdtls && (
                 <div style={{ marginTop: portfolioInfo.hasFixedRate ? "0.3rem" : 0 }}>
-                  {portfolioInfo.ddtlCount} unfunded DDTL{portfolioInfo.ddtlCount !== 1 ? "s" : ""} ({"\u20AC"}{(portfolioInfo.ddtlPar / 1000).toFixed(0)}K) — no interest until drawn.
+                  {portfolioInfo.ddtlCount} unfunded DDTL{portfolioInfo.ddtlCount !== 1 ? "s" : ""} ({sym}{(portfolioInfo.ddtlPar / 1000).toFixed(0)}K) — no interest until drawn.
                 </div>
               )}
             </div>

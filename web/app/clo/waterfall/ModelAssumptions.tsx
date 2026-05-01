@@ -17,7 +17,7 @@ const ASSUMPTIONS_REGISTER: { domain: string; items: Assumption[] }[] = [
       { label: "Deterministic single-path model", detail: "This is NOT a Monte Carlo simulation. It produces one deterministic cash flow path. Real outcomes have wide distributions around this estimate. A deal projected at 14% IRR might realize anywhere from 8% to 20% depending on actual default timing and severity.", impact: "high" },
       { label: "No default correlation", detail: "Each loan defaults independently based on its rating bucket. In reality, defaults are correlated — economic downturns cause clusters of defaults. This model understates tail risk.", impact: "high" },
       { label: "No rating migration", detail: "Loans stay at their initial rating for the entire projection. In reality, loans get upgraded and downgraded, which changes their default probability and affects CCC bucket limits and OC tests.", impact: "high" },
-      { label: "Constant recovery rate", detail: "A single recovery rate applies to all defaults regardless of rating, sector, seniority, or economic conditions. Real recovery rates vary widely (20-80%) and are lower in downturns when defaults are highest.", impact: "medium" },
+      { label: "Constant recovery rate", detail: "A single recovery rate applies to all defaults regardless of rating, sector, seniority, or economic conditions. Real recovery rates vary widely (20-80%) and are lower in downturns when defaults are highest.", impact: "medium" }, // KI-32 (per-position agency recovery rates extracted but unused for forward defaults)
       { label: "Fixed recovery lag", detail: "Recovery cash arrives after a fixed delay. In practice, recovery timelines are highly variable (months to years) and affect the time value of money.", impact: "low" },
       { label: "No partial recoveries", detail: "Each default either recovers the fixed percentage after the lag, or nothing. Real workouts produce multiple partial payments over time.", impact: "low" },
     ],
@@ -27,16 +27,18 @@ const ASSUMPTIONS_REGISTER: { domain: string; items: Assumption[] }[] = [
     items: [
       { label: "Flat rate assumption", detail: "The base rate (EURIBOR) is held constant for the entire projection. There is no forward curve, no rate volatility, and no term structure. Since CLO equity returns are highly sensitive to rate movements, this is a major simplification.", impact: "high" },
       { label: "EURIBOR floored at 0%", detail: "The model floors the base rate at 0% for both collateral interest and tranche coupons. Most European CLOs have this floor, but the exact floor level may vary by deal.", impact: "low" },
-      { label: "No day count conventions", detail: "Interest accrues as simple quarterly fractions (annual rate / 4). Real deals use specific day count conventions (Actual/360, 30/360) that produce slightly different amounts.", impact: "low" },
+      { label: "Limited day-count conventions", detail: "Day-count is Actual/360 (floating) and 30/360 US (fixed) per tranche, applied across the period loop. 30E/360 European and Actual/365 conventions for fixed-rate assets remain unmodeled.", impact: "low" }, // KI-28 (asset-side fixed-rate conventions)
       { label: "No EURIBOR fixing lag", detail: "The model uses the input rate immediately. Real deals reference EURIBOR fixings from 2 business days prior to the interest period start.", impact: "low" },
-      { label: "Fixed-rate bonds accrue quarterly", detail: "All fixed-rate positions accrue interest as annual coupon / 4, regardless of actual payment frequency. Some bonds pay semi-annually — annual income is correct but intra-year timing may differ slightly.", impact: "low" },
+      // arch-boundary-allow: ui-hardcodes-currency-symbol
+      { label: "Asset-side day-count is uniformly Actual/360", detail: "Tranche-side day-count differentiates fixed (30/360) from floating (Actual/360). Asset-side per-loan accrual is uniformly Actual/360 — asymmetric, ~€4,335/quarter drift on Euro XV's 7.39% fixed-rate slice.", impact: "low" }, // KI-28 (asset-side fixed-rate conventions)
     ],
   },
   {
     domain: "Reinvestment & Trading",
     items: [
+      // arch-boundary-allow: ui-hardcodes-currency-symbol
       { label: "No active trading", detail: "The model does not capture manager trading activity (sales, purchases, credit risk trades). Real CLO managers actively trade — the Ares XVIII compliance report shows €5.8M in sales with a -€558K loss in a single month. Trading gains/losses directly affect par and returns.", impact: "high" },
-      { label: "Reinvestment at par", detail: "Reinvested assets are always purchased at par (100 cents on the dollar). In practice, managers buy at varying prices — discounts improve returns, premiums reduce them.", impact: "medium" },
+      { label: "Reinvestment at par", detail: "Reinvested assets are always purchased at par (100 cents on the dollar). In practice, managers buy at varying prices — discounts improve returns, premiums reduce them.", impact: "medium" }, // KI-33 (reinvestment loan synthesis assumes par-purchase)
       { label: "Uniform reinvestment quality", detail: "All reinvestment goes into a single synthetic loan with one rating and spread. Real reinvestment is diversified across many names, ratings, and spreads.", impact: "medium" },
       { label: "Constant prepayment rate", detail: "CPR is held constant. In reality, prepayments are cyclical — they increase when rates fall (borrowers refinance) and decrease when rates rise. This interacts with reinvestment spread.", impact: "medium" },
     ],
@@ -45,8 +47,7 @@ const ASSUMPTIONS_REGISTER: { domain: string; items: Assumption[] }[] = [
     domain: "Fees & Expenses",
     items: [
       { label: "Incentive fee IRR gate", detail: "Each quarter the model computes cumulative equity IRR (Newton-Raphson). Three cases: (1) IRR \u2264 hurdle \u2192 no fee. (2) IRR > hurdle even after taking the full fee \u2192 full fee charged. (3) Full fee would push IRR below hurdle \u2192 fee is capped at the level that keeps IRR at the hurdle (bisection). Case 2 is the normal path for performing deals. Case 3 only matters near the hurdle boundary. Real deals may have more complex catch-up/clawback provisions.", impact: "low" },
-      { label: "No expense reserve modeling", detail: "The PPM allows discretionary top-up of the expense reserve account, which traps cash before it reaches noteholders. This is not modeled.", impact: "low" },
-      { label: "No Senior Expenses Cap", detail: "Real deals cap total non-management expenses (typically €350K-500K/year). The model applies fees without this cap.", impact: "low" },
+      { label: "No expense reserve modeling", detail: "The PPM allows discretionary top-up of the expense reserve account (PPM step D), which traps cash before it reaches noteholders. This is not modeled.", impact: "low" }, // KI-02 (step D expense reserve top-up)
       { label: "No collateral manager advances", detail: "The PPM allows the manager to make advances (at EURIBOR + 4%) to buy enhancement obligations. These create a senior claim on waterfall cash. Not modeled.", impact: "low" },
     ],
   },
@@ -54,11 +55,10 @@ const ASSUMPTIONS_REGISTER: { domain: string; items: Assumption[] }[] = [
     domain: "Deal Structure",
     items: [
       { label: "No call prediction", detail: "The model does not predict when a deal will be called. Most performing CLOs are called at or near the first call date, which dramatically changes equity returns. Use the call date input to model this scenario.", impact: "high" },
-      { label: "No post-acceleration waterfall", detail: "Following an Event of Default, the real waterfall collapses into a simplified combined priority. This distressed scenario is not modeled.", impact: "medium" },
-      { label: "No frequency switch", detail: "Some deals switch from quarterly to semi-annual payments after a trigger event. The model is hardcoded to quarterly periods.", impact: "low" },
-      { label: "Quarterly periodicity", detail: "Cash flows are modeled in quarterly periods with beginning-of-period accrual. Real deals accrue daily and pay on specific calendar dates with business day adjustments.", impact: "low" },
-      { label: "No discount obligation haircut", detail: "Assets purchased below 85% of par should be carried at purchase price in OC calculations. The model only applies CCC excess haircuts.", impact: "low" },
-      { label: "DDTL draw is a single event", detail: "Unfunded DDTLs draw fully (or at the user-specified percentage) in a single quarter. Real DDTLs may draw in tranches over time. Commitment fees on unfunded amounts are not modeled.", impact: "low" },
+      { label: "No frequency switch", detail: "Some deals switch from quarterly to semi-annual payments after a trigger event. The model is hardcoded to quarterly periods.", impact: "low" }, // KI-04 (Frequency Switch mid-projection cadence/rate switch)
+      { label: "Quarterly periodicity", detail: "Cash flows are modeled in quarterly periods with beginning-of-period accrual. Real deals accrue daily and pay on specific calendar dates with business day adjustments.", impact: "low" }, // KI-04 (Frequency Switch mid-projection cadence/rate switch)
+      { label: "Discount obligation haircuts are static", detail: "Discount and long-dated obligation haircuts are applied at projection start from the trustee report, not recomputed forward through reinvestment. CCC excess haircuts ARE applied per-period.", impact: "low" }, // KI-29 (discount/long-dated haircuts not recomputed forward)
+      { label: "DDTL draw is a single event", detail: "Unfunded DDTLs draw fully (or at the user-specified percentage) in a single quarter. Real DDTLs may draw in tranches over time. Commitment fees on unfunded amounts are not modeled.", impact: "low" }, // KI-35 (partial DDTL draw discards un-drawn commitment)
     ],
   },
 ];

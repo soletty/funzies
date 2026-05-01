@@ -4,8 +4,8 @@
  * Single helper that pulls observable assumptions from resolver output + raw
  * trustee data, replacing DEFAULT_ASSUMPTIONS for every consumer that needs
  * pre-filled inputs (production-path harness, ProjectionModel UI). Closes:
- *   - KI-10 (baseRate pre-fill) — full
- *   - KI-11 (senior/sub mgmt fee pre-fill) — partial (rate plumbing; fee-base
+ *   - baseRate pre-fill (full)
+ *   - senior/sub mgmt fee pre-fill — partial (rate plumbing; fee-base
  *     discrepancy is KI-12a's territory, not fixed here)
  *   - KI-08 (trusteeFeeBps pre-fill) — partial (Senior Expenses Cap + overflow
  *     at steps Y/Z remains Sprint 3 / C3)
@@ -27,7 +27,7 @@ const fixture = JSON.parse(readFileSync(FIXTURE_PATH, "utf8")) as {
 };
 
 describe("D3 — defaultsFromResolved (Euro XV fixture)", () => {
-  it("pre-fills baseRatePct from observed EURIBOR (closes KI-10)", () => {
+  it("pre-fills baseRatePct from observed EURIBOR", () => {
     const d = defaultsFromResolved(fixture.resolved, fixture.raw);
     // Fixture trancheSnapshots carry currentIndexRate = 2.016%
     expect(d.baseRatePct).toBeCloseTo(2.016, 3);
@@ -35,7 +35,7 @@ describe("D3 — defaultsFromResolved (Euro XV fixture)", () => {
     expect(d.baseRatePct).not.toBe(DEFAULT_ASSUMPTIONS.baseRatePct);
   });
 
-  it("pre-fills senior + sub mgmt fees from resolver PPM extraction (closes KI-11 pre-fill)", () => {
+  it("pre-fills senior + sub mgmt fees from resolver PPM extraction", () => {
     const d = defaultsFromResolved(fixture.resolved, fixture.raw);
     expect(d.seniorFeePct).toBe(0.15);
     expect(d.subFeePct).toBe(0.35);

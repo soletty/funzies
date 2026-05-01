@@ -1,6 +1,6 @@
 import React from "react";
 import type { PeriodResult } from "@/lib/clo/projection";
-import { formatAmount } from "./helpers";
+import { useFormatAmount } from "./CurrencyContext";
 import { buildPeriodTraceLines, isAccelerationPeriod, type PeriodTraceLine } from "./period-trace-lines";
 
 /**
@@ -63,6 +63,7 @@ export function PeriodTrace({ period }: { period: PeriodResult }) {
 }
 
 function Line({ line }: { line: PeriodTraceLine }) {
+  const formatAmount = useFormatAmount();
   // Hide rows where the engine emits null (e.g. availableForTranches under
   // acceleration). Acceleration header is rendered separately at the top.
   if (line.amount === null) return null;

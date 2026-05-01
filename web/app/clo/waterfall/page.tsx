@@ -70,7 +70,7 @@ export default async function WaterfallPage() {
     tranches,
     trancheSnapshots,
     holdings,
-    { maturity: maturityDate, reinvestmentPeriodEnd, reportDate: reportPeriod?.reportDate ?? null },
+    { maturity: maturityDate, reinvestmentPeriodEnd, reportDate: reportPeriod?.reportDate ?? null, dealCurrency: deal?.dealCurrency ?? null },
     accountBalances,
     parValueAdjustments,
   );

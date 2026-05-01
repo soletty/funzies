@@ -40,11 +40,7 @@ Categorized so a partner reading cold can separate "what's still wrong" from "wh
 - [KI-40 — `diversionPct = 50%` silent fallback on extraction failure](#ki-40)
 - [KI-42 — `failsWithMagnitude` discipline gap on day-count residuals (`adminFeesPaid`, `trusteeFeesPaid`)](#ki-42)
 - [KI-43 — Forward-period EoD test uses literal `"Class A"` string match (regression of T=0 fix)](#ki-43)
-- [KI-45 — `ProjectionModel.tsx` useMemo dep arrays missing fee-related state vars (engine runs stale on slider drag)](#ki-45)
-- [KI-46 — `WaterfallVisualization.tsx` local `formatAmount` hardcodes `$` on EUR-denominated trustee amounts](#ki-46)
-- [KI-47 — `ModelAssumptions.tsx` discloses model limitations that no longer apply (5 stale items: KI-01/08/09 closed; B2/B3 shipped)](#ki-47)
 - [KI-49 — `stepTrace` emits requested fee amounts, not actually-paid, when interest is exhausted (sub mgmt + 6 senior expenses, normal mode only)](#ki-49)
-- [KI-53 — `ppm-step-map.ts` docstring drift on closed buckets (bijection violation, same shape as KI-42)](#ki-53)
 
 ### Latent — currently inactive on Euro XV; emerges on portability or stress
 *Distinct from "Deferred" (those are intentional design choices about mechanics that exist in the indenture but the model elects not to simulate). "Latent" entries are unmodeled or hardcoded paths whose current Euro XV magnitude happens to be zero, but which will produce wrong numbers the moment a deal hits the triggering condition (different deal structure, different PPM, non-zero balance, FX exposure, etc.). Treat each as a real bug whose materiality is data-dependent, not a deliberate scope decision.*
@@ -80,44 +76,7 @@ Categorized so a partner reading cold can separate "what's still wrong" from "wh
 ### Design decisions — documented for audit clarity (not open issues)
 - [KI-19 — NR positions proxied to Caa2 for WARF (Moody's convention)](#ki-19)
 
-### Closed — fixes shipped, verification green
-- [KI-01 — Step (A)(ii) Issuer Profit Amount **(CLOSED Sprint 4)**](#ki-01)
-- [KI-09 — Step (A)(i) Issuer taxes **(CLOSED Sprint 3)**](#ki-09)
-- [KI-10 — baseRate pre-fill gap **(CLOSED D3)**](#ki-10)
-- [KI-11 — Senior / sub management fee rate pre-fill **(CLOSED D3; fee-base tracked as KI-12a)**](#ki-11)
-- [KI-22 — Fixture-regeneration test was a spot-check for 20 days **(CLOSED Sprint 4)**](#ki-22)
-- [KI-25 — UI back-derivation of engine values (PeriodTrace + bookValue) **(CLOSED 2026-04-29)**](#ki-25)
-- [KI-52 — Forward-period EoD test principal-cash component hardcoded to 0 **(CLOSED 2026-04-23, reconstructed retroactively)**](#ki-52)
-
-*KI-08 was previously listed under Closed with a "PARTIALLY CLOSED" annotation. The body of KI-08 explicitly states "remain OPEN (partial) until KI-16 resolves the three PPM verifications." That disposition is now reflected in the index — KI-08 sits under Open until KI-16 closes.*
-
 *KI-44 (proposed during 2026-04-30 audit, not added): a candidate raised that `parse-collateral.ts:209-210` writes absolute `Market_Value` into the percent-shaped `current_price` column, with the bug masked on Euro XV by Asset Level enrichment. Verified not a bug. Two pieces of evidence: (i) `ENRICHMENT_COLUMNS` at `sdf/ingest.ts:450` lists only `current_price`, not `market_value` — Asset Level cannot overwrite `market_value`; (ii) every fixture row shows `marketValue == currentPrice` (e.g. 80.097, 99.823, 91.797) which is consistent only with `raw.Market_Value` being itself percent-shaped. If `raw.Market_Value` were absolute, the two columns would diverge after enrichment because only `current_price` gets overwritten. Conclusion: `raw.Market_Value` is percent-shaped despite the misleading column name; parser is correct; consumers are correct. Disposition: not added to ledger. A future verification against the SDF spec would close the question definitively.*
-
----
-
-<a id="ki-01"></a>
-### [KI-01] Step (A)(ii) Issuer Profit Amount — CLOSED (Sprint 4, 2026-04-23)
-
-**PPM reference:** Condition 1 definitions, p.127. €250 per regular period deducted from interest proceeds between taxes (A.i) and trustee fees (B). €500 per period post-Frequency-Switch Event (handled by KI-04 when that closes).
-
-**Pre-fix behavior:** Not modeled. `stepTrace.issuerProfit` emitted 0. Engine `subDistribution` over-stated by exactly €250/period on Euro XV because the waterfall's `availableInterest -=` chain skipped step (A.ii).
-
-**Pre-fix quantitative magnitude:** €250/quarter = €1,000/year on Euro XV. Cumulative ~€10,000 over a 10-year projection — immaterial in isolation but material to KI-13a cascade cleanliness (it was the last non-day-count bucket feeding into the sub residual).
-
-**Fix (Sprint 4):** `issuerProfitAmount` added to `ProjectionInputs` + `UserAssumptions` (absolute € per period, not bps). Engine deducts at PPM step (A.ii) position — after taxes at (A.i), before trustee at (B) — in both:
-- **Normal mode** (`projection.ts`): added to `totalSeniorExpenses` for IC parity AND to the `availableInterest -=` chain for cash flow. The first fix without the second emits correctly on stepTrace but never removes the €250 from sub residual — caught by the KI-13a cascade probe before ship. See [KI-21](#ki-21) for the architectural tracking of the two-parallel-accumulator pattern.
-- **Accelerated mode** (`runPostAccelerationWaterfall`): new `seniorExpenses.issuerProfit` field on the executor input + output, same priority position. PPM 10(b) preserves step ordering under acceleration.
-- **T=0 initial state** (`initialState.icTests`): `issuerProfitAmountT0` added to the IC numerator deduction chain alongside taxes / admin / trustee / senior / hedge so compositional parity tracks the in-loop computation.
-
-**Pre-fill:** `defaultsFromResolved` back-derives from `raw.waterfallSteps` step (A)(ii). Regex matches `"(A)(ii)"` or `"A.ii"` formats. Sanity bound: 0 < amount < €1,000 (covers €250 regular + €500 post-Frequency-Switch). Euro XV Q1 observed: €250.00 exactly.
-
-**Cascade re-baseline:** KI-13a expected drift −€50,742.24 → −€50,992.24 (Δ = −€250 exact, matches engine emission to the cent — no day-count residual since amount is fixed absolute, not accrued).
-
-**Cascade sub-tolerance verification (KI-IC-AB/C/D + KI-13b):** The €250 deduction flows into the IC numerator (`totalSeniorExpenses`) as well as cash flow. Measured Δ_IC per class from T=0 initialState probe: Class C = −0.00828 pp (denom ≈ €3.02M), Class D = −0.00722 pp (denom ≈ €3.46M). Class A/B denom is smaller (≈ €2.68M interest due), so |Δ_pp| ≈ −250 / 2,681,150 × 100 = −0.0093 pp. All three classes shift under the 0.05 pp tolerance → no KI-IC re-baseline required. KI-13b production-path markers use the same math — unchanged.
-
-**Verification:** Engine emits €250.00/period, ties to trustee €250.00 to the cent. N1 harness `issuerProfit` bucket tolerance tightened from Infinity → €1 (now the tightest tolerance in the step table). 558/558 tests green post-close.
-
-**Tests:** `n1-correctness.test.ts > "KI-01 CLOSED: engine emits €250 issuer profit, ties to trustee to the cent"`. Shipped as a closed-KI positive-enforcement assertion (`row.projected ≈ 250, |delta| < 1`) replacing the prior informational "engine emits 0; trustee collected €250" marker.
 
 ---
 
@@ -244,44 +203,6 @@ The genuine latent risk this entry tracks: under deferred-interest stress, defer
 **Cascade re-baselines**: KI-13a adjusted by the C3 split preserving aggregate behavior; `stepTrace.trusteeFeesPaid` currently bundles steps (B)+(C)+(Y)+(Z) to preserve the N1 harness bucket semantics. Split-out fields (`adminFeesPaid`, `trusteeOverflowPaid`, `adminOverflowPaid`) are additive diagnostic fields — the harness will be un-aggregated in a follow-up (see task #48).
 
 **Ledger disposition**: remain OPEN (partial) until KI-16 resolves the three PPM verifications. Then move to Closed issues.
-
----
-
-<a id="ki-09"></a>
-### [KI-09] Step (A)(i) Issuer taxes — CLOSED (Sprint 3, 2026-04-23)
-
-**PPM reference:** Condition 1 definitions (Issuer profit / tax provisions); step (A)(i) in the interest waterfall.
-
-**Pre-fix behavior:** Not modeled. `stepTrace.taxes` emitted 0. Engine `subDistribution` over-stated by ~€6,133/quarter on Euro XV because taxes never came out of the top of the waterfall.
-
-**Pre-fix quantitative magnitude:** €6,133/quarter = €24,532/year on Euro XV. On a €42.56M equity cost basis (95c × €44.8M sub par) ≈ 5.8 bps annual drag; cumulative ~€245K over a 10-year projection.
-
-**Fix (Sprint 3):** `taxesBps` added to `ProjectionInputs` + `UserAssumptions`. Engine deducts taxes at step (A)(i) before any other senior expense. `stepTrace.taxes` emits the amount. `defaultsFromResolved` back-derives `taxesBps` from raw `waterfallSteps` step (A)(i) annualized on beginningPar (Euro XV: 0.497 bps = €6,133/quarter, matched to the cent). Accel branch (B2) also passes `taxesAmount` through to the post-acceleration executor since taxes remain payable under acceleration per PPM 10.
-
-**Verification:** Engine produces €6,202/period vs trustee €6,133 = €69 day-count residual at 91/360 vs 90/360. Decomposed: engine taxesAmount = beginningPar × (taxesBps / 10000) × (91 / 360), trustee reports annualized tax × (90 / 360) window. On the €493.3M Euro XV pool at 0.497 bps the ratio is 91/90 = 1.0111, so residual ≈ €6,133 × 0.0111 = €68.7 (matches observed €69 to the cent). Same day-count mechanic as KI-12b for tranche interest — it's a harness-period-mismatch artifact, not an engine bug; closes with KI-12a.
-
-**Cascade re-baseline:** N1 harness `taxes` bucket tolerance tightened from Infinity to €100. KI-13a cascade re-baselined from −€44,540 to −€50,742 (Δ = −€6,202 matching engine emission to the euro). KI-IC-AB/C/D cascade moved ~1-2 pp on each class (see KI-14).
-
----
-
-<a id="ki-10"></a>
-### [KI-10] baseRate pre-fill gap (D3 family) — **CLOSED (D3, 2026-04-23)**
-
-**Status:** Closed in Sprint 2 / D3. `defaultsFromResolved(resolved, raw)` pre-fills `baseRatePct` from `raw.trancheSnapshots[*].currentIndexRate` when available (Euro XV: 2.016%). Both `n1-correctness.test.ts` and the ProjectionModel UI now use this helper; the static 2.1% default only applies when no observed rate is present in the snapshot feed.
-
-**Residual behavior:** None. The six per-class Euro XV drifts previously attributed to KI-10 (€65K on Class A, ~€28K across B-F combined per quarter) were bundled with KI-12b day-count drifts; after D3, what remains on those buckets is purely KI-12b (harness period mismatch, one extra day of accrual).
-**Test:** `d3-defaults-from-resolved.test.ts` — pre-fill anchor tests including Euro XV observed-EURIBOR spot-check (2.016% matches fixture, asserted at line 33).
-
----
-
-<a id="ki-11"></a>
-### [KI-11] Senior / sub management fee **rate** pre-fill — **CLOSED (D3); FEE-BASE REMAINS OPEN (KI-12a)**
-
-**Status (2026-04-23):** Partial close. Pre-fill of `seniorFeePct` / `subFeePct` / `incentiveFeePct` / `incentiveFeeHurdleIrr` landed in Sprint 2 / D3 via `defaultsFromResolved`. The resolver's PPM extraction had always populated `resolved.fees.*`; D3 is the plumbing that makes those flow into `UserAssumptions` as pre-fill defaults. The KI-11 **rate** pre-fill gap is closed.
-
-**What REMAINS open (tracked under KI-12a, not KI-11):** The ~€22.35M fee-BASE discrepancy — engine computes fees off `beginningPar` (current fixture snapshot = €493.3M) while trustee computes off prior Determination Date balance (= €470.9M). This is the N1 harness period-mismatch, structurally distinct from rate pre-fill. **Do not conflate: D3 closed the wrong-rates problem; the wrong-base problem is KI-12a's territory.**
-**Residual behavior:** None from KI-11. The €24,354 subMgmtFee / €10,438 seniorMgmtFee N1 drifts that remain on Euro XV are KI-12a (period mismatch) + KI-12b (day-count on 91/360), not KI-11.
-**Test:** `d3-defaults-from-resolved.test.ts` — fee-rate pre-fill tests; expected senior=0.15%, sub=0.35%, incentive=20%, hurdle=12%.
 
 ---
 
@@ -618,30 +539,6 @@ Tier 1 closes the most common partner "where from?" questions; Tier 2+ wait for 
 
 ---
 
-<a id="ki-22"></a>
-### [KI-22] Fixture-regeneration test was a field-by-field spot check, not full-equality — CLOSED (Sprint 4, 2026-04-23)
-
-**Pre-fix behavior:** Sprint 0 shipped `fixture-regeneration.test.ts` framed as a "drift canary" — running the current resolver on `fixture.raw` and verifying output matches `fixture.resolved`. The stated purpose: permanent drift protection so the fixture stays canonical as the resolver evolves.
-
-**What the test actually did:** Checked 5 specific assertions on a handful of fields (`principalAccountCash`, `impliedOcAdjustment`, ocTriggers length, eventOfDefaultTest.triggerLevel, totalPrincipalBalance + two fee fields). Any resolver change that populated a NEW field, or changed a field NOT in that narrow list, passed silently.
-
-**How this surfaced:** Sprint 4 / D4. Added `top10ObligorsPct` to `ResolvedPool`, expected the fixture-regeneration test to fail and guide the fixture update. It did not. Investigation revealed the spot-check nature. Extending to a full iterator immediately surfaced two additional drifts that had been latent:
-
-1. **`pctSecondLien: 0 → null`**: drift since Sprint 0. Resolver intentionally emits null when the source doesn't carry a dedicated pctSecondLien column (it's combined with HY/Mezz/Unsecured in a 4-category bucket). Sprint 4 fix: resolver now infers `pctSecondLien: 0` when `pctSeniorSecured === 100` (mutually exclusive lien categories make 0 certain). Fixture patched to match new resolver output.
-2. **`reinvestmentOcTrigger.rank: 99 → 7`**: Sprint 0-era fixture used the fallback "no-OC-triggers" rank 99; fresh resolver correctly computes `mostJuniorOcRank = 7` (Class F). Fixture patched.
-
-Both drifts had been invisible for ~20 days of active development. Every "fixture is canonical" claim across Sprint 1-3 was built on the spot-check illusion.
-
-**Fix (Sprint 4):** Extended `fixture-regeneration.test.ts` with a recursive full-equality iterator. Walks every field on top-level `resolved.*` (skipping volatile `metadata` + large `loans` array), compares fresh vs stored with named mismatch reports, numeric fields use 1e-4 relative tolerance. Fails with "fieldPath: fresh=X vs stored=Y" on any drift.
-
-**Current behavior:** 566/566 green, full-equality guard active. Next new `ResolvedDealData.*` field or any silent resolver change will trip the guard immediately.
-
-**Path to close:** Closed in Sprint 4. Follow-up (lower priority): extend coverage to the `loans` array — currently skipped because per-field drift on 400+ loans would produce unmanageable test output for a single resolver change. If needed, add a separate loan-shape regeneration test that samples a few canonical loans or compares aggregates.
-
-**Tests:** `fixture-regeneration.test.ts > "every top-level resolved.* field matches fresh resolver output (recursive full-equality)"`.
-
----
-
 <a id="ki-20"></a>
 ### [KI-20] D2 legacy escape-hatch on 6 test-factory sites (Sprint 4)
 
@@ -683,27 +580,6 @@ Both drifts had been invisible for ~20 days of active development. Every "fixtur
 **Alternative considered:** Make NR fallback a user input so the partner can override (e.g., when managers have obtained shadow ratings). Not done in Sprint 3 — adds UI surface without clear demand. Revisit if a deal ships NR loans with documented shadow ratings.
 
 **Test:** `c2-quality-forward-projection.test.ts > "every period has a qualityMetrics object with finite numbers"` covers the path. Explicit NR-convention test could be added when a fixture with meaningful NR concentration arrives.
-
----
-
-<a id="ki-25"></a>
-### [KI-25] UI back-derivation of engine values — CLOSED (2026-04-29)
-
-**Incident reference:** April 2026 "missing €1.80M of interest residual" investigation. Two confidently-wrong diagnoses across two LLM agents and the user before root cause was identified.
-
-**Pre-fix behavior:** `web/app/clo/waterfall/PeriodTrace.tsx:13-14` back-derived `equityFromInterest` as `Math.max(0, period.equityDistribution - principalAvailable)` from totals. When `principalAvailable` exceeded the residual, this silently dropped clause-DD distribution from the displayed trace. A second instance: `ProjectionModel.tsx:374` independently re-computed `bookValue` with the same formula the engine emits — two parallel implementations of the same calculation.
-
-**Quantitative magnitude:** UI displayed €0 instead of €1.80M of equity-from-interest in Q1 of Euro XV. Engine output was correct throughout; the UI was lying about which values came from where. No engine number was wrong.
-
-**Fix:**
-1. `period.stepTrace.equityFromInterest` and `equityFromPrincipal` now consumed directly by the UI via `web/app/clo/waterfall/period-trace-lines.ts` (pure helper). `PeriodTrace.tsx` is now a thin renderer over engine output.
-2. `result.initialState.equityBookValue` and `result.initialState.equityWipedOut` added to engine output. UI reads these directly; the parallel UI computation deleted.
-3. Service module `web/lib/clo/services/inception-irr.ts` extracted from inline UI useMemo — accepts engine output + user inputs, returns IRR result. Pure-function, unit-tested.
-4. AST enforcement test `lib/clo/__tests__/architecture-boundary.test.ts` codifies four anti-patterns (UI arithmetic on `inputs.*`, back-derivation from `period.equityDistribution`, raw reads of `resolved.principalAccountCash` in arithmetic, re-deriving `Math.max(0, loans - debt)` book-value formula). Per-occurrence opt-out via `// arch-boundary-allow: <ruleId>`.
-
-**Path to close:** Closed. See `CLAUDE.md § Engine-as-Source-of-Truth (CLO modeling)` for the layering rules and `/docs/plans/2026-04-29-engine-ui-separation-plan.md` (repo root, not `web/docs/`) for the full implementation history.
-
-**Tests:** `app/clo/waterfall/__tests__/period-trace-lines.test.ts` (engineField completeness + per-row engine equality + acceleration handling). `lib/clo/__tests__/inception-irr.test.ts` (default anchor, user override, counterfactual, terminal, empty, subNotePar≤0, equityWipedOut, plus the post-v6 plan §3.2 mark-to-model modes). `lib/clo/__tests__/architecture-boundary.test.ts` (regression-prevention).
 
 ---
 
@@ -1268,100 +1144,6 @@ When `classATranche === undefined` (any deal whose senior tranche is named "Clas
 
 ---
 
-<a id="ki-45"></a>
-### [KI-45] `ProjectionModel.tsx` useMemo dep arrays missing fee-related state vars — engine runs stale on slider drag
-
-**Context:** The engine `inputs` and `userAssumptions` memos are the single point of state translation between the UI sliders and `runProjection`. A missing dep silently makes the engine ignore that slider — the partner moves the dial, the IRR/distributions/OC ratios do not update, and there is no visible signal that the projection is stale.
-
-**Current engine behavior:**
-
-- `web/app/clo/waterfall/ProjectionModel.tsx:393-438` — the `inputs` memo body reads `taxesBps`, `issuerProfitAmount`, `adminFeeBps`, `seniorExpensesCapBps` (lines 418-422). Its dep array (lines 431-437) lists `seniorFeePct, subFeePct, trusteeFeeBps, hedgeCostBps, incentiveFeePct, incentiveFeeHurdleIrr` but **omits `taxesBps`, `issuerProfitAmount`, `adminFeeBps`, `seniorExpensesCapBps`**. Verified by direct file read.
-- `web/app/clo/waterfall/ProjectionModel.tsx:457-496` — the `userAssumptions` memo (consumed by `SwitchSimulator`) has the same omission for the same four fields, plus `callMode` is read at line 473 but missing from the dep array (line 491 dep list).
-
-Net effect: when the user adjusts Taxes, Issuer Profit, Admin Fee, or Senior Expenses Cap — and only those — the engine does not re-run. The next unrelated slider change re-triggers the memo and the cap'd state finally flushes through; until then the partner sees a number computed against stale fee inputs.
-
-**PPM-correct behavior:** Every variable read inside a `useMemo` body must be present in the dep array (React `react-hooks/exhaustive-deps` invariant). Memo correctness is independent of the model: the engine reads what the memo passes, and the memo passes whatever was current when last triggered.
-
-**Quantitative magnitude:** A user who moves any of the four sliders and stops there sees the engine continue running on the prior value until an unrelated slider re-triggers the memo. Per-bps drift on Euro XV (91-day quarter): `1 bps × €493,252,343 × 91/360 ≈ €12,464` per period. Direct effect on `taxesBps` and `issuerProfitAmount` (engine consumes immediately, partner-visible drift is the slider movement × per-bps factor / per-€ factor). For `adminFeeBps` and `seniorExpensesCapBps` the effect is conditional: the cap binds only when `trusteeFeeBps + adminFeeBps > seniorExpensesCapBps`. Euro XV current observed combined ~5.24 bps (KI-08) vs default cap 20 bps — cap NOT binding. A drag from cap 20 → 4 bps takes the cap below combined; clipped amount = `(5.24 − 4) × 12,464 ≈ €15,455` per period until the next slider movement re-flushes the memo. Under any stress scenario where the cap binds at baseline, the gap is the slider movement × per-bps factor.
-
-**Deferral rationale:** None — this is a UI bug, not a model gap. Latency is the entire failure mode (silent incorrectness during slider exploration).
-
-**Path to close:**
-1. `ProjectionModel.tsx:431-437` — add `taxesBps`, `issuerProfitAmount`, `adminFeeBps`, `seniorExpensesCapBps` to the `inputs` memo dep array.
-2. `ProjectionModel.tsx:490-495` — add the same four plus `callMode` to the `userAssumptions` memo dep array.
-3. Enable the `react-hooks/exhaustive-deps` ESLint rule project-wide (`web/.eslintrc` or equivalent) so this regression cannot land again. The rule would have caught both omissions at lint time.
-
-**Test:** No active marker. After the dep-array fix lands, add a Playwright/unit test that asserts changing each of the four fee sliders triggers a non-zero diff in `result.totalEquityDistributions`. The architecture-boundary test does not catch this category — it scans for layer violations, not for memo-dep correctness.
-
----
-
-<a id="ki-46"></a>
-### [KI-46] `WaterfallVisualization.tsx` local `formatAmount` hardcodes `$` on EUR-denominated trustee amounts
-
-**Context:** Euro XV is EUR-denominated. The Waterfall surface renders trustee-reported step amounts and tranche balances — all of which are partner-facing and currency-sensitive.
-
-**Current engine behavior:** `web/app/clo/waterfall/WaterfallVisualization.tsx:68-73`:
-
-```
-function formatAmount(val: number | null): string {
-  if (val === null || val === undefined) return "—";
-  if (Math.abs(val) >= 1e6) return `$${(val / 1e6).toFixed(2)}M`;
-  if (Math.abs(val) >= 1e3) return `$${(val / 1e3).toFixed(1)}K`;
-  return `$${val.toFixed(2)}`;
-}
-```
-
-Local helper, hardcoded `$` symbol, used at lines 225, 230, 235, 390, 395, 398, 416 (verified — seven call sites, all rendering currency amounts on a partner-visible panel; `grep -c "formatAmount("` returns 8, but the eighth match is the function declaration at line 68). The shared `formatAmount` lives at `app/clo/waterfall/helpers.ts:5` and is correctly imported by sibling components (`PeriodTrace.tsx:3`, `ModelInputsPanel.tsx:6`); the local version in `WaterfallVisualization.tsx` shadows it.
-
-**PPM-correct behavior:** Currency derives from the deal. `resolved.metadata` (or equivalent) carries the deal currency; the formatter should accept a `currency` param or be replaced with the shared helper that already handles this.
-
-**Quantitative magnitude:** Zero numerical impact (the underlying values are correct). Pure presentation lie. Materially erodes partner trust on a deal where every other surface correctly shows €.
-
-**Deferral rationale:** None — UI bug.
-
-**Path to close:**
-1. Delete the local `formatAmount` at `WaterfallVisualization.tsx:68-73`.
-2. Import the shared `formatAmount` from the helpers module (verify which one is canonical — `app/clo/waterfall/helpers.ts` or wherever the equivalent function lives).
-3. Pass the deal currency through props or pull from `resolved.metadata` if the shared helper takes a currency parameter.
-4. Add a regression sweep — grep `web/app/clo/` for ` \\$\\$\\{` or `\`\\$` to confirm no other site has the same hardcode.
-
-**Test:** No active marker. After the fix, add a unit test on `WaterfallVisualization` that snapshots a EUR amount and asserts `€` appears in the output, not `$`.
-
----
-
-<a id="ki-47"></a>
-### [KI-47] `ModelAssumptions.tsx` discloses model limitations that no longer apply (KI-01/08/09 closed; B2/B3 shipped)
-
-**Context:** `ModelAssumptions.tsx` is the partner-facing list of "what the model does NOT do." It is an audit / trust artifact — partners read it to understand model limitations. Wrong claims here do not just mislead; they degrade the credibility of the other (correct) disclosures alongside them. Audit against current engine state (verified 2026-04-30) found five stale entries.
-
-**Stale items (verified):**
-
-| Line | Current text (truncated) | Status | Engine evidence |
-|---|---|---|---|
-| 30 | *"No day count conventions: Interest accrues as simple quarterly fractions (annual rate / 4)…"* | Stale | `dayCountFraction("actual_360"\|"30_360", periodStart, periodEnd)` live at `projection.ts:841-860`; applied across the period loop (lines 1370-1383, 1672, 1696, 1698, 2075, 2136, 2239). B3 closed Sprint 1. |
-| 32 | *"Fixed-rate bonds accrue quarterly: All fixed-rate positions accrue interest as annual coupon / 4…"* | Partially stale | Tranche-side: `trancheDayFrac(t)` at `projection.ts:1382-1383` differentiates fixed (30/360) from floating (Actual/360). Asset-side: per-loan day-count is uniformly Actual/360 — that is [KI-28](#ki-28). The disclosure conflates the two. |
-| 49 | *"No Senior Expenses Cap: Real deals cap total non-management expenses…"* | Stale | C3 shipped Sprint 3. `seniorExpensesCapBps` is a `ProjectionInputs` field; engine jointly caps trustee + admin and routes overflow to PPM steps (Y) and (Z). See [KI-08](#ki-08), [KI-16](#ki-16). |
-| 57 | *"No post-acceleration waterfall: Following an Event of Default, the real waterfall collapses into a simplified combined priority. This distressed scenario is not modeled."* | Stale | B2 shipped Sprint 2. `runPostAccelerationWaterfall` at `projection.ts:652`; `POST_ACCEL_SEQUENCE` at `waterfall-schema.ts:58-74`. |
-| 60 | *"No discount obligation haircut: Assets purchased below 85% of par should be carried at purchase price in OC calculations. The model only applies CCC excess haircuts."* | Partially stale | Engine applies `discountObligationHaircut` from `parValueAdjustments` at `projection.ts:1241, 1994`. Static snapshot only — not recomputed forward through reinvestment. That is [KI-29](#ki-29); the disclosure should describe the static-snapshot limitation, not deny the mechanic. |
-
-**PPM-correct behavior:** N/A — documentation correctness item.
-
-**Quantitative magnitude:** Zero numerical impact. Trust impact is the load-bearing axis: a partner reading these alongside a deal IRR sees model limitations that don't exist (lines 30, 32, 49, 57) or are out-of-date (line 60), and either dismisses the model surface as not maintained OR over-corrects manually for a mechanic the engine has already applied.
-
-**Deferral rationale:** None.
-
-**Path to close:**
-1. **Delete** lines 49 ("No Senior Expenses Cap") and 57 ("No post-acceleration waterfall") — both fully closed, no residual gap to disclose.
-2. **Reword** line 30 to: *"Day-count is Actual/360 (floating) and 30/360 US (fixed) per tranche. 30E/360 European and Actual/365 conventions for fixed-rate assets remain unmodeled — see [KI-28](#ki-28)."*
-3. **Reword** line 32 to: *"Tranche fixed-rate accrual uses 30/360 US. Asset-side fixed-rate accrual uses Actual/360 — asymmetric, ~€4,335/quarter drift on Euro XV's fixed-rate slice. See [KI-28](#ki-28)."*
-4. **Reword** line 60 to: *"Discount and long-dated obligation haircuts are static snapshots from the trustee report at projection start, not recomputed forward through reinvestment — see [KI-29](#ki-29)."*
-5. Treat `ModelAssumptions.tsx` as a partner-facing extension of this ledger. Each disclosure line should map to either (a) an open KI here, OR (b) a deliberate scope decision that is also documented here. Items mapping to neither are stale.
-6. Add a CI-time check (a vitest test that scans `ModelAssumptions.tsx` for any line referencing a KI number and verifies the cited KI exists in the Open or Latent or Deferred sections of this ledger; build fails if any cited KI is in the Closed section without the disclosure line being deleted/reworded).
-
-**Test:** No active marker. After the rewording lands, the CI-time check above pins the discipline (and would catch this category of drift on every future PR).
-
----
-
 <a id="ki-48"></a>
 ### [KI-48] `period-trace-lines` amortising-tranche heuristic is described in a comment but never implemented
 
@@ -1541,59 +1323,6 @@ This fires only when the source data did not populate `isPassing` (a fallback pa
 4. Audit downstream consumers of `isPassing` to confirm whether they trust this flag or recompute. Document the answer here.
 
 **Test:** No active marker. After the fix, the directional unit tests above pin both families.
-
----
-
-<a id="ki-52"></a>
-### [KI-52] Forward-period EoD test principal-cash component hardcoded to 0 — CLOSED (commit `e3d5f1e`, 2026-04-23)
-
-**Reconstructed retroactively (2026-04-30):** Bijection bookkeeping. The fix shipped without a ledger entry; this entry exists so the closure trail is auditable.
-
-**PPM reference:** Condition 10(a)(iv) Adjusted Collateral Principal Amount (compositional EoD numerator). The numerator is the sum of: (1) APB of non-defaulted obligations, (2) MV × PB of defaulted obligations, (3) Principal Proceeds in the Principal Account on the Measurement Date. Component (3) is structurally part of the numerator — omitting it makes the test insensitive in distressed scenarios where principal cash is the largest contributor.
-
-**Pre-fix behavior:** The forward-period EoD test in the engine's per-period loop passed `0` to `computeEventOfDefaultTest` for the principal-cash argument, regardless of the period's actual residual principal cash. Under stress (defaults spiking, reinvestment opportunities shrinking, post-RP with throttled reinvestment), the principal account is strictly positive at measurement and forms component (3) of the compositional numerator. Hardcoding to zero under-counted the numerator and made forward-loop EoD detection insensitive in exactly the distressed scenarios the test exists to catch.
-
-**Fix (commit `e3d5f1e`, 2026-04-23):** Replaced the hardcoded `0` with `remainingPrelim` — the principal proceeds still parked on the Principal Account after the first paydown pass and before any further distribution, the same quantity used in the class OC numerator construction at `projection.ts:1994`. Rationale documented in the 10-line comment block at `projection.ts:2054-2063`.
-
-**Quantitative magnitude:** Zero on Euro XV base case (no forward EoD breach in the projection horizon). Magnitude under stress depends on `remainingPrelim` per period — in heavy-loss scenarios it can be in the tens of millions of €, capable of flipping the EoD test from "passing" (numerator under-counted) to "failing" (numerator correct).
-
-**Cross-references:**
-- The OTHER forward-period EoD bug at `projection.ts:2050-2053` — literal `"Class A"` string match instead of `seniorityRank`-based discovery — is tracked separately as [KI-43](#ki-43). Both bugs lived in the same code block and KI-43 remains open. The two were not fixed together.
-- The T=0 path for the principal-cash component uses `initialPrincipalCash` correctly (`projection.ts:1314`).
-
-**Verification:** `n1-correctness.test.ts` and `b1-event-of-default.test.ts` continue to pass. The fix did not introduce new markers because the bug was latent on Euro XV (no forward breach in the test scenarios).
-
-**Test:** No retrospective marker — the bug was not pinned by `failsWithMagnitude` before closure. A regression would manifest as the principal-cash bucket reading 0 in `numeratorComponents.principalCash` under a stress scenario; KI-43's planned synthetic-fixture #10 (post-v6 plan §6.1) covers this region.
-
----
-
-<a id="ki-53"></a>
-### [KI-53] `ppm-step-map.ts` docstring drift on closed buckets (bijection violation, same shape as KI-42)
-
-**Context:** `ppm-step-map.ts` is the canonical mapping from engine `EngineBucket` field names to PPM step codes. The docstring annotations on each bucket (`// step a.i — NOT EMITTED by engine (KI-XX)`) are a load-bearing reading aid — a future engineer modifying the engine reads these to understand which buckets have shipped. The annotations have drifted away from current code state in the same shape [KI-42](#ki-42) documents for `failsWithMagnitude`.
-
-**Current engine behavior:** Verified at `web/lib/clo/ppm-step-map.ts`:
-- **Line 95 comment block:** `// Buckets the engine does NOT emit (A(i) taxes, A(ii) Issuer Profit, D, V, Y, Z, AA, BB) are modeled as zero by the harness — see KI-01/02/03/05/06`. A.i / A.ii / Y / Z are no longer in this set.
-- **Line 102:** `| "taxes"               // step a.i  — NOT EMITTED by engine (KI-01)`. Stale on two counts: (a) `taxes` IS emitted via `seniorExpenseBreakdown.taxes` at `projection.ts:2451`; (b) the relevant KI for the taxes mechanic is [KI-09](#ki-09), not [KI-01](#ki-01). KI-09 is CLOSED.
-- **Line 103:** `| "issuerProfit"        // step a.ii — NOT EMITTED by engine (KI-01)`. KI-01 is CLOSED. Engine emits via `seniorExpenseBreakdown.issuerProfit` at `projection.ts:2452`.
-- **Line 127:** `| "trusteeOverflow"     // step y    — NOT EMITTED by engine pre-C3 (KI for Sprint 3)`. C3 shipped Sprint 3. Engine emits `trusteeOverflowPaid` at `projection.ts:2356, 2460` (see [KI-08](#ki-08)).
-- **Line 128:** `| "adminOverflow"       // step z    — NOT EMITTED by engine pre-C3`. Same as line 127 — C3 closed.
-
-**PPM-correct behavior:** N/A — code-comment correctness item.
-
-**Quantitative magnitude:** Zero numerical impact. Affects every future PR that touches the waterfall — a reader checking "has this bucket shipped?" against the docstring gets the wrong answer for at least four buckets, and may then either re-implement an already-shipped mechanic or skip a closed-KI cleanup that was the actual goal.
-
-**Deferral rationale:** Same shape as [KI-42](#ki-42) (`failsWithMagnitude` discipline gap on day-count residuals): a bijection bookkeeping violation between the ledger's recorded closures and the code's recorded state. Distinct site (code docstrings instead of test markers) but the same correctness-trail breach.
-
-**Path to close:**
-1. Refresh line 102 to: `// step a.i — emitted via seniorExpenseBreakdown.taxes (KI-09 closed Sprint 3)`.
-2. Refresh line 103 to: `// step a.ii — emitted via seniorExpenseBreakdown.issuerProfit (KI-01 closed Sprint 4)`.
-3. Refresh line 127 to: `// step y — emitted as trusteeOverflowPaid (C3 closed Sprint 3, KI-08 partial)`.
-4. Refresh line 128 to: `// step z — emitted as adminOverflowPaid (C3 closed Sprint 3, KI-08 partial)`.
-5. Update the line 95 comment block to remove A.i / A.ii / Y / Z from the "modeled as zero by the harness" enumeration.
-6. Add a CI-time check (a vitest test that scans `ppm-step-map.ts` for any `NOT EMITTED` annotation and verifies the cited KI is in the Open or Latent or Deferred sections of this ledger; build fails if any cited KI is in the Closed section). Same shape as the [KI-47](#ki-47) check for `ModelAssumptions.tsx`.
-
-**Test:** No active marker. After the refresh lands, the CI check above pins the discipline (and would catch this category of drift on every future PR).
 
 ---
 

@@ -64,7 +64,7 @@ describe("fixture regeneration probe", () => {
     expect(resolved.fees.subFeePct).toBeCloseTo(fixture.resolved.fees.subFeePct, 4);
   });
 
-  // KI-22 — Recursive full-equality guard on every top-level `resolved.*`
+  // Recursive full-equality guard on every top-level `resolved.*`
   // field. The original spot-check tests above cover individual patched
   // fields but missed silent drift for ~20 days (caught at D4 ship:
   // top10ObligorsPct never populated in fixture, pctSecondLien: 0 → null

@@ -3,11 +3,12 @@
 import React, { useState } from "react";
 import type { ResolvedDealData } from "@/lib/clo/resolver-types";
 import type { ProjectionInputs } from "@/lib/clo/projection";
-import { formatAmount } from "./helpers";
+import { useFormatAmount } from "./CurrencyContext";
 import { CitationTooltip } from "@/components/clo/CitationTooltip";
 
 export function ModelInputsPanel({ resolved, inputs }: { resolved: ResolvedDealData; inputs: ProjectionInputs }) {
   const [open, setOpen] = useState(false);
+  const formatAmount = useFormatAmount();
 
   const sourceBadge = (source: string) => {
     const colors: Record<string, string> = {

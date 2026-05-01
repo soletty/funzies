@@ -91,16 +91,18 @@ export function normalizePpmStepCode(description: string | null | undefined): Pp
 //   - sum trustee-reported amounts across the step codes a bucket covers
 //   - compare that sum against the engine's emitted bucket amount
 //
-// Buckets the engine does NOT emit (A(i) taxes, A(ii) Issuer Profit, D, V,
-// Y, Z, AA, BB) are modeled as zero by the harness — see KI-01/02/03/05/06
-// in the known-issues ledger. The corresponding trustee rows are mostly zero
-// for Euro XV Q1 as well, so deltas are trivial.
+// Buckets the engine does NOT emit (D, V, AA, BB) are modeled as zero by
+// the harness — see KI-02/03/06 in the known-issues ledger. The
+// corresponding trustee rows are mostly zero for Euro XV Q1 as well, so
+// deltas are trivial. Step A(i) taxes, A(ii) issuer profit, Y trustee
+// overflow + Z admin overflow ARE emitted — see per-bucket annotations
+// below.
 
 /** Semantic names for the buckets the engine emits in `PeriodResult.stepTrace`
  *  and adjacent PeriodResult fields. */
 export type EngineBucket =
-  | "taxes"                 // step a.i  — NOT EMITTED by engine (KI-01)
-  | "issuerProfit"          // step a.ii — NOT EMITTED by engine (KI-01)
+  | "taxes"                 // step a.i  — emitted via seniorExpenseBreakdown.taxes
+  | "issuerProfit"          // step a.ii — emitted via seniorExpenseBreakdown.issuerProfit
   | "trusteeFeesPaid"       // step b    — Sprint 3 / C3 split from admin
   | "adminFeesPaid"         // step c    — Sprint 3 / C3 split from trustee
   | "expenseReserve"        // step d    — NOT EMITTED by engine (KI-02)
@@ -124,8 +126,8 @@ export type EngineBucket =
   | "effectiveDateRating"   // step v    — NOT EMITTED by engine (KI-03)
   | "reinvOcDiversion"      // step w
   | "subMgmtFeePaid"        // steps x.1 + x.2 + x.3 (bundled)
-  | "trusteeOverflow"       // step y    — NOT EMITTED by engine pre-C3 (KI for Sprint 3)
-  | "adminOverflow"         // step z    — NOT EMITTED by engine pre-C3
+  | "trusteeOverflow"       // step y    — emitted as trusteeOverflowPaid (KI-08 / C3 closed Sprint 3)
+  | "adminOverflow"         // step z    — emitted as adminOverflowPaid (KI-08 / C3 closed Sprint 3)
   | "defaultedHedgeTermination" // step aa — NOT EMITTED by engine (KI-06)
   | "supplementalReserve"   // step bb   — NOT EMITTED by engine (KI-05)
   | "incentiveFeePaid"      // step cc

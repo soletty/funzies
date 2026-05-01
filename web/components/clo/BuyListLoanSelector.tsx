@@ -99,7 +99,7 @@ export default function BuyListLoanSelector({ onSelect }: BuyListLoanSelectorPro
                 item.sector,
                 formatRating(item),
                 item.spreadBps != null ? `${item.spreadBps}bps` : null,
-                item.price != null ? `$${item.price}` : null,
+                item.price != null ? `@${item.price}` : null,
               ]
                 .filter(Boolean)
                 .join(" \u00B7 ")}

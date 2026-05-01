@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import type { CloHolding } from "@/lib/clo/types";
+import { currencySymbol } from "@/app/clo/waterfall/helpers";
 
 interface PortfolioHoldingSelectorProps {
   onSelect: (holding: CloHolding) => void;
@@ -38,8 +39,9 @@ export default function PortfolioHoldingSelector({ onSelect }: PortfolioHoldingS
 
   function formatPar(h: CloHolding): string {
     if (h.parBalance == null) return "-";
-    if (h.parBalance >= 1_000_000) return `$${(h.parBalance / 1_000_000).toFixed(1)}M`;
-    return `$${(h.parBalance / 1_000).toFixed(0)}K`;
+    const sym = currencySymbol(h.currency);
+    if (h.parBalance >= 1_000_000) return `${sym}${(h.parBalance / 1_000_000).toFixed(1)}M`;
+    return `${sym}${(h.parBalance / 1_000).toFixed(0)}K`;
   }
 
   return (

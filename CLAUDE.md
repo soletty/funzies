@@ -210,10 +210,10 @@ When reviewing or generating a PR that touches `web/app/**`:
 ### Why this matters (incident record)
 
 In April 2026 a "missing equity-from-interest residual" investigation
-consumed roughly two hours across three agents (two LLMs + the user) and
-multiple cross-checks against trustee PDFs, SDF CSVs, and the Intex
-DealCF export. Two confidently-wrong diagnoses were filed before root
-cause was identified: a four-line back-derivation in
+required three-agent cross-validation (two LLMs + the user) against
+trustee PDFs, SDF CSVs, and the Intex DealCF export. Two
+confidently-wrong diagnoses were filed before root cause was
+identified: a four-line back-derivation in
 `PeriodTrace.tsx:13-14` that computed `equityFromInterest` as
 `max(0, equityDistribution - principalAvailable)` from totals, instead
 of reading `period.stepTrace.equityFromInterest` (which the engine had
@@ -239,3 +239,179 @@ the inability to ship a partner-facing surface (PDF export, slide deck,
 chat assistant) without re-implementing or re-validating every
 computation. This is the failure mode the layering above exists to
 prevent. Treat violations as P1 bugs.
+
+---
+
+## Recurring failure modes (anti-patterns)
+
+These are the failure shapes the known-issues ledger
+(`web/docs/clo-model-known-issues.md`) keeps surfacing across audits.
+Each principle exists because we shipped, or nearly shipped, a wrong
+partner-facing number that this rule would have caught. When you write
+or review code that touches any axis below, the rule is the default;
+deviations require a written rationale.
+
+### 1. Don't overfit to a single deal
+
+Identify tranches by `seniorityRank`, never by `className === "Class A"`
+(or "Class A-1", or any literal). Currency, day-count convention,
+payment frequency, OC trigger thresholds, CCC market-value floors, and
+incentive-fee hurdles come from extracted `resolved.*` fields — never
+from global constants in `defaults.ts`. Hardcoded column offsets in
+parsers are bugs; drive from the source file's header row and fail
+loud on schema mismatch. Before any merge that touches these axes,
+test against at least one synthetic non-Euro-XV fixture
+(differently-named tranches, different cap structure, different
+currency, etc.).
+
+**Why:** the T=0 Event-of-Default test was originally string-matched on
+`"Class A"`. The fix retired the pattern at T=0 with a 6-line warning
+comment; the forward-period block then regressed to the same pattern
+(KI-43). On any deal whose senior tranche is named "Class A-1" or
+similar, EoD detection is silently disabled — the test always
+passes. This is the failure shape: silent on Euro XV, catastrophic on
+the next deal. See KI-43, KI-39, KI-30, KI-41.
+
+### 2. Partner-facing claims are mechanically bound to engine state
+
+Any UI surface that says "the model does NOT do X" or any engine
+docstring that says `// NOT EMITTED by engine (KI-XX)` must carry a
+`KI-XX` annotation referencing the known-issues ledger. CI fails if
+the annotation references a CLOSED KI. Disclosures and engine
+docstrings are partner-facing extensions of the ledger; when a fix
+ships, the disclosure and the docstring move or delete in the same PR.
+
+**Why:** `ModelAssumptions.tsx` ran for months with five disclosures
+that contradicted shipped engine state (e.g. "No Senior Expenses Cap"
+while the cap had been live since C3). `ppm-step-map.ts` labelled four
+buckets `NOT EMITTED` after the closures shipped. Documentation drifts
+away from code unless something mechanically binds them — that bind is
+now `web/lib/clo/__tests__/disclosure-bijection.test.ts`. See KI-42 for
+the analogous discipline gap on `failsWithMagnitude` markers.
+
+### 3. Silent fallbacks on extraction failures are bugs, not defaults
+
+When the resolver cannot extract a per-deal **computational** value
+(diversion %, incentive-fee hurdle, CCC threshold, day-count
+convention, maturity, OC trigger thresholds), the resolver MUST emit
+`severity: "error"` and the projection MUST refuse to run. Render a
+"DATA INCOMPLETE" banner with the missing fields enumerated. Never
+run with a "common default" guess. The cost of a partner seeing
+nothing is much lower than the cost of a partner seeing a
+plausible-but-wrong number with no warning.
+
+**Display-only metadata** (currency symbol, deal name, manager name)
+is a narrow exception: the resolver emits `severity: "warn"` and the
+UI surfaces a banner, but the projection runs because the numerical
+output is correct — only the symbol is wrong. The carve-out applies
+only when (a) the missing field cannot affect any computation and
+(b) a banner clearly attributes the unknown symbol to the data gap
+(currently: `MissingCurrencyBanner` in `CurrencyContext.tsx`).
+Anything that touches a flow, a ratio, a fee base, or a date schedule
+is computational and blocks.
+
+**Current open violations of the prescriptive form:** KI-40
+(diversion %) and KI-41 (incentive hurdle) still fall back silently
+to a "common default" — they should block per this rule but
+currently warn. Closing each requires either real extraction or
+the block-and-banner pattern.
+
+**Why:** a 100%-diversion deal modeled with the 50% fallback
+over-states equity distributions by 50% of every diverted period. A
+15%-hurdle deal modeled with the 12% fallback fires the incentive fee
+earlier than it should. Both are silent today on Euro XV (extraction
+succeeds); both are catastrophic on the next deal where extraction
+misses. See KI-40, KI-41, KI-30.
+
+### 4. Display equals engine output. Always.
+
+The UI never derives a value from engine output via arithmetic. If a
+number is not on `result.*` / `period.*` / `period.stepTrace.*`, the
+fix is to add it to the engine, not to compute it in the UI. The
+per-period `stepTrace` fields MUST emit **actually-paid** amounts
+under the truncation rules of the cash-flow path, never the requested
+amounts. `Σ stepTrace.* (interest waterfall buckets)` MUST tie to
+`interestCollected` to the cent; if it doesn't, the trace is lying
+and a partner-facing aggregator will surface the lie. The
+`architecture-boundary.test.ts` AST guard scopes the UI side; the
+engine side is enforced by code review against this rule.
+
+**Current open violation of the actually-paid invariant:** KI-49
+documents seven `stepTrace` fields (sub mgmt fee + six senior
+expense buckets) that emit requested amounts even when interest is
+exhausted. Until KI-49 closes, any partner-visible aggregator that
+sums these fields under stress will overstate fees and understate
+the equity residual. New aggregators should be reviewed against the
+KI-49 list explicitly.
+
+**Why:** the April 2026 incident (described in the
+Engine-as-Source-of-Truth section above) required three-agent
+cross-validation against trustee PDFs, SDF CSVs, and the Intex DealCF
+export to diagnose a four-line UI back-derivation that produced €0
+instead of €1.80M. KI-49 is the same shape displaced one layer deeper
+— engine emits requested-not-paid for seven trace fields, so the
+partner-visible trace overstates fees and understates the equity
+residual under stress. Same failure mode, same silent erosion of
+trust. See KI-49.
+
+### 5. Boundaries assert sign and scale
+
+Numbers crossing a layer boundary (parser → resolver, resolver →
+engine, engine → service, service → UI) carry their sign convention
+and scale invariant in both the type and the variable name.
+`principalAccountCash` is signed (overdrafts negative).
+`currentPrice` / `marketValue` are percent of par (0–100).
+`spreadBps` is basis points. Boundary code that converts must either
+preserve the invariant or assert-and-throw on violation. Silent
+re-interpretation is the failure shape behind nearly half this
+ledger. Add boundary unit tests on every parser and on every resolver
+field with a documented invariant.
+
+**Why:** `parseNumeric` in the SDF parser strips commas without locale
+awareness — a European-format `"1.500.000,00"` parses as `1.5`, a
+1,000,000× error (KI-50). `normalizeComplianceTestType` derives
+`isPassing` as `actual >= trigger` for all directions, including
+lower-is-better tests like WARF (KI-51). The disputed KI-44 candidate
+turned on whether `Market_Value` was percent or absolute — verifiable
+only by reading the spec, the parser, and the consumer together; the
+type system carried no invariant. See KI-50, KI-51, KI-08
+sign-convention block.
+
+### 6. Missing memoization deps are silent
+
+A React `useMemo` / `useEffect` / `useCallback` whose body reads a
+state variable not in its dep array silently freezes that variable's
+value. The user moves a slider, the engine does not re-run, and the
+partner sees a number computed against the prior input — with no
+visible signal that the projection is stale. This is the same failure
+shape as principle 4 (UI displaying a value derived from prior state)
+displaced one layer up: instead of the UI re-deriving from engine
+output, the engine itself runs on stale inputs because the UI's input
+construction is stale. The `react-hooks/exhaustive-deps` ESLint rule
+catches the dep-declaration form of this bug structurally — the most
+common shape — and must be set to `error` project-wide so a missing
+dep cannot land. The rule does not catch every staleness pattern
+(stale refs in async callbacks, dep identity churn from inline object
+literals, etc.); those still need code review. UI-side memoizations
+whose output is consumed by `runProjection` (or any pure engine entry
+point) are part of the model's correctness surface, not just
+performance.
+
+**Why:** `ProjectionModel.tsx`'s `inputs` memo once omitted `taxesBps`,
+`issuerProfitAmount`, `adminFeeBps`, and `seniorExpensesCapBps` from
+its dep array; the parallel `userAssumptions` memo omitted the same
+four plus `callMode`. Any partner who dragged one of those four sliders
+during exploration saw the IRR / OC ratios / distributions stay
+frozen until an unrelated slider re-triggered the memo. The bug was
+invisible at runtime — every `runProjection` call returned a "valid"
+result, just one computed against the prior slider state. The lint
+rule promoted to `error` is the structural backstop; per-slider
+Playwright assertions would only cover the sliders we remember to
+write tests for.
+
+---
+
+When in doubt about whether a piece of code violates one of these
+principles, the test is: does this code still produce the right
+number on a deal that doesn't look like Euro XV? If not, it's a
+violation.

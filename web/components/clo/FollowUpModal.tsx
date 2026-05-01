@@ -110,7 +110,7 @@ export default function CloFollowUpModal({
         setLoaded(true);
       })
       .catch(() => setLoaded(true));
-  }, [panelId]);
+  }, [panelId, defaultMember]);
 
   const autoResize = useCallback(() => {
     const el = textareaRef.current;

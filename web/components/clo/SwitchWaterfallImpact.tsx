@@ -6,6 +6,7 @@ import { runProjection } from "@/lib/clo/projection";
 import { applySwitch } from "@/lib/clo/switch-simulator";
 import { DEFAULT_ASSUMPTIONS, type UserAssumptions } from "@/lib/clo/build-projection-inputs";
 import { mapToRatingBucket } from "@/lib/clo/rating-mapping";
+import { formatAmount as helpersFormatAmount } from "@/app/clo/waterfall/helpers";
 
 interface LoanDescription {
   borrowerName: string;
@@ -47,16 +48,11 @@ function formatDelta(before: number | null, after: number | null): { text: strin
   };
 }
 
-function formatAmount(v: number): string {
-  if (Math.abs(v) >= 1e6) return `€${(v / 1e6).toFixed(2)}M`;
-  if (Math.abs(v) >= 1e3) return `€${(v / 1e3).toFixed(1)}K`;
-  return `€${v.toFixed(0)}`;
-}
-
 export default function SwitchWaterfallImpact({ resolved, sellLoan, buyLoan, assumptions }: Props) {
   const [sellPrice, setSellPrice] = useState(100);
   const [buyPrice, setBuyPrice] = useState(100);
   const [expanded, setExpanded] = useState(false);
+  const formatAmount = (v: number) => helpersFormatAmount(v, resolved.currency);
 
   const sellIndex = useMemo(() => {
     const sellSpread = parseSpread(sellLoan.spreadCoupon);
@@ -86,7 +82,7 @@ export default function SwitchWaterfallImpact({ resolved, sellLoan, buyLoan, ass
       { sellLoanIndex: sellIndex, sellParAmount: resolved.loans[sellIndex].parBalance, buyLoan: buyResolvedLoan, sellPrice, buyPrice },
       assumptions ?? DEFAULT_ASSUMPTIONS,
     );
-  }, [resolved, sellIndex, buyResolvedLoan, sellPrice, buyPrice]);
+  }, [resolved, sellIndex, buyResolvedLoan, sellPrice, buyPrice, assumptions]);
 
   const baseResult = useMemo(() => (switchResult ? runProjection(switchResult.baseInputs) : null), [switchResult]);
   const switchedResult = useMemo(() => (switchResult ? runProjection(switchResult.switchedInputs) : null), [switchResult]);

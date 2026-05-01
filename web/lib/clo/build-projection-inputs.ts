@@ -43,6 +43,7 @@ export const EMPTY_RESOLVED: ResolvedDealData = {
   ddtlUnfundedPar: 0,
   deferredInterestCompounds: true,
   baseRateFloorPct: null,
+  currency: null,
 };
 
 export interface UserAssumptions {
@@ -83,11 +84,11 @@ export interface UserAssumptions {
   // Pre-filled from resolved PPM data, but user has final say.
   seniorFeePct: number;
   subFeePct: number;
-  /** KI-09 — PPM step (A)(i) Issuer taxes, in bps p.a. on collateral par.
+  /** PPM step (A)(i) Issuer taxes, in bps p.a. on collateral par.
    *  Deducted before trustee fees. Back-derived from Q1 waterfall step
    *  (A)(i) via `defaultsFromResolved`. Euro XV: ~0.50 bps (€6,133 quarterly). */
   taxesBps: number;
-  /** KI-01 — PPM step (A)(ii) Issuer Profit Amount. Absolute € per period.
+  /** PPM step (A)(ii) Issuer Profit Amount. Absolute € per period.
    *  €250 regular, €500 post-Frequency-Switch on Euro XV. Back-derived from
    *  Q1 waterfall step (A)(ii) via `defaultsFromResolved`. */
   issuerProfitAmount: number;
@@ -171,10 +172,10 @@ export interface DefaultsFromResolvedRaw {
  *
  * Priority per field:
  *   - `baseRatePct` ← observed EURIBOR from `raw.trancheSnapshots[*].currentIndexRate`,
- *     else `DEFAULT_ASSUMPTIONS.baseRatePct` (2.1%). Closes KI-10.
+ *     else `DEFAULT_ASSUMPTIONS.baseRatePct` (2.1%).
  *   - `seniorFeePct` / `subFeePct` / `incentiveFeePct` / `incentiveFeeHurdleIrr`
  *     ← resolver's PPM extraction (`resolved.fees.*`), else default.
- *     Partial-close of KI-11 (fee-rate plumbing; the ~€22.35M fee-BASE
+ *     (fee-rate plumbing; the ~€22.35M fee-BASE
  *     discrepancy is KI-12a's harness mismatch, not fixed here).
  *   - `trusteeFeeBps` ← if PPM gave a non-zero extraction use it; else
  *     back-derive from `raw.waterfallSteps` B + C annualized on beginning par.
@@ -207,7 +208,7 @@ export function defaultsFromResolved(
   if (f.incentiveFeeHurdleIrr > 0) base.incentiveFeeHurdleIrr = f.incentiveFeeHurdleIrr * 100;
 
   // Trustee + admin fees + taxes: back-derive from Q1 waterfall steps.
-  // C3 split trustee/admin separately; KI-09 adds taxes (step A.i).
+  // C3 split trustee/admin separately; taxes (step A.i) added thereafter.
   const findStep = (code: string) =>
     raw?.waterfallSteps?.find(
       (s) =>
@@ -240,14 +241,14 @@ export function defaultsFromResolved(
   const stepC = findStep("C");
   const beginPar = resolved.poolSummary.totalPrincipalBalance;
 
-  // KI-09 taxes back-derive.
+  // Taxes back-derive.
   if (stepAi && beginPar > 0) {
     const bps = ((stepAi.amountPaid ?? 0) * 4 * 10000) / beginPar;
     // Sanity bound: 0 < bps < 10 is plausible for issuer taxes.
     if (bps > 0 && bps < 10) base.taxesBps = bps;
   }
 
-  // KI-01 issuer profit back-derive. Fixed absolute € per period (€250
+  // Issuer profit back-derive. Fixed absolute € per period (€250
   // regular, €500 post-Frequency-Switch on Euro XV). Sanity bound: €0–€1000
   // covers both periodic amounts with generous headroom; caps pathological
   // extractions without rejecting real values.

@@ -5,6 +5,7 @@ import { getProfileForUser, getProfileDocumentMeta, getPanelForUser, rowToProfil
 import Link from "next/link";
 import type { PanelMember } from "@/lib/clo/types";
 import type { ExtractedConstraints, ExtractedPortfolio, ComplianceTest, PortfolioMetric, ConcentrationBreakdown, CloComplianceTest, CloConcentration, CloPoolSummary, CloAccountBalance, CloEvent, CapitalStructureEntry, CloHolding } from "@/lib/clo/types";
+import { formatAmount, currencySymbol } from "./waterfall/helpers";
 import UpdateComplianceReport from "./UpdateComplianceReport";
 import DataQualityBadge from "./DataQualityBadge";
 import DocumentUploadBanner from "./DocumentUploadBanner";
@@ -194,11 +195,11 @@ function TestComplianceSection({ tests, newTests }: { tests?: ComplianceTest[]; 
   );
 }
 
-function PoolMetricsSection({ poolSummary }: { poolSummary: CloPoolSummary }) {
+function PoolMetricsSection({ poolSummary, dealCurrency }: { poolSummary: CloPoolSummary; dealCurrency: string | null }) {
   const metrics: { label: string; value: string; sub?: string }[] = [];
 
-  if (poolSummary.totalPar != null) metrics.push({ label: "Total Par", value: poolSummary.totalPar.toLocaleString() });
-  if (poolSummary.targetPar != null) metrics.push({ label: "Target Par", value: poolSummary.targetPar.toLocaleString() });
+  if (poolSummary.totalPar != null) metrics.push({ label: "Total Par", value: formatAmount(poolSummary.totalPar, dealCurrency) });
+  if (poolSummary.targetPar != null) metrics.push({ label: "Target Par", value: formatAmount(poolSummary.targetPar, dealCurrency) });
   if (poolSummary.numberOfObligors != null) metrics.push({ label: "Obligors", value: String(poolSummary.numberOfObligors) });
   if (poolSummary.numberOfAssets != null) metrics.push({ label: "Assets", value: String(poolSummary.numberOfAssets) });
   if (poolSummary.warf != null) metrics.push({ label: "WARF", value: String(poolSummary.warf) });
@@ -455,15 +456,14 @@ function AccountBalancesSection({ balances }: { balances: CloAccountBalance[] })
               {b.accountType && <span style={{ marginLeft: "0.3rem", fontWeight: 400 }}>({b.accountType})</span>}
             </div>
             <div style={{ fontSize: "1.05rem", fontWeight: 700 }}>
-              {b.balanceAmount != null ? b.balanceAmount.toLocaleString() : "N/A"}
-              {b.currency && <span style={{ fontSize: "0.75rem", fontWeight: 400, marginLeft: "0.3rem" }}>{b.currency}</span>}
+              {b.balanceAmount != null ? `${currencySymbol(b.currency)}${b.balanceAmount.toLocaleString()}` : "N/A"}
             </div>
             {b.requiredBalance != null && (
               <div style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", marginTop: "0.2rem" }}>
-                Required: {b.requiredBalance.toLocaleString()}
+                Required: {currencySymbol(b.currency)}{b.requiredBalance.toLocaleString()}
                 {b.excessDeficit != null && (
                   <span style={{ marginLeft: "0.4rem", color: b.excessDeficit >= 0 ? "var(--color-success, #22c55e)" : "var(--color-error, #ef4444)" }}>
-                    ({b.excessDeficit >= 0 ? "+" : ""}{b.excessDeficit.toLocaleString()})
+                    ({b.excessDeficit >= 0 ? "+" : ""}{currencySymbol(b.currency)}{Math.abs(b.excessDeficit).toLocaleString()})
                   </span>
                 )}
               </div>
@@ -848,7 +848,7 @@ export default async function CLODashboard() {
       {hasNewData && (
         <>
           <TestComplianceSection newTests={periodData!.complianceTests} />
-          {periodData!.poolSummary && <PoolMetricsSection poolSummary={periodData!.poolSummary} />}
+          {periodData!.poolSummary && <PoolMetricsSection poolSummary={periodData!.poolSummary} dealCurrency={deal?.dealCurrency ?? null} />}
 
           <NewConcentrationsSection concentrations={periodData!.concentrations} />
           <AccountBalancesSection balances={accountBalances} />

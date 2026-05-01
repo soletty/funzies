@@ -61,7 +61,7 @@ const fixture = JSON.parse(readFileSync(FIXTURE_PATH, "utf8")) as {
 // `trusteeFeeBps` from the Q1 waterfall (B + C) — no longer a "circular pin"
 // under interpretation B (engine runs Q2, harness compares to Q1, so Q1 data
 // as forward estimate is legitimate). Remaining drift = KI-12a period
-// mismatch + KI-12b day-count + KI-01/09 engine-does-not-model.
+// mismatch + KI-12b day-count.
 // ----------------------------------------------------------------------------
 
 const projectionInputs = buildFromResolved(
@@ -246,18 +246,18 @@ describe("N1 correctness — currently broken buckets (documented in KI ledger)"
   failsWithMagnitude(
     {
       ki: "KI-13a-engineMath",
-      closesIn: "Progressively as KI-01 / KI-08 / KI-09 / KI-12a / KI-12b close (re-baseline on each)",
+      closesIn: "Progressively as KI-08 / KI-12a / KI-12b close (re-baseline on each)",
       // Sign history: pre-B3 −€607, post-B3 +€20,842, **post-D3 −€44,541**.
       //
       // Why the pre-D3 → post-D3 shift is a clean one-KI delta:
       //   Pre-D3 n1-correctness used legitPinnedAssumptions which ALREADY pinned
-      //   baseRate (KI-10 equivalent) + senior/sub/incentive fees (KI-11) from
+      //   baseRate + senior/sub/incentive fees from
       //   resolved.fees + observed EURIBOR. The ONLY field defaultsFromResolved
       //   adds on top is trusteeFeeBps back-derived from Q1 waterfall (KI-08).
       //   So the cascade shift between pre-D3 and post-D3 measurements is purely
       //   KI-08 closure — not a multi-KI compound. Every other drift line
       //   (class interest KI-12b, mgmt fee KI-12a day-count, taxes/issuerProfit
-      //   KI-09/01) is unchanged between pre-D3 and post-D3.
+      //   engine deductions) are unchanged between pre-D3 and post-D3.
       //
       // Arithmetic check:
       //   Pre-D3 trusteeFeesPaid drift: −€64,660 (engine 0, trustee 64,660)
@@ -274,14 +274,14 @@ describe("N1 correctness — currently broken buckets (documented in KI ledger)"
       //   Σ(class interest KI-12b drifts): +€48,019 (outflow)
       //   Σ(mgmt fee KI-12a day-count drifts): +€34,792 (outflow)
       //   trusteeFee drift: +€722 (KI-08 residual, ~zero)
-      //   taxes + issuerProfit drifts: −€6,383 (KI-09 + KI-01, engine doesn't model)
+      //   taxes + issuerProfit drifts: −€6,383 (taxes + issuerProfit, pre-engine-emission)
       //   Σ of non-sub drifts: +€77,150
       //   Sub residual = 32,577 − 77,150 = −€44,573 ✓ (matches measured to €30)
-      // Sprint 4 / KI-01 closure: engine now deducts €250 issuer profit per
+      // Engine now deducts €250 issuer profit per
       // period (PPM step A.ii). Subs receive €250 less → drift more negative
-      // by €250. Pre-KI-01: -€50,742.24. Post-KI-01: -€50,992.24. Matches
+      // by €250. Pre-emission: -€50,742.24. Post-emission: -€50,992.24. Matches
       // engine emission of €250 to the cent (fixed absolute amount, no
-      // day-count residual like KI-09 taxes).
+      // day-count residual like taxes).
       expectedDrift: -50992.24,
       tolerance: 50,
       closeThreshold: 50,
@@ -299,7 +299,7 @@ describe("N1 correctness — currently broken buckets (documented in KI ledger)"
 // ----------------------------------------------------------------------------
 
 describe("N1 correctness — engine-does-not-model steps (KI ledger commitments)", () => {
-  it("KI-09 CLOSED: engine emits taxes (~€6,202), ties to trustee €6,133 within €100", () => {
+  it("engine emits taxes (~€6,202), ties to trustee €6,133 within €100", () => {
     // Post-fix: defaultsFromResolved back-derives taxesBps from Q1 step (A)(i)
     // actual (€6,133 / €493M / 4 × 10000 ≈ 0.497 bps). Engine emits
     // ~€6,202 at 91/360 vs trustee €6,133 at 90/360 — ~€69 day-count residual.
@@ -308,10 +308,10 @@ describe("N1 correctness — engine-does-not-model steps (KI ledger commitments)
     expect(row?.projected).toBeCloseTo(6202, -2);
     expect(Math.abs(row?.delta ?? 0)).toBeLessThan(100);
   });
-  it("KI-01 CLOSED: engine emits €250 issuer profit, ties to trustee to the cent", () => {
+  it("engine emits €250 issuer profit, ties to trustee to the cent", () => {
     // Post-fix: defaultsFromResolved back-derives issuerProfitAmount from
     // Q1 waterfall step (A)(ii) (€250 regular period). Fixed absolute
-    // deduction — no day-count residual (unlike KI-09 taxes), so drift
+    // deduction — no day-count residual (unlike taxes), so drift
     // should tie within €1.
     const row = driftsByBucket.get("issuerProfit");
     expect(row?.actual).toBeCloseTo(250, 0);

@@ -43,8 +43,8 @@ export const STEP_TOLERANCES_TARGET: Record<EngineBucket, number> = {
   // These are documented gaps in the known-issues ledger. The engine emits 0
   // deliberately; trustee actuals can be any amount. Surfacing the delta is
   // valuable for audit visibility but failing the test on them is noise.
-  taxes: 100,                        // step a.i      — KI-09 closed; drift should be day-count residual only
-  issuerProfit: 1,                   // step a.ii     — KI-01 closed Sprint 4; fixed €250/period, engine ties to the cent
+  taxes: 100,                        // step a.i      — drift should be day-count residual only
+  issuerProfit: 1,                   // step a.ii     — fixed €250/period, engine ties to the cent
   expenseReserve: Infinity,          // step d        — KI-02 (CM discretionary, usually 0)
   effectiveDateRating: Infinity,     // step v        — KI-03 (inactive post-ramp)
   defaultedHedgeTermination: Infinity, // step aa     — KI-06 (hedge-default-only)
@@ -277,9 +277,9 @@ function extractEngineBuckets(p: PeriodResult): Partial<Record<EngineBucket, num
   const deferredByClass = p.stepTrace.deferredAccrualByTranche;
 
   return {
-    // KI-09 taxes: now emitted by the engine when taxesBps is set.
+    // Taxes: now emitted by the engine when taxesBps is set.
     taxes: p.stepTrace.taxes ?? 0,
-    // KI-01 issuer profit: now emitted when issuerProfitAmount is set.
+    // Issuer profit: now emitted when issuerProfitAmount is set.
     issuerProfit: p.stepTrace.issuerProfit ?? 0,
     // Steps the engine still doesn't model — KI-02/03/05/06.
     expenseReserve: 0,

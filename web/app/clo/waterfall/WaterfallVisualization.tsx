@@ -6,6 +6,7 @@ import type {
   CloTrancheSnapshot,
   CloComplianceTest,
 } from "@/lib/clo/types";
+import { useFormatAmount } from "./CurrencyContext";
 
 interface Props {
   waterfallSteps: CloWaterfallStep[];
@@ -65,11 +66,12 @@ function deduplicateTranches(
   return result;
 }
 
-function formatAmount(val: number | null): string {
-  if (val === null || val === undefined) return "—";
-  if (Math.abs(val) >= 1e6) return `$${(val / 1e6).toFixed(2)}M`;
-  if (Math.abs(val) >= 1e3) return `$${(val / 1e3).toFixed(1)}K`;
-  return `$${val.toFixed(2)}`;
+// Local formatter wraps the shared `useFormatAmount` hook with a
+// null-passthrough (the trustee data has nullable amount fields). Currency
+// is read from `DealCurrencyContext` — no hardcoded symbol.
+function useFormatAmountOrDash(): (val: number | null) => string {
+  const fa = useFormatAmount();
+  return (val: number | null) => (val === null || val === undefined ? "—" : fa(val));
 }
 
 function WaterfallSection({
@@ -79,6 +81,7 @@ function WaterfallSection({
   title: string;
   steps: CloWaterfallStep[];
 }) {
+  const formatAmount = useFormatAmountOrDash();
   if (steps.length === 0) return null;
 
   return (
@@ -250,6 +253,7 @@ export default function WaterfallVisualization({
   tranches,
   trancheSnapshots,
 }: Props) {
+  const formatAmount = useFormatAmountOrDash();
   if (waterfallSteps.length === 0) {
     return (
       <div

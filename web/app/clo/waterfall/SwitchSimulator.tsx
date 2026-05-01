@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import type { ResolvedDealData, ResolvedLoan } from "@/lib/clo/resolver-types";
 import type { BuyListItem, CloHolding } from "@/lib/clo/types";
 import type { UserAssumptions } from "@/lib/clo/build-projection-inputs";
@@ -8,7 +8,8 @@ import { applySwitch } from "@/lib/clo/switch-simulator";
 import { runProjection, type ProjectionResult } from "@/lib/clo/projection";
 import { RATING_BUCKETS, mapToRatingBucket } from "@/lib/clo/rating-mapping";
 import { buyListFiltersFromResolved, filterBuyList } from "@/lib/clo/buy-list-filter";
-import { formatAmount, formatPct } from "./helpers";
+import { formatPct } from "./helpers";
+import { useFormatAmount } from "./CurrencyContext";
 
 interface SwitchPrefill {
   sellName: string | null;
@@ -36,15 +37,26 @@ function formatDelta(before: number | null, after: number | null): { text: strin
   };
 }
 
-function formatAmountDelta(before: number, after: number): { text: string; color: string } {
-  const delta = after - before;
-  return {
-    text: formatAmount(delta),
-    color: delta > 0 ? "var(--color-high)" : delta < 0 ? "var(--color-low)" : "inherit",
-  };
+// Hook variant — currency comes from `DealCurrencyContext`. Per CLAUDE.md
+// § "Recurring failure modes" principle 1, formatting code reads currency
+// from the deal context rather than hardcoding.
+function useFormatAmountDelta(): (before: number, after: number) => { text: string; color: string } {
+  const formatAmount = useFormatAmount();
+  return useMemo(
+    () => (before, after) => {
+      const delta = after - before;
+      return {
+        text: formatAmount(delta),
+        color: delta > 0 ? "var(--color-high)" : delta < 0 ? "var(--color-low)" : "inherit",
+      };
+    },
+    [formatAmount],
+  );
 }
 
 export function SwitchSimulator({ resolved, holdings, buyList, userAssumptions, prefill }: Props) {
+  const formatAmount = useFormatAmount();
+  const formatAmountDelta = useFormatAmountDelta();
   const [sellLoanIndex, setSellLoanIndex] = useState<number | null>(null);
   const [sellParAmount, setSellParAmount] = useState(0);
   const [buySpreadBps, setBuySpreadBps] = useState(350);
@@ -107,14 +119,14 @@ export function SwitchSimulator({ resolved, holdings, buyList, userAssumptions, 
     });
   }, [resolved.loans]);
 
-  const handleBuyListSelect = (item: BuyListItem) => {
+  const handleBuyListSelect = useCallback((item: BuyListItem) => {
     if (item.spreadBps) setBuySpreadBps(item.spreadBps);
     if (item.moodysRating || item.spRating) {
       setBuyRating(mapToRatingBucket(item.moodysRating ?? null, item.spRating ?? null, null, null));
     }
     if (item.maturityDate) setBuyMaturity(item.maturityDate);
     if (item.facilitySize) setBuyParAmount(item.facilitySize);
-  };
+  }, []);
 
   const buyLoan: ResolvedLoan = useMemo(() => ({
     parBalance: buyParAmount,
@@ -292,6 +304,7 @@ export function SwitchSimulator({ resolved, holdings, buyList, userAssumptions, 
 
 function OcEquityDetail({ baseResult, switchedResult }: { baseResult: ProjectionResult; switchedResult: ProjectionResult }) {
   const [expanded, setExpanded] = useState(false);
+  const formatAmount = useFormatAmount();
   const baseOc = baseResult.periods[0]?.ocTests ?? [];
   const switchedOc = switchedResult.periods[0]?.ocTests ?? [];
   const cellStyle: React.CSSProperties = { padding: "0.5rem 0.75rem", fontSize: "0.8rem", fontFamily: "var(--font-mono)", textAlign: "right" };
@@ -360,6 +373,7 @@ function LoanSelector({
 }) {
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
+  const formatAmount = useFormatAmount();
 
   const query = search.toLowerCase();
   const filtered = query
@@ -432,6 +446,7 @@ function BuyLoanSelector({
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [open, setOpen] = useState(!prefillName);
+  const formatAmount = useFormatAmount();
 
   // Auto-match from prefill name
   React.useEffect(() => {
@@ -444,7 +459,7 @@ function BuyLoanSelector({
       setOpen(false);
       onSelect(match);
     }
-  }, [prefillName, buyList]);
+  }, [prefillName, buyList, selectedId, onSelect]);
 
   const query = search.toLowerCase();
   const filtered = query
@@ -463,7 +478,7 @@ function BuyLoanSelector({
 
   const formatSize = (item: BuyListItem) => {
     if (!item.facilitySize) return "";
-    return item.facilitySize >= 1_000_000 ? `€${(item.facilitySize / 1_000_000).toFixed(1)}M` : `€${(item.facilitySize / 1_000).toFixed(0)}K`;
+    return formatAmount(item.facilitySize);
   };
 
   return (

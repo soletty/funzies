@@ -29,6 +29,8 @@ import type { ProjectionInputs } from "@/lib/clo/projection";
 import type { BacktestInputs } from "@/lib/clo/backtest-types";
 import { runBacktestHarness, type HarnessResult } from "@/lib/clo/backtest-harness";
 import type { EngineBucket } from "@/lib/clo/ppm-step-map";
+import { useDealCurrency } from "./CurrencyContext";
+import { currencySymbol } from "./helpers";
 
 /** E2 (Sprint 5) — Static map from harness engine bucket to the KI ledger
  *  entries that document its expected drift. Rendered as small badges on
@@ -38,11 +40,12 @@ import type { EngineBucket } from "@/lib/clo/ppm-step-map";
  *  unexpected drift, partner should flag. Ledger anchors at
  *  `docs/clo-model-known-issues.md#ki-<id>` (kebab-case). */
 const BUCKET_TO_KI: Partial<Record<EngineBucket, { ids: string[]; blurb: string }>> = {
-  taxes: { ids: ["KI-09"], blurb: "Issuer taxes (A.i). CLOSED Sprint 3. Residual is 91/360 vs 90/360 harness-period-mismatch — closes fully with KI-12a." },
-  issuerProfit: { ids: ["KI-01"], blurb: "Issuer Profit Amount (A.ii). CLOSED Sprint 4. Fixed €250/period — engine ties to the cent." },
-  trusteeFeesPaid: { ids: ["KI-08", "KI-16"], blurb: "Trustee fee (B) back-derived from Q1 waterfall (D3). Cap mechanics shipped in C3. 3 assumptions pending PPM verification (KI-16)." },
+  taxes: { ids: ["KI-12a"], blurb: "Issuer taxes (A.i). Residual is 91/360 vs 90/360 harness-period-mismatch — closes fully with KI-12a." },
+  // arch-boundary-allow: ui-hardcodes-currency-symbol
+  issuerProfit: { ids: [], blurb: "Issuer Profit Amount (A.ii). Fixed €250/period — engine ties to the cent." },
+  trusteeFeesPaid: { ids: ["KI-08", "KI-16"], blurb: "Trustee fee (B) back-derived from Q1 waterfall. Cap mechanics shipped in C3. 3 assumptions pending PPM verification (KI-16)." },
   adminFeesPaid: { ids: ["KI-08", "KI-16"], blurb: "Admin fee (C), split from trustee post-C3. Day-count residual closes with KI-12a." },
-  subDistribution: { ids: ["KI-13", "KI-13a"], blurb: "Sub distribution residual — cascade from KI-01/08/09/12a/12b. Re-baselined on each upstream closure." },
+  subDistribution: { ids: ["KI-13", "KI-13a"], blurb: "Sub distribution residual — cascade from KI-08/12a/12b. Re-baselined on each upstream closure." },
   classA_interest: { ids: ["KI-12b", "KI-12a"], blurb: "Class A interest day-count drift. Engine Q2 (91/360) vs trustee Q1 (90/360) period mismatch — closes with KI-12a." },
   classB_interest: { ids: ["KI-12b", "KI-12a"], blurb: "Class B interest day-count drift. Same mechanic as Class A." },
   classC_current: { ids: ["KI-12b", "KI-12a"], blurb: "Class C current interest day-count drift." },
@@ -132,6 +135,7 @@ function filenameBase(mode: Mode, periodDate: string | null): string {
 export default function HarnessPanel({ inputs, backtest, engineMathInputs }: Props) {
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<Mode>("production");
+  const sym = currencySymbol(useDealCurrency());
 
   const activeInputs = mode === "engine-math" && engineMathInputs ? engineMathInputs : inputs;
 
@@ -185,7 +189,7 @@ export default function HarnessPanel({ inputs, backtest, engineMathInputs }: Pro
           {result.summary.stepsWithinTolerance}/{result.summary.stepsCount} within tolerance
           {!result.allWithinTolerance && (
             <>
-              {" "}· max δ €{result.maxAbsDelta.toFixed(0)} ({result.maxAbsDeltaBucket})
+              {" "}· max δ {sym}{result.maxAbsDelta.toFixed(0)} ({result.maxAbsDeltaBucket})
             </>
           )}
         </span>
@@ -247,8 +251,7 @@ export default function HarnessPanel({ inputs, backtest, engineMathInputs }: Pro
                 This is <em>not</em> a Q1 replay — the engine has no rewind; the current
                 snapshot is its starting state. Pre-fills come from <code>defaultsFromResolved</code>
                 (observed EURIBOR, PPM fee rates, Q1-waterfall-derived trustee fee). Remaining
-                drift = period-mismatch effects on balance-sensitive fields (KI-12a/12b) and
-                engine-does-not-model deductions (KI-01/09).
+                drift = period-mismatch effects on balance-sensitive fields (KI-12a/12b).
               </>
             ) : (
               <>
@@ -265,10 +268,10 @@ export default function HarnessPanel({ inputs, backtest, engineMathInputs }: Pro
                 <tr>
                   <th style={{ ...headerCellStyle, textAlign: "left" }}>Bucket</th>
                   <th style={{ ...headerCellStyle, textAlign: "left" }}>PPM steps</th>
-                  <th style={{ ...headerCellStyle, textAlign: "right" }}>Actual (€)</th>
-                  <th style={{ ...headerCellStyle, textAlign: "right" }}>Projected (€)</th>
-                  <th style={{ ...headerCellStyle, textAlign: "right" }}>Δ (€)</th>
-                  <th style={{ ...headerCellStyle, textAlign: "right" }}>Tolerance (€)</th>
+                  <th style={{ ...headerCellStyle, textAlign: "right" }}>Actual ({sym})</th>
+                  <th style={{ ...headerCellStyle, textAlign: "right" }}>Projected ({sym})</th>
+                  <th style={{ ...headerCellStyle, textAlign: "right" }}>Δ ({sym})</th>
+                  <th style={{ ...headerCellStyle, textAlign: "right" }}>Tolerance ({sym})</th>
                   <th style={{ ...headerCellStyle, textAlign: "center" }}>Status</th>
                 </tr>
               </thead>

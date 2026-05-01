@@ -572,7 +572,7 @@ export function resolveWaterfallInputs(
   dbTranches: CloTranche[],
   trancheSnapshots: CloTrancheSnapshot[],
   holdings: CloHolding[],
-  dealDates?: { maturity?: string | null; reinvestmentPeriodEnd?: string | null; reportDate?: string | null },
+  dealDates?: { maturity?: string | null; reinvestmentPeriodEnd?: string | null; reportDate?: string | null; dealCurrency?: string | null },
   accountBalances?: CloAccountBalance[],
   parValueAdjustments?: CloParValueAdjustment[],
 ): { resolved: ResolvedDealData; warnings: ResolutionWarning[] } {
@@ -1385,8 +1385,46 @@ export function resolveWaterfallInputs(
   // reflects only identifiable-obligor concentration.
   poolSummary.top10ObligorsPct = loans.length > 0 ? computeTopNObligorsPct(loans, 10) : null;
 
+  // Deal currency. Prefer the deal-level field (CloDeal.dealCurrency) when
+  // populated; otherwise derive from the par-weighted modal native_currency
+  // across non-defaulted holdings. Null when neither is determinable — UI
+  // surfaces a "Set deal currency" banner. Per CLAUDE.md § "Recurring
+  // failure modes" principle 1, formatting code MUST read this field; never
+  // hardcode `€`/`$`. Enforced by the `ui-hardcodes-currency-symbol` AST
+  // rule in architecture-boundary.test.ts.
+  let currency: string | null = dealDates?.dealCurrency?.trim() || null;
+  if (!currency) {
+    // Par-weighted modal — row-count would mis-call deals with a few
+    // large foreign-currency positions among many small native-currency
+    // ones (principle 1 — don't overfit Euro XV's mostly-uniform sizes).
+    const parByCurrency = new Map<string, number>();
+    for (const h of holdings) {
+      if (h.isDefaulted) continue;
+      const c = h.nativeCurrency?.trim().toUpperCase();
+      if (!c) continue;
+      parByCurrency.set(c, (parByCurrency.get(c) ?? 0) + holdingPar(h));
+    }
+    if (parByCurrency.size > 0) {
+      let best = "";
+      let bestPar = 0;
+      for (const [c, p] of parByCurrency) {
+        if (p > bestPar) { best = c; bestPar = p; }
+      }
+      currency = best;
+    }
+  }
+  if (!currency) {
+    warnings.push({
+      field: "currency",
+      message: "Deal currency could not be determined from dealCurrency or holdings. UI will display a 'Set deal currency' banner. Multi-currency modeling tracked under KI-38.",
+      severity: "warn",
+    });
+  } else {
+    currency = currency.toUpperCase();
+  }
+
   return {
-    resolved: { tranches, poolSummary, ocTriggers, icTriggers, qualityTests, concentrationTests, reinvestmentOcTrigger, eventOfDefaultTest, dates, fees, loans, metadata, principalAccountCash, interestAccountCash, interestSmoothingBalance, supplementalReserveBalance, expenseReserveBalance, preExistingDefaultedPar, preExistingDefaultRecovery, unpricedDefaultedPar, preExistingDefaultOcValue, discountObligationHaircut, longDatedObligationHaircut, impliedOcAdjustment, quartersSinceReport, ddtlUnfundedPar, deferredInterestCompounds, baseRateFloorPct },
+    resolved: { tranches, poolSummary, ocTriggers, icTriggers, qualityTests, concentrationTests, reinvestmentOcTrigger, eventOfDefaultTest, dates, fees, loans, metadata, principalAccountCash, interestAccountCash, interestSmoothingBalance, supplementalReserveBalance, expenseReserveBalance, preExistingDefaultedPar, preExistingDefaultRecovery, unpricedDefaultedPar, preExistingDefaultOcValue, discountObligationHaircut, longDatedObligationHaircut, impliedOcAdjustment, quartersSinceReport, ddtlUnfundedPar, deferredInterestCompounds, baseRateFloorPct, currency },
     warnings,
   };
 }

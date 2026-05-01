@@ -378,19 +378,19 @@ describe("N6 harness — Euro XV T=0 compliance parity (resolver ↔ trustee)", 
   // construction wouldn't surface in per-bucket cash-flow checks.
   //
   // Under legit pins (defaultsFromResolved — production path), remaining IC
-  // drift is driven by KI-01 (€250 issuer profit) + KI-12a (fee-base
+  // drift is driven by issuer profit (€250) + KI-12a (fee-base
   // over-payment) + KI-12b (day-count residuals) net. KI-08 admin share +
-  // KI-09 taxes cascade was closed in Sprint 3 — baselines re-baselined from
+  // Taxes cascade — baselines re-baselined from
   // pre-cascade 6.600/5.865/5.117 to post-cascade 3.960/3.525/3.070,
   // confirming both closures moved observed drift by the expected ~2–3 pp.
-  // When any further upstream KI closes (KI-01, KI-12a), these three markers
+  // When KI-12a closes, these three markers
   // need re-baselining again.
   {
     // Use defaultsFromResolved (production path) so taxesBps / trusteeFeeBps /
     // adminFeeBps are populated from observed Q1 data — matches the flow in
     // ProjectionModel.tsx. Prior implementation spread DEFAULT_ASSUMPTIONS
     // which zeroed all three, making the markers structurally incapable of
-    // responding to KI-01 / KI-08 / KI-09 closures despite the test name
+    // responding to upstream closures despite the test name
     // labelling them as "compositional parity" that cascades on those closes.
     const projectionInputs = buildFromResolved(
       fixture.resolved,
@@ -414,7 +414,7 @@ describe("N6 harness — Euro XV T=0 compliance parity (resolver ↔ trustee)", 
     failsWithMagnitude(
       {
         ki: "KI-IC-AB",
-        closesIn: "Progressively as KI-01 / KI-12a close (re-baseline on each). KI-08 admin + KI-09 taxes closed Sprint 3",
+        closesIn: "Progressively as KI-12a closes (re-baseline on each)",
         expectedDrift: 3.960,
         tolerance: 0.05,
         // closeThreshold = tolerance is intentional and safe here: |expectedDrift|
@@ -429,7 +429,7 @@ describe("N6 harness — Euro XV T=0 compliance parity (resolver ↔ trustee)", 
     failsWithMagnitude(
       {
         ki: "KI-IC-C",
-        closesIn: "Progressively as KI-01 / KI-12a close (re-baseline on each). KI-08 admin + KI-09 taxes closed Sprint 3",
+        closesIn: "Progressively as KI-12a closes (re-baseline on each)",
         expectedDrift: 3.525,
         tolerance: 0.05,
         closeThreshold: 0.05,
@@ -440,7 +440,7 @@ describe("N6 harness — Euro XV T=0 compliance parity (resolver ↔ trustee)", 
     failsWithMagnitude(
       {
         ki: "KI-IC-D",
-        closesIn: "Progressively as KI-01 / KI-12a close (re-baseline on each). KI-08 admin + KI-09 taxes closed Sprint 3",
+        closesIn: "Progressively as KI-12a closes (re-baseline on each)",
         expectedDrift: 3.070,
         tolerance: 0.05,
         closeThreshold: 0.05,

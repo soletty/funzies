@@ -49,14 +49,14 @@ export interface ProjectionInputs {
   baseRateFloorPct: number; // floor on reference rate (e.g. 0 for EURIBOR floored at 0%)
   seniorFeePct: number;
   subFeePct: number;
-  /** KI-09 — PPM step (A)(i) Issuer taxes, in bps p.a. on collateral par.
-   *  Deducted before trustee fees. Default 0 when no Q1 actuals available.
+  /** PPM step (A)(i) Issuer taxes, in bps p.a. on collateral par. Deducted
+   *  before trustee fees. Default 0 when no Q1 actuals available.
    *  Back-derived by `defaultsFromResolved` from Q1 waterfall step (A)(i). */
   taxesBps?: number;
-  /** KI-01 — PPM step (A)(ii) Issuer Profit Amount. Absolute € per period
-   *  (not bps, not annualized). Per PPM Condition 1 definitions: €250 per
-   *  regular period, €500 per period post-Frequency-Switch Event. Deducted
-   *  between taxes (A.i) and trustee fees (B). Default 0 when no Q1 actuals
+  /** PPM step (A)(ii) Issuer Profit Amount. Absolute € per period (not bps,
+   *  not annualized). Per PPM Condition 1 definitions: €250 per regular
+   *  period, €500 per period post-Frequency-Switch Event. Deducted between
+   *  taxes (A.i) and trustee fees (B). Default 0 when no Q1 actuals
    *  available. Back-derived by `defaultsFromResolved` from Q1 step (A)(ii). */
   issuerProfitAmount?: number;
   trusteeFeeBps: number; // PPM step (B) trustee, in bps p.a. on collateral par
@@ -231,7 +231,7 @@ export interface ProjectionInputs {
  *  on the output so the harness can tie out trustee vs engine step-by-step.
  *
  *  Trustee-step mapping (see web/lib/clo/ppm-step-map.ts):
- *    - taxes                  → PPM step (A)(i) (issuer taxes; KI-09 closed Sprint 3)
+ *    - taxes                  → PPM step (A)(i) (issuer taxes Sprint 3)
  *    - trusteeFeesPaid        → PPM step (B) ONLY (trustee fee; split from admin in Sprint 3 / C3)
  *    - adminFeesPaid          → PPM step (C) (admin expenses; split from trustee in Sprint 3 / C3)
  *    - trusteeOverflowPaid    → PPM step (Y) (trustee-fee overflow past cap, residual-interest funded)
@@ -248,10 +248,10 @@ export interface ProjectionInputs {
  *    - deferredAccrualByTranche → PPM steps (K)/(N)/(Q)/(T) PIK additions this period
  */
 export interface PeriodStepTrace {
-  /** KI-09 — PPM step (A)(i) Issuer taxes. Engine emits zero pre-fix; post-fix
+  /** PPM step (A)(i) Issuer taxes. Engine emits zero pre-fix; post-fix
    *  populated via `taxesBps` input. Euro XV Q1 2026 observed: €6,133/quarter. */
   taxes: number;
-  /** KI-01 — PPM step (A)(ii) Issuer Profit Amount. Fixed absolute deduction
+  /** PPM step (A)(ii) Issuer Profit Amount. Fixed absolute deduction
    *  per period (€250 regular, €500 post-Frequency-Switch on Euro XV). Engine
    *  emits zero pre-fix; post-fix populated via `issuerProfitAmount` input. */
   issuerProfit: number;
@@ -1254,11 +1254,11 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     // the numerator base, minus the quarterly fees. Fees use the same formula
     // as the in-loop per-period deduction so pre-fill parity flows through —
     // including taxes (A.i) and admin (C), which were missing pre-Sprint-3
-    // and broke the KI-IC-AB/C/D cascade (closures of KI-08/KI-09 didn't
+    // and broke the KI-IC-AB/C/D cascade (closures of KI-08 and the taxes/issuerProfit upstream didn't
     // move observed drift because this computation wasn't deducting them).
     const scheduledInterestOnCollateral = poolPar * (wacSpreadBps / 10000 + baseRatePct / 100) / 4;
     const taxesAmountT0 = poolPar * (taxesBps / 10000) / 4;
-    // KI-01: Issuer Profit is a fixed € per period (not par-scaled), same
+    // Issuer Profit is a fixed € per period (not par-scaled), same
     // absolute value at T=0 as in the forward loop. Deducting at T=0 keeps
     // IC compositional parity aligned with the in-loop path.
     const issuerProfitAmountT0 = issuerProfitAmount;
@@ -1668,9 +1668,9 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     //   from residual interest AFTER tranche interest + sub mgmt fee.
     //   When the cap isn't set (undefined), expenses emit uncapped —
     //   legacy / synthetic-test behaviour.
-    // KI-09: Step (A)(i) Issuer taxes. Deducted before trustee fees per PPM.
+    // Step (A)(i) Issuer taxes. Deducted before trustee fees per PPM.
     const taxesAmount = beginningPar * (taxesBps / 10000) * dayFracActual;
-    // KI-01: Step (A)(ii) Issuer Profit Amount. Fixed absolute € per period
+    // Step (A)(ii) Issuer Profit Amount. Fixed absolute € per period
     // (PPM Condition 1 definitions — €250 regular, €500 post-Frequency-Switch).
     // Deducted immediately after taxes and before trustee fees. Not
     // day-count adjusted (fixed amount per waterfall event, not an accrual).
@@ -1770,10 +1770,10 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
         trancheBalances,
         deferredBalances,
         seniorExpenses: {
-          // KI-09 closed (Sprint 3): `taxesAmount` computed from taxesBps.
+          // `taxesAmount` computed from taxesBps.
           // Under acceleration taxes are still paid at step (A)(i) per PPM.
           taxes: taxesAmount,
-          // KI-01 closed (Sprint 4): Issuer Profit at step (A.ii). Fixed
+          // Issuer Profit at step (A.ii). Fixed
           // absolute € per period; still paid under acceleration per PPM.
           issuerProfit: issuerProfitPaid,
           // PPM 10(b): Senior Expenses Cap DISAPPEARS under acceleration —
@@ -2449,7 +2449,7 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
       defaultsByRating,
       stepTrace: {
         taxes: seniorExpenseBreakdown.taxes,
-        issuerProfit: seniorExpenseBreakdown.issuerProfit, // KI-01 (PPM A.ii)
+        issuerProfit: seniorExpenseBreakdown.issuerProfit, // PPM A.ii
         // Each field maps to exactly one PPM step so the N1 harness ties
         // engine-emission to trustee-reported on a per-step basis. Pre-C3
         // `trusteeFeesPaid` bundled (B)+(C)+(Y)+(Z); the split lets us

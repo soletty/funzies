@@ -49,7 +49,8 @@ import SuggestAssumptions from "./SuggestAssumptions";
 import { CLO_DEFAULTS } from "@/lib/clo/defaults";
 import { useMonteCarlo } from "@/lib/clo/useMonteCarlo";
 import MonteCarloChart from "./MonteCarloChart";
-import { formatPct, formatAmount, formatDate, TRANCHE_COLORS } from "./helpers";
+import { formatPct, formatDate, TRANCHE_COLORS, formatAmount as helpersFormatAmount } from "./helpers";
+import { DealCurrencyProvider, MissingCurrencyBanner } from "./CurrencyContext";
 import { SliderInput, SelectInput } from "./SliderInput";
 import { SummaryCard } from "./SummaryCard";
 import { ModelInputsPanel } from "./ModelInputsPanel";
@@ -289,7 +290,7 @@ export default function ProjectionModel({
   // slider's role is reduced to a what-if input that drives a separate
   // @ custom row.
 
-  const loanInputs: LoanInput[] = resolved?.loans ?? [];
+  const loanInputs: LoanInput[] = useMemo(() => resolved?.loans ?? [], [resolved?.loans]);
 
   // D2b — Seed the per-bucket CDR sliders from per-position WARF (par-weighted
   // per bucket) so the UI shows the rate the engine is actually applying.
@@ -431,8 +432,8 @@ export default function ProjectionModel({
     [
       resolved, baseRatePct, baseRateFloorPct, defaultRates, overriddenBuckets, cprPct, recoveryPct, recoveryLagMonths,
       reinvestmentSpreadBps, reinvestmentTenorYears, reinvestmentRating, cccBucketLimitPct, cccMarketValuePct,
-      resolved?.deferredInterestCompounds,
-      seniorFeePct, subFeePct, trusteeFeeBps, hedgeCostBps, incentiveFeePct, incentiveFeeHurdleIrr, postRpReinvestmentPct,
+      seniorFeePct, subFeePct, taxesBps, issuerProfitAmount, trusteeFeeBps, adminFeeBps, seniorExpensesCapBps,
+      hedgeCostBps, incentiveFeePct, incentiveFeeHurdleIrr, postRpReinvestmentPct,
       callMode, callDate, callPricePct, callPriceMode, ddtlDrawAssumption, ddtlDrawQuarter, ddtlDrawPercent, equityEntryPriceCents,
     ]
   );
@@ -491,7 +492,9 @@ export default function ProjectionModel({
     baseRatePct, baseRateFloorPct, defaultRates, overriddenBuckets, cprPct, recoveryPct, recoveryLagMonths,
     reinvestmentSpreadBps, reinvestmentTenorYears, reinvestmentRating, cccBucketLimitPct, cccMarketValuePct,
     resolved?.deferredInterestCompounds,
-    postRpReinvestmentPct, hedgeCostBps, callDate, callPricePct, callPriceMode, seniorFeePct, subFeePct, trusteeFeeBps, incentiveFeePct, incentiveFeeHurdleIrr,
+    postRpReinvestmentPct, hedgeCostBps, callMode, callDate, callPricePct, callPriceMode, seniorFeePct, subFeePct,
+    taxesBps, issuerProfitAmount, trusteeFeeBps, adminFeeBps, seniorExpensesCapBps,
+    incentiveFeePct, incentiveFeeHurdleIrr,
     ddtlDrawAssumption, ddtlDrawQuarter, ddtlDrawPercent, equityEntryPriceCents,
   ]);
 
@@ -748,8 +751,18 @@ export default function ProjectionModel({
     setReinvestmentSpreadBps(assumptions.reinvestmentSpreadBps);
   };
 
+  // Deal currency for formatting. ProjectionModel itself can't use
+  // `useFormatAmount` because it's the component that PROVIDES the context;
+  // its own formatAmount calls (below) explicitly pass currency. Descendants
+  // (PeriodTrace, ModelInputsPanel, SwitchSimulator, WaterfallVisualization)
+  // read currency via context using the hook. See CurrencyContext.tsx.
+  const dealCurrency = resolved?.currency ?? null;
+  const formatAmount = (val: number) => helpersFormatAmount(val, dealCurrency);
+
   return (
+    <DealCurrencyProvider currency={dealCurrency}>
     <div className="wf-section" style={{ marginTop: "2.5rem" }}>
+      <MissingCurrencyBanner />
       <div
         style={{
           display: "flex",
@@ -1012,9 +1025,9 @@ export default function ProjectionModel({
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap" }}>
             <div style={{ color: "var(--color-text-muted)", lineHeight: 1.5 }}>
               <div>
-                <span style={{ fontWeight: 600 }}>Equity par:</span> {"\u20AC"}{(equityMetrics.subNotePar / 1e6).toFixed(1)}M
+                <span style={{ fontWeight: 600 }}>Equity par:</span> {formatAmount(equityMetrics.subNotePar)}
                 {" \u00B7 "}
-                <span style={{ fontWeight: 600 }}>Book value:</span> {"\u20AC"}{(equityMetrics.bookValue / 1e6).toFixed(1)}M ({equityMetrics.bookValueCents.toFixed(1)} cents)
+                <span style={{ fontWeight: 600 }}>Book value:</span> {formatAmount(equityMetrics.bookValue)} ({equityMetrics.bookValueCents.toFixed(1)} cents)
               </div>
               {fairValues && (
                 <div
@@ -1027,7 +1040,7 @@ export default function ProjectionModel({
                       if (fv.status === "converged" && fv.priceCents != null) {
                         const cents = fv.priceCents;
                         const value = equityMetrics.subNotePar * (cents / 100);
-                        return `${cents.toFixed(1)}c (\u20AC${(value / 1e6).toFixed(1)}M)`;
+                        return `${cents.toFixed(1)}c (${formatAmount(value)})`;
                       }
                       if (fv.status === "below_hurdle") return "deal can\u2019t reach hurdle";
                       if (fv.status === "above_max_bracket") return "exceeds 200c bracket";
@@ -1914,6 +1927,7 @@ export default function ProjectionModel({
         />
       )}
     </div>
+    </DealCurrencyProvider>
   );
 }
 

@@ -8166,6 +8166,7 @@
     "ddtlUnfundedPar": 0,
     "deferredInterestCompounds": true,
     "baseRateFloorPct": null,
+    "currency": "EUR",
     "eventOfDefaultTest": {
       "triggerLevel": 102.5,
       "sourcePage": 207,

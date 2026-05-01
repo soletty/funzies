@@ -87,6 +87,14 @@ export interface ResolvedDealData {
   ddtlUnfundedPar: number; // total DDTL commitment par (for dynamic OC deduction in projection)
   deferredInterestCompounds: boolean; // whether PIK'd interest itself earns interest in subsequent periods
   baseRateFloorPct: number | null; // extracted reference rate floor (null = not extracted, use default)
+  /** ISO 4217 currency code for the deal (e.g. "EUR", "USD", "GBP"). Sourced
+   *  from `CloDeal.dealCurrency` when populated, otherwise derived as the
+   *  modal `nativeCurrency` across non-defaulted holdings. Null when neither
+   *  source can be determined. UI uses this to render currency symbols and to
+   *  surface a "Set deal currency" banner when null. See CLAUDE.md §
+   *  "Recurring failure modes" principle 1 (don't overfit) — formatting code
+   *  must read this field, never hardcode `€` or `$`. */
+  currency: string | null;
 }
 
 export type ResolvedSource = "db_tranche" | "ppm" | "snapshot" | "manual";
