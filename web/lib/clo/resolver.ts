@@ -371,7 +371,15 @@ function resolveTriggers(
   const icRaw = mergeTriggersPerClass(icFromTests, icFromPpm, "IC", warnings);
 
   if (ocRaw.length === 0) {
-    warnings.push({ field: "ocTriggers", message: "No OC triggers found in compliance tests or PPM", severity: "warn", blocking: false });
+    warnings.push({
+      field: "ocTriggers",
+      message: "No OC triggers found in compliance tests or PPM. Engine cannot fire any class-level OC test, divert interest under PPM Step V, or detect Event of Default on class paths — every period would silently pass an absent test. Verify extraction or set triggers manually if data is genuinely missing.",
+      severity: "error",
+      // Empty trigger set looks innocuous but disables the entire OC
+      // enforcement pipeline; refuse rather than project as if every
+      // test passes.
+      blocking: true,
+    });
   }
 
   const oc: ResolvedTrigger[] = dedupTriggers(ocRaw, warnings).map(t => {

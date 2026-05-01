@@ -288,6 +288,30 @@ describe("Pattern B (silent acceptance of sentinel value)", () => {
     expectBlockingError(w, "poolSummary.totalPar");
     expectGateThrows(resolved, warnings);
   });
+
+  it("ocTriggers empty (resolver.ts:374) — no OC triggers in compliance OR PPM → blocking", () => {
+    const raw = loadRaw();
+    // Drop every OC test the resolver's `isOcTest` predicate would match
+    // (testType oc_*/overcollateralization OR testName matches "overcollateral"
+    // / "par value" / both "oc"+"ratio"). Mirroring the predicate here keeps
+    // the test honest if the resolver's matcher widens — the fixture filter
+    // tracks the production code.
+    raw.complianceData.complianceTests = (raw.complianceData.complianceTests as any[]).filter(
+      (t: any) => {
+        const tt = (t.testType ?? "").toLowerCase();
+        if (tt === "oc_par" || tt === "oc_mv" || tt === "overcollateralization" || tt.startsWith("oc")) return false;
+        const name = (t.testName ?? "").toLowerCase();
+        if (name.includes("overcollateral") || name.includes("par value")) return false;
+        if (name.includes("oc") && name.includes("ratio")) return false;
+        return true;
+      },
+    );
+    raw.constraints.coverageTestEntries = [];
+    const { resolved, warnings } = runResolver(raw);
+    const w = warnings.find((w) => w.field === "ocTriggers");
+    expectBlockingError(w, "ocTriggers (empty)");
+    expectGateThrows(resolved, warnings);
+  });
 });
 
 describe("Carve-out at :1434 (display-only, severity:error + blocking:false)", () => {
