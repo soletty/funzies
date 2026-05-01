@@ -1,31 +1,25 @@
 /**
- * KI-57 marker test — locks current resolver behavior of assigning DISTINCT
- * `seniorityRank` values to pari-passu tranches.
+ * Resolver invariant: pari-passu tranches share `seniorityRank`.
  *
- * Pari-passu tranches (e.g., split A-1/A-2 senior, or Euro XV's B-1/B-2
- * mezzanine pair) share waterfall priority. The engine at
- * `projection.ts:748-755` explicitly groups by equal `seniorityRank` for
- * pari-passu absorption, but the resolver's PPM-derived path at
- * `resolver.ts:286` assigns rank from array index after sort, so two A-class
- * entries always come out as ranks 1 and 2 — never equal. The pari-passu
- * absorption code path never fires.
+ * Class A-1 + A-2 (or B-1 + B-2, etc.) bucket to the same letter rank and
+ * therefore receive the same dense `seniorityRank`. The engine's pari-passu
+ * absorption — both pre-acceleration (`projection.ts` interest + principal
+ * waterfalls) and post-acceleration (`runPostAccelerationWaterfall`) — keys
+ * off equal `seniorityRank` to split shortfalls pro-rata. Without equal
+ * ranks the absorption code path never fires.
  *
- * When the bug is fixed (resolver detects pari-passu via class-name stem
- * and assigns equal ranks), this assertion FLIPS from `[1, 2]` to `[1, 1]`
- * in the same PR that closes KI-57. The flip is the closure signal.
+ * Marker uses three tranches (the pari-passu pair plus a non-pari-passu
+ * Class B) so the assertion discriminates the pari-passu collapse from any
+ * idx+1 / monotone scheme that would coincidentally produce the same output
+ * on a two-element input.
  */
 
 import { describe, it, expect } from "vitest";
 import { resolveWaterfallInputs } from "@/lib/clo/resolver";
 import type { ExtractedConstraints } from "@/lib/clo/types";
 
-describe("resolver — KI-57 pari-passu seniorityRank assignment (PPM-derived path)", () => {
-  it("assigns SEQUENTIAL ranks [1, 2, 3] across pari-passu A-1 + A-2 + B (locks current bug)", () => {
-    // Three tranches included so the marker discriminates idx+1 from any
-    // other monotone scheme that would happen to produce the same output
-    // on a two-element input. The pari-passu pair is A-1 + A-2; on close
-    // they should both be rank 1 and B should be rank 2 → assertion
-    // flips to `[1, 1, 2]`. Until then, idx+1 produces `[1, 2, 3]`.
+describe("resolver — pari-passu seniorityRank assignment (PPM-derived path)", () => {
+  it("A-1 and A-2 share rank 1; B is rank 2", () => {
     const constraints = {
       deal: null,
       keyDates: null,
@@ -55,8 +49,8 @@ describe("resolver — KI-57 pari-passu seniorityRank assignment (PPM-derived pa
     const ranks = resolved.tranches.map(t => ({ className: t.className, seniorityRank: t.seniorityRank }));
     expect(ranks).toEqual([
       { className: "Class A-1", seniorityRank: 1 },
-      { className: "Class A-2", seniorityRank: 2 },
-      { className: "Class B",   seniorityRank: 3 },
+      { className: "Class A-2", seniorityRank: 1 },
+      { className: "Class B",   seniorityRank: 2 },
     ]);
   });
 });

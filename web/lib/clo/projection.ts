@@ -2036,21 +2036,47 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
       principalPaid[t.className] = 0;
     }
 
-    // First pass: pay down from principal proceeds only
+    // First pass: pay down from principal proceeds only.
     // Deferred interest on a tranche is paid before its principal.
-    // Amortising tranches (Class X) are SKIPPED during normal periods — they pay down
-    // from interest proceeds. At maturity/call, all tranches are paid sequentially.
+    // Amortising tranches (Class X) are SKIPPED during normal periods — they pay
+    // down from interest proceeds. At maturity/call, all tranches are paid.
+    //
+    // Pari-passu absorption: tranches at the same `seniorityRank` (A-1+A-2,
+    // B-1+B-2) split available principal pro-rata by deferred-then-principal
+    // balance instead of B-1 paying down to zero before B-2 sees a cent.
     let remainingPrelim = prelimPrincipal;
+    const principalRanksInOrder: number[] = [];
+    const principalGroupByRank = new Map<number, typeof sortedTranches>();
     for (const t of sortedTranches) {
       if (t.isIncomeNote || (t.isAmortising && !isMaturity)) continue;
-      // Pay off deferred interest first, then principal
-      const deferredPay = Math.min(deferredBalances[t.className], remainingPrelim);
-      deferredBalances[t.className] -= deferredPay;
-      remainingPrelim -= deferredPay;
-      const principalPay = Math.min(trancheBalances[t.className], remainingPrelim);
-      trancheBalances[t.className] -= principalPay;
-      remainingPrelim -= principalPay;
-      principalPaid[t.className] += deferredPay + principalPay;
+      if (!principalGroupByRank.has(t.seniorityRank)) {
+        principalRanksInOrder.push(t.seniorityRank);
+        principalGroupByRank.set(t.seniorityRank, []);
+      }
+      principalGroupByRank.get(t.seniorityRank)!.push(t);
+    }
+    for (const rank of principalRanksInOrder) {
+      const group = principalGroupByRank.get(rank)!;
+      // Phase 1: deferred — pro-rata across group by deferredBalance.
+      const groupDeferred = group.reduce((s, t) => s + deferredBalances[t.className], 0);
+      const deferredPaidGroup = Math.min(groupDeferred, remainingPrelim);
+      remainingPrelim -= deferredPaidGroup;
+      const deferredShare: Record<string, number> = {};
+      for (const t of group) {
+        const share = groupDeferred > 0 ? deferredPaidGroup * (deferredBalances[t.className] / groupDeferred) : 0;
+        deferredShare[t.className] = share;
+        deferredBalances[t.className] -= share;
+      }
+      // Phase 2: principal — pro-rata across group by trancheBalance.
+      const groupPrincipal = group.reduce((s, t) => s + trancheBalances[t.className], 0);
+      const principalPaidGroup = Math.min(groupPrincipal, remainingPrelim);
+      remainingPrelim -= principalPaidGroup;
+      for (const t of group) {
+        const share = groupPrincipal > 0 ? principalPaidGroup * (trancheBalances[t.className] / groupPrincipal) : 0;
+        trancheBalances[t.className] -= share;
+        principalPaid[t.className] += deferredShare[t.className] + share;
+      }
+      if (remainingPrelim <= 0.01) break;
     }
 
     // ── 9. Compute OC & IC ratios ────────────────────────────────
@@ -2223,22 +2249,62 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     // Find the most senior non-amortising tranche rank (typically Class A)
     const seniorNonAmortRank = debtTranches.find((t) => !t.isAmortising)?.seniorityRank;
 
-    let diverted = false;
-    for (let di = 0; di < debtTranches.length; di++) {
-      const t = debtTranches[di];
-      const rate = trancheCouponRate(t, baseRatePct, baseRateFloorPct);
-      const due = bopTrancheBalances[t.className] * rate * trancheDayFrac(t);
+    // Group debtTranches by seniorityRank so pari-passu classes (A-1+A-2,
+    // B-1+B-2) absorb interest pro-rata under shortfall instead of B-1
+    // taking the full available before B-2 sees a cent. The post-acceleration
+    // executor (`runPostAccelerationWaterfall`) has the same shape; this is
+    // the pre-accel mirror. Pro-rata splits use `gInterestDue / totalGroupDue`
+    // (the engine's existing rule for the post-accel path) so two pari-passu
+    // tranches with different spreads share by interest demand rather than
+    // by balance — matches PPM "pari passu and pro rata" semantics.
+    const ranksInOrder: number[] = [];
+    const groupByRank = new Map<number, typeof debtTranches>();
+    for (const t of debtTranches) {
+      if (!groupByRank.has(t.seniorityRank)) {
+        ranksInOrder.push(t.seniorityRank);
+        groupByRank.set(t.seniorityRank, []);
+      }
+      groupByRank.get(t.seniorityRank)!.push(t);
+    }
 
-      // Step G (PPM): Class X interest, Class X amort, and Class A interest are
-      // paid pro rata and pari passu. When we reach Class A's rank, pay all three
-      // components proportionally if there's a shortfall.
-      if (!diverted && seniorNonAmortRank != null && t.seniorityRank === seniorNonAmortRank) {
+    let diverted = false;
+    for (const rank of ranksInOrder) {
+      const group = groupByRank.get(rank)!;
+      const dueByMember: Record<string, number> = {};
+      let totalGroupDue = 0;
+      for (const t of group) {
+        const rate = trancheCouponRate(t, baseRatePct, baseRateFloorPct);
+        const d = bopTrancheBalances[t.className] * rate * trancheDayFrac(t);
+        dueByMember[t.className] = d;
+        totalGroupDue += d;
+      }
+
+      if (diverted) {
+        for (const t of group) {
+          const due = dueByMember[t.className];
+          trancheInterest.push({ className: t.className, due, paid: 0 });
+          if (t.isDeferrable && due > 0 && bopTrancheBalances[t.className] > 0.01) {
+            if (deferredInterestCompounds) {
+              trancheBalances[t.className] += due;
+            } else {
+              deferredBalances[t.className] += due;
+            }
+          }
+        }
+        continue;
+      }
+
+      // Step G (PPM): at the senior-non-amort rank, fold Class X amort demand
+      // into the pari-passu basket alongside the group's interest. Under
+      // shortfall, the X-amort + group-interest basket splits pro-rata across
+      // ALL components. The original sequential loop ran this fold once per
+      // tranche at the senior-non-amort rank, which double-paid X amort on a
+      // pari-passu A-1+A-2 split — the rank-grouped form handles X amort
+      // exactly once per period regardless of A-rank cardinality.
+      if (seniorNonAmortRank != null && rank === seniorNonAmortRank) {
         const totalAmortDue = Object.values(amortDemand).reduce((s, v) => s + v, 0);
-        // Class X interest was already paid above (earlier iteration). Here we handle
-        // Class X amort + Class A interest as the remaining pari passu components.
-        const totalStepGDue = totalAmortDue + due;
+        const totalStepGDue = totalAmortDue + totalGroupDue;
         if (totalStepGDue > 0 && totalStepGDue > availableInterest) {
-          // Pro rata shortfall — split available funds between amort and Class A interest
           const ratio = availableInterest / totalStepGDue;
           for (const [cls, amt] of Object.entries(amortDemand)) {
             const amortPay = amt * ratio;
@@ -2247,12 +2313,26 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
             _stepTrace_classXAmortFromInterest += amortPay;
             _amortFromInterestByTranche[cls] = (_amortFromInterestByTranche[cls] ?? 0) + amortPay;
           }
-          const interestPay = due * ratio;
+          for (const t of group) {
+            const due = dueByMember[t.className];
+            const paid = due * ratio;
+            trancheInterest.push({ className: t.className, due, paid });
+            if (t.isDeferrable && paid < due && bopTrancheBalances[t.className] > 0.01) {
+              const shortfall = due - paid;
+              if (deferredInterestCompounds) {
+                trancheBalances[t.className] += shortfall;
+              } else {
+                deferredBalances[t.className] += shortfall;
+              }
+              _stepTrace_deferredAccrualByTranche[t.className] = (_stepTrace_deferredAccrualByTranche[t.className] ?? 0) + shortfall;
+            }
+          }
           availableInterest = 0;
-          trancheInterest.push({ className: t.className, due, paid: interestPay });
-          continue; // skip the normal interest payment below
+          // Step G fully consumed available; subsequent groups produce
+          // zero paid via the same Math.min(totalGroupDue, 0) = 0 path,
+          // with PIK on shortfall handled per-member as below.
         } else {
-          // Enough to pay both in full
+          // Enough to pay X amort in full; group interest pays normally below.
           for (const [cls, amt] of Object.entries(amortDemand)) {
             trancheBalances[cls] -= amt;
             availableInterest -= amt;
@@ -2260,54 +2340,53 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
             _stepTrace_classXAmortFromInterest += amt;
             _amortFromInterestByTranche[cls] = (_amortFromInterestByTranche[cls] ?? 0) + amt;
           }
-          // Class A interest falls through to normal payment below
-        }
-      }
-
-      if (diverted) {
-        trancheInterest.push({ className: t.className, due, paid: 0 });
-        // PIK: capitalize unpaid interest onto deferrable tranche balance
-        // Only if the tranche still has outstanding principal (not fully redeemed)
-        if (t.isDeferrable && due > 0 && bopTrancheBalances[t.className] > 0.01) {
-          if (deferredInterestCompounds) {
-            trancheBalances[t.className] += due;
-          } else {
-            deferredBalances[t.className] += due;
+          // Pay group interest pro-rata (or in full if available exceeds totalGroupDue)
+          const groupPaid = Math.min(totalGroupDue, availableInterest);
+          availableInterest -= groupPaid;
+          for (const t of group) {
+            const due = dueByMember[t.className];
+            const memberPaid = totalGroupDue > 0 ? groupPaid * (due / totalGroupDue) : 0;
+            trancheInterest.push({ className: t.className, due, paid: memberPaid });
+            if (t.isDeferrable && memberPaid < due && bopTrancheBalances[t.className] > 0.01) {
+              const shortfall = due - memberPaid;
+              if (deferredInterestCompounds) {
+                trancheBalances[t.className] += shortfall;
+              } else {
+                deferredBalances[t.className] += shortfall;
+              }
+              _stepTrace_deferredAccrualByTranche[t.className] = (_stepTrace_deferredAccrualByTranche[t.className] ?? 0) + shortfall;
+            }
           }
         }
-        continue;
-      }
-
-      const paid = Math.min(due, availableInterest);
-      availableInterest -= paid;
-      trancheInterest.push({ className: t.className, due, paid });
-      // PIK: capitalize any shortfall onto deferrable tranche balance
-      if (t.isDeferrable && paid < due && bopTrancheBalances[t.className] > 0.01) {
-        const shortfall = due - paid;
-        if (deferredInterestCompounds) {
-          trancheBalances[t.className] += shortfall;
-        } else {
-          deferredBalances[t.className] += shortfall;
+      } else {
+        // Non-Step-G group: pay group interest pro-rata across members.
+        const groupPaid = Math.min(totalGroupDue, availableInterest);
+        availableInterest -= groupPaid;
+        for (const t of group) {
+          const due = dueByMember[t.className];
+          const memberPaid = totalGroupDue > 0 ? groupPaid * (due / totalGroupDue) : 0;
+          trancheInterest.push({ className: t.className, due, paid: memberPaid });
+          if (t.isDeferrable && memberPaid < due && bopTrancheBalances[t.className] > 0.01) {
+            const shortfall = due - memberPaid;
+            if (deferredInterestCompounds) {
+              trancheBalances[t.className] += shortfall;
+            } else {
+              deferredBalances[t.className] += shortfall;
+            }
+            _stepTrace_deferredAccrualByTranche[t.className] = (_stepTrace_deferredAccrualByTranche[t.className] ?? 0) + shortfall;
+          }
         }
-        _stepTrace_deferredAccrualByTranche[t.className] = (_stepTrace_deferredAccrualByTranche[t.className] ?? 0) + shortfall;
       }
 
-      // Only check diversion at rank boundaries — all tranches at the same rank must be paid first
-      const nextTranche = debtTranches[di + 1];
-      const atRankBoundary = !nextTranche || nextTranche.seniorityRank > t.seniorityRank;
-      if (atRankBoundary && (failingOcRanks.has(t.seniorityRank) || failingIcRanks.has(t.seniorityRank))) {
-        // Compute minimum diversion needed to cure the failing OC test.
-        // PPM: divert "until the applicable Coverage Tests are satisfied."
-        // OC = numerator / denominator >= trigger
-        // During RP: diversion buys collateral → increases numerator
-        //   Need: (numerator + x) / denominator >= trigger → x = trigger * denominator - numerator
-        // Outside RP: diversion pays down senior tranches → decreases denominator
-        //   Need: numerator / (denominator - x) >= trigger → x = denominator - numerator / trigger
+      // Diversion check at end of rank group — all members at this rank are
+      // paid before any cure fires. Replaces the per-iteration
+      // `atRankBoundary` check from the sequential form.
+      if (failingOcRanks.has(rank) || failingIcRanks.has(rank)) {
         const failingOc = ocTriggersByClass.find(
-          (oc) => oc.rank === t.seniorityRank && ocResults.some((r) => r.className === oc.className && !r.passing)
+          (oc) => oc.rank === rank && ocResults.some((r) => r.className === oc.className && !r.passing)
         );
         const failingIc = icTriggersByClass.find(
-          (ic) => ic.rank === t.seniorityRank && icResults.some((r) => r.className === ic.className && !r.passing)
+          (ic) => ic.rank === rank && icResults.some((r) => r.className === ic.className && !r.passing)
         );
 
         let cureAmount = 0;
@@ -2316,20 +2395,14 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
           const debtAtAndAbove = ocEligibleTranches
             .filter((tr) => tr.seniorityRank <= failingOc.rank)
             .reduce((s, tr) => s + trancheBalances[tr.className] + deferredBalances[tr.className], 0);
-          const trigger = failingOc.triggerLevel / 100; // convert from percentage to ratio
+          const trigger = failingOc.triggerLevel / 100;
           if (inRP && !failingIc) {
-            // OC-only during RP: diversion buys collateral → increases numerator
             cureAmount = Math.max(0, trigger * debtAtAndAbove - ocNumerator);
           } else {
-            // Outside RP, or IC also failing (forces paydown): decreases denominator
             cureAmount = Math.max(0, debtAtAndAbove - ocNumerator / trigger);
           }
         }
 
-        // IC cure: pay down notes to reduce interest due until IC is satisfied.
-        // IC = interestAfterFees / interestDue >= trigger
-        // Paying down tranche X reduces interestDue by (paydown * couponRate * dayFrac).
-        // Compute iteratively since paydown is sequential (most senior first).
         if (failingIc) {
           const icTriggerRatio = failingIc.triggerLevel / 100;
           const interestDueAtAndAbove = ocEligibleTranches
@@ -2339,8 +2412,6 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
           const reductionNeeded = Math.max(0, interestDueAtAndAbove - neededInterestDue);
 
           if (reductionNeeded > 0) {
-            // Compute how much principal paydown achieves the needed interest_due reduction.
-            // Pay down most senior tranche first — each € reduces interestDue by couponRate × dayFrac.
             let reductionRemaining = reductionNeeded;
             let icCureAmount = 0;
             for (const tr of ocEligibleTranches.filter((tr) => tr.seniorityRank <= failingIc.rank)) {
@@ -2356,15 +2427,14 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
           }
         }
 
-        let diversion = Math.min(cureAmount, availableInterest);
+        const diversion = Math.min(cureAmount, availableInterest);
         availableInterest -= diversion;
-        if (availableInterest <= 0.01) diverted = true; // fully consumed → skip junior tranches
+        if (availableInterest <= 0.01) diverted = true;
 
         if (diversion > 0) {
           const _mode: "reinvest" | "paydown" = inRP && !failingIc ? "reinvest" : "paydown";
-          _stepTrace_ocCureDiversions.push({ rank: t.seniorityRank, mode: _mode, amount: diversion });
+          _stepTrace_ocCureDiversions.push({ rank, mode: _mode, amount: diversion });
           if (inRP && !failingIc) {
-            // During RP with OC-only failure: buy collateral to increase OC numerator
             currentPar += diversion;
             ocNumerator += diversion;
             if (hasLoans) {
@@ -2381,17 +2451,49 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
               });
             }
           } else {
-            // Outside RP, or IC failure: pay down senior tranches (reduces OC denominator / IC denominator)
+            // Cure paydown application — rank-grouped pari-passu so a B-1+B-2
+            // pair at the failing rank shares the diversion pro-rata by
+            // balance instead of B-1 paying to zero before B-2 is touched.
+            // Same template as the principal first-pass refactor; deferred
+            // is paid first then principal, both pro-rata within each group.
+            //
+            // Excludes amortising tranches (Class X): the cure amount is
+            // computed against `ocEligibleTranches` (which omits amortising)
+            // because Class X is not in the OC denominator. Applying the
+            // diversion to Class X would consume cash without reducing the
+            // denominator the cure aims to satisfy, leaving the OC test
+            // un-cured. Income notes excluded for the same reason (residual
+            // claim, not part of the senior-debt stack the cure targets).
             let remaining = diversion;
+            const cureRanksInOrder: number[] = [];
+            const cureGroupByRank = new Map<number, typeof sortedTranches>();
             for (const dt of sortedTranches) {
-              if (dt.isIncomeNote || remaining <= 0) continue;
-              const ddp = Math.min(deferredBalances[dt.className], remaining);
-              deferredBalances[dt.className] -= ddp;
-              remaining -= ddp;
-              const dp = Math.min(trancheBalances[dt.className], remaining);
-              trancheBalances[dt.className] -= dp;
-              principalPaid[dt.className] += ddp + dp;
-              remaining -= dp;
+              if (dt.isIncomeNote || dt.isAmortising) continue;
+              if (!cureGroupByRank.has(dt.seniorityRank)) {
+                cureRanksInOrder.push(dt.seniorityRank);
+                cureGroupByRank.set(dt.seniorityRank, []);
+              }
+              cureGroupByRank.get(dt.seniorityRank)!.push(dt);
+            }
+            for (const cr of cureRanksInOrder) {
+              if (remaining <= 0) break;
+              const cgroup = cureGroupByRank.get(cr)!;
+              const groupDeferred = cgroup.reduce((s, t) => s + deferredBalances[t.className], 0);
+              const deferredPaidGroup = Math.min(groupDeferred, remaining);
+              remaining -= deferredPaidGroup;
+              for (const t of cgroup) {
+                const share = groupDeferred > 0 ? deferredPaidGroup * (deferredBalances[t.className] / groupDeferred) : 0;
+                deferredBalances[t.className] -= share;
+                principalPaid[t.className] += share;
+              }
+              const groupPrincipal = cgroup.reduce((s, t) => s + trancheBalances[t.className], 0);
+              const principalPaidGroup = Math.min(groupPrincipal, remaining);
+              remaining -= principalPaidGroup;
+              for (const t of cgroup) {
+                const share = groupPrincipal > 0 ? principalPaidGroup * (trancheBalances[t.className] / groupPrincipal) : 0;
+                trancheBalances[t.className] -= share;
+                principalPaid[t.className] += share;
+              }
             }
           }
         }

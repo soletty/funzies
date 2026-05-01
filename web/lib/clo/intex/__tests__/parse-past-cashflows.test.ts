@@ -206,9 +206,9 @@ describe("parseIntexPastCashflows — schema-driven discovery", () => {
 
   it("A-1 + A-2 split: discovers pari-passu seniors with their own widths", () => {
     // Sibling shape to Euro XV with a split senior. The resolver emits
-    // A-1 and A-2 as two distinct rows (KI-57); their normalized names
-    // differ, so the validator's name set-diff pairs them 1:1 — no false-
-    // fire on legitimate pari-passu structures.
+    // A-1 and A-2 as two distinct rows; their normalized names differ, so
+    // the validator's name set-diff pairs them 1:1 — no false-fire on
+    // legitimate pari-passu structures.
     const tranches: DealTrancheInfo[] = [
       { className: "Class A-1",          isFloating: true  },
       { className: "Class A-2",          isFloating: true  },

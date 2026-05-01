@@ -1,6 +1,7 @@
 import type { Pool } from "pg";
 import { normalizeClassName } from "../api";
 import type { CapitalStructureEntry } from "../types/index";
+import { assignDenseSeniorityRanks } from "../seniority-rank";
 
 function parseAmount(s: string | undefined | null): number | null {
   if (!s) return null;
@@ -86,6 +87,13 @@ export async function syncPpmToRelationalTables(
     return 0;
   });
 
+  // Pari-passu collapse: A-1+A-2 share rank 1, B-1+B-2 share rank 2, etc. The
+  // engine groups by equal `seniorityRank` for pari-passu absorption — see
+  // `web/lib/clo/seniority-rank.ts` for the rule and the resolver-side mirror.
+  const denseRanks = assignDenseSeniorityRanks(
+    sorted.map((e) => ({ className: e.class, isSubordinated: e.isSubordinated })),
+  );
+
   for (let i = 0; i < sorted.length; i++) {
     const entry = sorted[i];
     const normalizedName = normalizeClassName(entry.class);
@@ -169,7 +177,7 @@ export async function syncPpmToRelationalTables(
     }
 
     setClauses.push(`seniority_rank = $${pi++}`);
-    values.push(i + 1);
+    values.push(denseRanks[i]);
 
     if (setClauses.length > 0) {
       values.push(tranche.id);

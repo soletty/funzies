@@ -17,6 +17,7 @@ import { reconcileDates } from "./date-reconciler";
 import { mergeAllPasses, EXTRACTION_PASSES } from "./multi-pass-merger";
 import type { DocumentMap } from "./document-mapper";
 import { validateAndNormalizeConstraints, normalizeComplianceTestType } from "../ingestion-gate";
+import { assignDenseSeniorityRanks } from "../seniority-rank";
 import { remapColumnAliases, splitTextIntoPageChunks, mergeChunkResults, detectRepairNeeds, getLastItems } from "./transforms";
 
 const SDF_GUARDED_TABLES = new Set([
@@ -1224,6 +1225,13 @@ export async function runSectionExtraction(
         const bSub = !!(b.isSubordinated ?? /\b(sub|equity|income|residual)\b/i.test(String(b.class ?? "")));
         return aSub === bSub ? 0 : aSub ? 1 : -1;
       });
+      // Pari-passu collapse via shared helper — see persist-ppm.ts mirror.
+      const denseRanks = assignDenseSeniorityRanks(
+        sorted.map((e) => ({
+          className: String(e.class ?? ""),
+          isSubordinated: (e.isSubordinated as boolean | undefined) ?? null,
+        })),
+      );
       for (let i = 0; i < sorted.length; i++) {
         const entry = sorted[i];
         const entryClass = String(entry.class ?? "");
@@ -1275,9 +1283,12 @@ export async function runSectionExtraction(
           values.push(false);
         }
 
-        // Set seniority_rank
-        setClauses.push(`seniority_rank = COALESCE(seniority_rank, $${pi++})`);
-        values.push(i + 1);
+        // Set seniority_rank — overwrite (matches persist-ppm.ts). The
+        // previous COALESCE preserved a wrong stored value when re-ingest
+        // ran after the rank-assignment fix; rank is not user-editable so
+        // there is no "user override" to protect.
+        setClauses.push(`seniority_rank = $${pi++}`);
+        values.push(denseRanks[i]);
         setClauses.push(`is_subordinate = COALESCE(is_subordinate, $${pi++})`);
         values.push(isSub);
         setClauses.push(`is_income_note = COALESCE(is_income_note, $${pi++})`);
@@ -1299,7 +1310,7 @@ export async function runSectionExtraction(
             `UPDATE clo_tranches SET ${setClauses.join(", ")} WHERE id = $${pi}`,
             values,
           );
-          console.log(`[extraction] enriched tranche "${entryClass}": spreadBps=${spreadBps}, rank=${i + 1}, isSub=${isSub}`);
+          console.log(`[extraction] enriched tranche "${entryClass}": spreadBps=${spreadBps}, rank=${denseRanks[i]}, isSub=${isSub}`);
         }
       }
     }
