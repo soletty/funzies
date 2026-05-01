@@ -276,6 +276,55 @@ describe("CCC haircut in OC numerator", () => {
     expect(actualOcRatio).toBeCloseTo(expectedOcRatio, 1);
   });
 
+  it("non-default 17.5/60 thresholds change the haircut magnitude (per-deal portability)", () => {
+    // Same fixture pool, two threshold sets. Confirms the engine consumes
+    // cccBucketLimitPct/cccMarketValuePct as inputs (not constants), so a
+    // PPM-extracted per-deal pair flows end-to-end through the OC numerator.
+    // 25% CCC pool, no defaults/prepayments:
+    //   - 7.5/70 (default): cccExcess = 25M - 7.5M = 17.5M; haircut = 17.5M * 0.30 = 5.25M
+    //   - 17.5/60 (alt):    cccExcess = 25M - 17.5M = 7.5M; haircut = 7.5M  * 0.40 = 3.00M
+    // Larger numerator under 17.5/60 → larger OC ratio than 7.5/70.
+    const baseLoans = [
+      { parBalance: 25_000_000, maturityDate: "2034-06-15", ratingBucket: "CCC" as const, spreadBps: 375 },
+      { parBalance: 75_000_000, maturityDate: "2034-06-15", ratingBucket: "B" as const, spreadBps: 375 },
+    ];
+    const baseOpts = {
+      loans: baseLoans,
+      defaultRatesByRating: uniformRates(0),
+      cprPct: 0,
+      recoveryPct: 0,
+      reinvestmentPeriodEnd: null,
+      ocTriggers: [{ className: "A", triggerLevel: 110, rank: 1 }],
+      icTriggers: [],
+    };
+    const withDefaults = runProjection(makeInputs({
+      ...baseOpts,
+      cccBucketLimitPct: 7.5,
+      cccMarketValuePct: 70,
+    }));
+    const withAltThresholds = runProjection(makeInputs({
+      ...baseOpts,
+      cccBucketLimitPct: 17.5,
+      cccMarketValuePct: 60,
+    }));
+
+    const q1Default = withDefaults.periods[0];
+    const q1Alt = withAltThresholds.periods[0];
+    const endingPar = q1Default.endingPar;
+    expect(q1Alt.endingPar).toBeCloseTo(endingPar, 0);
+
+    const aBalance = q1Default.tranchePrincipal.find((t) => t.className === "A")!.endBalance;
+    const haircut7570 = Math.max(0, 25_000_000 - endingPar * 0.075) * 0.30;
+    const haircut17560 = Math.max(0, 25_000_000 - endingPar * 0.175) * 0.40;
+    const expected7570 = ((endingPar - haircut7570) / aBalance) * 100;
+    const expected17560 = ((endingPar - haircut17560) / aBalance) * 100;
+
+    expect(q1Default.ocTests[0].actual).toBeCloseTo(expected7570, 1);
+    expect(q1Alt.ocTests[0].actual).toBeCloseTo(expected17560, 1);
+    // Direction check: 17.5/60 produces a smaller haircut → larger OC ratio.
+    expect(q1Alt.ocTests[0].actual).toBeGreaterThan(q1Default.ocTests[0].actual);
+  });
+
   it("no haircut when CCC par is below limit", () => {
     // Only 5% CCC loans; limit = 7.5% → no excess, no haircut
     const withSmallCCC = runProjection(makeInputs({

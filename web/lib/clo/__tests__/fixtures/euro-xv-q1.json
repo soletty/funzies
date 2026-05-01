@@ -8161,6 +8161,8 @@
     "preExistingDefaultOcValue": 0,
     "discountObligationHaircut": 0,
     "longDatedObligationHaircut": 0,
+    "cccBucketLimitPct": 7.5,
+    "cccMarketValuePct": 70,
     "impliedOcAdjustment": 0,
     "quartersSinceReport": 0,
     "ddtlUnfundedPar": 0,
@@ -8514,6 +8516,10 @@
         "trigger": "103.74%",
         "appliesDuring": "Class F PV Ratio floor",
         "diversionAmount": "Interest diversion (lesser of 50% of residual IP or cure amount) during Reinvestment Period"
+      },
+      "excessCccAdjustment": {
+        "thresholdPct": "7.5",
+        "marketValuePct": "70"
       },
       "coverageTestEntries": [
         {

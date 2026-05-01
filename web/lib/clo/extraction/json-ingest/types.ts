@@ -105,6 +105,9 @@ export interface PpmJson {
     interest_coverage_tests: PpmJsonCoverageTest[];
     reinvestment_oc_test?: { required_ratio_pct: number; description?: string; trigger_action?: string; waterfall_clause?: string };
     event_of_default_par_value_test?: { required_ratio_pct: number; [k: string]: unknown };
+    // Condition 1 / 10(a)(iv) Excess CCC Adjustment Amount parameters used
+    // by the OC numerator haircut. Outer-nullable, inner-required.
+    excess_ccc_adjustment?: { threshold_pct: number; market_value_pct: number } | null;
     [k: string]: unknown;
   };
   section_5_fees_and_hurdle: {

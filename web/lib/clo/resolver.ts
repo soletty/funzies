@@ -2,9 +2,10 @@ import type { ExtractedConstraints, CloPoolSummary, CloComplianceTest, CloTranch
 import type { Citation, ResolvedDealData, ResolvedTranche, ResolvedPool, ResolvedTrigger, ResolvedReinvestmentOcTrigger, ResolvedDates, ResolvedFees, ResolvedLoan, ResolvedComplianceTest, ResolvedEodTest, ResolvedMetadata, ResolutionWarning } from "./resolver-types";
 import { parseSpreadToBps, normalizeWacSpread } from "./ingestion-gate";
 import { mapToRatingBucket, moodysWarfFactor } from "./rating-mapping";
-import { isRatingSentinel } from "./sdf/csv-utils";
+import { isRatingSentinel, parseNumeric, parseDecoratedAmount } from "./sdf/csv-utils";
 import { CLO_DEFAULTS } from "./defaults";
 import { computeTopNObligorsPct } from "./pool-metrics";
+import { assignDenseSeniorityRanks, classOrderBucket } from "./seniority-rank";
 
 /** Defensive sentinel stripper for rating strings already in the DB. The SDF
  *  parser now filters these at ingest (see trimRating), but pre-fix rows can
@@ -72,34 +73,14 @@ function normClass(s: string): string {
   return match ? match[1].replace(/\s+/g, "-") : stripped;
 }
 
-/** Normalize a numeric string handling both US (1,500,000.00) and European (1.500.000,00) formats. */
-function normalizeNumericString(raw: string): string {
-  // European format: dots as thousands separators, comma as decimal (e.g. "1.500.000,00")
-  if (/\d\.\d{3}[.,]/.test(raw) || /\d\.\d{3}\.\d{3}/.test(raw)) {
-    return raw.replace(/\./g, "").replace(",", ".");
-  }
-  // Standard: strip commas (thousands separators), keep dots (decimal)
-  return raw.replace(/,/g, "");
-}
-
 function parseAmount(s: string | undefined | null): number {
   if (!s) return 0;
-  // Detect ranges like "100,000,000-200,000,000" or "100,000,000 - 200,000,000"
-  // and take the first value (lower bound) instead of concatenating.
+  // Range like "100,000,000-200,000,000" or "100,000,000 - 200,000,000": take
+  // the first (lower-bound) value. The regex captures locale-permissive groups
+  // ([\d,._]+) and the locale-aware parser handles American/European disambiguation.
   const rangeMatch = s.match(/^[^0-9]*?([\d,._]+)\s*[-–—]\s*([\d,._]+)/);
-  if (rangeMatch) {
-    const cleaned = normalizeNumericString(rangeMatch[1]).replace(/[^0-9.]/g, "");
-    return parseFloat(cleaned) || 0;
-  }
-  // Preserve leading minus sign for negative values.
-  const negMatch = s.match(/^[^0-9]*(-)\s*([\d,._]+)/);
-  if (negMatch) {
-    const cleaned = normalizeNumericString(negMatch[2]).replace(/[^0-9.]/g, "");
-    return -(parseFloat(cleaned) || 0);
-  }
-  const normalized = normalizeNumericString(s);
-  const cleaned = normalized.replace(/[^0-9.]/g, "");
-  return parseFloat(cleaned) || 0;
+  if (rangeMatch) return parseNumeric(rangeMatch[1]) ?? 0;
+  return parseDecoratedAmount(s) ?? 0;
 }
 
 function isOcTest(t: { testType?: string | null; testName?: string | null }): boolean {
@@ -207,7 +188,6 @@ function resolveTranches(
             field: `${t.className}.spreadBps`,
             message: `No spread found for ${t.className} in DB or PPM constraints`,
             severity: "error",
-            // KI-58.
             blocking: true,
           });
         }
@@ -248,18 +228,19 @@ function resolveTranches(
     }
   }
 
-  // Sort by class letter to ensure correct seniority regardless of LLM extraction order.
-  // Standard CLO classes: X, A, B, C, D, E, F, then subordinated/equity last.
-  const classOrder = (e: typeof entries[number]): number => {
-    const name = (e.class ?? "").replace(/^class\s+/i, "").trim().toLowerCase();
-    if (/^x$/i.test(name)) return 0;
-    if (e.isSubordinated || name.includes("sub") || name.includes("equity") || name.includes("income")) return 100;
-    // Single letter classes (A=1, B=2, ..., F=6) — handles "A-1", "A-2" etc.
-    const letter = name.match(/^([a-z])/)?.[1];
-    if (letter) return letter.charCodeAt(0) - 96; // a=1, b=2, ...
-    return 50; // unknown → middle
-  };
-  const sortedEntries = Array.from(byClass.values()).sort((a, b) => classOrder(a) - classOrder(b));
+  // Sort by class-letter bucket so seniority survives LLM extraction-order
+  // shuffle. Pari-passu collapse (A-1+A-2 → rank 1, B-1+B-2 → rank 2) is
+  // produced by `assignDenseSeniorityRanks` below — same shared helper used
+  // by the DB write sites (`extraction/persist-ppm.ts`, `extraction/runner.ts`)
+  // so the rank value can't drift between layers.
+  const sortedEntries = Array.from(byClass.values()).sort(
+    (a, b) =>
+      classOrderBucket(a.class, a.isSubordinated) -
+      classOrderBucket(b.class, b.isSubordinated),
+  );
+  const denseRanks = assignDenseSeniorityRanks(
+    sortedEntries.map((e) => ({ className: e.class, isSubordinated: e.isSubordinated })),
+  );
 
   return sortedEntries.map((e, idx) => {
     const className = e.class ?? "";
@@ -277,7 +258,6 @@ function resolveTranches(
         field: `${className}.spreadBps`,
         message: `No spread found for ${className} in PPM constraints`,
         severity: "error",
-        // KI-58 — sibling of the DB-path zero-spread guard above.
         blocking: true,
       });
     }
@@ -287,7 +267,7 @@ function resolveTranches(
       currentBalance: parseAmount(e.principalAmount),
       originalBalance: parseAmount(e.principalAmount),
       spreadBps,
-      seniorityRank: idx + 1,
+      seniorityRank: denseRanks[idx],
       isFloating,
       isIncomeNote: isSub,
       isDeferrable: e.deferrable ?? false,
@@ -410,9 +390,8 @@ function resolveTriggers(
         field: `ocTrigger.${t.className}`,
         message: `OC trigger ${triggerLevel}% for ${t.className} is implausible — no CLO OC trigger is 10-90%. Check extraction and set manually.`,
         severity: "error",
-        // KI-58 — the "perpetually-passing" reasoning above is fine
-        // for the warning shape but wrong as a run-with-it choice;
-        // refuse instead.
+        // The "perpetually-passing" reasoning above is fine for the
+        // warning shape but wrong as a run-with-it choice; refuse instead.
         blocking: true,
       });
     }
@@ -530,9 +509,9 @@ function resolveFees(constraints: ExtractedConstraints, warnings: ResolutionWarn
           message: `Incentive fee present (${incentiveFeePct}%) but no hurdle rate found — assuming 12% IRR hurdle. This directly affects equity IRR calculation. Set manually if different.`,
           severity: "error",
           resolvedFrom: "not extracted → defaulted to 12%",
-          // KI-58 — value still set to 0.12 so non-engine reads (debug
-          // serialization, type-safety) don't see undefined; gate refuses
-          // before the engine consumes.
+          // Value still set to 0.12 so non-engine reads (debug
+          // serialization, type-safety) don't see undefined; gate
+          // refuses before the engine consumes.
           blocking: true,
         });
       }
@@ -562,7 +541,6 @@ function resolveFees(constraints: ExtractedConstraints, warnings: ResolutionWarn
         ? `Senior Management Fee entry found but rate extracted as 0 — likely a PPM extraction regression (LLM returned rate=null or "per_agreement"). Check raw.constraints.fees. Typical Senior CMF is 0.10-0.20% p.a. — set manually.`
         : `No Senior Management Fee found in extracted constraints.fees[]. PPM extraction may have dropped the row. Typical Senior CMF is 0.10-0.20% p.a. — set manually.`,
       severity: "error",
-      // KI-58.
       blocking: true,
     });
   }
@@ -573,7 +551,6 @@ function resolveFees(constraints: ExtractedConstraints, warnings: ResolutionWarn
         ? `Subordinated Management Fee entry found but rate extracted as 0 — likely a PPM extraction regression. Typical Sub CMF is 0.30-0.50% p.a. — set manually.`
         : `No Subordinated Management Fee found in extracted constraints.fees[]. Typical Sub CMF is 0.30-0.50% p.a. — set manually.`,
       severity: "error",
-      // KI-58.
       blocking: true,
     });
   }
@@ -585,6 +562,86 @@ function resolveFees(constraints: ExtractedConstraints, warnings: ResolutionWarn
   const citation = extractCitation(feesProvenance);
 
   return { seniorFeePct, subFeePct, trusteeFeeBps, incentiveFeePct, incentiveFeeHurdleIrr, citation };
+}
+
+/** Resolve PPM Condition 1 / 10(a)(iv) Excess CCC Adjustment Amount.
+ *  Outer-nullable, inner-required: when the constraint object is missing or
+ *  null, both fields emit blocking warnings rather than silently falling back
+ *  to a global default — the partner-facing OC numerator depends on per-deal
+ *  values (typical European CLO is 7.5% / 70% but ranges are 5–17.5% / 60–80%).
+ *  The slider is not an override path: the gate fires before userAssumptions
+ *  are read, so any unblock must happen upstream of the resolver. */
+function resolveCccThresholds(
+  constraints: ExtractedConstraints,
+  warnings: ResolutionWarning[],
+): { cccBucketLimitPct: number | null; cccMarketValuePct: number | null } {
+  const adj = constraints.excessCccAdjustment;
+  if (adj == null) {
+    warnings.push({
+      field: "cccBucketLimitPct",
+      message: `Excess CCC Adjustment Amount not extracted from PPM (Condition 1 / 10(a)(iv)). The CCC bucket limit is per-deal; refusing to run rather than apply a global default.`,
+      severity: "error",
+      blocking: true,
+    });
+    warnings.push({
+      field: "cccMarketValuePct",
+      message: `Excess CCC Adjustment Amount not extracted from PPM (Condition 1 / 10(a)(iv)). The CCC market-value floor is per-deal; refusing to run rather than apply a global default.`,
+      severity: "error",
+      blocking: true,
+    });
+    return { cccBucketLimitPct: null, cccMarketValuePct: null };
+  }
+  const threshold = parseFloat(adj.thresholdPct);
+  const marketValue = parseFloat(adj.marketValuePct);
+
+  // Plausibility bounds: catches fraction-shape mis-extraction (LLM emits
+  // "0.075" when the PPM says "7.5 per cent" → parseFloat passes 0.075
+  // through silently, and the engine applies a 100× too-tight haircut cap
+  // with no surface signal). Range chosen to bracket every PPM the model
+  // might encounter (typical 5–17.5 / 60–80; widened to 1–50 / 1–100 for
+  // headroom). Same defensive shape as the OC trigger 10–90% band block.
+  const thresholdValid = !isNaN(threshold) && threshold >= 1 && threshold <= 50;
+  const marketValueValid = !isNaN(marketValue) && marketValue >= 1 && marketValue <= 100;
+
+  if (isNaN(threshold)) {
+    warnings.push({
+      field: "cccBucketLimitPct",
+      message: `Excess CCC Adjustment thresholdPct extracted but unparseable: "${adj.thresholdPct}". Refusing to run rather than apply a global default.`,
+      severity: "error",
+      blocking: true,
+    });
+  } else if (!thresholdValid) {
+    warnings.push({
+      field: "cccBucketLimitPct",
+      message: `Excess CCC Adjustment thresholdPct extracted as ${threshold} — outside plausible range [1, 50]. Likely a fraction-shape mis-extraction (e.g., "0.075" instead of "7.5") or a malformed value. Refusing to run rather than apply an implausible threshold.`,
+      severity: "error",
+      blocking: true,
+    });
+  }
+  if (isNaN(marketValue)) {
+    warnings.push({
+      field: "cccMarketValuePct",
+      message: `Excess CCC Adjustment marketValuePct extracted but unparseable: "${adj.marketValuePct}". Refusing to run rather than apply a global default.`,
+      severity: "error",
+      blocking: true,
+    });
+  } else if (!marketValueValid) {
+    warnings.push({
+      field: "cccMarketValuePct",
+      message: `Excess CCC Adjustment marketValuePct extracted as ${marketValue} — outside plausible range [1, 100]. Likely a fraction-shape mis-extraction (e.g., "0.7" instead of "70") or an impossible value (>100% of par). Refusing to run rather than apply an implausible floor.`,
+      severity: "error",
+      blocking: true,
+    });
+  }
+  // Atomic return: half-good output (one field parses, the other doesn't)
+  // would let a downstream caller bypass the gate and consume a per-deal
+  // value alongside the global default for the other — silently producing
+  // a hybrid haircut. The per-field blocking warnings above are independent
+  // of this atomicity; both still fire when only one field is invalid.
+  if (!thresholdValid || !marketValueValid) {
+    return { cccBucketLimitPct: null, cccMarketValuePct: null };
+  }
+  return { cccBucketLimitPct: threshold, cccMarketValuePct: marketValue };
 }
 
 export function resolveWaterfallInputs(
@@ -741,8 +798,8 @@ export function resolveWaterfallInputs(
       field: "poolSummary.totalPar",
       message: "Total par is 0 — no pool summary data",
       severity: "error",
-      // KI-58 — empty pool produces an all-zero projection that's
-      // visible only as "everything is strange"; refuse instead.
+      // Empty pool produces an all-zero projection that's visible
+      // only as "everything is strange"; refuse instead.
       blocking: true,
     });
   }
@@ -809,8 +866,8 @@ export function resolveWaterfallInputs(
       field: "dates.maturity",
       message: `No maturity date found — using fallback ${resolvedMaturity} (current date + ${CLO_DEFAULTS.defaultMaxTenorYears} years). Set maturity manually.`,
       severity: "error",
-      // KI-58 — fallback horizon ≠ true maturity → wrong period count
-      // and wrong cumulative interest; refuse.
+      // Fallback horizon ≠ true maturity → wrong period count and
+      // wrong cumulative interest; refuse.
       blocking: true,
     });
   }
@@ -838,6 +895,9 @@ export function resolveWaterfallInputs(
   // --- Fees ---
   const fees = resolveFees(constraints, warnings);
 
+  // --- Excess CCC Adjustment Amount (per-deal CCC haircut params) ---
+  const { cccBucketLimitPct, cccMarketValuePct } = resolveCccThresholds(constraints, warnings);
+
   // --- Reinvestment OC Trigger ---
   // Priority: (1) compliance test explicitly named "Reinvestment OC" with
   // testType INTEREST_DIVERSION — authoritative; (2) PPM's reinvestmentOcTest
@@ -857,7 +917,6 @@ export function resolveWaterfallInputs(
         field: "reinvestmentOcTrigger.diversionPct",
         message: `Could not parse diversion percentage from "${reinvOcRaw.diversionAmount}" — defaulting to 50%`,
         severity: "error",
-        // KI-58.
         blocking: true,
       });
     }
@@ -866,7 +925,6 @@ export function resolveWaterfallInputs(
       field: "reinvestmentOcTrigger.diversionPct",
       message: `Reinvestment OC trigger found but no diversion amount specified — defaulting to 50%`,
       severity: "error",
-      // KI-58 — sibling of the parse-failure path above.
       blocking: true,
     });
   }
@@ -1425,12 +1483,11 @@ export function resolveWaterfallInputs(
         field: "concentrationJoin.vocabulary",
         message: `Concentration letter-prefix join matched only ${matchedLetters} of ${concCount} CONCENTRATION tests. The "(a)", "(b)", "(p)(i)" naming convention may have changed. Sample names: ${samples}`,
         severity: "error",
-        // KI-58 carve-out: this field is display-only — it does not enter
-        // ProjectionInputs or any waterfall computation. The partner sees
-        // an out-of-date concentration taxonomy in the table, never a
-        // wrong number. Explicit `blocking: false` so the umbrella's
-        // "all error sites except this one block" is mechanical, not
-        // a comment-explained exception.
+        // Display-only: this field does not enter ProjectionInputs or
+        // any waterfall computation. The partner sees an out-of-date
+        // concentration taxonomy in the table, never a wrong number.
+        // Explicit `blocking: false` so the carve-out is mechanical,
+        // not a comment-explained exception.
         blocking: false,
       });
     }
@@ -1482,7 +1539,7 @@ export function resolveWaterfallInputs(
   }
 
   return {
-    resolved: { tranches, poolSummary, ocTriggers, icTriggers, qualityTests, concentrationTests, reinvestmentOcTrigger, eventOfDefaultTest, dates, fees, loans, metadata, principalAccountCash, interestAccountCash, interestSmoothingBalance, supplementalReserveBalance, expenseReserveBalance, preExistingDefaultedPar, preExistingDefaultRecovery, unpricedDefaultedPar, preExistingDefaultOcValue, discountObligationHaircut, longDatedObligationHaircut, impliedOcAdjustment, quartersSinceReport, ddtlUnfundedPar, deferredInterestCompounds, baseRateFloorPct, currency },
+    resolved: { tranches, poolSummary, ocTriggers, icTriggers, qualityTests, concentrationTests, reinvestmentOcTrigger, eventOfDefaultTest, dates, fees, loans, metadata, principalAccountCash, interestAccountCash, interestSmoothingBalance, supplementalReserveBalance, expenseReserveBalance, preExistingDefaultedPar, preExistingDefaultRecovery, unpricedDefaultedPar, preExistingDefaultOcValue, discountObligationHaircut, longDatedObligationHaircut, cccBucketLimitPct, cccMarketValuePct, impliedOcAdjustment, quartersSinceReport, ddtlUnfundedPar, deferredInterestCompounds, baseRateFloorPct, currency },
     warnings,
   };
 }

@@ -1,5 +1,6 @@
 import type { Pass1Output, Pass2Output, Pass3Output, Pass4Output, Pass5Output } from "./schemas";
 import { normalizeClassName } from "../api";
+import { parseNumeric } from "../sdf/csv-utils";
 
 function toSnakeCase(str: string): string {
   // Handle consecutive uppercase (acronyms): "ISINCode" → "isin_code", "WAL" → "wal"
@@ -361,11 +362,9 @@ export function normalizeSectionResults(
     const poolMetrics: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(cs)) {
       if (POOL_METRIC_KEYS.has(key)) {
-        // Strip commas from numeric strings (e.g. "2,939" → 2939)
         if (typeof value === "string") {
-          const cleaned = value.replace(/,/g, "");
-          const num = parseFloat(cleaned);
-          poolMetrics[key] = isNaN(num) ? value : num;
+          const num = parseNumeric(value);
+          poolMetrics[key] = num != null ? num : value;
         } else {
           poolMetrics[key] = value;
         }
@@ -860,7 +859,7 @@ export function normalizeSectionResults(
     if (ps.total_market_value == null) {
       const sum = holdings.reduce((s, h) => {
         const mv = h.market_value;
-        return s + (typeof mv === "number" ? mv : (typeof mv === "string" ? parseFloat(mv) || 0 : 0));
+        return s + (typeof mv === "number" ? mv : (typeof mv === "string" ? (parseNumeric(mv) ?? 0) : 0));
       }, 0);
       if (sum > 0) ps.total_market_value = sum;
     }
@@ -874,10 +873,10 @@ export function normalizeSectionResults(
       for (const h of holdings) {
         if (h.is_fixed_rate === true) continue;
         const par = typeof h.par_balance === "number" ? h.par_balance
-                  : typeof h.par_balance === "string" ? parseFloat(h.par_balance) || 0
+                  : typeof h.par_balance === "string" ? (parseNumeric(h.par_balance) ?? 0)
                   : 0;
         const sb = typeof h.spread_bps === "number" ? h.spread_bps
-                 : typeof h.spread_bps === "string" ? parseFloat(h.spread_bps) || 0
+                 : typeof h.spread_bps === "string" ? (parseNumeric(h.spread_bps) ?? 0)
                  : 0;
         if (par > 0 && sb > 0) {
           wsumBps += par * sb;
@@ -935,9 +934,10 @@ export function normalizePpmSectionResults(
 
   const coverageTests = sections.coverage_tests;
   if (coverageTests) {
-    const { coverageTestEntries, reinvestmentOcTest, ...rest } = coverageTests;
+    const { coverageTestEntries, reinvestmentOcTest, excessCccAdjustment, ...rest } = coverageTests;
     if (coverageTestEntries) result.coverageTestEntries = coverageTestEntries;
     if (reinvestmentOcTest) result.reinvestmentOcTest = reinvestmentOcTest;
+    if (excessCccAdjustment !== undefined) result.excessCccAdjustment = excessCccAdjustment;
     for (const [key, value] of Object.entries(rest)) {
       if (value != null) result[key] = value;
     }

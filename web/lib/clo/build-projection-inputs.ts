@@ -38,6 +38,8 @@ export const EMPTY_RESOLVED: ResolvedDealData = {
   preExistingDefaultOcValue: 0,
   discountObligationHaircut: 0,
   longDatedObligationHaircut: 0,
+  cccBucketLimitPct: null,
+  cccMarketValuePct: null,
   impliedOcAdjustment: 0,
   quartersSinceReport: 0,
   ddtlUnfundedPar: 0,
@@ -199,6 +201,13 @@ export function defaultsFromResolved(
 
   // Floor from resolver if deal-specific
   if (resolved.baseRateFloorPct != null) base.baseRateFloorPct = resolved.baseRateFloorPct;
+
+  // CCC haircut params from PPM. Null shouldn't reach here at runtime — the
+  // buildFromResolved blocking-warning gate refuses first — but the conditional
+  // matches the pattern used for every other resolved-derived override and
+  // keeps the function decoupled from gate assumptions.
+  if (resolved.cccBucketLimitPct != null) base.cccBucketLimitPct = resolved.cccBucketLimitPct;
+  if (resolved.cccMarketValuePct != null) base.cccMarketValuePct = resolved.cccMarketValuePct;
 
   // Senior / sub mgmt fees + incentive fees ← resolver PPM extraction
   const f = resolved.fees;
@@ -398,8 +407,8 @@ export function selectBlockingWarnings(
 /**
  * Thrown by `buildFromResolved` when any `ResolutionWarning` carries
  * `blocking: true` — i.e. an extraction-side gap whose downstream
- * arithmetic the engine cannot perform without a wrong number (KI-58).
- * Caller (UI layer) catches this and renders a "DATA INCOMPLETE" banner
+ * arithmetic the engine cannot perform without a wrong number. Caller
+ * (UI layer) catches this and renders a "DATA INCOMPLETE" banner
  * enumerating the blocking warnings rather than running the projection.
  */
 export class IncompleteDataError extends Error {
@@ -416,9 +425,9 @@ export function buildFromResolved(
   userAssumptions: UserAssumptions,
   warnings: ResolutionWarning[] = [],
 ): ProjectionInputs {
-  // KI-58 gate: any extraction-side warning marked `blocking: true`
-  // refuses to construct ProjectionInputs. The engine never receives an
-  // inputs object built from a fallback / sentinel value where extraction
+  // Any extraction-side warning marked `blocking: true` refuses to
+  // construct ProjectionInputs. The engine never receives an inputs
+  // object built from a fallback / sentinel value where extraction
   // missed a load-bearing field.
   const blocking = selectBlockingWarnings(warnings);
   if (blocking.length > 0) {

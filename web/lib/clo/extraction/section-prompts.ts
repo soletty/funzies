@@ -444,6 +444,11 @@ PPM COVERAGE TEST FORMAT:
 
 Extract reinvestment OC test: trigger level (as percentage, e.g. "102.95"), appliesDuring (e.g., "Reinvestment Period only"), diversionAmount (the exact percentage of remaining interest proceeds diverted, e.g. "50%" or "Up to 50%"). The diversion percentage is critical — look for phrases like "up to 50 per cent" or "100 per cent" of remaining available interest proceeds.
 
+Extract excessCccAdjustment — the Condition 1 "Excess CCC Adjustment Amount" / Condition 10(a)(iv) Adjusted Collateral Principal Amount parameters used to haircut the OC numerator for CCC-rated par above the concentration limit:
+- thresholdPct: the concentration limit above which CCC par is treated as excess (typically 7.5 for European CLOs, but may range 5–17.5). Look for definitions of "Excess CCC/Caa Adjustment Amount", "CCC Excess", "Caa Excess", or the Adjusted CPA construction.
+- marketValuePct: the market-value floor (as a percentage of par) credited to the excess in the OC numerator (typically 70, but may range 60–80). Look for phrases like "the lesser of (i) the Market Value of such CCC Obligations and (ii) 70 per cent.".
+- Both fields MUST be extracted as a pair when the provision is present. If you find the Excess CCC Adjustment Amount definition, return both values. If you cannot locate the definition at all, return excessCccAdjustment: null. Do NOT return a partial object with only one field — return null instead.
+
 ${COMMON_RULES}`,
     user: `Extract the coverage test definitions from the following markdown text.`,
   };

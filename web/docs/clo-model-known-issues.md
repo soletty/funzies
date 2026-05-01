@@ -43,7 +43,6 @@ Categorized so a partner reading cold can separate "what's still wrong" from "wh
 
 - [KI-26 — Reserve account opening balances dropped (Interest, Smoothing, Supplemental, Expense)](#ki-26)
 - [KI-29 — Discount / long-dated obligation haircuts are static snapshots, not recomputed forward](#ki-29)
-- [KI-30 — CCC bucket limit (7.5%) and CCC market-value (70%) hardcoded, never PPM-extracted](#ki-30)
 - [KI-31 — Hedge cost bps never extracted; engine emits zero on every hedged deal](#ki-31)
 - [KI-32 — Per-position agency recovery rates ignored for forward defaults (used only for pre-existing defaulted positions)](#ki-32)
 - [KI-36 — Per-tranche `payment_frequency` and `day_count_convention` extracted but not consumed](#ki-36)
@@ -52,7 +51,6 @@ Categorized so a partner reading cold can separate "what's still wrong" from "wh
 - [KI-51 — `normalizeComplianceTestType` derives `isPassing` as `actual >= trigger` for all tests, including lower-is-better (WARF, WAL, concentration)](#ki-51)
 - [KI-54 — D1 deferrable-A/B guard is name-based; non-A/B-named senior with `isDeferrable=true` slips through](#ki-54)
 - [KI-56 — N1 harness step-G sharing: `classA_interest` bucket compares against trustee[g] which on a Class X-bearing deal includes Class X amort](#ki-56)
-- [KI-57 — Resolver assigns DISTINCT `seniorityRank` to pari-passu tranches; engine pari-passu absorption depends on equal ranks](#ki-57)
 - [KI-59 — Audit remaining `severity: "warn"` resolver fallback sites against the blocking-gate criterion](#ki-59)
 - [KI-60 — Three independent `normalizeClassName` implementations with divergent output shapes (sibling pattern to KI-21)](#ki-60)
 
@@ -713,29 +711,6 @@ The engine never recomputes either haircut as the pool composition evolves throu
 
 ---
 
-<a id="ki-30"></a>
-### [KI-30] CCC bucket limit (7.5%) and CCC market-value (70%) hardcoded, never PPM-extracted
-
-**PPM reference:** Condition 1 ("CCC Excess"), Condition 10(a)(iv) Adjusted CPA construction. CCC concentration cap (typically 7.5% for European CLOs but can range 5%-17.5%); CCC market-value floor for haircut computation (typically 70% but can be 60%-80% or PPM-defined per-position recovery rate).
-
-**Current engine behavior:** `web/lib/clo/defaults.ts:38-39` declares `cccBucketLimitPct: 7.5` and `cccMarketValuePct: 70` as global constants. `build-projection-inputs.ts:62-63, 127-128, 470-471` propagates them from `CLO_DEFAULTS` to `UserAssumptions` to `ProjectionInputs`. Engine consumes them at the CCC excess haircut block (search `cccBucketLimit`). Neither the resolver nor any extraction module pulls per-deal CCC thresholds — the 7.5% / 70% values are baked in for every projected deal.
-
-**PPM-correct behavior:** Per-deal extraction from the PPM. The CCC thresholds live in Condition 1 definitions (CCC Excess, CCC Concentration Limitation) and Condition 10. Each deal can specify its own values; treating them as universal constants is a Euro-XV-specific shortcut.
-
-**Quantitative magnitude:** Zero on any deal whose actual PPM specifies 7.5% / 70% (most European post-2014 CLOs). Material on deals with different thresholds — a deal specifying 17.5% / 60% would silently apply 7.5% / 70% in the engine. Direction of error: more conservative on the bucket cap (we apply a stricter cap than the deal allows, under-stating OC) and more aggressive on the market value floor (we credit more market value than the deal allows, over-stating OC). Two-sided latent error of unknown magnitude on non-Euro-XV deals.
-
-**Deferral rationale:** Latent — Euro XV's actual values are 7.5% / 70%. Distinct from KI-19 (NR=Caa2 — that is a Moody's methodology constant; this entry is about per-deal PPM constants).
-
-**Path to close:**
-1. Add `cccBucketLimitPct: number | null` and `cccMarketValuePct: number | null` to the PPM extraction schema (`web/lib/clo/extraction/schemas.ts` and `prompts.ts`) under Condition 1 / Condition 10.
-2. Read both into `ResolvedDealData` in the resolver.
-3. In `build-projection-inputs.ts`, prefer the resolved value over `CLO_DEFAULTS` when available, falling back to the constant only when extraction returned null. Emit a `severity: warn` warning when the fallback fires (per the existing pattern at `resolver.ts:817`).
-4. Update the C2 quality-forward-projection test to assert the pinned values for Euro XV match resolver-extracted, not constants.
-
-**Test:** No active marker. When the fix lands, add a resolver test that asserts Ares Euro XV PPM extracts to 7.5% / 70% (smoke test for the extraction path). Add a synthetic-deal test where the PPM specifies 17.5% / 60% and verify the engine applies those values, not the defaults.
-
----
-
 <a id="ki-31"></a>
 ### [KI-31] Hedge cost bps never extracted; engine emits zero on every hedged deal
 
@@ -1070,53 +1045,12 @@ Option (a) preserves per-source granularity in the harness output (partner can s
 
 ---
 
-<a id="ki-57"></a>
-### [KI-57] Resolver assigns DISTINCT `seniorityRank` to pari-passu tranches; engine pari-passu absorption depends on equal ranks
-
-**PPM reference:** Pari-passu tranches share waterfall priority — the interest waterfall pays them at the same step (cash split pro-rata under shortfall), and OC/IC tests bucket them together. Common shapes: split A-1 + A-2 senior structures (BSL); split B-1 + B-2 mezzanine (Euro XV's Class B is itself a B-1 + B-2 pair).
-
-**Current write-site behavior — three sites assign rank from loop index, never preserving equal-rank semantics:**
-- `web/lib/clo/extraction/persist-ppm.ts:171-172` — `setClauses.push("seniority_rank = $...")` with `values.push(i + 1)` over the PPM tranche-array iteration.
-- `web/lib/clo/extraction/runner.ts:1279-1280` — same shape: `seniority_rank = COALESCE(seniority_rank, $...)` with `values.push(i + 1)`.
-- `web/lib/clo/extraction/runner.ts:546` — same idx-based assignment in the legacy enrichment path.
-
-**Current resolver behavior — both paths inherit idx-based ranks:**
-- `web/lib/clo/resolver.ts:226` (DB-derived, when `dbTranches.length > 0`) — `seniorityRank: t.seniorityRank ?? 99`. Reads whatever the write sites stored.
-- `web/lib/clo/resolver.ts:286` (PPM-derived fallback) — `seniorityRank: idx + 1` directly from `sortedEntries.map((e, idx) => ...)`.
-
-The `classOrder` helper at `resolver.ts:251-258` maps "A-1", "A-2", "A-3" all to letter-bucket rank 1 for sort ordering — but the output rank comes from the array index after the sort, never from the bucket. Pari-passu information is lost at every layer.
-
-**Engine behavior — correct given correct input, but the input is never correct:** `web/lib/clo/projection.ts:748-755` explicitly groups by equal `seniorityRank` for pari-passu absorption. The comment reads *"Group by seniorityRank so pari passu classes (e.g., B-1 + B-2) absorb together."* The engine handles pari-passu correctly when ranks ARE equal, but the resolver never produces equal ranks, so the absorption code path never fires.
-
-**PPM-correct behavior:** Pari-passu tranches must share `seniorityRank`. Implementation options: (a) detect via class-name structural prefix (A-1, A-2, A-3 all share stem "A" → all share rank 1; B-1, B-2 → both rank 2), (b) extract pari-passu flags directly from the PPM where the source carries them, (c) use the existing `classOrder` letter-bucket as the assigned rank rather than the post-sort index.
-
-**Quantitative magnitude (tentative — pending stress-scenario measurement):**
-- **Euro XV base case (no cash shortage):** zero engine drift on per-period interest. Sequential vs pari-passu produces identical per-class amounts when cash is plentiful. N1 harness confirms `classB_interest` ties within €1, masking the rank-grouping non-firing.
-- **Euro XV under stress** (synthetic high-CDR + low-recovery scenario where Class B interest cannot be paid in full): engine pays B-1 to exhaustion before B-2, when economically the shortfall should split pro-rata between B-1 and B-2 by balance. Magnitude scales with cash shortfall × the B-1/B-2 balance ratio. Not yet measured against a synthetic stress fixture — that measurement is a precondition for closing the entry.
-- **Forward A-1/A-2-split deal:** same shape applied to senior debt — A-2 starves before A-1 takes a haircut. Material in any partner-facing IRR or NAV computation under scenarios that breach Class A interest coverage.
-- **OC/IC test bucketing:** the rank-`<=`-filter at `projection.ts:1316-1317` and `:2108-2109` filters tranches by `seniorityRank <= oc.rank`. On Euro XV this happens to produce the right buckets because compliance trigger ranks are also assigned via idx+1 logic; two parallel idx+1 errors line up. On a future deal where compliance triggers are extracted differently, the buckets diverge silently.
-
-**Deferral rationale:** Latent on Euro XV base case; emerges under stress and on future split-tranche deals. Multi-layer fix (three write sites + resolver PPM-derived path + downstream verification of OC/IC bucketing). Filed per the CLAUDE.md discovery rule mid-task on a sibling investigation.
-
-**Path to close:**
-1. Decide the canonical rank-assignment rule (option a, b, or c above). Option (c) reuses existing logic and is the smallest delta.
-2. Update the three write sites in `extraction/` to produce equal ranks for pari-passu groups.
-3. Update the resolver PPM-derived path at `resolver.ts:286` to match.
-4. Re-baseline any test that depends on Euro XV's current B-1=2, B-2=3 layout.
-5. Add a stress-scenario projection test that exercises the engine's existing rank-grouping code at `projection.ts:748-755` under cash shortfall, verifying pari-passu absorption fires (this is the magnitude-pinning measurement).
-6. Verify the OC/IC compliance-trigger filter (`projection.ts:1316-1317, 2108-2109`) still produces the right buckets — may require a corresponding fix on compliance-trigger rank attribution.
-7. Flip the marker test from `[1, 2, 3]` to `[1, 1, 2]` (A-1 and A-2 share rank 1 post-fix; B becomes rank 2).
-
-**Test:** `web/lib/clo/__tests__/resolver-pari-passu-rank.test.ts` — `KI-57: assigns SEQUENTIAL ranks [1, 2, 3] across pari-passu A-1 + A-2 + B (locks current bug)`. Plain `it()` assertion (not `failsWithMagnitude` — this is a structural rank assignment, not a numeric drift). The marker uses three tranches (the pari-passu pair plus a non-pari-passu Class B) so the assertion discriminates idx+1 from any monotone scheme that would coincidentally produce `[1, 2]` on a two-element input. When the fix lands, the assertion flips from `[1, 2, 3]` to `[1, 1, 2]` in the same change.
-
----
-
 <a id="ki-59"></a>
 ### [KI-59] Audit remaining `severity: "warn"` resolver fallback sites against the blocking-gate criterion
 
-**PPM reference:** Generic. The `buildFromResolved` blocking-warning gate (`web/lib/clo/build-projection-inputs.ts`) refuses the projection when any `ResolutionWarning` carries `blocking: true`, and the eight `severity: "error"` resolver sites that silently fell back to a "common default" or sentinel value have all been flipped to emit `blocking: true`. The criterion for "this warning should block" is: (a) the warning fires on a missing per-deal computational input that downstream waterfall arithmetic depends on, AND (b) the resolver currently leaves a fallback / sentinel value in `ResolvedDealData` that the engine would consume.
+**PPM reference:** Generic. The `buildFromResolved` blocking-warning gate (`web/lib/clo/build-projection-inputs.ts`) refuses the projection when any `ResolutionWarning` carries `blocking: true`, and the `severity: "error"` resolver sites that silently fell back to a "common default" or sentinel value have all been flipped to emit `blocking: true` (canonical inventory: `web/lib/clo/__tests__/ki58-blocking-extraction-failures.test.ts`, one `it()` per site). The criterion for "this warning should block" is: (a) the warning fires on a missing per-deal computational input that downstream waterfall arithmetic depends on, AND (b) the resolver currently leaves a fallback / sentinel value in `ResolvedDealData` that the engine would consume.
 
-**Current engine behavior:** ~25 `severity: "warn"` warning sites in `resolver.ts` (grep `severity: "warn"`). Each was originally written as advisory — partner sees a yellow banner but the projection runs. The warn sites were not individually re-audited against the blocking-gate criterion above when the eight error sites were flipped, so any warn site that actually meets both (a) and (b) is currently a silent fallback the partner cannot see.
+**Current engine behavior:** ~25 `severity: "warn"` warning sites in `resolver.ts` (grep `severity: "warn"`). Each was originally written as advisory — partner sees a yellow banner but the projection runs. The warn sites were not individually re-audited against the blocking-gate criterion above when the error sites were flipped, so any warn site that actually meets both (a) and (b) is currently a silent fallback the partner cannot see.
 
 The audit candidates most likely to meet the criterion, surfaced by name from a quick scan (not yet verified, intentionally tentative per the project rule):
 

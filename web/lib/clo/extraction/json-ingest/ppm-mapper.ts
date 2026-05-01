@@ -147,6 +147,7 @@ function mapCoverageTests(ppm: PpmJson): Record<string, unknown> {
     interestCoverageRatio: v.ic != null ? `${v.ic}%` : undefined,
   }));
   const reinv = ct.reinvestment_oc_test;
+  const cccAdj = ct.excess_ccc_adjustment;
   return {
     coverageTestEntries: entries,
     reinvestmentOcTest: reinv ? {
@@ -154,6 +155,12 @@ function mapCoverageTests(ppm: PpmJson): Record<string, unknown> {
       appliesDuring: reinv.description ?? undefined,
       diversionAmount: reinv.trigger_action ?? undefined,
     } : undefined,
+    // Outer-nullable, inner-required. Pass null through so the
+    // normalizer/resolver can distinguish "PPM JSON ingested but no Excess
+    // CCC Adjustment field" from "field present with values".
+    excessCccAdjustment: cccAdj
+      ? { thresholdPct: String(cccAdj.threshold_pct), marketValuePct: String(cccAdj.market_value_pct) }
+      : cccAdj === null ? null : undefined,
     // Preserve EoD hybrid composition as passthrough (schema is .passthrough())
     eventOfDefaultParValueTest: ct.event_of_default_par_value_test,
   };

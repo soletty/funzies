@@ -297,8 +297,7 @@ ledger anywhere a parser hardcodes a column offset to a deal-specific
 header layout, anywhere a constant ("CCC = 7.5%", "incentive hurdle =
 12%") is treated as universal rather than per-deal extracted, and
 anywhere a class-name string match selects a tranche instead of a
-seniority-rank predicate. KI-30 (CCC threshold) is the canonical
-in-flight sibling.
+seniority-rank predicate.
 
 ### 2. Partner-facing claims are mechanically bound to engine state
 
@@ -367,9 +366,7 @@ canonical inventory of every site under this rule lives in
 (one `it()` block per site) and is independently verifiable via
 `grep "blocking: true" web/lib/clo/resolver.ts` — adding a new
 fallback site means flipping its warning to `blocking: true` and
-adding a marker test in the same change. KI-30 (CCC threshold) is
-the canonical in-flight sibling that has not yet adopted this
-pattern (still hardcoded, not yet PPM-extracted); the audit of
+adding a marker test in the same change. The audit of remaining
 `severity: "warn"` resolver sites that may share the same shape
 is tracked under KI-59.
 

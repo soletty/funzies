@@ -164,6 +164,11 @@ export interface ExtractedConstraints {
   // Section 5: Coverage Tests
   coverageTestEntries?: CoverageTestEntry[];
   reinvestmentOcTest?: { trigger?: string; appliesDuring?: string; diversionAmount?: string; diversionOptions?: string };
+  // Condition 1 / 10(a)(iv) Excess CCC Adjustment Amount parameters used by
+  // the OC numerator haircut. Outer-nullable, inner-required: null signals
+  // extraction missed and the resolver emits a blocking warning; both fields
+  // are required when the object is present.
+  excessCccAdjustment?: { thresholdPct: string; marketValuePct: string } | null;
   // Section 6: Collateral Quality Tests
   collateralQualityTests?: CollateralQualityTest[];
   // Section 7: Portfolio Profile Tests

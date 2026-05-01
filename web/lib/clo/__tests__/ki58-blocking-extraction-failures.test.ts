@@ -1,19 +1,18 @@
 /**
- * KI-58 — per-site marker tests for the eight silent-extraction-failure
- * sites in the resolver. Each test mutates the Euro XV fixture's `raw`
- * to remove or break the field, runs the real `resolveWaterfallInputs`,
- * and asserts:
+ * Per-site marker tests for the silent-extraction-failure sites in the
+ * resolver. Each test mutates the Euro XV fixture's `raw` to remove or
+ * break the field, runs the real `resolveWaterfallInputs`, and asserts:
  *
  *   1. The expected warning fires with `severity: "error"` AND
  *      `blocking: true` (the gate's predicate).
  *   2. `buildFromResolved(resolved, DEFAULT_ASSUMPTIONS, warnings)`
  *      throws `IncompleteDataError` carrying that warning.
  *
- * The bijection between "umbrella table row" and "marker test" is the
- * audit-time check that no site silently regresses to a pre-KI-58
- * fallback. If a future PR drops `blocking: true` from a site, its
- * marker test fails immediately rather than waiting for a portability
- * incident to surface the regression.
+ * If a future PR drops `blocking: true` from a site, its marker test
+ * fails immediately rather than waiting for a portability incident
+ * to surface the regression. This file IS the canonical inventory of
+ * blocking-warning sites — adding a new site means adding an `it()`
+ * block here in the same change.
  *
  * Each test deep-clones the fixture before mutation so tests can run
  * in any order without state leakage.
@@ -77,7 +76,7 @@ function expectGateThrows(
   ).toThrow(IncompleteDataError);
 }
 
-describe("KI-58 — Pattern A (silent fallback to common default)", () => {
+describe("Pattern A (silent fallback to common default)", () => {
   it("diversionPct (resolver.ts:861) — diversionAmount unparseable → blocking", () => {
     const raw = loadRaw();
     raw.constraints.reinvestmentOcTest.diversionAmount = "no percent here";
@@ -122,9 +121,65 @@ describe("KI-58 — Pattern A (silent fallback to common default)", () => {
     expectBlockingError(w, "dates.maturity");
     expectGateThrows(resolved, warnings);
   });
+
+  it("cccBucketLimitPct — excessCccAdjustment missing → blocking", () => {
+    const raw = loadRaw();
+    delete (raw.constraints as any).excessCccAdjustment;
+    const { resolved, warnings } = runResolver(raw);
+    const w = warnings.find((w) => w.field === "cccBucketLimitPct");
+    expectBlockingError(w, "cccBucketLimitPct");
+    expectGateThrows(resolved, warnings);
+  });
+
+  it("cccMarketValuePct — excessCccAdjustment missing → blocking", () => {
+    const raw = loadRaw();
+    delete (raw.constraints as any).excessCccAdjustment;
+    const { resolved, warnings } = runResolver(raw);
+    // Same missing-object root cause emits BOTH field warnings; this marker
+    // pins the second emission so a future change that drops one of the two
+    // pushes fails immediately.
+    const w = warnings.find((w) => w.field === "cccMarketValuePct");
+    expectBlockingError(w, "cccMarketValuePct");
+    expectGateThrows(resolved, warnings);
+  });
+
+  it("cccMarketValuePct — unparseable inner field → blocking + atomic null return", () => {
+    const raw = loadRaw();
+    (raw.constraints as any).excessCccAdjustment = { thresholdPct: "7.5", marketValuePct: "per agreement" };
+    const { resolved, warnings } = runResolver(raw);
+    // Distinct code path: object present, inner string parses to NaN.
+    const w = warnings.find((w) => w.field === "cccMarketValuePct");
+    expectBlockingError(w, "cccMarketValuePct (unparseable)");
+    // Atomic-return invariant: thresholdPct parses to 7.5 cleanly, but
+    // marketValuePct is invalid → both fields collapse to null. Prevents a
+    // hybrid (per-deal threshold × global market-value floor) leaking through
+    // if the gate were ever bypassed or refactored.
+    expect(resolved.cccBucketLimitPct).toBeNull();
+    expect(resolved.cccMarketValuePct).toBeNull();
+    expectGateThrows(resolved, warnings);
+  });
+
+  it("cccBucketLimitPct — fraction-shape mis-extraction (0.075) → blocking + atomic null return", () => {
+    const raw = loadRaw();
+    (raw.constraints as any).excessCccAdjustment = { thresholdPct: "0.075", marketValuePct: "70" };
+    const { resolved, warnings } = runResolver(raw);
+    // Distinct code path: parseable but outside plausible range. Without this
+    // guard, parseFloat("0.075") would pass 0.075 through, applying a 100×
+    // too-tight haircut cap silently.
+    const w = warnings.find((w) => w.field === "cccBucketLimitPct");
+    expectBlockingError(w, "cccBucketLimitPct (fraction-shape)");
+    // Atomic-return invariant from the opposite side: thresholdPct fails the
+    // range check, marketValuePct = 70 is valid → both fields still collapse
+    // to null. Half-good output (thresholdPct=null, marketValuePct=70) would
+    // pass every other test in this file but is the exact shape the atomic
+    // return is designed to prevent.
+    expect(resolved.cccBucketLimitPct).toBeNull();
+    expect(resolved.cccMarketValuePct).toBeNull();
+    expectGateThrows(resolved, warnings);
+  });
 });
 
-describe("KI-58 — Pattern B (silent acceptance of sentinel value)", () => {
+describe("Pattern B (silent acceptance of sentinel value)", () => {
   // Helper: a non-subordinated tranche / capital-structure entry. Uses the
   // structural flags the resolver itself uses (`isIncomeNote`, `isSubordinate`,
   // class-name "sub"/"equity"/"income" substring) — never literal class names.
@@ -235,7 +290,7 @@ describe("KI-58 — Pattern B (silent acceptance of sentinel value)", () => {
   });
 });
 
-describe("KI-58 — :1434 carve-out (display-only, severity:error + blocking:false)", () => {
+describe("Carve-out at :1434 (display-only, severity:error + blocking:false)", () => {
   // Behavioral fixture-based test: trip the carve-out by stripping the
   // "(a)..(dd)" letter prefix from every CONCENTRATION test name. The
   // resolver's letter-prefix regex then matches none of them →

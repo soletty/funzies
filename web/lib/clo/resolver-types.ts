@@ -82,6 +82,8 @@ export interface ResolvedDealData {
   preExistingDefaultOcValue: number; // recovery value for OC numerator (agency rate — typically higher than market)
   discountObligationHaircut: number; // net OC deduction for loans purchased below threshold (from par value adjustments)
   longDatedObligationHaircut: number; // net OC deduction for loans maturing after CLO (from par value adjustments)
+  cccBucketLimitPct: number | null; // PPM Excess CCC Adjustment threshold (% of par); null = extraction missed (blocking)
+  cccMarketValuePct: number | null; // PPM market-value floor (% of par) credited to CCC excess; null = extraction missed (blocking)
   impliedOcAdjustment: number; // derived residual between trustee's Adjusted CPA and identified components
   quartersSinceReport: number; // quarters between compliance report date and projection start (adjusts pre-existing default recovery timing)
   ddtlUnfundedPar: number; // total DDTL commitment par (for dynamic OC deduction in projection)
@@ -219,12 +221,12 @@ export interface ResolutionWarning {
   severity: WarningSeverity;
   resolvedFrom?: string;
   // True when this warning indicates a missing computational input that
-  // must prevent the projection from running (KI-58). The
-  // `buildFromResolved` gate throws `IncompleteDataError` if any warning
-  // carries `blocking: true`, regardless of severity. Orthogonal to
-  // severity: a `severity: "error"` warning may be advisory
-  // (`blocking: false`, e.g. concentration vocabulary mismatch) or
-  // load-bearing (`blocking: true`, e.g. missing diversion %).
+  // must prevent the projection from running. The `buildFromResolved`
+  // gate throws `IncompleteDataError` if any warning carries
+  // `blocking: true`, regardless of severity. Orthogonal to severity:
+  // a `severity: "error"` warning may be advisory (`blocking: false`,
+  // e.g. concentration vocabulary mismatch) or load-bearing
+  // (`blocking: true`, e.g. missing diversion %).
   blocking?: boolean;
 }
 

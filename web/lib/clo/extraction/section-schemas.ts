@@ -440,6 +440,14 @@ export const ppmCoverageTestsSchema = z.object({
     appliesDuring: z.string().optional(),
     diversionAmount: z.string().optional(),
   }).passthrough().optional(),
+  // Condition 1 / 10(a)(iv) Excess CCC Adjustment Amount parameters used by
+  // the OC numerator haircut. Both fields required when the object is
+  // present; null at the outer level signals extraction missed (resolver
+  // emits a blocking warning).
+  excessCccAdjustment: z.object({
+    thresholdPct: z.string(),
+    marketValuePct: z.string(),
+  }).nullable().optional(),
 }).passthrough();
 
 export type PpmCoverageTests = z.infer<typeof ppmCoverageTestsSchema>;
