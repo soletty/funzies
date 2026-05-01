@@ -289,6 +289,30 @@ describe("Pattern B (silent acceptance of sentinel value)", () => {
     expectGateThrows(resolved, warnings);
   });
 
+  it("trustee per-agreement (resolver.ts:542) — trustee fee with unparseable rate → blocking", () => {
+    const raw = loadRaw();
+    // Make every trustee/admin fee's rate unparseable. The resolver's loop
+    // skips at `if (isNaN(rate)) continue;`, so trusteeFeeBps stays at
+    // CLO_DEFAULTS=0. The post-loop check then fires because the .some()
+    // still finds a trustee/admin-named entry. Mutate ALL such entries —
+    // a single non-NaN entry would set trusteeFeeBps and bypass the gate.
+    let mutated = 0;
+    for (const fee of (raw.constraints.fees as any[])) {
+      const n = (fee.name ?? "").toLowerCase();
+      if (n.includes("trustee") || n.includes("admin")) {
+        fee.rate = "per agreement";
+        mutated++;
+      }
+    }
+    expect(mutated, "fixture should contain at least one trustee/admin fee").toBeGreaterThan(0);
+    const { resolved, warnings } = runResolver(raw);
+    const w = warnings.find((w) =>
+      w.field === "fees.trusteeFeeBps" && w.message.includes("'per agreement'"),
+    );
+    expectBlockingError(w, "fees.trusteeFeeBps (per-agreement)");
+    expectGateThrows(resolved, warnings);
+  });
+
   it("fee bps heuristic (resolver.ts:482) — rate > 5 with null rateUnit guesses bps → blocking", () => {
     const raw = loadRaw();
     // Trip the heuristic: senior mgmt fee with rate > 5 and rateUnit null.
@@ -363,11 +387,14 @@ describe("Carve-out at :1434 (display-only, severity:error + blocking:false)", (
     expect(w, "carve-out warning did not fire — verify trigger thresholds").toBeDefined();
     expect(w!.severity).toBe("error");
     expect(w!.blocking).toBe(false);
-    // Behavioral half of the carve-out: the warning is severity:error but
-    // does NOT block the projection. If a future change flips it to
+    // Behavioral half of the carve-out: pass ONLY the carve-out warning to
+    // the gate and assert it doesn't throw. This isolates the test to the
+    // carve-out's blocking behavior — robust to other blocking warnings the
+    // unmutated Euro XV fixture may emit (e.g., trustee fee per-agreement
+    // post-Step-2.3). If a future change flips the carve-out to
     // blocking:true, this expectation flips and signals the regression.
     expect(() =>
-      buildFromResolved(resolved, DEFAULT_ASSUMPTIONS, warnings),
+      buildFromResolved(resolved, DEFAULT_ASSUMPTIONS, [w!]),
     ).not.toThrow();
   });
 });

@@ -539,7 +539,15 @@ function resolveFees(constraints: ExtractedConstraints, warnings: ResolutionWarn
     const n = (f.name ?? "").toLowerCase();
     return n.includes("trustee") || n.includes("admin");
   })) {
-    warnings.push({ field: "fees.trusteeFeeBps", message: "Trustee/admin fee found in PPM but rate is 'per agreement' — set manually from the compliance report fee schedule (typically 1-5 bps).", severity: "warn", blocking: false });
+    warnings.push({
+      field: "fees.trusteeFeeBps",
+      message: "Trustee/admin fee found in PPM but rate is 'per agreement' (or otherwise unparseable) — `trusteeFeeBps` stayed at the CLO_DEFAULTS zero, so engine would accrue no trustee fee per period. Refusing to run rather than ship a projection that silently under-states senior expenses by the full trustee accrual. Set the rate manually from the compliance report fee schedule (typically 1-5 bps).",
+      severity: "error",
+      // Same shape as the senior/sub mgmt fee zero-on-recognized-name sites
+      // at L546/556: trustee name found in extraction, rate failed to
+      // parse, value silently defaults to 0, engine consumes zero. Refuse.
+      blocking: true,
+    });
   }
 
   // Sanity: every CLO has a Senior Collateral Management Fee (~0.10-0.20% p.a.)
