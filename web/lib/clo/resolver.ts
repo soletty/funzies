@@ -1035,7 +1035,12 @@ export function resolveWaterfallInputs(
         fixedCouponPct = h.allInRate;
       } else if (h.spreadBps != null) {
         fixedCouponPct = h.spreadBps / 100;
-        warnings.push({ field: "fixedCouponPct", message: `Fixed-rate loan "${h.obligorName ?? "unknown"}" has no allInRate — using spreadBps (${h.spreadBps}) as coupon proxy (${fixedCouponPct}%).`, severity: "warn", blocking: false });
+        warnings.push({
+          field: "fixedCouponPct",
+          message: `Fixed-rate loan "${h.obligorName ?? "unknown"}" has no allInRate — engine would proxy via spreadBps (${h.spreadBps} bps → ${fixedCouponPct}% coupon), but spread is the basis-rate-add of a floater, not a fixed coupon. Wrong substitution yields per-period coupon-accrual error of (true_coupon − spread/100) × par on this position. Refuse and set allInRate explicitly upstream.`,
+          severity: "error",
+          blocking: true,
+        });
       } else {
         fixedCouponPct = wacSpreadBps / 100;
         warnings.push({ field: "fixedCouponPct", message: `Fixed-rate loan "${h.obligorName ?? "unknown"}" has no allInRate or spreadBps — falling back to WAC spread as coupon (${fixedCouponPct}%).`, severity: "warn", blocking: false });

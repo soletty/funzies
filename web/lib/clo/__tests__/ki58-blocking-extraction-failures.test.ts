@@ -289,6 +289,31 @@ describe("Pattern B (silent acceptance of sentinel value)", () => {
     expectGateThrows(resolved, warnings);
   });
 
+  it("fixedCouponPct from spreadBps (resolver.ts:1038) — fixed-rate loan with no allInRate → blocking", () => {
+    const raw = loadRaw();
+    // Find an active fixed-rate holding (Euro XV has 42, all with allInRate
+    // set and spreadBps null today — no production impact). Null its
+    // allInRate AND inject a spreadBps so the resolver's spreadBps-proxy
+    // branch fires; without an injected spreadBps the resolver would take
+    // the WAC fallback (Step 2.5's site) instead.
+    const holding = (raw.holdings as any[]).find(
+      (h: any) =>
+        h.isFixedRate === true &&
+        !h.isDefaulted &&
+        !h.isDelayedDraw &&
+        (h.parBalance ?? 0) > 0,
+    );
+    expect(holding, "fixture should have an active fixed-rate holding").toBeDefined();
+    holding.allInRate = null;
+    holding.spreadBps = 400;
+    const { resolved, warnings } = runResolver(raw);
+    const w = warnings.find((w) =>
+      w.field === "fixedCouponPct" && w.message.includes("would proxy via spreadBps"),
+    );
+    expectBlockingError(w, "fixedCouponPct (spreadBps proxy)");
+    expectGateThrows(resolved, warnings);
+  });
+
   it("trustee per-agreement (resolver.ts:542) — trustee fee with unparseable rate → blocking", () => {
     const raw = loadRaw();
     // Make every trustee/admin fee's rate unparseable. The resolver's loop
