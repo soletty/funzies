@@ -289,6 +289,30 @@ describe("Pattern B (silent acceptance of sentinel value)", () => {
     expectGateThrows(resolved, warnings);
   });
 
+  it("fixedCouponPct from WAC (resolver.ts:1046) — fixed-rate loan with no allInRate or spreadBps → blocking", () => {
+    const raw = loadRaw();
+    // Same fixture shape as the spreadBps-proxy marker but ALSO null
+    // spreadBps so the resolver falls through to the WAC fallback. Magnitude
+    // is unbounded vs the proxy fallback (any fixed-coupon-vs-WAC divergence
+    // becomes silent error per period × loan life).
+    const holding = (raw.holdings as any[]).find(
+      (h: any) =>
+        h.isFixedRate === true &&
+        !h.isDefaulted &&
+        !h.isDelayedDraw &&
+        (h.parBalance ?? 0) > 0,
+    );
+    expect(holding, "fixture should have an active fixed-rate holding").toBeDefined();
+    holding.allInRate = null;
+    holding.spreadBps = null;
+    const { resolved, warnings } = runResolver(raw);
+    const w = warnings.find((w) =>
+      w.field === "fixedCouponPct" && w.message.includes("fall back to pool WAC"),
+    );
+    expectBlockingError(w, "fixedCouponPct (WAC fallback)");
+    expectGateThrows(resolved, warnings);
+  });
+
   it("fixedCouponPct from spreadBps (resolver.ts:1038) — fixed-rate loan with no allInRate → blocking", () => {
     const raw = loadRaw();
     // Find an active fixed-rate holding (Euro XV has 42, all with allInRate

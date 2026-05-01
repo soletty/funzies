@@ -1043,7 +1043,12 @@ export function resolveWaterfallInputs(
         });
       } else {
         fixedCouponPct = wacSpreadBps / 100;
-        warnings.push({ field: "fixedCouponPct", message: `Fixed-rate loan "${h.obligorName ?? "unknown"}" has no allInRate or spreadBps — falling back to WAC spread as coupon (${fixedCouponPct}%).`, severity: "warn", blocking: false });
+        warnings.push({
+          field: "fixedCouponPct",
+          message: `Fixed-rate loan "${h.obligorName ?? "unknown"}" has neither allInRate nor spreadBps — engine would fall back to pool WAC (${fixedCouponPct}% coupon). Magnitude unbounded: a fixed-rate bond paying 8% with WAC of 4% would accrue at 4% every period, understating coupon by 50% × par on this position. Refuse and set allInRate explicitly upstream.`,
+          severity: "error",
+          blocking: true,
+        });
       }
     }
 
