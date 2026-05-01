@@ -1012,6 +1012,24 @@ export function resolveWaterfallInputs(
     }
   }
 
+  // Catch the residual non-portability shape the L374 blocking gate doesn't
+  // subsume: PPM mentioned a reinvestment OC test (compliance test row OR PPM
+  // raw constraint) but no fall-through path produced a usable trigger
+  // (compliance triggerLevel null, PPM trigger filtered as implausibly low,
+  // AND no class OC trigger >= 103). Engine `projection.ts:2505` gates Step V
+  // diversion behind a truthy check on `reinvestmentOcTrigger` — a null
+  // trigger silently disables the diversion mechanism the PPM specified.
+  // Refuse rather than emit a "passing" projection computed against an
+  // absent test.
+  if (!reinvestmentOcTrigger && (complianceReinvOc != null || reinvOcRaw != null)) {
+    warnings.push({
+      field: "reinvestmentOcTrigger",
+      message: "PPM mentioned a reinvestment OC test (compliance test row or PPM raw constraint) but no fall-through path produced a usable trigger — compliance triggerLevel was null, PPM trigger was filtered as implausibly low, AND no class OC trigger ≥ 103. Engine would silently skip Step V diversion. Refuse and verify the reinvestment-OC threshold extraction upstream.",
+      severity: "error",
+      blocking: true,
+    });
+  }
+
   // --- Loans ---
   const fallbackMaturity = resolvedMaturity;
   // Bonds carry parBalance=0 by SDF convention (the "funded balance" concept

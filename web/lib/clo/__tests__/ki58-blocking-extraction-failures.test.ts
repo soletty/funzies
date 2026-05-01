@@ -289,6 +289,41 @@ describe("Pattern B (silent acceptance of sentinel value)", () => {
     expectGateThrows(resolved, warnings);
   });
 
+  it("reinvestment OC fall-through (resolver.ts:post-L1013) — PPM mentions reinvOC but no usable trigger → blocking", () => {
+    const raw = loadRaw();
+    // The fall-through gate fires when ALL three sources miss:
+    //   (1) compliance reinvestment-OC test missing or triggerLevel null,
+    //   (2) PPM raw reinvestmentOcTest exists but trigger < 103 (filtered),
+    //   (3) no class OC trigger ≥ 103 (most-junior fallback empty).
+    // The fixture below trips all three. Note: dropping class OC tests
+    // also trips the L374 ocTriggers-empty blocking gate (Step 2.1) — the
+    // test asserts our specific reinvestmentOcTrigger warning fires, not
+    // that it's the only blocking warning emitted on the mutated fixture.
+
+    // (1) and (3) — drop reinvestment-OC compliance tests AND class OC tests
+    raw.complianceData.complianceTests = (raw.complianceData.complianceTests as any[]).filter((t: any) => {
+      const name = (t.testName ?? "").toLowerCase();
+      if (name.includes("reinvestment") && (t.testType === "INTEREST_DIVERSION" || name.includes("oc") || name.includes("overcollateral"))) return false;
+      const tt = (t.testType ?? "").toLowerCase();
+      if (tt === "oc_par" || tt === "oc_mv" || tt === "overcollateralization" || tt.startsWith("oc")) return false;
+      if (name.includes("overcollateral") || name.includes("par value")) return false;
+      if (name.includes("oc") && name.includes("ratio")) return false;
+      return true;
+    });
+    raw.constraints.coverageTestEntries = [];
+
+    // (2) — set reinvOcRaw with trigger < 103 so L951-970 path filters it out
+    //       AND satisfies our gate's `reinvOcRaw != null` half.
+    raw.constraints.reinvestmentOcTest = { ...(raw.constraints.reinvestmentOcTest ?? {}), trigger: "100" };
+
+    const { resolved, warnings } = runResolver(raw);
+    const w = warnings.find((w) =>
+      w.field === "reinvestmentOcTrigger" && w.message.includes("no fall-through path produced a usable trigger"),
+    );
+    expectBlockingError(w, "reinvestmentOcTrigger (fall-through)");
+    expectGateThrows(resolved, warnings);
+  });
+
   it("IC trigger 10-90% band (resolver.ts:420) — implausible IC trigger → blocking", () => {
     const raw = loadRaw();
     // Sibling shape to the OC band marker. Take an IC test, set triggerLevel
