@@ -39,7 +39,9 @@ function yearsBetween(fromIso: string, toIso: string): number {
 
 /** D4 — Map a ResolvedLoan to the QualityMetricLoan shape the shared helper
  *  expects. `warfFactor` falls back to BUCKET_WARF_FALLBACK when the resolver
- *  didn't populate (NR loans without a rating; see KI-19). */
+ *  didn't populate (NR loans without a rating; see KI-19). Per-agency ratings
+ *  and exclusion flags propagate so the helper can apply the PPM Condition 1
+ *  Floating WAS / Excess WAC / per-agency Caa-CCC methodology. */
 function toQualityMetricLoan(l: ResolvedLoan, currentDate: string) {
   return {
     parBalance: l.parBalance,
@@ -47,6 +49,13 @@ function toQualityMetricLoan(l: ResolvedLoan, currentDate: string) {
     yearsToMaturity: yearsBetween(currentDate, l.maturityDate),
     spreadBps: l.spreadBps,
     ratingBucket: l.ratingBucket,
+    isFixedRate: l.isFixedRate,
+    fixedCouponPct: l.fixedCouponPct,
+    isDeferring: l.isDeferring,
+    isLossMitigationLoan: l.isLossMitigationLoan,
+    currency: l.currency,
+    moodysRatingFinal: l.moodysRatingFinal,
+    fitchRatingFinal: l.fitchRatingFinal,
   };
 }
 
@@ -54,16 +63,10 @@ export function applySwitch(
   resolved: ResolvedDealData,
   params: SwitchParams,
   assumptions: UserAssumptions,
-  // KI-58 — when threaded, the resolver's warnings flow into the
-  // buildFromResolved gate calls below; a blocking warning therefore
-  // throws IncompleteDataError out of applySwitch instead of silently
-  // running the switch on sentinel data. Optional (mirrors
-  // buildFromResolved's contract) so existing 3-arg callers are not
-  // broken; the protection only fires when the caller passes warnings.
-  // Today's two production callers (SwitchSimulator + SwitchWaterfallImpact)
-  // do thread; the test fixture caller does not (it constructs a hand-
-  // crafted resolved with no warnings, so there's nothing to gate on).
-  // Any new caller must thread warnings or accept that the gate is
+  // When threaded, resolver warnings flow into the buildFromResolved
+  // gate calls below; a blocking warning then throws IncompleteDataError
+  // out of applySwitch. Optional (mirrors buildFromResolved's contract);
+  // any new caller must thread warnings or accept that the gate is
   // bypassed for that call path.
   warnings?: ResolutionWarning[],
 ): SwitchResult {
@@ -96,7 +99,10 @@ export function applySwitch(
   // Funded-only filter: unfunded DDTLs don't count toward current pool composition.
   const fundedSwitched = switchedLoans.filter((l) => !l.isDelayedDraw);
   const qloans = fundedSwitched.map((l) => toQualityMetricLoan(l, resolved.dates.currentDate));
-  const switchedQuality = computePoolQualityMetrics(qloans);
+  const switchedQuality = computePoolQualityMetrics(qloans, {
+    referenceWAFC: resolved.referenceWeightedAverageFixedCoupon ?? undefined,
+    dealCurrency: resolved.currency,
+  });
   const switchedTop10 = computeTopNObligorsPct(fundedSwitched, 10);
   const switchedTotalPar = switchedLoans.reduce((s, l) => s + l.parBalance, 0);
 

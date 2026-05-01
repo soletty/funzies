@@ -348,7 +348,7 @@ describe("C. OC/IC cure branch combinations", () => {
       recoveryPct: 0,
       tranches: [
         { className: "A", currentBalance: 55_000_000, spreadBps: 140, seniorityRank: 1, isFloating: true, isIncomeNote: false, isDeferrable: false },
-        { className: "J", currentBalance: 15_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
+        { className: "J", currentBalance: 15_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: false },
         { className: "C", currentBalance: 10_000_000, spreadBps: 450, seniorityRank: 3, isFloating: true, isIncomeNote: false, isDeferrable: true },
         { className: "Sub", currentBalance: 20_000_000, spreadBps: 0, seniorityRank: 4, isFloating: false, isIncomeNote: true, isDeferrable: false },
       ],
@@ -494,12 +494,21 @@ describe("E. PIK interactions", () => {
   it("E1: compounding vs non-compounding produce same OC denom in Q1, diverge later", () => {
     // Branch: deferredInterestCompounds T vs F
     // Q1: identical (no prior deferred). Q2+: compounding earns interest on deferred.
+    // Pari-passu PIK pair lives at rank 3 (= Class C-equivalent) since D1
+    // protects rank-1 and rank-2 (Class A/B) from being deferrable.
+    const trancheStruct = [
+      { className: "A", currentBalance: 60_000_000, spreadBps: 140, seniorityRank: 1, isFloating: true,  isIncomeNote: false, isDeferrable: false },
+      { className: "B", currentBalance: 10_000_000, spreadBps: 200, seniorityRank: 2, isFloating: true,  isIncomeNote: false, isDeferrable: false },
+      { className: "J", currentBalance: 15_000_000, spreadBps: 250, seniorityRank: 3, isFloating: true,  isIncomeNote: false, isDeferrable: true  },
+      { className: "Sub", currentBalance: 15_000_000, spreadBps: 0, seniorityRank: 4, isFloating: false, isIncomeNote: true,  isDeferrable: false },
+    ];
     const base = {
       reinvestmentPeriodEnd: "2026-01-01",
       defaultRatesByRating: uniformRates(0),
       cprPct: 0,
       recoveryPct: 0,
-      // Force diversion so B gets PIK'd
+      tranches: trancheStruct,
+      // Force diversion so J (rank-3 deferrable) gets PIK'd
       ocTriggers: [{ className: "A", triggerLevel: 999, rank: 1 }],
       icTriggers: [],
     };
@@ -507,12 +516,12 @@ describe("E. PIK interactions", () => {
     const compResult = runProjection(makeInputs({ ...base, deferredInterestCompounds: true }));
     const nonCompResult = runProjection(makeInputs({ ...base, deferredInterestCompounds: false }));
 
-    // Q1: B endBalance should be the same (first period PIK amount is identical)
+    // Q1: J endBalance should be the same (first period PIK amount is identical)
     const compB1 = compResult.periods[0].tranchePrincipal.find((t) => t.className === "J")!;
     const nonCompB1 = nonCompResult.periods[0].tranchePrincipal.find((t) => t.className === "J")!;
     expect(compB1.endBalance).toBeCloseTo(nonCompB1.endBalance, 0);
 
-    // Q3+: compounding should show higher B endBalance (interest on deferred)
+    // Q3+: compounding should show higher J endBalance (interest on deferred)
     const compB3 = compResult.periods[2]?.tranchePrincipal.find((t) => t.className === "J")!;
     const nonCompB3 = nonCompResult.periods[2]?.tranchePrincipal.find((t) => t.className === "J")!;
     if (compB3 && nonCompB3) {
@@ -530,20 +539,20 @@ describe("E. PIK interactions", () => {
       cprPct: 0,
       recoveryPct: 0,
       tranches: [
-        // Synthetic "K" senior: deliberately marked deferrable to exercise
-        // the "bopBalance <= 0.01 / don't PIK onto a zeroed tranche" code
-        // path. Renamed from "A" because D1 enforces A/B non-deferrable.
-        { className: "K", currentBalance: 5_000, spreadBps: 140, seniorityRank: 1, isFloating: true, isIncomeNote: false, isDeferrable: true },
-        { className: "J", currentBalance: 20_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
-        { className: "Sub", currentBalance: 79_995_000, spreadBps: 0, seniorityRank: 3, isFloating: false, isIncomeNote: true, isDeferrable: false },
+        // Senior placeholders A/B (non-deferrable per PPM) with tiny balances
+        // so the first loan maturity (50M Q1) cascades through to fully redeem
+        // the rank-3 deferrable "K" tranche in Q1. K is the focus: it's
+        // PIK-deferrable and we assert it doesn't accrue PIK after redemption.
+        { className: "A", currentBalance: 1_000_000, spreadBps: 110, seniorityRank: 1, isFloating: true, isIncomeNote: false, isDeferrable: false },
+        { className: "B", currentBalance: 1_000_000, spreadBps: 130, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: false },
+        { className: "K", currentBalance:     5_000, spreadBps: 140, seniorityRank: 3, isFloating: true, isIncomeNote: false, isDeferrable: true  },
+        { className: "Sub", currentBalance: 97_995_000, spreadBps: 0, seniorityRank: 4, isFloating: false, isIncomeNote: true, isDeferrable: false },
       ],
-      // K is tiny (5K) → paid off immediately from first loan maturity
       loans: [
         { parBalance: 50_000_000, maturityDate: addQuarters("2026-01-15", 1), ratingBucket: "B", spreadBps: 400 },
         { parBalance: 50_000_000, maturityDate: addQuarters("2026-01-15", 20), ratingBucket: "B", spreadBps: 400 },
       ],
-      // Full diversion after K → J gets PIK
-      ocTriggers: [{ className: "K", triggerLevel: 999, rank: 1 }],
+      ocTriggers: [],
       icTriggers: [],
     });
 
@@ -835,7 +844,7 @@ describe("H. Fee interactions", () => {
       })),
       tranches: [
         { className: "A", currentBalance: 70_000_000, spreadBps: 140, seniorityRank: 1, isFloating: true, isIncomeNote: false, isDeferrable: false },
-        { className: "J", currentBalance: 20_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
+        { className: "J", currentBalance: 20_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: false },
         { className: "Sub", currentBalance: 10_000_000, spreadBps: 0, seniorityRank: 3, isFloating: false, isIncomeNote: true, isDeferrable: false },
       ],
       reinvestmentPeriodEnd: "2026-01-01",
@@ -1132,8 +1141,8 @@ describe("L. Split tranches at same rank", () => {
       recoveryPct: 0,
       tranches: [
         { className: "A", currentBalance: 55_000_000, spreadBps: 140, seniorityRank: 1, isFloating: true, isIncomeNote: false, isDeferrable: false },
-        { className: "J-1", currentBalance: 12_000_000, spreadBps: 225, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
-        { className: "J-2", currentBalance: 8_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
+        { className: "J-1", currentBalance: 12_000_000, spreadBps: 225, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: false },
+        { className: "J-2", currentBalance: 8_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: false },
         { className: "C", currentBalance: 10_000_000, spreadBps: 450, seniorityRank: 3, isFloating: true, isIncomeNote: false, isDeferrable: true },
         { className: "Sub", currentBalance: 15_000_000, spreadBps: 0, seniorityRank: 4, isFloating: false, isIncomeNote: true, isDeferrable: false },
       ],
@@ -1166,8 +1175,8 @@ describe("L. Split tranches at same rank", () => {
       baseRatePct: 0.5,
       tranches: [
         { className: "A", currentBalance: 55_000_000, spreadBps: 140, seniorityRank: 1, isFloating: true, isIncomeNote: false, isDeferrable: false },
-        { className: "J-1", currentBalance: 12_000_000, spreadBps: 225, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
-        { className: "J-2", currentBalance: 8_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
+        { className: "J-1", currentBalance: 12_000_000, spreadBps: 225, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: false },
+        { className: "J-2", currentBalance: 8_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: false },
         { className: "Sub", currentBalance: 25_000_000, spreadBps: 0, seniorityRank: 3, isFloating: false, isIncomeNote: true, isDeferrable: false },
       ],
       ocTriggers: [],

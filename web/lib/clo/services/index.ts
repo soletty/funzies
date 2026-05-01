@@ -29,3 +29,10 @@ export {
   deriveNoCallBaseInputs,
   applyOptionalRedemptionCall,
 } from "./no-call-baseline";
+
+export {
+  computeSwitchDeltas,
+  type SwitchDeltas,
+  type SwitchOcCushionDelta,
+  type SwitchPeriodEquityDelta,
+} from "./switch-deltas";

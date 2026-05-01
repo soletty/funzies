@@ -508,6 +508,65 @@ describe("Pattern B (silent acceptance of sentinel value)", () => {
   });
 });
 
+describe("Pattern C (silent-skip on agency-elective compliance trigger)", () => {
+  // Per PPM Section 8 (PDF p. 287) the Moody's/Fitch WARF, Min WAS, and
+  // Caa/CCC concentration tests apply only "while [Agency]-rated Notes are
+  // outstanding". The resolver's `isMoodysRated` / `isFitchRated` predicates
+  // gate enforcement: missing trigger on a rated deal = extraction failure
+  // = block. Missing trigger on a not-rated deal = legitimate absent =
+  // silent-skip. These markers pin the blocking branch.
+
+  it("moodysWarfTriggerLevel — Moody's-rated but no WARF row in qualityTests → blocking", () => {
+    const raw = loadRaw();
+    raw.complianceData.complianceTests = (raw.complianceData.complianceTests as any[]).filter(
+      (t: any) => !/moody.*maximum.*weighted average rating factor|moody.*warf|moody.*max.*warf/i.test(t.testName ?? ""),
+    );
+    const { resolved, warnings } = runResolver(raw);
+    const w = warnings.find((w) => w.field === "moodysWarfTriggerLevel");
+    expectBlockingError(w, "moodysWarfTriggerLevel (Moody's-rated, missing)");
+    expectGateThrows(resolved, warnings);
+  });
+
+  it("minWasBps — Moody's-rated but no Min WAS row → blocking", () => {
+    const raw = loadRaw();
+    raw.complianceData.complianceTests = (raw.complianceData.complianceTests as any[]).filter(
+      (t: any) => !/min.*weighted average.*(floating )?spread/i.test(t.testName ?? ""),
+    );
+    const { resolved, warnings } = runResolver(raw);
+    const w = warnings.find((w) => w.field === "minWasBps");
+    expectBlockingError(w, "minWasBps (Moody's-rated, missing)");
+    expectGateThrows(resolved, warnings);
+  });
+
+  it("moodysCaaLimitPct — Moody's-rated but no Moody's Caa concentration row → blocking", () => {
+    const raw = loadRaw();
+    raw.complianceData.complianceTests = (raw.complianceData.complianceTests as any[]).filter(
+      (t: any) => !/moody.*caa.*obligation/i.test(t.testName ?? ""),
+    );
+    raw.complianceData.concentrations = ((raw.complianceData.concentrations ?? []) as any[]).filter(
+      (c: any) => !/moody.*caa/i.test(c.bucketName ?? ""),
+    );
+    const { resolved, warnings } = runResolver(raw);
+    const w = warnings.find((w) => w.field === "moodysCaaLimitPct");
+    expectBlockingError(w, "moodysCaaLimitPct (Moody's-rated, missing)");
+    expectGateThrows(resolved, warnings);
+  });
+
+  it("fitchCccLimitPct — Fitch-rated but no Fitch CCC concentration row → blocking", () => {
+    const raw = loadRaw();
+    raw.complianceData.complianceTests = (raw.complianceData.complianceTests as any[]).filter(
+      (t: any) => !/fitch.*ccc.*obligation/i.test(t.testName ?? ""),
+    );
+    raw.complianceData.concentrations = ((raw.complianceData.concentrations ?? []) as any[]).filter(
+      (c: any) => !/fitch.*ccc/i.test(c.bucketName ?? ""),
+    );
+    const { resolved, warnings } = runResolver(raw);
+    const w = warnings.find((w) => w.field === "fitchCccLimitPct");
+    expectBlockingError(w, "fitchCccLimitPct (Fitch-rated, missing)");
+    expectGateThrows(resolved, warnings);
+  });
+});
+
 describe("Carve-out at :1434 (display-only, severity:error + blocking:false)", () => {
   // Behavioral fixture-based test: trip the carve-out by stripping the
   // "(a)..(dd)" letter prefix from every CONCENTRATION test name. The

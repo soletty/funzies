@@ -1,29 +1,45 @@
 import type { Pool } from "pg";
 import { normalizeClassName } from "../api";
 import type { CapitalStructureEntry } from "../types/index";
+import { parseNumeric, parseDecoratedAmount } from "../sdf/csv-utils";
 import { assignDenseSeniorityRanks } from "../seniority-rank";
 
 function parseAmount(s: string | undefined | null): number | null {
-  if (!s) return null;
-  const cleaned = String(s).replace(/[$,\s]/g, "");
-  const n = parseFloat(cleaned);
-  return isNaN(n) ? null : n;
+  return parseDecoratedAmount(s);
 }
 
 function parseSpreadBps(s: string | undefined | null): number | null {
   if (!s) return null;
   const str = String(s).trim();
   if (str === "N/A" || str === "-" || str === "") return null;
-  // Match patterns like "SOFR + 145bps", "E + 1.50%", "145 bps", "1.45%"
-  const bpsMatch = str.match(/(\d+(?:\.\d+)?)\s*bps/i);
-  if (bpsMatch) return parseFloat(bpsMatch[1]);
-  const pctMatch = str.match(/[+]\s*(\d+(?:\.\d+)?)\s*%/);
-  if (pctMatch) return parseFloat(pctMatch[1]) * 100;
-  const perCentMatch = str.match(/(\d+(?:\.\d+)?)\s*per\s*cent/i);
-  if (perCentMatch) return parseFloat(perCentMatch[1]) * 100;
-  // Fallback: plain number (e.g., "145" from a column labeled "Spread (bps)")
-  const plainNum = parseFloat(str.replace(/[,\s]/g, ""));
-  if (!isNaN(plainNum) && plainNum > 0) return plainNum;
+  // Match patterns like "SOFR + 145bps", "E + 1.50%", "145 bps", "1.45%",
+  // "+1,5%" (European). The digit capture is locale-permissive ([\d.,]+) so
+  // European-format numbers reach the unit-conversion branch instead of falling
+  // through to the plain-number fallback (which would silently drop the %→bps
+  // conversion).
+  const bpsMatch = str.match(/([\d.,]+)\s*bps/i);
+  if (bpsMatch) return parseNumeric(bpsMatch[1]);
+  // `[+]?` — the leading `+` is optional. Pre-fix the regex required `+`,
+  // which meant "1.45%" (a bare percent string with no SOFR/E + base) silently
+  // fell through to the plain-number branch and was misinterpreted as bps
+  // (1.45 bps instead of 145 bps). Now both "+1.45%" and "1.45%" reach the
+  // unit-conversion branch.
+  const pctMatch = str.match(/[+]?\s*([\d.,]+)\s*%/);
+  if (pctMatch) {
+    const pct = parseNumeric(pctMatch[1]);
+    return pct != null ? pct * 100 : null;
+  }
+  const perCentMatch = str.match(/([\d.,]+)\s*per\s*cent/i);
+  if (perCentMatch) {
+    const pct = parseNumeric(perCentMatch[1]);
+    return pct != null ? pct * 100 : null;
+  }
+  // Fallback: plain number from a column labeled "Spread (bps)" — locale-aware.
+  // Accept 0 (an index-flat floating-rate note has spreadBps = 0 — valid input,
+  // not a parser failure). Negative values fall through to null (no real
+  // spread is negative).
+  const plainNum = parseNumeric(str);
+  if (plainNum != null && plainNum >= 0) return plainNum;
   return null;
 }
 

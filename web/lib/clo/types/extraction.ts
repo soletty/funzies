@@ -119,6 +119,11 @@ export interface InterestMechanics {
   dayCount?: string;
   referenceRate?: string;
   referenceRateFloorPct?: number | null; // floor on reference rate (e.g. 0 for "floored at zero", null if no floor)
+  /** PPM Reference Weighted Average Fixed Coupon (%). Used by the Excess WAC
+   *  term: `(WeightedAvgFixedCoupon − referenceWAFC) × (fixedPar / floatingPar)`
+   *  per PPM Condition 1, PDF p. 305. Per-deal extracted; resolver blocks if
+   *  missing on a deal that has fixed-rate positions in its pool. */
+  referenceWeightedAverageFixedCoupon?: number | null;
   interpolation?: string;
   deferralClasses?: string[];
   deferredInterestCompounds?: boolean;

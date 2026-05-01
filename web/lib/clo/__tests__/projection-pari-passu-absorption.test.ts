@@ -49,10 +49,11 @@ function makeSplitBInputs(overrides: Partial<ProjectionInputs> = {}): Projection
     tranches: [
       { className: "A",   currentBalance: 245_000_000, spreadBps: 110, seniorityRank: 1, isFloating: true, isIncomeNote: false, isDeferrable: false },
       // B-1, B-2 share rank 2 — pari-passu pair. Different spreads so
-      // pro-rata-by-due differs from pro-rata-by-balance.
-      { className: "J-1", currentBalance: 50_000_000,  spreadBps: 165, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
-      { className: "J-2", currentBalance: 30_000_000,  spreadBps: 280, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
-      { className: "C",   currentBalance: 40_000_000,  spreadBps: 350, seniorityRank: 3, isFloating: true, isIncomeNote: false, isDeferrable: true },
+      // pro-rata-by-due differs from pro-rata-by-balance. Class B is
+      // non-deferrable per PPM (D1 rank-based predicate).
+      { className: "J-1", currentBalance: 50_000_000,  spreadBps: 165, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: false },
+      { className: "J-2", currentBalance: 30_000_000,  spreadBps: 280, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: false },
+      { className: "C",   currentBalance: 40_000_000,  spreadBps: 350, seniorityRank: 3, isFloating: true, isIncomeNote: false, isDeferrable: true  },
       { className: "Sub", currentBalance: 30_000_000,  spreadBps: 0,   seniorityRank: 4, isFloating: false, isIncomeNote: true,  isDeferrable: false },
     ],
     ocTriggers: [
@@ -119,21 +120,60 @@ describe("engine pari-passu absorption — interest waterfall", () => {
     expect(paidRatio).toBeCloseTo(dueRatio, 4);
   });
 
-  it("PIK on shortfall fires per member (deferrable B-1 and B-2 both PIK their per-member shortfall)", () => {
+  it("PIK on shortfall fires per member (deferrable C-1 and C-2 both PIK their per-member shortfall)", () => {
+    // Structurally: pari-passu split at the most-junior PIK-deferrable rank.
+    // Class A (rank 1) and Class B (rank 2) are non-deferrable per PPM (D1
+    // rank-based predicate); the deferrable split lives at rank 3.
+    //
+    // Senior mgmt fee 3.8% tunes residual at the rank-3 boundary into the
+    // strict shortfall window — between J-1's demand (~376K) and total
+    // J-group demand (~626K). At this residual the pre-KI-57 sequential
+    // failure shape and the post-fix pari-passu form produce DIFFERENT paid
+    // amounts:
+    //   pre-fix sequential: J-1 paid full (~376K, PIK=0), J-2 paid the
+    //                       remainder (~147K, PIK=~104K).
+    //   post-fix pari-passu: both partial — J-1 ~314K (PIK=~62K), J-2 ~209K
+    //                        (PIK=~41K), paid ratio == due ratio == 1.5.
+    // Asserting J-1 partial (paid < due, PIK > 0) AND ratio ≈ due ratio
+    // strictly excludes the sequential shape.
     const inputs = makeSplitBInputs({
-      seniorFeePct: 8.0,
+      seniorFeePct: 3.8,
       icTriggers: [],
       ocTriggers: [],
+      tranches: [
+        { className: "A",   currentBalance: 245_000_000, spreadBps: 110, seniorityRank: 1, isFloating: true, isIncomeNote: false, isDeferrable: false },
+        { className: "B",   currentBalance:  50_000_000, spreadBps: 165, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: false },
+        // Pari-passu PIK pair at rank 3
+        { className: "J-1", currentBalance:  30_000_000, spreadBps: 280, seniorityRank: 3, isFloating: true, isIncomeNote: false, isDeferrable: true  },
+        { className: "J-2", currentBalance:  20_000_000, spreadBps: 280, seniorityRank: 3, isFloating: true, isIncomeNote: false, isDeferrable: true  },
+        { className: "Sub", currentBalance:  30_000_000, spreadBps:   0, seniorityRank: 4, isFloating: false, isIncomeNote: true,  isDeferrable: false },
+      ],
     });
     const result = runProjection(inputs);
     const p1 = result.periods[0];
+    const j1 = p1.trancheInterest.find((t) => t.className === "J-1")!;
+    const j2 = p1.trancheInterest.find((t) => t.className === "J-2")!;
+    const j1PIK = p1.stepTrace?.deferredAccrualByTranche?.["J-1"] ?? 0;
+    const j2PIK = p1.stepTrace?.deferredAccrualByTranche?.["J-2"] ?? 0;
 
-    // Deferred accrual must appear for BOTH B-1 and B-2 (each PIKs its
-    // own shortfall), not just one of them.
-    const b1Trace = p1.stepTrace?.deferredAccrualByTranche?.["J-1"] ?? 0;
-    const b2Trace = p1.stepTrace?.deferredAccrualByTranche?.["J-2"] ?? 0;
-    expect(b1Trace).toBeGreaterThan(0);
-    expect(b2Trace).toBeGreaterThan(0);
+    // Confirm we ARE in the discriminating shortfall window: residual reaches
+    // J-group, both members partial. Pre-KI-57 sequential at this same
+    // residual would pay J-1 fully (paid == due, PIK == 0) and J-2 the
+    // remainder; the assertions below would fail.
+    expect(j1.paid).toBeGreaterThan(0);
+    expect(j1.paid).toBeLessThan(j1.due); // discriminates against "J-1 paid in full"
+    expect(j2.paid).toBeGreaterThan(0);
+    expect(j2.paid).toBeLessThan(j2.due);
+
+    // Pari-passu pro-rata invariant — same shape as test 1.
+    expect(j1.paid / j2.paid).toBeCloseTo(j1.due / j2.due, 4);
+
+    // PIK trace must appear for BOTH members (per-member, not aggregated).
+    expect(j1PIK).toBeGreaterThan(0);
+    expect(j2PIK).toBeGreaterThan(0);
+    expect(j1PIK).toBeLessThan(j1.due); // J-1 partial PIK, not full demand
+    expect(j2PIK).toBeLessThan(j2.due);
+    expect(j1PIK / j2PIK).toBeCloseTo(j1.due / j2.due, 4);
   });
 });
 
@@ -168,8 +208,9 @@ describe("engine pari-passu absorption — principal waterfall", () => {
       reinvestmentOcTrigger: null,
       tranches: [
         { className: "A",   currentBalance: 200_000_000, spreadBps: 110, seniorityRank: 1, isFloating: true, isIncomeNote: false, isDeferrable: false },
-        { className: "J-1", currentBalance: 50_000_000,  spreadBps: 165, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
-        { className: "J-2", currentBalance: 30_000_000,  spreadBps: 165, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
+        // Class B-1 / B-2 pari-passu (non-deferrable per PPM)
+        { className: "J-1", currentBalance: 50_000_000,  spreadBps: 165, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: false },
+        { className: "J-2", currentBalance: 30_000_000,  spreadBps: 165, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: false },
         { className: "Sub", currentBalance: 20_000_000,  spreadBps: 0,   seniorityRank: 3, isFloating: false, isIncomeNote: true, isDeferrable: false },
       ],
       ocTriggers: [], icTriggers: [],
@@ -237,8 +278,9 @@ describe("engine cure paydown — Class X exclusion", () => {
       tranches: [
         { className: "X",   currentBalance: 2_000_000,   spreadBps: 0,   seniorityRank: 1, isFloating: false, isIncomeNote: false, isDeferrable: false, isAmortising: true, amortisationPerPeriod: 400_000, amortStartDate: addQuarters("2026-03-09", 2) },
         { className: "A",   currentBalance: 130_000_000, spreadBps: 110, seniorityRank: 2, isFloating: true,  isIncomeNote: false, isDeferrable: false },
-        { className: "J-1", currentBalance: 30_000_000,  spreadBps: 165, seniorityRank: 3, isFloating: true,  isIncomeNote: false, isDeferrable: true  },
-        { className: "J-2", currentBalance: 18_000_000,  spreadBps: 165, seniorityRank: 3, isFloating: true,  isIncomeNote: false, isDeferrable: true  },
+        // Class B-1, B-2 pari-passu (non-deferrable per PPM)
+        { className: "J-1", currentBalance: 30_000_000,  spreadBps: 165, seniorityRank: 3, isFloating: true,  isIncomeNote: false, isDeferrable: false },
+        { className: "J-2", currentBalance: 18_000_000,  spreadBps: 165, seniorityRank: 3, isFloating: true,  isIncomeNote: false, isDeferrable: false },
         { className: "C",   currentBalance: 20_000_000,  spreadBps: 350, seniorityRank: 4, isFloating: true,  isIncomeNote: false, isDeferrable: true  },
         { className: "Sub", currentBalance: 40_000_000,  spreadBps: 0,   seniorityRank: 5, isFloating: false, isIncomeNote: true,  isDeferrable: false },
       ],

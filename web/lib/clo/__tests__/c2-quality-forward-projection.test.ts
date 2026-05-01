@@ -84,19 +84,20 @@ describe("C2 — T=0 parity with resolver poolSummary", () => {
     // determination date. One quarter = 0.25y difference — stay within ±0.5y.
     expect(Math.abs(p1.qualityMetrics.walYears - walYears)).toBeLessThan(0.5);
 
-    // WAS: engine averages LoanInput.spreadBps as-set by resolver. Trustee's
-    // WAC spread is reported as a pool-level metric that may (a) adjust
-    // fixed-rate coupons to a floating equivalent via their fixedCouponPct
-    // minus baseRate, (b) exclude defaulted loans, or (c) apply the trustee's
-    // own WAS methodology. Engine per-loan spreadBps + par-weighted average
-    // ≈ 397 vs trustee 368; ±30 bps absorbs that methodology gap. Tighter
-    // parity would require surfacing the trustee's exact WAS formula.
-    expect(Math.abs(p1.qualityMetrics.wacSpreadBps - wacSpreadBps)).toBeLessThan(30);
+    // WAS: engine implements PPM Condition 1 (PDF pp. 302-305) Floating WAS +
+    // Excess WAC. On Euro XV the engine reports ~367 bps vs trustee 368 bps —
+    // a ~1 bps drift well within ±5 bps tolerance. Remaining drift reflects
+    // small numerical differences (e.g. par rounding, day-count edge effects).
+    expect(Math.abs(p1.qualityMetrics.wacSpreadBps - wacSpreadBps)).toBeLessThan(5);
 
-    // pctCccAndBelow: trustee reports 6.92 (max of Moody's Caa + Fitch CCC);
-    // engine coarse-buckets to a single "CCC" — approximate within ±3pp.
+    // pctCccAndBelow: trustee reports max across agencies. Engine implements
+    // per-agency Caa/CCC rollups (PPM Condition 1, PDF pp. 127, 138) and
+    // takes the max. ~1.3pp residual drift on Euro XV reflects loans whose
+    // per-agency final ratings are absent from extraction (~6% of positions),
+    // which fall through to the coarse `ratingBucket === "CCC"` fallback.
+    // Tolerance ±2pp absorbs that fixture-data limitation.
     if (pctCccAndBelow != null) {
-      expect(Math.abs(p1.qualityMetrics.pctCccAndBelow - pctCccAndBelow)).toBeLessThan(3);
+      expect(Math.abs(p1.qualityMetrics.pctCccAndBelow - pctCccAndBelow)).toBeLessThan(2);
     }
   });
 });

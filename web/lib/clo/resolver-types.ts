@@ -84,6 +84,33 @@ export interface ResolvedDealData {
   longDatedObligationHaircut: number; // net OC deduction for loans maturing after CLO (from par value adjustments)
   cccBucketLimitPct: number | null; // PPM Excess CCC Adjustment threshold (% of par); null = extraction missed (blocking)
   cccMarketValuePct: number | null; // PPM market-value floor (% of par) credited to CCC excess; null = extraction missed (blocking)
+  /** PPM Target Par Amount (€). Sourced from PPM
+   *  `constraints.dealSizing.targetParAmount` or DB `pool.targetPar`. Intended
+   *  to feed the Aggregate Excess Funded Spread (AEFS) term in the Floating
+   *  WAS denominator (PPM Condition 1, PDF p. 304) — but **NOT yet wired into
+   *  the engine**: `pool-metrics.ts` / `projection.ts` do not consume this
+   *  field today. The AEFS contribution is therefore zero in the engine's
+   *  Floating WAS calculation. Null on extraction-miss is intentional and
+   *  harmless while the AEFS term is unimplemented. When AEFS is wired, this
+   *  needs a blocking-on-null gate identical to KI-58/KI-59 sites. Tracked as
+   *  a deferred-implementation follow-up. */
+  targetParAmount: number | null;
+  /** PPM Reference Weighted Average Fixed Coupon (%). Used by the Excess WAC
+   *  term: `(WeightedAvgFixedCoupon − referenceWAFC) × (fixedPar / floatingPar)`
+   *  per PPM Condition 1, PDF p. 305. Per-deal extracted from PPM section 7
+   *  (interest mechanics). Resolver blocks via `severity: "error",
+   *  blocking: true` if the field is missing — partner-facing computational
+   *  input, no silent default. The previously-shipped 4.0% Ares-family
+   *  default was a CLAUDE.md principle 3 violation and has been removed. */
+  referenceWeightedAverageFixedCoupon: number | null;
+  /** Whether the deal is rated by Moody's (any tranche carries a non-null
+   *  Moody's rating in PPM capital structure). Used by the silent-skip
+   *  blocking-gate predicate so missing Moody's-tagged compliance triggers
+   *  block on Moody's-rated deals but are silently absent on Fitch-only deals. */
+  isMoodysRated: boolean;
+  /** Whether the deal is rated by Fitch. Same predicate role as `isMoodysRated`
+   *  for Fitch-tagged compliance triggers. */
+  isFitchRated: boolean;
   impliedOcAdjustment: number; // derived residual between trustee's Adjusted CPA and identified components
   quartersSinceReport: number; // quarters between compliance report date and projection start (adjusts pre-existing default recovery timing)
   ddtlUnfundedPar: number; // total DDTL commitment par (for dynamic OC deduction in projection)
@@ -211,6 +238,21 @@ export interface ResolvedLoan {
   // Moody's WARF factor for this position (1=Aaa, 10000=Ca/C). Multiply by
   // parBalance and divide by pool par to get the position's WARF contribution.
   warfFactor?: number;
+  /** ISO 4217 currency code (EUR/USD/GBP). Sourced from holding's `currency`
+   *  or `nativeCurrency`. Used by the Floating WAS denominator to exclude
+   *  Non-Euro Obligations per PPM Condition 1 (PDF p. 302). When undefined,
+   *  the loan is assumed deal-currency-denominated. */
+  currency?: string;
+  /** Whether the obligation is currently deferring its current cash interest
+   *  payment per PPM "Deferring Security" definition (PDF p. 120). Excluded
+   *  from the Floating WAS denominator. Not extracted from SDF today —
+   *  resolver leaves undefined; only relevant for distressed deals. */
+  isDeferring?: boolean;
+  /** Whether the position is a Loss Mitigation Loan (CM-designated workout
+   *  obligation per PDF pp. 135-136). Excluded from both Moody's Caa and
+   *  Fitch CCC concentration tests. Not extracted from SDF today — resolver
+   *  leaves undefined; only relevant when CM has designated workout positions. */
+  isLossMitigationLoan?: boolean;
 }
 
 export type WarningSeverity = "info" | "warn" | "error";

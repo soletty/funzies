@@ -131,7 +131,7 @@ describe("Incentive fee three-regime behavior", () => {
       })),
       tranches: [
         { className: "A", currentBalance: 70_000_000, spreadBps: 140, seniorityRank: 1, isFloating: true, isIncomeNote: false, isDeferrable: false },
-        { className: "J", currentBalance: 20_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
+        { className: "J", currentBalance: 20_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: false},
         { className: "Sub", currentBalance: 10_000_000, spreadBps: 0, seniorityRank: 3, isFloating: false, isIncomeNote: true, isDeferrable: false },
       ],
     };
@@ -224,7 +224,7 @@ describe("Principal paydown is sequential (senior-first), not pro-rata", () => {
       ],
       tranches: [
         { className: "A", currentBalance: 50_000_000, spreadBps: 140, seniorityRank: 1, isFloating: true, isIncomeNote: false, isDeferrable: false },
-        { className: "J", currentBalance: 30_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
+        { className: "J", currentBalance: 30_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: false},
         { className: "Sub", currentBalance: 20_000_000, spreadBps: 0, seniorityRank: 3, isFloating: false, isIncomeNote: true, isDeferrable: false },
       ],
       ocTriggers: [],
@@ -262,7 +262,7 @@ describe("Principal paydown is sequential (senior-first), not pro-rata", () => {
       })),
       tranches: [
         { className: "A", currentBalance: 35_000_000, spreadBps: 140, seniorityRank: 1, isFloating: true, isIncomeNote: false, isDeferrable: false },
-        { className: "J", currentBalance: 20_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
+        { className: "J", currentBalance: 20_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: false},
         { className: "Sub", currentBalance: 45_000_000, spreadBps: 0, seniorityRank: 3, isFloating: false, isIncomeNote: true, isDeferrable: false },
       ],
       ocTriggers: [],
@@ -406,7 +406,7 @@ describe("OC numerator combines all components correctly", () => {
       ],
       tranches: [
         { className: "A", currentBalance: 60_000_000, spreadBps: 140, seniorityRank: 1, isFloating: true, isIncomeNote: false, isDeferrable: false },
-        { className: "J", currentBalance: 20_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
+        { className: "J", currentBalance: 20_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: false},
         { className: "Sub", currentBalance: 20_000_000, spreadBps: 0, seniorityRank: 3, isFloating: false, isIncomeNote: true, isDeferrable: false },
       ],
       ocTriggers: [
@@ -439,6 +439,8 @@ describe("OC numerator combines all components correctly", () => {
 
 describe("PIK catch-up: deferred interest paid when deal recovers", () => {
   it("tranche with accumulated PIK eventually gets repaid when OC cures", () => {
+    // Pari-passu PIK pair lives at rank 3 (Class C-equivalent) — Class A/B
+    // (ranks 1/2) are non-deferrable per PPM (D1 rank-based predicate).
     const inputs = makeInputs({
       reinvestmentPeriodEnd: "2026-01-01",
       defaultRatesByRating: uniformRates(5),
@@ -446,9 +448,10 @@ describe("PIK catch-up: deferred interest paid when deal recovers", () => {
       recoveryPct: 0,
       deferredInterestCompounds: true,
       tranches: [
-        { className: "A", currentBalance: 50_000_000, spreadBps: 140, seniorityRank: 1, isFloating: true, isIncomeNote: false, isDeferrable: false },
-        { className: "J", currentBalance: 20_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
-        { className: "Sub", currentBalance: 30_000_000, spreadBps: 0, seniorityRank: 3, isFloating: false, isIncomeNote: true, isDeferrable: false },
+        { className: "A", currentBalance: 40_000_000, spreadBps: 140, seniorityRank: 1, isFloating: true,  isIncomeNote: false, isDeferrable: false },
+        { className: "B", currentBalance: 10_000_000, spreadBps: 200, seniorityRank: 2, isFloating: true,  isIncomeNote: false, isDeferrable: false },
+        { className: "J", currentBalance: 20_000_000, spreadBps: 300, seniorityRank: 3, isFloating: true,  isIncomeNote: false, isDeferrable: true  },
+        { className: "Sub", currentBalance: 30_000_000, spreadBps: 0, seniorityRank: 4, isFloating: false, isIncomeNote: true,  isDeferrable: false },
       ],
       ocTriggers: [{ className: "A", triggerLevel: 200, rank: 1 }],
       icTriggers: [],
@@ -456,18 +459,20 @@ describe("PIK catch-up: deferred interest paid when deal recovers", () => {
 
     const result = runProjection(inputs);
 
-    const bBalanceQ2 = result.periods[1]?.tranchePrincipal.find((t) => t.className === "J")!.endBalance;
-    expect(bBalanceQ2).toBeGreaterThanOrEqual(20_000_000);
+    const jBalanceQ2 = result.periods[1]?.tranchePrincipal.find((t) => t.className === "J")!.endBalance;
+    expect(jBalanceQ2).toBeGreaterThanOrEqual(20_000_000);
 
-    const totalBPrincipal = result.periods.reduce((s, p) => {
-      const bPrin = p.tranchePrincipal.find((t) => t.className === "J");
-      return s + (bPrin?.paid ?? 0);
+    const totalJPrincipal = result.periods.reduce((s, p) => {
+      const jPrin = p.tranchePrincipal.find((t) => t.className === "J");
+      return s + (jPrin?.paid ?? 0);
     }, 0);
 
-    expect(totalBPrincipal).toBeGreaterThan(0);
+    expect(totalJPrincipal).toBeGreaterThan(0);
   });
 
   it("PIK balance is included when tranche is paid off at maturity", () => {
+    // Pari-passu PIK pair lives at rank 3 (Class C-equivalent) — Class A/B
+    // (ranks 1/2) are non-deferrable per PPM (D1 rank-based predicate).
     const inputs = makeInputs({
       reinvestmentPeriodEnd: "2026-01-01",
       maturityDate: addQuarters("2026-01-15", 8),
@@ -476,9 +481,10 @@ describe("PIK catch-up: deferred interest paid when deal recovers", () => {
       recoveryPct: 0,
       deferredInterestCompounds: true,
       tranches: [
-        { className: "A", currentBalance: 70_000_000, spreadBps: 140, seniorityRank: 1, isFloating: true, isIncomeNote: false, isDeferrable: false },
-        { className: "J", currentBalance: 10_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
-        { className: "Sub", currentBalance: 20_000_000, spreadBps: 0, seniorityRank: 3, isFloating: false, isIncomeNote: true, isDeferrable: false },
+        { className: "A", currentBalance: 60_000_000, spreadBps: 140, seniorityRank: 1, isFloating: true,  isIncomeNote: false, isDeferrable: false },
+        { className: "B", currentBalance: 10_000_000, spreadBps: 200, seniorityRank: 2, isFloating: true,  isIncomeNote: false, isDeferrable: false },
+        { className: "J", currentBalance: 10_000_000, spreadBps: 300, seniorityRank: 3, isFloating: true,  isIncomeNote: false, isDeferrable: true  },
+        { className: "Sub", currentBalance: 20_000_000, spreadBps: 0, seniorityRank: 4, isFloating: false, isIncomeNote: true,  isDeferrable: false },
       ],
       ocTriggers: [{ className: "A", triggerLevel: 999, rank: 1 }],
       icTriggers: [],
@@ -604,7 +610,7 @@ describe("Absolute-value verification (hand-computed)", () => {
       loans: [{ parBalance: 100_000_000, maturityDate: addQuarters("2026-03-09", 20), ratingBucket: "B", spreadBps: 400 }],
       tranches: [
         { className: "A", currentBalance: 70_000_000, spreadBps: 140, seniorityRank: 1, isFloating: true, isIncomeNote: false, isDeferrable: false },
-        { className: "J", currentBalance: 20_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
+        { className: "J", currentBalance: 20_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: false},
         { className: "Sub", currentBalance: 10_000_000, spreadBps: 0, seniorityRank: 3, isFloating: false, isIncomeNote: true, isDeferrable: false },
       ],
       defaultRatesByRating: uniformRates(0),
@@ -632,7 +638,7 @@ describe("Absolute-value verification (hand-computed)", () => {
       loans: [{ parBalance: 100_000_000, maturityDate: addQuarters("2026-03-09", 20), ratingBucket: "B", spreadBps: 400 }],
       tranches: [
         { className: "A", currentBalance: 70_000_000, spreadBps: 140, seniorityRank: 1, isFloating: true, isIncomeNote: false, isDeferrable: false },
-        { className: "J", currentBalance: 20_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
+        { className: "J", currentBalance: 20_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: false},
         { className: "Sub", currentBalance: 10_000_000, spreadBps: 0, seniorityRank: 3, isFloating: false, isIncomeNote: true, isDeferrable: false },
       ],
       defaultRatesByRating: uniformRates(0),
@@ -693,7 +699,7 @@ describe("Absolute-value verification (hand-computed)", () => {
       loans: [{ parBalance: 100_000_000, maturityDate: addQuarters("2026-03-09", 20), ratingBucket: "B", spreadBps: 400 }],
       tranches: [
         { className: "A", currentBalance: 70_000_000, spreadBps: 140, seniorityRank: 1, isFloating: true, isIncomeNote: false, isDeferrable: false },
-        { className: "J", currentBalance: 20_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
+        { className: "J", currentBalance: 20_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: false},
         { className: "Sub", currentBalance: 10_000_000, spreadBps: 0, seniorityRank: 3, isFloating: false, isIncomeNote: true, isDeferrable: false },
       ],
       defaultRatesByRating: uniformRates(0),
@@ -728,7 +734,7 @@ describe("Absolute-value verification (hand-computed)", () => {
       loans: [{ parBalance: 100_000_000, maturityDate: addQuarters("2026-03-09", 20), ratingBucket: "B", spreadBps: 400 }],
       tranches: [
         { className: "A", currentBalance: 70_000_000, spreadBps: 140, seniorityRank: 1, isFloating: true, isIncomeNote: false, isDeferrable: false },
-        { className: "J", currentBalance: 20_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
+        { className: "J", currentBalance: 20_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: false},
         { className: "Sub", currentBalance: 10_000_000, spreadBps: 0, seniorityRank: 3, isFloating: false, isIncomeNote: true, isDeferrable: false },
       ],
       defaultRatesByRating: uniformRates(0),
@@ -822,7 +828,7 @@ describe("Absolute-value verification (hand-computed)", () => {
       loans: [{ parBalance: 100_000_000, maturityDate: addQuarters("2026-03-09", 20), ratingBucket: "B", spreadBps: 400 }],
       tranches: [
         { className: "A", currentBalance: 70_000_000, spreadBps: 140, seniorityRank: 1, isFloating: true, isIncomeNote: false, isDeferrable: false },
-        { className: "J", currentBalance: 20_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
+        { className: "J", currentBalance: 20_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: false},
         { className: "Sub", currentBalance: 10_000_000, spreadBps: 0, seniorityRank: 3, isFloating: false, isIncomeNote: true, isDeferrable: false },
       ],
       defaultRatesByRating: uniformRates(0),
@@ -862,7 +868,7 @@ describe("PeriodStepTrace.availableForTranches", () => {
       loans: [{ parBalance: 100_000_000, maturityDate: addQuarters("2026-03-09", 20), ratingBucket: "B", spreadBps: 400 }],
       tranches: [
         { className: "A", currentBalance: 70_000_000, spreadBps: 140, seniorityRank: 1, isFloating: true, isIncomeNote: false, isDeferrable: false },
-        { className: "J", currentBalance: 20_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
+        { className: "J", currentBalance: 20_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: false},
         { className: "Sub", currentBalance: 10_000_000, spreadBps: 0, seniorityRank: 3, isFloating: false, isIncomeNote: true, isDeferrable: false },
       ],
       defaultRatesByRating: uniformRates(0),

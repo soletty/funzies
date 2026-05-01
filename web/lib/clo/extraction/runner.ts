@@ -17,6 +17,7 @@ import { reconcileDates } from "./date-reconciler";
 import { mergeAllPasses, EXTRACTION_PASSES } from "./multi-pass-merger";
 import type { DocumentMap } from "./document-mapper";
 import { validateAndNormalizeConstraints, normalizeComplianceTestType } from "../ingestion-gate";
+import { parseNumeric, parseDecoratedAmount } from "../sdf/csv-utils";
 import { assignDenseSeniorityRanks } from "../seniority-rank";
 import { remapColumnAliases, splitTextIntoPageChunks, mergeChunkResults, detectRepairNeeds, getLastItems } from "./transforms";
 
@@ -1251,11 +1252,13 @@ export async function runSectionExtraction(
         let spreadBps = (entry.spreadBps as number | null) ?? null;
         if (spreadBps == null && entry.spread) {
           const spreadStr = String(entry.spread);
-          const bpsMatch = spreadStr.match(/(\d+(?:\.\d+)?)\s*bps/i);
-          if (bpsMatch) spreadBps = parseFloat(bpsMatch[1]);
+          // Locale-permissive digit capture so European "3,25 bps" doesn't
+          // anchor on the post-comma digits and silently mis-parse.
+          const bpsMatch = spreadStr.match(/([\d.,]+)\s*bps/i);
+          if (bpsMatch) spreadBps = parseNumeric(bpsMatch[1]);
           else {
-            const plain = parseFloat(spreadStr.replace(/[,\s]/g, ""));
-            if (!isNaN(plain) && plain > 0) spreadBps = plain;
+            const plain = parseNumeric(spreadStr);
+            if (plain != null && plain > 0) spreadBps = plain;
           }
         }
         if (spreadBps != null && spreadBps > 0 && spreadBps < 20) {
@@ -1296,9 +1299,8 @@ export async function runSectionExtraction(
 
         // Set original_balance
         if (entry.principalAmount) {
-          const cleaned = String(entry.principalAmount).replace(/[^0-9.]/g, "");
-          const bal = parseFloat(cleaned);
-          if (!isNaN(bal) && bal > 0) {
+          const bal = parseDecoratedAmount(String(entry.principalAmount));
+          if (bal != null && bal > 0) {
             setClauses.push(`original_balance = COALESCE(original_balance, $${pi++})`);
             values.push(bal);
           }
@@ -1310,7 +1312,7 @@ export async function runSectionExtraction(
             `UPDATE clo_tranches SET ${setClauses.join(", ")} WHERE id = $${pi}`,
             values,
           );
-          console.log(`[extraction] enriched tranche "${entryClass}": spreadBps=${spreadBps}, rank=${denseRanks[i]}, isSub=${isSub}`);
+          console.log(`[extraction] enriched tranche "${entryClass}": spreadBps=${spreadBps}, rank=${i + 1}, isSub=${isSub}`);
         }
       }
     }

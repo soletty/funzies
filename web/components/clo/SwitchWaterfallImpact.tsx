@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import type { ResolvedDealData, ResolvedLoan, ResolutionWarning } from "@/lib/clo/resolver-types";
 import { runProjection } from "@/lib/clo/projection";
 import { applySwitch } from "@/lib/clo/switch-simulator";
+import { computeSwitchDeltas } from "@/lib/clo/services";
 import { DEFAULT_ASSUMPTIONS, type UserAssumptions } from "@/lib/clo/build-projection-inputs";
 import { mapToRatingBucket } from "@/lib/clo/rating-mapping";
 import { formatAmount as helpersFormatAmount } from "@/app/clo/waterfall/helpers";
@@ -21,10 +22,8 @@ interface Props {
   sellLoan: LoanDescription;
   buyLoan: LoanDescription;
   assumptions?: UserAssumptions;
-  // KI-58 — caller threads resolver warnings so applySwitch's gate
-  // fires on blocking warnings. Optional for callers that don't have
-  // warnings available; the gate then bypasses (matching prior
-  // behaviour). Pass when known.
+  // Threaded through to applySwitch so its buildFromResolved gate
+  // fires on blocking warnings. Optional; gate bypasses if omitted.
   resolutionWarnings?: ResolutionWarning[];
 }
 
@@ -98,8 +97,10 @@ export default function SwitchWaterfallImpact({ resolved, sellLoan, buyLoan, ass
   }
 
   const irrDelta = formatDelta(baseResult.equityIrr, switchedResult.equityIrr);
-  const baseOc = baseResult.periods[0]?.ocTests ?? [];
-  const switchedOc = switchedResult.periods[0]?.ocTests ?? [];
+  // All deltas come from the service helper — UI never subtracts engine
+  // values inline. See web/lib/clo/services/switch-deltas.ts for the
+  // single source of truth.
+  const deltas = computeSwitchDeltas(baseResult, switchedResult);
 
   const cellStyle: React.CSSProperties = {
     padding: "0.5rem 0.75rem",
@@ -183,12 +184,12 @@ export default function SwitchWaterfallImpact({ resolved, sellLoan, buyLoan, ass
               style={{
                 ...cellStyle,
                 color:
-                  switchedResult.totalEquityDistributions > baseResult.totalEquityDistributions
+                  deltas.totalEquityDistributionsDelta > 0
                     ? "var(--color-high, #2a7)"
                     : "var(--color-low, #c44)",
               }}
             >
-              {formatAmount(switchedResult.totalEquityDistributions - baseResult.totalEquityDistributions)}
+              {formatAmount(deltas.totalEquityDistributionsDelta)}
             </td>
           </tr>
           <tr style={{ borderBottom: "1px solid var(--color-border-light)" }}>
@@ -286,26 +287,22 @@ export default function SwitchWaterfallImpact({ resolved, sellLoan, buyLoan, ass
                 </tr>
               </thead>
               <tbody>
-                {baseOc.map((test, i) => {
-                  const switched = switchedOc[i];
-                  const delta = switched ? switched.actual - test.actual : 0;
-                  return (
-                    <tr key={test.className} style={{ borderBottom: "1px solid var(--color-border-light)" }}>
-                      <td style={{ ...cellStyle, textAlign: "left" }}>{test.className}</td>
-                      <td style={cellStyle}>{test.actual.toFixed(2)}%</td>
-                      <td style={cellStyle}>{switched?.actual.toFixed(2) ?? "—"}%</td>
+                {deltas.ocCushionDeltasPeriod1.map((d) => (
+                    <tr key={d.className} style={{ borderBottom: "1px solid var(--color-border-light)" }}>
+                      <td style={{ ...cellStyle, textAlign: "left" }}>{d.className}</td>
+                      <td style={cellStyle}>{d.baseActual.toFixed(2)}%</td>
+                      <td style={cellStyle}>{d.switchedActual?.toFixed(2) ?? "—"}%</td>
                       <td
                         style={{
                           ...cellStyle,
-                          color: delta > 0 ? "var(--color-high, #2a7)" : delta < 0 ? "var(--color-low, #c44)" : "inherit",
+                          color: d.delta > 0 ? "var(--color-high, #2a7)" : d.delta < 0 ? "var(--color-low, #c44)" : "inherit",
                         }}
                       >
-                        {delta > 0 ? "+" : ""}
-                        {delta.toFixed(2)}%
+                        {d.delta > 0 ? "+" : ""}
+                        {d.delta.toFixed(2)}%
                       </td>
                     </tr>
-                  );
-                })}
+                  ))}
               </tbody>
             </table>
 

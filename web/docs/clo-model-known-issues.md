@@ -26,7 +26,6 @@ Categorized so a partner reading cold can separate "what's still wrong" from "wh
 - [KI-08 — `trusteeFeesPaid` bundled steps B+C (PARTIAL: pre-fill D3 + cap mechanics C3 shipped; KI-16 PPM verifications remain)](#ki-08)
 - [KI-12a — Senior / sub management fee base discrepancy](#ki-12a)
 - [KI-16 — KI-08 closure assumptions pending PPM verification](#ki-16)
-- [KI-17 — wacSpreadBps methodology gap (±30 bps drift vs trustee)](#ki-17)
 - [KI-18 — pctCccAndBelow coarse-bucket collapse (±3pp vs trustee per-agency max)](#ki-18)
 - [KI-20 — D2 legacy escape-hatch on 6 test-factory sites](#ki-20)
 - [KI-21 — Parallel implementations of same calculation (PARTIAL — Scope 1+2 closed; Scope 3 accel + T=0 remains)](#ki-21)
@@ -49,7 +48,6 @@ Categorized so a partner reading cold can separate "what's still wrong" from "wh
 - [KI-37 — Loan-level `floorRate`, `pikAmount`, `creditWatch`, `isCovLite` extracted but unused by engine](#ki-37)
 - [KI-38 — FX / multi-currency unmodeled; `native_currency` parsed and discarded](#ki-38)
 - [KI-51 — `normalizeComplianceTestType` derives `isPassing` as `actual >= trigger` for all tests, including lower-is-better (WARF, WAL, concentration)](#ki-51)
-- [KI-54 — D1 deferrable-A/B guard is name-based; non-A/B-named senior with `isDeferrable=true` slips through](#ki-54)
 - [KI-56 — N1 harness step-G sharing: `classA_interest` bucket compares against trustee[g] which on a Class X-bearing deal includes Class X amort](#ki-56)
 - [KI-60 — Three independent `normalizeClassName` implementations with divergent output shapes (sibling pattern to KI-21)](#ki-60)
 
@@ -406,45 +404,26 @@ The Class A/B/C/D/E/F interest tie-outs currently pass at |drift| < €1 under l
 
 ---
 
-<a id="ki-17"></a>
-### [KI-17] wacSpreadBps methodology gap (Sprint 3 C2)
-
-**PPM reference:** Condition 1 / definitions — "Weighted Average Spread". Trustee reports pool WAS via a specific methodology that likely (a) adjusts fixed-rate coupons to a floating equivalent via `(coupon − baseRate) × par`, (b) excludes defaulted or discount-obligation positions from the denominator, and/or (c) applies a PPM-defined WAS formula that differs from a simple par-weighted average of `spreadBps`.
-
-**Current engine behavior:** `PeriodQualityMetrics.wacSpreadBps` in `projection.ts` is a par-weighted average of `LoanState.spreadBps` as-set by the resolver. At T=0 on Euro XV the engine emits ~397 bps vs trustee 368 bps — a systematic +29 bps drift.
-
-**PPM-correct behavior:** Match the trustee's WAS methodology bit-for-bit.
-
-**Quantitative magnitude:** ±30 bps at T=0 (≈8% relative). Grows or shrinks as fixed-rate loans default or are added via reinvestment.
-
-**Impact on compliance enforcement:** Euro XV's Minimum WAS trigger is 3.65% vs observed 3.68% — a **3 bps cushion**. Engine's ±30 bps uncertainty straddles that cushion by 10×. C1 reinvestment compliance explicitly does NOT enforce against the WAS trigger until this gap closes; the Minimum WAS check is left as a partner-facing advisory (not a hard block).
-
-**Path to close:** Read Ares European XV PPM "Weighted Average Spread" definition. Amend `computeQualityMetrics` to match — likely adjust fixed-rate loans to `max(0, fixedCouponPct − baseRatePct)` bps and exclude defaulted par from the denominator. Re-baseline the C2 T=0 parity test (`wacSpreadBps` tolerance from ±30 bps to ±5 bps). Then extend C1 enforcement to include Minimum WAS.
-
-**Test:** `c2-quality-forward-projection.test.ts > "period-1 WARF, WAL, WAS match resolver within day-count tolerance"` — current tolerance ±30 bps on WAS documents the gap. When closed, tighten to ±5 bps and add an assertion that fixed-rate adjustment is applied.
-
-**⚠ Test deletion required on closure:** `c1-reinvestment-compliance.test.ts > "Minimum WAS breach via reinvestment spread=0 does NOT block (KI-17 — deferred)"` is a deferred-enforcement honesty guard — it asserts the current non-enforcement behavior and **must be DELETED (not flipped) when KI-17 closes**. The PR that lands WAS enforcement must delete the test and replace it with a "spread=0 reinvestment is blocked" positive-enforcement assertion. A surviving honesty guard would assert an old non-enforcement claim against the new correct code.
-
----
-
 <a id="ki-18"></a>
-### [KI-18] pctCccAndBelow coarse-bucket collapse (Sprint 3 C2)
+### [KI-18] pctCccAndBelow per-agency rollup ships, but per-position rating extraction coverage gap leaves ~1.3pp residual
 
-**PPM reference:** Condition 1 / definitions — "Caa Obligation", "CCC Obligation". Separate per-agency definitions (Moody's Caa1/Caa2/Caa3 + Ca + C, and Fitch CCC+/CCC/CCC-/CC/C). The trustee's "Caa and below" concentration test takes the **max across agencies** — a position counted by either rating agency flips it into the bucket.
+**PPM reference:** Condition 1 / definitions — "Caa Obligation", "CCC Obligation". Separate per-agency definitions (Moody's Caa1/Caa2/Caa3 + Ca + C, and Fitch CCC+/CCC/CCC-/CC/C). The trustee's "Caa and below" concentration test takes the **max across agencies** — a position counted by either rating agency flips it into the bucket. Per PPM definition (PDF p. 138), defaulted obligations are EXCLUDED from the Caa Obligations set.
 
-**Current engine behavior:** `PeriodQualityMetrics.pctCccAndBelow` counts positions with `ratingBucket === "CCC"` from the engine's coarse `RatingBucket` ("AAA", "AA", "A", "BBB", "BB", "B", "CCC", "NR"). This collapses all sub-bucket and per-agency granularity into a single bucket, sourced from whichever rating the resolver picked (typically Moody's if available, else Fitch). It may also mis-treat defaulted positions depending on how the resolver assigns `ratingBucket` on default.
+**Current engine behavior:** `computePoolQualityMetrics` in `pool-metrics.ts` now computes per-agency Caa/CCC rollups (`isMoodysCaaOrBelow`, `isFitchCccOrBelow` from `rating-mapping.ts`) and takes max across agencies via `pctCccAndBelow = max(pctMoodysCaa, pctFitchCcc)` — the per-agency methodology required by the path-to-close. Defaulted positions are excluded by the upstream caller (`projection.ts` filters by `survivingPar > 0` AND `!isDefaulted` before passing into `computePoolQualityMetrics`); this matches PPM convention. **However**, ~6% of Euro XV loan positions have `moodysRatingFinal === null && fitchRatingFinal === null` (per-agency rating extraction missing); these fall through to the coarse `ratingBucket === "CCC"` legacy path. The C2 parity tolerance currently sits at **±2pp** (`c2-quality-forward-projection.test.ts:100`) to absorb the resulting ~1.3pp residual drift.
 
-**PPM-correct behavior:** Compute per-agency buckets (Moody's Caa rollup, Fitch CCC rollup), take the max. Include defaulted positions in the Caa bucket (PPM convention).
+**Why the entry stays open:** the path-to-close required tightening the C2 parity tolerance to ±0.1pp. ±2pp is a partial close — the per-agency methodology landed, but the residual extraction-coverage gap is still wide enough that the original ±3pp bug magnitude is within the test's tolerance. Deleting the entry while ±2pp tolerance is in place would be a fake-close (the assertion would pass even if the old methodology were reinstated). The remaining work is per-position rating extraction, NOT pool-metrics arithmetic.
 
-**Quantitative magnitude:** ±3pp at T=0 on Euro XV (engine vs trustee reported 6.92%). That's ≈43% relative error on a compliance bucket.
+**Quantitative magnitude:** Reduced from ±3pp (pre-fix) to ~1.3pp (post-fix); residual driven by extraction coverage, not by methodology.
 
-**Impact on compliance enforcement:** Euro XV's Moody's Caa concentration trigger is ~7.5% vs observed 6.92% — a **0.58 pp cushion**. Engine's ±3 pp uncertainty is 5× the cushion. C1 reinvestment compliance explicitly does NOT enforce against the Caa concentration test until this gap closes.
+**Impact on compliance enforcement:** Euro XV's Moody's Caa concentration trigger is 7.5% vs observed 6.92% — a 0.58 pp cushion. Engine's ~1.3pp residual is now 2× the cushion (down from 5×). C1 reinvestment compliance now DOES enforce against the Moody's Caa and Fitch CCC concentration tests via Feature A's multi-gate enrichment — the trigger numerator uses `pctMoodysCaa` / `pctFitchCcc` from the per-agency rollup directly, NOT the coarse `pctCccAndBelow`, so the ±2pp parity drift on the legacy aggregate does not bleed into the compliance gate. The compliance gate's correctness is bound by per-loan rating extraction quality, not by the parity tolerance.
 
-**Path to close:** (a) `ResolvedLoan` already carries per-agency raw strings (`moodysRating`, `spRating`, `fitchRating`, plus `*RatingFinal` derived variants — `resolver-types.ts:183-188`). What is missing is per-agency Caa/CCC bucket booleans (`moodysIsCaa`, `fitchIsCcc`); add them as derived fields on `ResolvedLoan`, OR compute them inline in `computePoolQualityMetrics` against the existing raw strings via a per-agency rollup helper. (b) Update `PeriodQualityMetrics.pctCccAndBelow` to compute max across agencies per position, summed over par. (c) Verify defaulted-position handling matches PPM convention. (d) Re-baseline the C2 T=0 parity test (tolerance from ±3 pp to ±0.1 pp).
+**Path to close (revised):** (a) Improve per-loan rating extraction such that `moodysRatingFinal` and `fitchRatingFinal` are populated for ≥95% of positions on Euro XV. The remaining 5% legacy-bucket fallback is acceptable. (b) Tighten the C2 parity tolerance from ±2pp to ±0.1pp once coverage is sufficient. (c) Document the bijection between the per-agency rollup (used by C1 enforcement) and the legacy aggregate `pctCccAndBelow` (used for partner-facing display) so neither drifts independently.
 
-**Test:** `c2-quality-forward-projection.test.ts > "period-1 WARF, WAL, WAS match resolver within day-count tolerance"` — current tolerance ±3 pp on pctCccAndBelow documents the gap. When closed, tighten to ±0.1 pp and extend C1 to enforce the Caa concentration test.
+**Defaulted-position semantics correction:** an earlier draft of this entry's path-to-close said "include defaulted positions in Caa bucket." That was wrong — per PPM PDF p. 138 the Caa Obligations definition explicitly EXCLUDES Defaulted Obligations. The current implementation is PPM-correct (caller pre-filter + LML exclusion in the pool-metrics loop). The invariant lives at the call site as a comment.
 
-**⚠ No active honesty-guard test yet** (C1 test file currently guards only the WAS path via the KI-17 test). When KI-18 closure extends C1 to enforce Caa concentration, add a pre-closure honesty guard AND document its deletion sibling here — same discipline as KI-17. Do not leave a stale "we don't enforce Caa" assertion in the codebase once Caa enforcement ships.
+**Test:** `c2-quality-forward-projection.test.ts:100` — current tolerance ±2pp on `pctCccAndBelow` is the ledger anchor for the residual extraction-coverage gap. Tighten to ±0.1pp on closure.
+
+**⚠ No active honesty-guard test for partial enforcement.** C1 enforcement against Caa/CCC concentration tests is now LIVE (per Feature A), so the prior "we don't enforce Caa" stance has flipped — the c1 test file's positive-enforcement assertions cover the new path. The remaining concern is the parity-tolerance gap on the legacy aggregate; pinning that requires re-validation each time the rating extraction pipeline changes.
 
 ---
 
@@ -980,36 +959,6 @@ This fires only when the source data did not populate `isPassing` (a fallback pa
 4. Audit downstream consumers of `isPassing` to confirm whether they trust this flag or recompute. Document the answer here.
 
 **Test:** No active marker. After the fix, the directional unit tests above pin both families.
-
----
-
-<a id="ki-54"></a>
-### [KI-54] D1 deferrable-A/B guard is name-based; non-A/B-named senior with `isDeferrable=true` slips through
-
-**PPM reference:** Class A and Class B non-payment of interest is an Event of Default, not deferral (Class C/D/E/F PIK). The PPM rule is structural — the senior-most rated tranches are non-deferrable regardless of how a particular deal labels them.
-
-**Current engine behavior:** `web/lib/clo/projection.ts:967-985` strips an optional `Class ` prefix (case-insensitive) and inspects the first character of `className`; throws only when that character is `A` or `B`. The check is identifier-based, not seniority-rank-based:
-
-```
-const core = t.className.trim().replace(/^class\s+/i, "").toUpperCase();
-const firstLetter = core.charAt(0);
-if ((firstLetter === "A" || firstLetter === "B") && t.isDeferrable) { throw ... }
-```
-
-A senior tranche named e.g. `K-1`, `X-1`, `Mezz-1`, or any non-A/B-prefixed letter, marked `isDeferrable: true` in the resolver output or test input, currently does NOT throw. Engine accepts it and the per-period waterfall PIKs accrued-but-unpaid interest into the senior's balance under the C/D/E/F deferral path.
-
-**PPM-correct behavior:** Identify the deferrability constraint by `seniorityRank` (or by the presence of an EoD-bound interest test), not by name. The structural guarantee the PPM makes is "the senior debt tranche(s) are non-deferrable" — whatever name the deal happens to use. A rank-based check (`t.seniorityRank <= 2 && !t.isIncomeNote && t.isDeferrable → throw`) covers the same intent without the name dependency.
-
-**Quantitative magnitude:** Latent on Euro XV (senior is `Class A`, caught by D1). On a deal with a non-A/B-named senior marked deferrable, every cent of senior interest shortfall PIKs onto the senior balance instead of triggering an EoD; the engine then continues distributing residual cash through the waterfall as if no breach had occurred. Equity distributions are overstated by approximately the cumulative PIK amount on the "senior" plus the foregone post-acceleration redirection of pool cash to senior paydown. Magnitude scales with senior interest × periods of underperformance — easily multiple percentage points of forward IRR on a stressed scenario.
-
-**Deferral rationale:** Latent — Euro XV's senior is named `Class A` and the existing D1 guard catches its mis-marking. The bug fires only on a non-Euro-XV deal whose senior happens to use a non-A/B prefix, which we have not yet ingested. Sibling pattern to the (now-closed) string-match-on-`Class A` failure shape in the EoD denominator: same overfit-to-naming-convention shape, different code path. Filing per the project rule ("if you discover a candidate KI mid-task, file it before continuing").
-
-**Path to close:**
-1. Replace the prefix-strip / first-letter check at `projection.ts:976-985` with a rank-based predicate: `if (t.seniorityRank <= 2 && !t.isIncomeNote && t.isDeferrable) throw ...`. Update the throw message to cite seniority rank rather than the name.
-2. Update the existing test fixtures that work around D1 by renaming senior tranches to non-A/B names (`projection-edge-cases.test.ts:621`, `projection-systematic-edge-cases.test.ts:535`) — those fixtures must move the deferrable test tranche to `seniorityRank: 3` or higher (or `isIncomeNote: true`) to avoid tripping the new rank-based guard.
-3. Flip the KI-54 marker test in `d1-ab-deferral-assertion.test.ts` from `not.toThrow()` to `toThrow()`.
-
-**Test:** Marker test in `web/lib/clo/__tests__/d1-ab-deferral-assertion.test.ts` — `KI-54: non-A/B-named senior with isDeferrable=true silently passes D1`. Currently asserts `not.toThrow()` (documenting the bug); flips to `toThrow()` when the rank-based fix lands.
 
 ---
 

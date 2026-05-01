@@ -466,6 +466,24 @@ const parseLeadingNumber = _parseLeadingNumber;
  */
 export function _parseEuriborSeries(s: string | null): number[] | null {
   if (!s) return null;
+  // Locale guard: split on `[\s,]+` assumes commas are token separators (American
+  // form). For European-locale Intex exports, commas are the DECIMAL separator,
+  // so splitting destroys precision. Detect by counting separators: if there
+  // are more commas than dots, the input is European-shaped and we cannot
+  // safely split. The magnitude tripwire below catches large-value mis-parses
+  // ("1,996" → tokens 1, 996), but cannot catch small-value mis-parses
+  // ("0,5 1,2" → tokens 0, 5, 1, 2 — all within the [-2, 10] safety range yet
+  // entirely wrong). Comma-vs-dot count covers both.
+  const commaCount = (s.match(/,/g) || []).length;
+  const dotCount = (s.match(/\./g) || []).length;
+  if (commaCount > dotCount) {
+    console.warn(
+      `[parseEuriborSeries] more commas (${commaCount}) than dots (${dotCount}) — ` +
+        `likely European-locale Intex export. Cannot safely split on commas when ` +
+        `commas are the decimal separator. Series rejected (null).`,
+    );
+    return null;
+  }
   const tokens = s.split(/[\s,]+/).filter((t) => t.length > 0);
   const nums: number[] = [];
   for (const t of tokens) {
@@ -475,16 +493,15 @@ export function _parseEuriborSeries(s: string | null): number[] | null {
   }
   if (nums.length === 0) return null;
   // Magnitude tripwire: realistic Euribor history is roughly [-1, 5]; with a
-  // safety margin we reject anything outside [-2, 10]. A series with values
-  // hundreds-or-thousands large is the locale-confusion footprint. Per CLAUDE.md
-  // principle 3 ("silent fallbacks on extraction failures are bugs"), we refuse
-  // to return a known-wrong series — the caller treats null as "Euribor curve
-  // unavailable" rather than projecting forward against nonsense rates.
+  // safety margin we reject anything outside [-2, 10]. Belt-and-braces with
+  // the comma-vs-dot guard above — catches any locale-confusion that slips
+  // past the count check (e.g. mixed-format inputs where comma count alone
+  // is ambiguous).
   const outOfRange = nums.find((n) => n < -2 || n > 10);
   if (outOfRange !== undefined) {
     console.warn(
       `[parseEuriborSeries] value ${outOfRange} outside realistic range [-2, 10]. ` +
-        `Likely European-locale Intex export ("1,996" split on the comma). ` +
+        `Likely parser failure or stress-scenario beyond Euribor history. ` +
         `Series rejected (null) — investigate the source preamble.`,
     );
     return null;

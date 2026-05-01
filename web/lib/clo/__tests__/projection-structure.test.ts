@@ -59,10 +59,10 @@ function makeFullDealInputs(overrides: Partial<ProjectionInputs> = {}): Projecti
       },
       // Class A: senior, floating
       { className: "A",  currentBalance: 60_000_000, spreadBps: 140, seniorityRank: 1, isFloating: true,  isIncomeNote: false, isDeferrable: false },
-      // Class B-1: floating
-      { className: "J-1", currentBalance: 6_000_000,  spreadBps: 225, seniorityRank: 3, isFloating: true,  isIncomeNote: false, isDeferrable: true  },
-      // Class B-2: fixed coupon (spreadBps = full coupon in bps)
-      { className: "J-2", currentBalance: 4_000_000,  spreadBps: 550, seniorityRank: 3, isFloating: false, isIncomeNote: false, isDeferrable: true  },
+      // Class B-1: floating (non-deferrable per PPM)
+      { className: "J-1", currentBalance: 6_000_000,  spreadBps: 225, seniorityRank: 3, isFloating: true,  isIncomeNote: false, isDeferrable: false },
+      // Class B-2: fixed coupon (spreadBps = full coupon in bps; non-deferrable per PPM)
+      { className: "J-2", currentBalance: 4_000_000,  spreadBps: 550, seniorityRank: 3, isFloating: false, isIncomeNote: false, isDeferrable: false },
       // Class C through F: deferrable junior tranches
       { className: "C",  currentBalance: 6_000_000,  spreadBps: 330, seniorityRank: 4, isFloating: true,  isIncomeNote: false, isDeferrable: true  },
       { className: "D",  currentBalance: 5_000_000,  spreadBps: 420, seniorityRank: 5, isFloating: true,  isIncomeNote: false, isDeferrable: true  },

@@ -113,7 +113,7 @@ function makeRealisticInputs(overrides: Partial<ProjectionInputs> = {}): Project
         isIncomeNote: false,
         isDeferrable: false,
       },
-      // Class B-1 — AA
+      // Class B-1 — AA (non-deferrable per PPM)
       {
         className: "J-1",
         currentBalance: 50_000_000,
@@ -121,9 +121,9 @@ function makeRealisticInputs(overrides: Partial<ProjectionInputs> = {}): Project
         seniorityRank: 2,
         isFloating: true,
         isIncomeNote: false,
-        isDeferrable: true,
+        isDeferrable: false,
       },
-      // Class B-2 — AA (same rank as B-1)
+      // Class B-2 — AA (same rank as B-1, non-deferrable per PPM)
       {
         className: "J-2",
         currentBalance: 30_000_000,
@@ -131,7 +131,7 @@ function makeRealisticInputs(overrides: Partial<ProjectionInputs> = {}): Project
         seniorityRank: 2,
         isFloating: true,
         isIncomeNote: false,
-        isDeferrable: true,
+        isDeferrable: false,
       },
       // Class C — A
       {

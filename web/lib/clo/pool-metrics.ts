@@ -8,16 +8,42 @@
  *
  * Extracting shared math here avoids the parallel-implementation trap tracked
  * as KI-21: per-period and per-switch metrics must match the engine's
- * definitions exactly. A future refactor can add new metrics here once and
- * have both consumers pick them up.
+ * definitions exactly.
  *
- * Methodology gaps documented in the ledger:
- *   - KI-17: `wacSpreadBps` engine-vs-trustee ~30 bps drift (fixed-rate
- *     adjustment not applied; defaulted-position exclusion not implemented).
- *   - KI-18: `pctCccAndBelow` coarse-bucket collapse (~±3 pp vs trustee
- *     per-agency max methodology).
- *   - KI-19: NR positions proxied to Caa2 (WARF=6500) per Moody's convention.
+ * Methodology (PPM Euro XV Condition 1, PDF pp. 302-305, 127, 138):
+ *   - `floatingWasBps` = Σ(par × spreadBps) / Σ(par) over Floating Par.
+ *     Floating Par excludes Defaulted Obligations, Loss Mitigation Loans,
+ *     Deferring Securities, Fixed Rate Obligations, and Non-Euro Obligations.
+ *     Caller is responsible for pre-filtering DDTL / unfunded portions.
+ *   - `excessWacBps` = (WeightedAvgFixedCoupon − ReferenceWAFC) × 100 ×
+ *     (Fixed Par / Floating Par). Reference WAFC defaults to 4.0%
+ *     (PPM PDF p. 305 — Euro XV reference rate). Negative when fixed
+ *     coupons fall below the reference (a penalty, per PPM intent).
+ *   - `wacSpreadBps` = `floatingWasBps + excessWacBps` — the combined
+ *     metric the Min Weighted Average Floating Spread Test compares
+ *     against `minWasBps` per PPM Section 8.
+ *   - `pctMoodysCaa` = par share rated Moody's Caa1 or below per PPM
+ *     "Moody's Caa Obligations" definition (PDF p. 138). Denominator
+ *     excludes LML (defaulted obligations are already excluded by the
+ *     caller's `survivingPar` filter, so they don't appear in `loans`).
+ *   - `pctFitchCcc` = par share rated Fitch CCC+ or below per PPM "Fitch
+ *     CCC Obligations" definition (PDF p. 127). Same denominator.
+ *   - `pctCccAndBelow` = `max(pctMoodysCaa, pctFitchCcc)` — coarse summary
+ *     for UI display. Per-agency tests use the per-agency fields.
+ *   - `warf` / `walYears` are par-weighted across all loans passed in
+ *     (no PPM exclusion list). NR positions proxy to Caa2 (WARF=6500) per
+ *     Moody's CLO methodology convention.
+ *
+ * When per-agency ratings (`moodysRatingFinal`, `fitchRatingFinal`) are
+ * absent on a loan (typical for engine-generated reinvestment positions
+ * that only carry a coarse `ratingBucket`), the helper falls back to
+ * `ratingBucket === "CCC"` as a proxy for both per-agency counters. This
+ * preserves the legacy bucket-based behaviour for callers that don't
+ * thread per-agency ratings, and the per-agency methodology activates
+ * automatically once the caller plumbs the resolver fields through.
  */
+
+import { isMoodysCaaOrBelow, isFitchCccOrBelow } from "./rating-mapping";
 
 /** Portfolio-level quality metrics. Same shape used for forward-projected
  *  periods (`PeriodQualityMetrics`) and for pre/post-switch pool summaries. */
@@ -27,9 +53,19 @@ export interface PoolQualityMetrics {
   /** Weighted Average Life of the remaining pool in years. Bullet-maturity
    *  approximation (see projection.ts docstring). */
   walYears: number;
-  /** Weighted Average Coupon spread in bps. Subject to KI-17 methodology gap. */
+  /** Floating WAS + Excess WAC per PPM Condition 1 (PDF pp. 302-305). bps. */
   wacSpreadBps: number;
-  /** % of par rated CCC or below (engine coarse bucket). Subject to KI-18. */
+  /** Floating WAS in isolation: par-weighted spread over Floating Par. bps. */
+  floatingWasBps: number;
+  /** Excess WAC adjustment: (WeightedAvgFixedCoupon − ReferenceWAFC) × 100 ×
+   *  (Fixed Par / Floating Par). bps. Zero when there are no fixed-rate
+   *  positions or no floating denominator. */
+  excessWacBps: number;
+  /** Per-agency Moody's Caa-or-below par share (%). Denominator excludes LML. */
+  pctMoodysCaa: number;
+  /** Per-agency Fitch CCC-or-below par share (%). Denominator excludes LML. */
+  pctFitchCcc: number;
+  /** `max(pctMoodysCaa, pctFitchCcc)` — coarse summary for UI display. */
   pctCccAndBelow: number;
 }
 
@@ -42,35 +78,239 @@ export interface QualityMetricLoan {
   yearsToMaturity: number;
   spreadBps: number;
   ratingBucket: string;
+  /** Whether the loan carries a flat coupon (excluded from Floating Par,
+   *  contributes to Excess WAC numerator). */
+  isFixedRate?: boolean;
+  /** Fixed coupon as percent (e.g. 8.0 for 8%). Required to compute Excess
+   *  WAC when `isFixedRate` is true. */
+  fixedCouponPct?: number | null;
+  /** Per PPM "Deferring Security" — excluded from Floating Par. */
+  isDeferring?: boolean | null;
+  /** Per PPM "Loss Mitigation Loan" — excluded from Floating Par AND from
+   *  Caa/CCC concentration test denominators (PDF pp. 127, 138). */
+  isLossMitigationLoan?: boolean | null;
+  /** ISO 4217 currency code. When `dealCurrency` is provided in opts and
+   *  this differs, the loan is excluded from Floating Par as a Non-Euro
+   *  Obligation per PPM Condition 1. */
+  currency?: string | null;
+  /** Per-agency Moody's rating (sub-bucket, e.g. "Caa2"). When absent on
+   *  ALL loans the helper falls back to `ratingBucket === "CCC"`. */
+  moodysRatingFinal?: string | null;
+  /** Per-agency Fitch rating (sub-bucket, e.g. "CCC+"). Same fallback. */
+  fitchRatingFinal?: string | null;
 }
 
-/** Compute portfolio quality metrics from a flat list of loans. Pure function
- *  — no side effects, no access to closures. Caller is responsible for
- *  filtering out unfunded DDTLs, defaulted positions pending recovery, etc. */
-export function computePoolQualityMetrics(loans: QualityMetricLoan[]): PoolQualityMetrics {
+/** Optional knobs for `computePoolQualityMetrics`. */
+export interface PoolQualityMetricsOpts {
+  /** PPM Reference Weighted Average Fixed Coupon (%); PDF p. 305. Defaults
+   *  to 4.0 when omitted (Euro XV value; resolver threads this from
+   *  `resolved.referenceWeightedAverageFixedCoupon`). */
+  referenceWAFC?: number;
+  /** Deal currency (ISO 4217). Loans whose `currency` differs are excluded
+   *  from the Floating Par denominator per "Non-Euro Obligation" definition.
+   *  When omitted, no currency filter applies (all loans assumed in deal
+   *  currency). */
+  dealCurrency?: string | null;
+}
+
+/** Partial sums extracted from one pass over the loan list. Sole source of
+ *  truth for both `computePoolQualityMetrics` (post-period output) and
+ *  `projection.ts`'s reinvestment-compliance gate (boundary math). Co-locating
+ *  the aggregation prevents the parallel-implementation drift tracked as
+ *  KI-21 — the gate's pre-buy state and the helper's post-period state are
+ *  guaranteed to use identical exclusion rules. */
+export interface QualityMetricsAggregates {
+  /** Σ par over all loans with par > 0. WARF / WAL denominator. */
+  totalPar: number;
+  /** Σ par × warfFactor. WARF numerator. */
+  warfSum: number;
+  /** Σ par × yearsToMaturity. WAL numerator. */
+  walSum: number;
+  /** Σ par over Floating Par (excludes LML, deferring, fixed-rate,
+   *  non-deal-currency). Floating WAS denominator + Excess WAC denominator. */
+  floatingPar: number;
+  /** Σ par × spreadBps over Floating Par. Floating WAS numerator. */
+  floatingSpreadSum: number;
+  /** Σ par over Fixed Par (same exclusions as Floating Par minus the
+   *  fixed-rate one). Excess WAC denominator (numerator side). */
+  fixedPar: number;
+  /** Σ par × fixedCouponPct over Fixed Par. Used to compute weighted-average
+   *  fixed coupon = `fixedCouponSum / fixedPar`. */
+  fixedCouponSum: number;
+  /** Σ par over non-LML loans. Caa/CCC concentration denominator. */
+  concDenom: number;
+  /** Σ par over non-LML loans where `isMoodysCaaOrBelow(moodysRatingFinal)`
+   *  (or `ratingBucket === "CCC"` when both per-agency ratings are absent). */
+  moodysCaaPar: number;
+  /** Σ par over non-LML loans where `isFitchCccOrBelow(fitchRatingFinal)`
+   *  (same bucket fallback as `moodysCaaPar`). */
+  fitchCccPar: number;
+}
+
+/** Single-pass aggregation over a loan list, producing the partial sums
+ *  needed by every downstream metric and gate. Pure; no allocations beyond
+ *  the returned record. */
+export function aggregateQualityMetrics(
+  loans: QualityMetricLoan[],
+  opts: PoolQualityMetricsOpts = {},
+): QualityMetricsAggregates {
+  const dealCurrency = opts.dealCurrency ?? null;
+
+  // Caller-side invariant — defaulted positions are EXCLUDED from `loans` by
+  // `projection.ts` (filter on `survivingPar > 0 && !isDefaulted`) before this
+  // helper is called. PPM Condition 1 / definitions ("Caa Obligations", PDF
+  // p. 138) explicitly excludes Defaulted Obligations from the per-agency Caa
+  // and Fitch CCC concentration sets, so the caller-side filter satisfies the
+  // PPM exclusion. KI-18 entry's earlier path-to-close said "include
+  // defaulteds in Caa bucket" — that was wrong; the implementation here is
+  // PPM-correct, the path-to-close has been corrected.
+
   let totalPar = 0;
   let warfSum = 0;
   let walSum = 0;
-  let spreadSum = 0;
-  let cccAndBelowPar = 0;
+  let floatingPar = 0;
+  let floatingSpreadSum = 0;
+  let fixedPar = 0;
+  let fixedCouponSum = 0;
+  let concDenom = 0;
+  let moodysCaaPar = 0;
+  let fitchCccPar = 0;
+
   for (const l of loans) {
     const par = l.parBalance;
     if (par <= 0) continue;
     totalPar += par;
     warfSum += par * l.warfFactor;
     walSum += par * l.yearsToMaturity;
-    spreadSum += par * l.spreadBps;
-    if (l.ratingBucket === "CCC") cccAndBelowPar += par;
+
+    const isLML = l.isLossMitigationLoan === true;
+    const isDeferring = l.isDeferring === true;
+    const isFixed = l.isFixedRate === true;
+    const isNonDealCurrency =
+      dealCurrency != null && l.currency != null && l.currency !== dealCurrency;
+
+    // Per-agency concentration: exclude LML only. Defaulted positions are
+    // already absent because the caller filters by survivingPar / funded
+    // status before calling.
+    if (!isLML) {
+      concDenom += par;
+      const moodysFinal = l.moodysRatingFinal ?? null;
+      const fitchFinal = l.fitchRatingFinal ?? null;
+      const useBucketFallback = moodysFinal === null && fitchFinal === null;
+      const moodysCaa = useBucketFallback
+        ? l.ratingBucket === "CCC"
+        : isMoodysCaaOrBelow(moodysFinal);
+      const fitchCcc = useBucketFallback
+        ? l.ratingBucket === "CCC"
+        : isFitchCccOrBelow(fitchFinal);
+      if (moodysCaa) moodysCaaPar += par;
+      if (fitchCcc) fitchCccPar += par;
+    }
+
+    // Floating WAS / Excess WAC buckets: exclude LML, deferring, non-deal-currency
+    if (!isLML && !isDeferring && !isNonDealCurrency) {
+      if (isFixed) {
+        fixedPar += par;
+        fixedCouponSum += par * (l.fixedCouponPct ?? 0);
+      } else {
+        floatingPar += par;
+        floatingSpreadSum += par * l.spreadBps;
+      }
+    }
   }
+
+  return {
+    totalPar,
+    warfSum,
+    walSum,
+    floatingPar,
+    floatingSpreadSum,
+    fixedPar,
+    fixedCouponSum,
+    concDenom,
+    moodysCaaPar,
+    fitchCccPar,
+  };
+}
+
+/** Project `QualityMetricsAggregates` onto the eight published metrics.
+ *  Pure derivation; no I/O. Exported so the projection-engine gate can
+ *  preview post-buy metrics from the same code path that produces
+ *  per-period output. */
+export function deriveQualityMetrics(
+  aggregates: QualityMetricsAggregates,
+  opts: PoolQualityMetricsOpts = {},
+): PoolQualityMetrics {
+  const referenceWAFC = opts.referenceWAFC ?? 4.0;
+  const {
+    totalPar,
+    warfSum,
+    walSum,
+    floatingPar,
+    floatingSpreadSum,
+    fixedPar,
+    fixedCouponSum,
+    concDenom,
+    moodysCaaPar,
+    fitchCccPar,
+  } = aggregates;
+
   if (totalPar === 0) {
-    return { warf: 0, walYears: 0, wacSpreadBps: 0, pctCccAndBelow: 0 };
+    return {
+      warf: 0,
+      walYears: 0,
+      wacSpreadBps: 0,
+      floatingWasBps: 0,
+      excessWacBps: 0,
+      pctMoodysCaa: 0,
+      pctFitchCcc: 0,
+      pctCccAndBelow: 0,
+    };
   }
+
+  const floatingWasBps = floatingPar > 0 ? floatingSpreadSum / floatingPar : 0;
+  const weightedAvgFixedCoupon = fixedPar > 0 ? fixedCouponSum / fixedPar : 0;
+  // Excess WAC: (WAFC% − ref%) × 100 (pct→bps) × (fixedPar / floatingPar).
+  // Zero when no floating denominator (degenerate all-fixed pool — the test
+  // doesn't apply, and the resolver should have flagged the all-fixed shape
+  // upstream).
+  const excessWacBps =
+    floatingPar > 0 ? (weightedAvgFixedCoupon - referenceWAFC) * 100 * (fixedPar / floatingPar) : 0;
+  const wacSpreadBps = floatingWasBps + excessWacBps;
+
+  const pctMoodysCaa = concDenom > 0 ? (moodysCaaPar / concDenom) * 100 : 0;
+  const pctFitchCcc = concDenom > 0 ? (fitchCccPar / concDenom) * 100 : 0;
+  const pctCccAndBelow = Math.max(pctMoodysCaa, pctFitchCcc);
+
   return {
     warf: warfSum / totalPar,
     walYears: walSum / totalPar,
-    wacSpreadBps: spreadSum / totalPar,
-    pctCccAndBelow: (cccAndBelowPar / totalPar) * 100,
+    wacSpreadBps,
+    floatingWasBps,
+    excessWacBps,
+    pctMoodysCaa,
+    pctFitchCcc,
+    pctCccAndBelow,
   };
+}
+
+/** Compute portfolio quality metrics from a flat list of loans. Pure function
+ *  — no side effects, no access to closures.
+ *
+ *  Caller filters DDTL / unfunded portions and defaulted positions before
+ *  calling (engine consumers naturally exclude these via `survivingPar`;
+ *  switch simulator filters via `!isDelayedDraw`). The helper applies the
+ *  remaining PPM exclusions internally based on per-loan flags.
+ *
+ *  Composition: `aggregateQualityMetrics` does the loop, `deriveQualityMetrics`
+ *  projects to the published shape. The reinvestment-compliance gate in
+ *  `projection.ts` reuses `aggregateQualityMetrics` so its pre-buy sums are
+ *  guaranteed to match the helper's per-period output. */
+export function computePoolQualityMetrics(
+  loans: QualityMetricLoan[],
+  opts: PoolQualityMetricsOpts = {},
+): PoolQualityMetrics {
+  return deriveQualityMetrics(aggregateQualityMetrics(loans, opts), opts);
 }
 
 /** Concentration-test metric: par share held by the top N obligors.

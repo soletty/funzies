@@ -546,6 +546,7 @@ export const ppmInterestMechanicsSchema = z.object({
   dayCount: z.string().optional(),
   referenceRate: z.string().optional(),
   referenceRateFloorPct: z.number().nullable().optional(),
+  referenceWeightedAverageFixedCoupon: z.number().nullable().optional(),
   deferredInterestCompounds: z.boolean().nullable().optional(),
   deferralClasses: z.array(z.string()).optional(),
   subNoteInterest: z.string().optional(),

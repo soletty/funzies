@@ -36,15 +36,10 @@ const sellIdx = fixture.resolved.loans.findIndex(
 );
 
 /** Compute the engine's baseline pool metrics by running a NO-OP switch
- *  (sell 0 par, buy a zero-par placeholder). Establishes apples-to-apples
- *  comparison against real switches — avoids the KI-17 engine-vs-trustee
- *  wacSpreadBps drift that contaminates comparisons against the fixture's
- *  trustee-reported `resolved.poolSummary` values.
- *
- *  TODO(KI-17): delete this helper once the engine's WAS computation matches
- *  trustee methodology (fixed-rate floating-equivalent adjustment + defaulted
- *  exclusion). After KI-17 closes, direct `fixture.resolved.poolSummary`
- *  comparison becomes valid and engineBaseline() becomes redundant. */
+ *  (sell 0 par, buy a zero-par placeholder). Establishes engine-vs-engine
+ *  apples-to-apples comparison so test assertions are robust to small
+ *  numerical differences between the engine's per-period methodology and
+ *  the trustee's reported `resolved.poolSummary` snapshot. */
 function engineBaseline(): ResolvedDealData["poolSummary"] {
   const zeroBuyLoan: ResolvedLoan = {
     parBalance: 0,
@@ -178,12 +173,12 @@ describe("D4 — top10ObligorsPct recomputed on switch", () => {
   });
 });
 
-// TODO(KI-18-adjacent / future "isCovLite on ResolvedLoan"): DELETE this
-// describe block when `pctCovLite`, `pctPik`, etc. become recomputable on the
-// switched pool (i.e. ResolvedLoan gains per-loan `isCovLite` / `isPik` flags
-// and applySwitch starts recomputing these fields instead of inheriting
-// stale from base). This test pins the CURRENT stale-inherit contract; when
-// the correct fix ships, it will fail — don't flip it, delete it and add a
+// TODO(future "isCovLite on ResolvedLoan"): DELETE this describe block when
+// `pctCovLite`, `pctPik`, etc. become recomputable on the switched pool
+// (i.e. ResolvedLoan gains per-loan `isCovLite` / `isPik` flags and
+// applySwitch starts recomputing these fields instead of inheriting stale
+// from base). This test pins the CURRENT stale-inherit contract; when the
+// correct fix ships, it will fail — don't flip it, delete it and add a
 // positive-enforcement assertion that the recompute happened.
 describe("D4 — non-recomputed fields inherit from base (documented gap)", () => {
   it("pctCovLite stays at base value on switched pool", () => {

@@ -2,17 +2,17 @@
  * Diagnostic: run the projection engine for one or more periods on the
  * `new_context.json` snapshot and dump a step-by-step waterfall ledger.
  *
- * KI-58 note: this script reads a pre-canned `ResolvedDealData` snapshot
- * from disk and never invokes `resolveWaterfallInputs`, so there are no
+ * Note: this script reads a pre-canned `ResolvedDealData` snapshot from
+ * disk and never invokes `resolveWaterfallInputs`, so there are no
  * resolver-generated `ResolutionWarning`s to thread into the
  * `buildFromResolved` gate. The third argument is intentionally omitted.
- * IF this script is ever refactored to call `resolveWaterfallInputs`
- * (e.g. to debug a portability issue end-to-end), the resolver's
- * warnings array MUST be passed as the third argument to every
- * `buildFromResolved` call below — otherwise blocking warnings would
- * be silently bypassed and the script would run on sentinel data. The
- * cross-file scan in `lib/clo/__tests__/incomplete-data-banner-bijection.test.ts`
- * covers `web/scripts/`, but it only catches a divergent inline
+ * If this script is ever refactored to call `resolveWaterfallInputs`,
+ * the resolver's warnings array MUST be passed as the third argument
+ * to every `buildFromResolved` call below — otherwise blocking
+ * warnings would be silently bypassed and the script would run on
+ * sentinel data. The cross-file scan in
+ * `lib/clo/__tests__/incomplete-data-banner-bijection.test.ts` covers
+ * `web/scripts/`, but it only catches a divergent inline
  * `.filter(w => w.blocking ...)`; it does not catch the simpler
  * "missing third arg" form, which is why this comment exists.
  *

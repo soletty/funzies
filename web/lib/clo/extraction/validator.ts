@@ -1,6 +1,7 @@
 import type { Pass1Output, Pass2Output, Pass3Output, Pass4Output } from "./schemas";
 import type { CapitalStructureEntry } from "../types";
 import { normalizeClassName } from "../api";
+import { parseDecoratedAmount } from "../sdf/csv-utils";
 
 export interface ValidationCheck {
   name: string;
@@ -291,9 +292,7 @@ function normalizeCapClassName(name: string): string {
 
 /** Parse a principal amount string like "€150,000,000" or "150000000" to a number */
 function parsePrincipalAmount(amount: string): number | null {
-  const cleaned = amount.replace(/[^0-9.]/g, "");
-  const num = parseFloat(cleaned);
-  return isNaN(num) ? null : num;
+  return parseDecoratedAmount(amount);
 }
 
 export function validateCapStructure(

@@ -115,3 +115,27 @@ export function mapToRatingBucket(
     "NR"
   );
 }
+
+/** Per-agency Caa-or-below predicate for the Moody's Caa Obligations
+ *  concentration test. Per PPM Condition 1 (PDF p. 138): "Moody's Caa
+ *  Obligations" means any Collateral Obligation (excluding Defaulted
+ *  Obligations and Loss Mitigation Loans) with a Moody's Rating of "Caa1" or
+ *  lower. Sub-buckets that map: Caa1, Caa2, Caa3, Ca, C — exactly the Moody's
+ *  strings that the `MOODYS_MAP` collapses to the coarse "CCC" bucket. Returns
+ *  false on unparseable / non-Caa ratings. */
+export function isMoodysCaaOrBelow(rating: string | null | undefined): boolean {
+  if (!rating) return false;
+  return tryMap(rating, MOODYS_MAP) === "CCC";
+}
+
+/** Per-agency CCC-or-below predicate for the Fitch CCC Obligations
+ *  concentration test. Per PPM Condition 1 (PDF p. 127): "Fitch CCC
+ *  Obligations" means all Collateral Obligations (excluding Defaulted
+ *  Obligations and Loss Mitigation Loans) with a Fitch Rating of "CCC+" or
+ *  lower. Sub-buckets that map: CCC+, CCC, CCC-, CC+, CC, CC-, C — exactly the
+ *  strings the shared `SP_FITCH_MAP` collapses to the coarse "CCC" bucket.
+ *  Returns false on unparseable / non-CCC ratings. */
+export function isFitchCccOrBelow(rating: string | null | undefined): boolean {
+  if (!rating) return false;
+  return tryMap(rating, SP_FITCH_MAP) === "CCC";
+}

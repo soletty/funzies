@@ -103,17 +103,19 @@ describe("A1 — equityEntryPriceCents → equityEntryPrice conversion", () => {
 
 describe("A1 — integration: equityEntryPriceCents flows through to engine IRR", () => {
   it("setting equityEntryPriceCents shifts equityIrr by the expected ~−13pp vs default (book)", () => {
-    // Empirical anchor. With DEFAULT_ASSUMPTIONS, Euro XV's engine produces
-    // (post-B1 / Sprint 2 fixture patch on principalAccountCash):
+    // Empirical anchor. With DEFAULT_ASSUMPTIONS, Euro XV's engine produces:
     //   - 95c cost basis (€42.56M) → equityIrr ≈ lower
     //   - book-value default → equityIrr ≈ higher (because lower cost basis)
-    //   - gap ≈ −15.71pp
+    //   - gap ≈ −16.86pp
     //
-    // History: pre-B1 this gap was −12.92pp. B1's resolver fix corrected
-    // `principalAccountCash` from 0 to −€1.82M (the overdrawn Principal EUR
-    // account), which flows into the book-value computation via the pool-
-    // level cash term → book value drops slightly → book-value-default IRR
-    // rises → gap widens. Cascade re-baseline per PR template.
+    // History: pre-B1 this gap was −12.92pp; B1's resolver fix corrected
+    // `principalAccountCash` from 0 to −€1.82M and widened the gap to
+    // −15.71pp. Subsequent deferrable-propagation fix (resolver fall-through
+    // to interestMechanics.interest_deferral when capitalStructure[].deferrable
+    // is missing) flipped Class C/D/E/F to isDeferrable=true on Euro XV,
+    // re-routing junior-interest shortfalls into PIK accrual instead of
+    // silent drop. That shifts the engine's interest-allocation under stress
+    // periods and re-baselines the gap to −16.86pp.
     const inputs95 = buildFromResolved(fixture.resolved, {
       ...DEFAULT_ASSUMPTIONS,
       equityEntryPriceCents: 95,
@@ -131,6 +133,6 @@ describe("A1 — integration: equityEntryPriceCents flows through to engine IRR"
     // Magnitude: within ±1pp of the documented −12.92pp anchor. If this moves,
     // a material engine change happened — either A1's plumbing or downstream
     // IRR / cashflow logic.
-    expect(gapPp).toBeCloseTo(-15.71, 0);
+    expect(gapPp).toBeCloseTo(-16.86, 0);
   });
 });

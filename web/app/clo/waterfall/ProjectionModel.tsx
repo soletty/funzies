@@ -391,20 +391,16 @@ export default function ProjectionModel({
     };
   }, [resolved?.loans]);
 
-  // KI-58 — partner-facing surface for the buildFromResolved gate.
-  // Any resolution warning marked `blocking: true` (e.g. missing
-  // `diversionPct`, missing `maturity`, sentinel `seniorFeePct = 0` etc.)
-  // refuses the projection: the engine never receives an inputs object
-  // built from a fallback / sentinel value. The DATA INCOMPLETE banner
-  // below renders these errors instead of the projection table.
+  // Partner-facing surface for the buildFromResolved gate. Any
+  // resolution warning marked `blocking: true` (e.g. missing
+  // `diversionPct`, missing `maturity`, sentinel `seniorFeePct = 0`)
+  // refuses the projection: the DATA INCOMPLETE banner below renders
+  // these errors instead of the projection table.
   //
-  // Bijection-by-construction: this memo MUST call `selectBlockingWarnings`
-  // — the same predicate the engine-side `buildFromResolved` gate uses.
-  // A divergent inline `.filter(w => w.blocking ...)` here would let the
-  // banner and the gate disagree on what counts as blocking, defeating
-  // the umbrella's mechanical-bind guarantee. The bijection test
-  // (`incomplete-data-banner-bijection.test.ts`) asserts via AST that
-  // this file references `selectBlockingWarnings`.
+  // This memo MUST call `selectBlockingWarnings` — the same predicate
+  // `buildFromResolved` uses — so the banner and the gate cannot
+  // disagree on what counts as blocking. Asserted via AST by
+  // `incomplete-data-banner-bijection.test.ts`.
   const incompleteDataErrors = useMemo<ResolutionWarning[]>(
     () => selectBlockingWarnings(resolutionWarnings ?? []),
     [resolutionWarnings],
@@ -412,12 +408,11 @@ export default function ProjectionModel({
 
   const inputs: ProjectionInputs = useMemo(
     () => {
-      // KI-58 — short-circuit on blocking warnings before calling the
-      // engine. The render path below already gates the projection
-      // panels on incompleteDataErrors.length === 0 (so partners never
-      // see zero-valued numbers next to the DATA INCOMPLETE banner),
-      // but returning a sane no-op inputs keeps any non-projection
-      // consumer of `inputs` (validation hooks, etc.) from crashing.
+      // Short-circuit on blocking warnings before calling the engine.
+      // The render path below already gates the projection panels on
+      // incompleteDataErrors.length === 0; the no-op inputs returned
+      // here keeps non-projection consumers of `inputs` (validation
+      // hooks, etc.) from crashing.
       if (incompleteDataErrors.length > 0) {
         return buildFromResolved(EMPTY_RESOLVED, DEFAULT_ASSUMPTIONS);
       }
@@ -476,7 +471,7 @@ export default function ProjectionModel({
   // from resolved.fees. trusteeFeeBps intentionally NOT pinned (circular).
   const engineMathInputs: ProjectionInputs | undefined = useMemo(() => {
     if (!resolved) return undefined;
-    if (incompleteDataErrors.length > 0) return undefined; // KI-58 gate
+    if (incompleteDataErrors.length > 0) return undefined;
     const observedBaseRate = trancheSnapshots.find(s => s && s.currentIndexRate != null)?.currentIndexRate;
     if (observedBaseRate == null) return undefined;
     return buildFromResolved(
@@ -802,7 +797,7 @@ export default function ProjectionModel({
     <div className="wf-section" style={{ marginTop: "2.5rem" }}>
       <MissingCurrencyBanner />
 
-      {/* KI-58 — DATA INCOMPLETE banner. Renders one row per blocking
+      {/* DATA INCOMPLETE banner. Renders one row per blocking
           ResolutionWarning. The projection panels below are gated on
           `incompleteDataErrors.length === 0`, so when this banner shows
           there are no projection numbers next to it — refusing to render
@@ -894,10 +889,10 @@ export default function ProjectionModel({
         ))}
       </div>
 
-      {/* KI-58 — when blocking warnings exist, the DATA INCOMPLETE banner
-          above is the entire surface. We do NOT render the projection
-          panels (zero-valued numbers next to the banner are exactly the
-          partner-confusing failure mode this umbrella exists to prevent).
+      {/* When blocking warnings exist, the DATA INCOMPLETE banner above
+          is the entire surface. The projection panels are not rendered
+          (zero-valued numbers next to the banner are exactly the
+          partner-confusing failure mode the gate exists to prevent).
           The Switch tab has its own gate above. */}
       {activeTab === "projection" && incompleteDataErrors.length === 0 && (<>
       {/* Validation gate */}

@@ -1,42 +1,22 @@
 /**
  * C1 — Reinvestment compliance enforcement.
  *
- * SCOPE (intentionally narrow — see KI-17/18/19):
- *   ✅ Enforces: Moody's Maximum WARF trigger. Reinvestment that would push
- *      post-buy WARF past the trigger is scaled down to the boundary; excess
- *      falls through to senior paydown via the principal waterfall.
- *   ❌ NOT enforced (methodology gaps > trigger cushion):
- *      - Minimum WAS (3 bps cushion, engine ±30 bps drift — see KI-17)
- *      - Caa concentration (0.58 pp cushion, engine ±3 pp bucket gap — KI-18)
- *      Both tests have engine-vs-trustee methodology drift that exceeds their
- *      PPM cushion. Blocking on them would produce FALSE POSITIVES (engine
- *      says block when PPM-correct math would allow) and FALSE NEGATIVES
- *      (engine allows when PPM-correct math would block) — neither is
- *      partner-shippable. Both gaps have explicit PPM-reconciliation paths to
- *      close; C1 enforcement extends to WAS + Caa once their KI closures land.
- *   ✅ NR positions: proxied to Caa2 (WARF=6500) per Moody's convention. See
- *      KI-19 for the design decision rationale.
+ * Engine enforces, per PPM Section 8 (PDF p. 287) and Condition 1 definitions
+ * (PDF pp. 127, 138, 301-305):
+ *   - Moody's Maximum WARF Test (matrix-elected trigger)
+ *   - Min Weighted Average Floating Spread Test (`floatingWAS + ExcessWAC ≥ trigger`)
+ *   - Moody's Caa Obligations concentration (≤ 7.5% on Euro XV)
+ *   - Fitch CCC Obligations concentration (≤ 7.5% on Euro XV)
  *
- * Partner-demo framing (READ BEFORE DEMOING STRESS SCENARIOS):
+ * Tests apply only when the deal is rated by the relevant agency:
+ *   - WARF / Min WAS / Caa rely on Moody's-rating; the resolver's silent-skip
+ *     blocking gate refuses to project on a Moody's-rated deal that's missing
+ *     any of these triggers from extraction (per `isMoodysRated`).
+ *   - Fitch CCC relies on Fitch-rating (`isFitchRated`).
+ *   - Deals without an agency's rating legitimately omit that agency's tests.
  *
- *   "We enforce reinvestment compliance against the Moody's WARF trigger —
- *    the test with the largest cushion (113 points on Euro XV) relative to
- *    our engine-vs-trustee methodology drift. Two other tests (Minimum WAS
- *    and Caa concentration) have cushion sizes smaller than our current
- *    methodology drift; we document the drift explicitly as KI-17 and KI-18,
- *    surface the forward metrics in the UI as advisory visibility, and chose
- *    not to hard-block on them to avoid producing false blocks where the
- *    PPM-correct math would allow the trade (or false allows where it would
- *    block). The first Sprint 4 follow-up is the PPM read that closes both
- *    KIs, at which point C1 enforcement extends to those tests. Until then,
- *    users running scenarios that approach the WAS or Caa triggers should
- *    verify against their own PPM math, not treat the engine as authoritative
- *    for those two specifically."
- *
- * The distinction between "advisory" (we intentionally don't block because
- * our math is uncalibrated) and "incomplete" (we forgot to implement) is
- * material to an Ares reviewer. Do not shorten the demo framing — the
- * quantitative-cushion framing is what makes the scope defensible.
+ * NR positions are proxied to Caa2 (WARF=6500) per Moody's CLO methodology
+ * convention. See KI-19 for the design decision rationale.
  */
 
 import { describe, it, expect } from "vitest";
@@ -52,20 +32,71 @@ const fixture = JSON.parse(readFileSync(FIXTURE_PATH, "utf8")) as {
   raw: Parameters<typeof defaultsFromResolved>[1];
 };
 
-describe("C1 — Moody's WARF trigger extraction from resolved.qualityTests", () => {
+describe("C1 — compliance trigger extraction from resolved", () => {
   it("extracts Moody's WARF trigger 3148 from Euro XV fixture", () => {
     const inputs = buildFromResolved(fixture.resolved, defaultsFromResolved(fixture.resolved, fixture.raw));
     expect(inputs.moodysWarfTriggerLevel).toBe(3148);
   });
+
+  it("extracts Min WAS trigger 365 bps from Euro XV (3.65% trustee → bps)", () => {
+    const inputs = buildFromResolved(fixture.resolved, defaultsFromResolved(fixture.resolved, fixture.raw));
+    expect(inputs.minWasBps).toBe(365);
+  });
+
+  it("extracts Moody's Caa limit 7.5 and Fitch CCC limit 7.5 from Euro XV", () => {
+    const inputs = buildFromResolved(fixture.resolved, defaultsFromResolved(fixture.resolved, fixture.raw));
+    expect(inputs.moodysCaaLimitPct).toBe(7.5);
+    expect(inputs.fitchCccLimitPct).toBe(7.5);
+  });
 });
 
-describe("C1 — no trigger set → no enforcement (legacy path)", () => {
-  it("inputs with moodysWarfTriggerLevel=null reinvest at any rating without blocking", () => {
-    const inputs = {
-      ...buildFromResolved(fixture.resolved, defaultsFromResolved(fixture.resolved, fixture.raw)),
-      moodysWarfTriggerLevel: null,
-      reinvestmentRating: "CCC", // factor 6500 >> any realistic trigger
+describe("C1 — agency-elective triggers (silent-skip when test does not apply)", () => {
+  // For deals not rated by an agency, the corresponding agency-tagged tests
+  // legitimately don't apply per PPM Section 8 ("Applicable only while
+  // [Agency]-rated Notes outstanding"). Silent-skip is correct in that case.
+  // The resolver's `isMoodysRated` / `isFitchRated` predicates gate this:
+  // missing-trigger-on-rated-deal blocks at the resolver layer (covered by
+  // ki58-blocking-extraction-failures markers); missing-trigger-on-not-rated
+  // deal here passes silently as PPM intends.
+  it("not Moody's-rated → Moody's WARF / WAS / Caa triggers all null", () => {
+    // Moody's-elective tests on Euro XV: Moody's WARF, Min Weighted Average
+    // Floating Spread (named without "Moody's" prefix in trustee report),
+    // Moody's Caa concentration. Drop them all to simulate a deal that is
+    // not Moody's-rated; Fitch tests stay in place.
+    const notMoodysRated: ResolvedDealData = {
+      ...fixture.resolved,
+      isMoodysRated: false,
+      qualityTests: fixture.resolved.qualityTests.filter(
+        (q) => !/moody/i.test(q.testName) && !/min.*weighted average.*spread/i.test(q.testName),
+      ),
+      concentrationTests: fixture.resolved.concentrationTests.filter(
+        (c) => !/moody/i.test(c.testName),
+      ),
     };
+    const inputs = buildFromResolved(notMoodysRated, defaultsFromResolved(notMoodysRated, fixture.raw));
+    expect(inputs.moodysWarfTriggerLevel).toBeNull();
+    expect(inputs.minWasBps).toBeNull();
+    expect(inputs.moodysCaaLimitPct).toBeNull();
+    // Fitch CCC trigger still extracts because the deal is Fitch-rated.
+    expect(inputs.fitchCccLimitPct).not.toBeNull();
+  });
+
+  it("neither Moody's- nor Fitch-rated → no compliance enforcement", () => {
+    const notRated: ResolvedDealData = {
+      ...fixture.resolved,
+      isMoodysRated: false,
+      isFitchRated: false,
+      qualityTests: [],
+      concentrationTests: [],
+    };
+    const inputs = {
+      ...buildFromResolved(notRated, defaultsFromResolved(notRated, fixture.raw)),
+      reinvestmentRating: "CCC",
+    };
+    expect(inputs.moodysWarfTriggerLevel).toBeNull();
+    expect(inputs.minWasBps).toBeNull();
+    expect(inputs.moodysCaaLimitPct).toBeNull();
+    expect(inputs.fitchCccLimitPct).toBeNull();
     const result = runProjection(inputs);
     for (const p of result.periods) {
       expect(p.stepTrace.reinvestmentBlockedCompliance).toBe(0);
@@ -88,7 +119,7 @@ describe("C1 — Euro XV base case: no blocking regression", () => {
 });
 
 describe("C1 — reinvestment at rating dirtier than trigger → blocks", () => {
-  it("reinvestment at CCC (factor 6500 > trigger 3148) → cumulative blocking > 0", () => {
+  it("reinvestment at CCC under all four gates → cumulative blocking > 0", () => {
     const inputs = {
       ...buildFromResolved(fixture.resolved, defaultsFromResolved(fixture.resolved, fixture.raw)),
       reinvestmentRating: "CCC",
@@ -97,24 +128,138 @@ describe("C1 — reinvestment at rating dirtier than trigger → blocks", () => 
     const result = runProjection(inputs);
     const totalBlocked = result.periods.reduce((s, p) => s + p.stepTrace.reinvestmentBlockedCompliance, 0);
     expect(totalBlocked).toBeGreaterThan(0);
-    // Every period where blocking fired must have end-of-period WARF at or
-    // below the trigger (boundary math guarantees post-buy WARF = trigger).
+  });
+});
+
+describe("C1 — Min WAS gate (Floating WAS + Excess WAC)", () => {
+  it("reinvestment spread well below trigger → blocking from WAS gate alone", () => {
+    // Isolate the WAS gate: null out WARF and per-agency Caa/CCC limits.
+    // Set reinvestment spread to 100 bps (Euro XV trigger is 365 bps); current
+    // pool WAS ≈ 368 bps; large reinvestment volume at 100 bps would dilute
+    // the WAS below the trigger. CPR=25 forces material reinvestment.
+    const inputs = {
+      ...buildFromResolved(fixture.resolved, defaultsFromResolved(fixture.resolved, fixture.raw)),
+      moodysWarfTriggerLevel: null,
+      moodysCaaLimitPct: null,
+      fitchCccLimitPct: null,
+      reinvestmentSpreadBps: 100,
+      cprPct: 25,
+    };
+    const result = runProjection(inputs);
+    const totalBlocked = result.periods.reduce((s, p) => s + p.stepTrace.reinvestmentBlockedCompliance, 0);
+    expect(totalBlocked).toBeGreaterThan(0);
+    // Where blocking fired, the post-buy WAS must be at or above the trigger
+    // boundary (the gate's contract is "post-buy WAS ≥ trigger").
     for (const p of result.periods) {
-      if (p.stepTrace.reinvestmentBlockedCompliance > 0) {
-        expect(p.qualityMetrics.warf).toBeLessThanOrEqual(3148 + 2); // ±2 rounding
+      if (p.stepTrace.reinvestmentBlockedCompliance > 0 && p.reinvestment > 0) {
+        // qualityMetrics.wacSpreadBps = floatingWasBps + excessWacBps.
+        expect(p.qualityMetrics.wacSpreadBps).toBeGreaterThanOrEqual(365 - 5); // ±5 bps rounding
       }
     }
+  });
+
+  it("reinvestment spread above trigger → no WAS blocking", () => {
+    const inputs = {
+      ...buildFromResolved(fixture.resolved, defaultsFromResolved(fixture.resolved, fixture.raw)),
+      moodysWarfTriggerLevel: null,
+      moodysCaaLimitPct: null,
+      fitchCccLimitPct: null,
+      reinvestmentSpreadBps: 500,
+      cprPct: 25,
+    };
+    const result = runProjection(inputs);
+    const totalBlocked = result.periods.reduce((s, p) => s + p.stepTrace.reinvestmentBlockedCompliance, 0);
+    expect(totalBlocked).toBe(0);
+  });
+});
+
+describe("C1 — Moody's Caa concentration gate", () => {
+  it("reinvestment at CCC pushes pctMoodysCaa above limit → blocking", () => {
+    const inputs = {
+      ...buildFromResolved(fixture.resolved, defaultsFromResolved(fixture.resolved, fixture.raw)),
+      moodysWarfTriggerLevel: null,
+      minWasBps: null,
+      fitchCccLimitPct: null,
+      moodysCaaLimitPct: 7.5,
+      reinvestmentRating: "CCC",
+      cprPct: 25,
+    };
+    const result = runProjection(inputs);
+    const totalBlocked = result.periods.reduce((s, p) => s + p.stepTrace.reinvestmentBlockedCompliance, 0);
+    expect(totalBlocked).toBeGreaterThan(0);
+    // Post-buy pctMoodysCaa must stay at or below the limit (boundary math).
+    for (const p of result.periods) {
+      if (p.stepTrace.reinvestmentBlockedCompliance > 0) {
+        expect(p.qualityMetrics.pctMoodysCaa).toBeLessThanOrEqual(7.5 + 0.5); // ±0.5 pp tolerance
+      }
+    }
+  });
+
+  it("reinvestment at non-CCC rating → no Caa-gate blocking even with tight limit", () => {
+    const inputs = {
+      ...buildFromResolved(fixture.resolved, defaultsFromResolved(fixture.resolved, fixture.raw)),
+      moodysWarfTriggerLevel: null,
+      minWasBps: null,
+      fitchCccLimitPct: null,
+      moodysCaaLimitPct: 0.01, // would block any CCC reinvestment
+      reinvestmentRating: "B",
+      cprPct: 25,
+    };
+    const result = runProjection(inputs);
+    const totalBlocked = result.periods.reduce((s, p) => s + p.stepTrace.reinvestmentBlockedCompliance, 0);
+    expect(totalBlocked).toBe(0);
+  });
+});
+
+describe("C1 — Fitch CCC concentration gate", () => {
+  it("reinvestment at CCC pushes pctFitchCcc above limit → blocking", () => {
+    const inputs = {
+      ...buildFromResolved(fixture.resolved, defaultsFromResolved(fixture.resolved, fixture.raw)),
+      moodysWarfTriggerLevel: null,
+      minWasBps: null,
+      moodysCaaLimitPct: null,
+      fitchCccLimitPct: 7.5,
+      reinvestmentRating: "CCC",
+      cprPct: 25,
+    };
+    const result = runProjection(inputs);
+    const totalBlocked = result.periods.reduce((s, p) => s + p.stepTrace.reinvestmentBlockedCompliance, 0);
+    expect(totalBlocked).toBeGreaterThan(0);
+    for (const p of result.periods) {
+      if (p.stepTrace.reinvestmentBlockedCompliance > 0) {
+        expect(p.qualityMetrics.pctFitchCcc).toBeLessThanOrEqual(7.5 + 0.5);
+      }
+    }
+  });
+
+  it("reinvestment at non-CCC rating → no CCC-gate blocking even with tight limit", () => {
+    const inputs = {
+      ...buildFromResolved(fixture.resolved, defaultsFromResolved(fixture.resolved, fixture.raw)),
+      moodysWarfTriggerLevel: null,
+      minWasBps: null,
+      moodysCaaLimitPct: null,
+      fitchCccLimitPct: 0.01,
+      reinvestmentRating: "B",
+      cprPct: 25,
+    };
+    const result = runProjection(inputs);
+    const totalBlocked = result.periods.reduce((s, p) => s + p.stepTrace.reinvestmentBlockedCompliance, 0);
+    expect(totalBlocked).toBe(0);
   });
 });
 
 describe("C1 — boundary math: post-buy WARF = trigger exactly", () => {
-  it("partial scale-down leaves WARF at the trigger boundary", () => {
-    // Tighten the trigger to force partial (not full) scale-down: trigger
-    // 4500 is above current WARF ~3035 but below CCC factor 6500, so some
-    // reinvestment fits and some is blocked.
+  it("partial scale-down leaves WARF at the trigger boundary (WARF gate isolated)", () => {
+    // Tighten the WARF trigger AND null out the WAS / Caa / CCC gates so the
+    // boundary observed in `qualityMetrics.warf` is governed solely by the
+    // WARF math. Trigger 4500 is above current WARF ~3035 but below CCC
+    // factor 6500, so some reinvestment fits and some is blocked.
     const inputs = {
       ...buildFromResolved(fixture.resolved, defaultsFromResolved(fixture.resolved, fixture.raw)),
       moodysWarfTriggerLevel: 4500,
+      minWasBps: null,
+      moodysCaaLimitPct: null,
+      fitchCccLimitPct: null,
       reinvestmentRating: "CCC",
       cprPct: 15,
     };
@@ -131,20 +276,3 @@ describe("C1 — boundary math: post-buy WARF = trigger exactly", () => {
   });
 });
 
-describe("C1 — out-of-scope tests NOT enforced (partner-demo honesty)", () => {
-  it("Minimum WAS breach via reinvestment spread=0 does NOT block (KI-17 — deferred)", () => {
-    // Reinvest at 0 bps spread (absurd) — would obviously breach the 365 bps
-    // Minimum WAS trigger. C1 does not enforce it; reinvestment proceeds.
-    // When KI-17 closes, this test flips to "blocks > 0".
-    const inputs = {
-      ...buildFromResolved(fixture.resolved, defaultsFromResolved(fixture.resolved, fixture.raw)),
-      reinvestmentSpreadBps: 0,
-      cprPct: 25,
-    };
-    const result = runProjection(inputs);
-    // Only WARF-based blocking possible. At factor 2720 (B default rating)
-    // with pool WARF ~3035, factor ≤ current, so no WARF blocking either.
-    const totalBlocked = result.periods.reduce((s, p) => s + p.stepTrace.reinvestmentBlockedCompliance, 0);
-    expect(totalBlocked).toBe(0);
-  });
-});

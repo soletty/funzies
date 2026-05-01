@@ -5,6 +5,7 @@ import type { ResolvedDealData, ResolvedLoan, ResolutionWarning } from "@/lib/cl
 import type { BuyListItem, CloHolding } from "@/lib/clo/types";
 import type { UserAssumptions } from "@/lib/clo/build-projection-inputs";
 import { applySwitch } from "@/lib/clo/switch-simulator";
+import { computeSwitchDeltas } from "@/lib/clo/services";
 import { runProjection, type ProjectionResult } from "@/lib/clo/projection";
 import { RATING_BUCKETS, mapToRatingBucket } from "@/lib/clo/rating-mapping";
 import { buyListFiltersFromResolved, filterBuyList } from "@/lib/clo/buy-list-filter";
@@ -26,45 +27,29 @@ interface Props {
   buyList: BuyListItem[];
   userAssumptions: UserAssumptions;
   prefill?: SwitchPrefill | null;
-  // KI-58 — caller threads resolver warnings through to applySwitch so
-  // the buildFromResolved gate fires here too. The partner-facing
-  // ProjectionModel doesn't render this component when blocking
-  // warnings exist (the Switch tab renders the DATA INCOMPLETE banner
-  // instead), but defence-in-depth: if a future caller renders us
-  // anyway, applySwitch's gate will throw rather than silently
-  // computing on sentinel data.
+  // Threaded through to applySwitch so the buildFromResolved gate
+  // fires when any warning carries `blocking: true`. ProjectionModel
+  // already gates the parent render, but threading here is defence-in-
+  // depth: if a future caller renders us anyway, applySwitch's gate
+  // throws rather than silently computing on sentinel data.
   resolutionWarnings?: ResolutionWarning[];
 }
 
-function formatDelta(before: number | null, after: number | null): { text: string; color: string } {
-  if (before == null || after == null) return { text: "—", color: "inherit" };
-  const delta = after - before;
+// Pure formatter — takes a pre-computed delta from the service layer and
+// renders it as a percentage string with sign + color. No arithmetic on
+// engine values here (UI layering rule). The pre-fix `formatDelta` and
+// `useFormatAmountDelta` helpers performed `after - before` in the UI;
+// they are removed in favor of `computeSwitchDeltas` (service layer).
+function formatIrrDelta(delta: number | null): { text: string; color: string } {
+  if (delta == null) return { text: "—", color: "inherit" };
   return {
     text: `${delta >= 0 ? "+" : ""}${(delta * 100).toFixed(2)}%`,
     color: delta > 0 ? "var(--color-high)" : delta < 0 ? "var(--color-low)" : "inherit",
   };
 }
 
-// Hook variant — currency comes from `DealCurrencyContext`. Per CLAUDE.md
-// § "Recurring failure modes" principle 1, formatting code reads currency
-// from the deal context rather than hardcoding.
-function useFormatAmountDelta(): (before: number, after: number) => { text: string; color: string } {
-  const formatAmount = useFormatAmount();
-  return useMemo(
-    () => (before, after) => {
-      const delta = after - before;
-      return {
-        text: formatAmount(delta),
-        color: delta > 0 ? "var(--color-high)" : delta < 0 ? "var(--color-low)" : "inherit",
-      };
-    },
-    [formatAmount],
-  );
-}
-
 export function SwitchSimulator({ resolved, holdings, buyList, userAssumptions, prefill, resolutionWarnings }: Props) {
   const formatAmount = useFormatAmount();
-  const formatAmountDelta = useFormatAmountDelta();
   const [sellLoanIndex, setSellLoanIndex] = useState<number | null>(null);
   const [sellParAmount, setSellParAmount] = useState(0);
   const [buySpreadBps, setBuySpreadBps] = useState(350);
@@ -155,6 +140,13 @@ export function SwitchSimulator({ resolved, holdings, buyList, userAssumptions, 
     const swr = runProjection(sr.switchedInputs);
     return { switchResult: sr, baseResult: br, switchedResult: swr };
   }, [resolved, sellLoanIndex, sellParAmount, buyLoan, sellPrice, buyPrice, userAssumptions, resolutionWarnings]);
+
+  // Service-layer deltas — UI never subtracts engine values. See
+  // web/lib/clo/services/switch-deltas.ts for the single source of truth.
+  const deltas = useMemo(
+    () => (baseResult && switchedResult ? computeSwitchDeltas(baseResult, switchedResult) : null),
+    [baseResult, switchedResult],
+  );
 
   const inputStyle: React.CSSProperties = {
     width: "100%", padding: "0.4rem 0.5rem", borderRadius: "var(--radius-sm)",
@@ -280,13 +272,13 @@ export function SwitchSimulator({ resolved, holdings, buyList, userAssumptions, 
                 <td style={{ ...cellStyle, textAlign: "left", fontWeight: 600 }}>Equity IRR</td>
                 <td style={cellStyle}>{baseResult.equityIrr !== null ? formatPct(baseResult.equityIrr * 100) : "—"}</td>
                 <td style={cellStyle}>{switchedResult.equityIrr !== null ? formatPct(switchedResult.equityIrr * 100) : "—"}</td>
-                <td style={{ ...cellStyle, color: formatDelta(baseResult.equityIrr, switchedResult.equityIrr).color, fontWeight: 600 }}>{formatDelta(baseResult.equityIrr, switchedResult.equityIrr).text}</td>
+                <td style={{ ...cellStyle, color: formatIrrDelta(deltas?.equityIrrDelta ?? null).color, fontWeight: 600 }}>{formatIrrDelta(deltas?.equityIrrDelta ?? null).text}</td>
               </tr>
               <tr style={{ borderBottom: "1px solid var(--color-border-light)" }}>
                 <td style={{ ...cellStyle, textAlign: "left" }}>Total Equity Distributions</td>
                 <td style={cellStyle}>{formatAmount(baseResult.totalEquityDistributions)}</td>
                 <td style={cellStyle}>{formatAmount(switchedResult.totalEquityDistributions)}</td>
-                <td style={{ ...cellStyle, color: formatAmountDelta(baseResult.totalEquityDistributions, switchedResult.totalEquityDistributions).color }}>{formatAmountDelta(baseResult.totalEquityDistributions, switchedResult.totalEquityDistributions).text}</td>
+                <td style={{ ...cellStyle, color: deltas && deltas.totalEquityDistributionsDelta >= 0 ? "var(--color-high)" : "var(--color-low)" }}>{deltas ? formatAmount(deltas.totalEquityDistributionsDelta) : "—"}</td>
               </tr>
               <tr style={{ borderBottom: "1px solid var(--color-border-light)" }}>
                 <td style={{ ...cellStyle, textAlign: "left" }}>Spread (swapped position)</td>
@@ -318,8 +310,9 @@ export function SwitchSimulator({ resolved, holdings, buyList, userAssumptions, 
 function OcEquityDetail({ baseResult, switchedResult }: { baseResult: ProjectionResult; switchedResult: ProjectionResult }) {
   const [expanded, setExpanded] = useState(false);
   const formatAmount = useFormatAmount();
-  const baseOc = baseResult.periods[0]?.ocTests ?? [];
-  const switchedOc = switchedResult.periods[0]?.ocTests ?? [];
+  // Per-OC-test cushion deltas + per-period equity deltas come from the
+  // service layer — UI never subtracts engine values inline.
+  const deltas = computeSwitchDeltas(baseResult, switchedResult);
   const cellStyle: React.CSSProperties = { padding: "0.5rem 0.75rem", fontSize: "0.8rem", fontFamily: "var(--font-mono)", textAlign: "right" };
   const headerStyle: React.CSSProperties = { ...cellStyle, fontWeight: 600, fontSize: "0.7rem", textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--color-text-muted)", fontFamily: "var(--font-body)" };
 
@@ -335,36 +328,28 @@ function OcEquityDetail({ baseResult, switchedResult }: { baseResult: Projection
           <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "1rem" }}>
             <thead><tr style={{ borderBottom: "2px solid var(--color-border)" }}><th style={{ ...headerStyle, textAlign: "left" }}>Class</th><th style={headerStyle}>Before</th><th style={headerStyle}>After</th><th style={headerStyle}>Delta</th></tr></thead>
             <tbody>
-              {baseOc.map((oc, i) => {
-                const sw = switchedOc[i];
-                const delta = sw ? sw.actual - oc.actual : 0;
-                return (
-                  <tr key={oc.className} style={{ borderBottom: "1px solid var(--color-border-light)" }}>
-                    <td style={{ ...cellStyle, textAlign: "left", fontWeight: 500 }}>{oc.className}</td>
-                    <td style={cellStyle}>{oc.actual.toFixed(2)}%</td>
-                    <td style={cellStyle}>{sw ? sw.actual.toFixed(2) : "—"}%</td>
-                    <td style={{ ...cellStyle, color: delta >= 0 ? "var(--color-high)" : "var(--color-low)" }}>{delta >= 0 ? "+" : ""}{delta.toFixed(2)}%</td>
+              {deltas.ocCushionDeltasPeriod1.map((d) => (
+                  <tr key={d.className} style={{ borderBottom: "1px solid var(--color-border-light)" }}>
+                    <td style={{ ...cellStyle, textAlign: "left", fontWeight: 500 }}>{d.className}</td>
+                    <td style={cellStyle}>{d.baseActual.toFixed(2)}%</td>
+                    <td style={cellStyle}>{d.switchedActual?.toFixed(2) ?? "—"}%</td>
+                    <td style={{ ...cellStyle, color: d.delta >= 0 ? "var(--color-high)" : "var(--color-low)" }}>{d.delta >= 0 ? "+" : ""}{d.delta.toFixed(2)}%</td>
                   </tr>
-                );
-              })}
+                ))}
             </tbody>
           </table>
           <div style={{ fontSize: "0.68rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--color-text-muted)", marginBottom: "0.4rem" }}>Equity Distribution Delta (First 12 Quarters)</div>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead><tr style={{ borderBottom: "2px solid var(--color-border)" }}><th style={{ ...headerStyle, textAlign: "left" }}>Quarter</th><th style={headerStyle}>Before</th><th style={headerStyle}>After</th><th style={headerStyle}>Delta</th></tr></thead>
             <tbody>
-              {baseResult.periods.slice(0, 12).map((p, i) => {
-                const sw = switchedResult.periods[i];
-                const delta = sw ? sw.equityDistribution - p.equityDistribution : 0;
-                return (
-                  <tr key={p.periodNum} style={{ borderBottom: "1px solid var(--color-border-light)" }}>
-                    <td style={{ ...cellStyle, textAlign: "left", fontWeight: 500 }}>Q{p.periodNum}</td>
-                    <td style={cellStyle}>{formatAmount(p.equityDistribution)}</td>
-                    <td style={cellStyle}>{sw ? formatAmount(sw.equityDistribution) : "—"}</td>
-                    <td style={{ ...cellStyle, color: delta >= 0 ? "var(--color-high)" : "var(--color-low)" }}>{formatAmount(delta)}</td>
+              {deltas.equityDistributionDeltasByPeriod.slice(0, 12).map((d) => (
+                  <tr key={d.period} style={{ borderBottom: "1px solid var(--color-border-light)" }}>
+                    <td style={{ ...cellStyle, textAlign: "left", fontWeight: 500 }}>Q{d.period}</td>
+                    <td style={cellStyle}>{formatAmount(d.baseAmount)}</td>
+                    <td style={cellStyle}>{formatAmount(d.switchedAmount)}</td>
+                    <td style={{ ...cellStyle, color: d.delta >= 0 ? "var(--color-high)" : "var(--color-low)" }}>{formatAmount(d.delta)}</td>
                   </tr>
-                );
-              })}
+                ))}
             </tbody>
           </table>
         </div>

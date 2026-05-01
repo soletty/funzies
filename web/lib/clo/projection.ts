@@ -6,8 +6,10 @@ import { POST_ACCEL_SEQUENCE } from "./waterfall-schema";
 import { warfFactorToQuarterlyHazard } from "./rating-mapping";
 import {
   BUCKET_WARF_FALLBACK,
+  aggregateQualityMetrics,
   computePoolQualityMetrics,
   type PoolQualityMetrics,
+  type QualityMetricLoan,
 } from "./pool-metrics";
 import {
   applySeniorExpensesToAvailable,
@@ -33,6 +35,24 @@ export interface LoanInput {
    *  via `BUCKET_WARF_FALLBACK` (coarse-bucket midpoint — less accurate than
    *  per-position sub-bucket rating but acceptable for reinvestment paths). */
   warfFactor?: number | null;
+  /** Per PPM "Deferring Security" — excluded from Floating Par denominator
+   *  in `computePoolQualityMetrics`. Optional; defaults to undefined (treated
+   *  as not deferring). */
+  isDeferring?: boolean;
+  /** Per PPM "Loss Mitigation Loan" — excluded from Floating Par AND from
+   *  Caa/CCC concentration denominators. Optional; defaults to undefined. */
+  isLossMitigationLoan?: boolean;
+  /** ISO 4217 currency code. Used by `computePoolQualityMetrics` to flag
+   *  Non-Euro Obligations (excluded from Floating Par when the deal currency
+   *  differs). Optional; treated as deal-currency-denominated when absent. */
+  currency?: string;
+  /** Per-agency Moody's sub-bucket rating (e.g. "Caa2") for the per-agency
+   *  Caa/CCC concentration tests. Optional; falls back to `ratingBucket`
+   *  when both per-agency ratings are absent. */
+  moodysRatingFinal?: string;
+  /** Per-agency Fitch sub-bucket rating (e.g. "CCC+"). Same role as
+   *  `moodysRatingFinal`. */
+  fitchRatingFinal?: string;
 }
 
 // C2 — Coarse RatingBucket → Moody's WARF factor. Imported from pool-metrics.ts
@@ -198,6 +218,27 @@ export interface ProjectionInputs {
    *  breaching). Excess principal flows to senior paydown instead. Null =
    *  no enforcement. */
   moodysWarfTriggerLevel?: number | null;
+  /** C1 — Minimum Weighted Average Floating Spread trigger in bps (e.g. 365
+   *  on Euro XV). When set, engine scales down reinvestment that would push
+   *  post-buy `floatingWAS + ExcessWAC` below the trigger. Null = no
+   *  enforcement (deal not rated by Moody's or no Min WAS test extracted). */
+  minWasBps?: number | null;
+  /** C1 — Moody's Caa Obligations concentration limit in pct (e.g. 7.5 on
+   *  Euro XV). Engine blocks reinvestment that would push post-buy
+   *  `pctMoodysCaa` above the limit. Null = no enforcement. */
+  moodysCaaLimitPct?: number | null;
+  /** C1 — Fitch CCC Obligations concentration limit in pct (e.g. 7.5 on
+   *  Euro XV). Engine blocks reinvestment that would push post-buy
+   *  `pctFitchCcc` above the limit. Null = no enforcement. */
+  fitchCccLimitPct?: number | null;
+  /** C2 — PPM Reference Weighted Average Fixed Coupon (%); PDF p. 305.
+   *  Anchor for the Excess WAC adjustment in `computePoolQualityMetrics`.
+   *  When omitted the helper defaults to 4.0% (Euro XV value). */
+  referenceWafcPct?: number | null;
+  /** C2 — Deal currency (ISO 4217). Loans whose `currency` differs are
+   *  excluded from the Floating Par denominator as Non-Euro Obligations.
+   *  When null/omitted, no currency filter applies. */
+  dealCurrency?: string | null;
   /** D2 — Legacy escape-hatch: when true, defaults fall back to the coarse
    *  `defaultRatesByRating[bucket]` hazard path (the pre-D2 approximation).
    *
@@ -317,19 +358,15 @@ export interface PeriodStepTrace {
  *  the T=0 metrics on `resolved.poolSummary` (warf / walYears / wacSpreadBps
  *  / pctCccAndBelow) so partner comparisons are apples-to-apples.
  *
- *  Methodology gaps tracked in the KI ledger:
- *    - KI-17: WAS engine vs trustee — ~30 bps systematic drift.
- *    - KI-18: pctCccAndBelow coarse-bucket collapse — ±3pp vs trustee
- *      max-across-agencies methodology.
- *    - KI-19: NR positions proxied as Caa2 (WARF=6500) per Moody's convention.
- *  C1 reinvestment enforcement is scoped to Moody's WARF because that trigger
- *  has material cushion vs its methodology gap. The tighter-cushion WAS and
- *  Caa concentration tests are NOT enforced until their gaps close (see KIs). */
+ *  C1 reinvestment enforcement covers all four reinvestment-period triggers
+ *  (Moody's WARF, Min Weighted Average Floating Spread, Moody's Caa
+ *  concentration, Fitch CCC concentration) per PPM Section 8 + Condition 1
+ *  definitions (PDF pp. 287, 302-305, 127, 138). NR positions proxy as Caa2
+ *  (WARF=6500) per Moody's CLO methodology — see KI-19. */
 /** Per-period alias of the shared `PoolQualityMetrics` shape. Engine emits
  *  this at each period end; switch simulator uses the same shape for
  *  pre/post-trade comparison. See `pool-metrics.ts` for the compute helper +
- *  methodology-gap documentation (KI-17 wacSpreadBps, KI-18 pctCccAndBelow,
- *  KI-19 NR convention). */
+ *  methodology documentation. */
 export type PeriodQualityMetrics = PoolQualityMetrics;
 
 export interface PeriodResult {
@@ -370,6 +407,13 @@ export interface PeriodResult {
   beginningLiabilities: number;
   endingLiabilities: number;
   trancheInterest: { className: string; due: number; paid: number }[];
+  /** Per-tranche running interest-shortfall balance at end-of-period. Tracks
+   *  cumulative unpaid base interest on non-deferrable, non-amortising
+   *  tranches (Class A/B per PPM). The `due` field above includes any
+   *  carried shortfall for the period; once paid down, it leaves this map
+   *  at zero. Deferrable tranches use `deferredBalances` (PIK) instead and
+   *  stay at zero here. Empty / all-zero in healthy scenarios. */
+  interestShortfall: Record<string, number>;
   /** Per-tranche principal-side state. `paid` is the TOTAL paid to the
    *  tranche this period (sum of amort-from-interest at step G + principal-
    *  pool paydowns post-step-G). `paidFromInterest` is the portion sourced
@@ -965,6 +1009,11 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     discountObligationHaircut = 0, longDatedObligationHaircut = 0, impliedOcAdjustment = 0, quartersSinceReport = 0,
     ddtlDrawPercent = 100,
     moodysWarfTriggerLevel = null,
+    minWasBps: minWasBpsTrigger = null,
+    moodysCaaLimitPct: moodysCaaLimitPctTrigger = null,
+    fitchCccLimitPct: fitchCccLimitPctTrigger = null,
+    referenceWafcPct = null,
+    dealCurrency = null,
     useLegacyBucketHazard = false,
     overriddenBuckets,
   } = inputs;
@@ -985,23 +1034,43 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     );
   }
 
-  // D1: Class A and Class B are non-deferrable per PPM — if they don't receive
+  // D1: the two most-senior debt tranches (structurally Class A and Class B,
+  // regardless of label) are non-deferrable per PPM — if they don't receive
   // full interest, the deal hits an Event of Default (not PIK). A tranche
   // incorrectly marked deferrable here would silently compound deferred
-  // interest onto A/B balance and over-report equity — very wrong. Fail fast
-  // so the resolver or user input is caught before it poisons the projection.
+  // interest onto a non-deferrable balance and over-report equity — very
+  // wrong. Fail fast so the resolver or user input is caught before it
+  // poisons the projection.
   //
-  // Matching: strip an optional "Class " prefix (case-insensitive), inspect
-  // the first character. Handles "Class A", "Class A-1", "Class B-1", bare
-  // "A", "B-2". Doesn't match "Class C"/"Sub"/synthetic "J" stand-ins.
+  // Predicate is rank-based, not name-based: protected = the lowest two
+  // distinct seniorityRank values among non-income, non-amortising tranches.
+  // This handles Class X-bearing structures (X amortising at rank 1 → A=2,
+  // B=3 protected), pari-passu splits (B-1/B-2 sharing rank 2 both
+  // protected), and non-canonical labels (a senior tranche named e.g.
+  // "K-1" still trips the guard because rank, not name, decides).
+  // Amortising tranches (Class X) are also non-deferrable per PPM and trip
+  // a separate guard.
+  const nonAmortDebtRanks = Array.from(
+    new Set(
+      tranches.filter((t) => !t.isIncomeNote && !t.isAmortising).map((t) => t.seniorityRank),
+    ),
+  ).sort((a, b) => a - b);
+  const seniorProtectedRanks = new Set(nonAmortDebtRanks.slice(0, 2));
   for (const t of tranches) {
-    const core = t.className.trim().replace(/^class\s+/i, "").toUpperCase();
-    const firstLetter = core.charAt(0);
-    if ((firstLetter === "A" || firstLetter === "B") && t.isDeferrable) {
+    if (t.isIncomeNote) continue;
+    if (t.isAmortising && t.isDeferrable) {
       throw new Error(
-        `Tranche "${t.className}" is marked isDeferrable=true, but PPM states ` +
-          `Class A/B non-payment of interest is an Event of Default (not deferral). ` +
+        `Tranche "${t.className}" is amortising AND marked isDeferrable=true, ` +
+          `but amortising tranches (e.g. Class X) cannot defer interest per PPM. ` +
           `Check resolver output or tranche input.`,
+      );
+    }
+    if (seniorProtectedRanks.has(t.seniorityRank) && t.isDeferrable) {
+      throw new Error(
+        `Tranche "${t.className}" (seniorityRank=${t.seniorityRank}) is marked ` +
+          `isDeferrable=true, but the two most-senior debt ranks (structurally ` +
+          `Class A/B) are non-deferrable per PPM — non-payment of interest is ` +
+          `an Event of Default, not deferral. Check resolver output or tranche input.`,
       );
     }
   }
@@ -1075,6 +1144,11 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     warfFactor: number;
     isFixedRate?: boolean;
     fixedCouponPct?: number;
+    isDeferring?: boolean;
+    isLossMitigationLoan?: boolean;
+    currency?: string;
+    moodysRatingFinal?: string;
+    fitchRatingFinal?: string;
     isDelayedDraw?: boolean;
     ddtlSpreadBps?: number;
     drawQuarter?: number;
@@ -1105,6 +1179,11 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     warfFactor: l.warfFactor ?? BUCKET_WARF_FALLBACK[l.ratingBucket] ?? BUCKET_WARF_FALLBACK.NR,
     isFixedRate: l.isFixedRate,
     fixedCouponPct: l.fixedCouponPct,
+    isDeferring: l.isDeferring,
+    isLossMitigationLoan: l.isLossMitigationLoan,
+    currency: l.currency,
+    moodysRatingFinal: l.moodysRatingFinal,
+    fitchRatingFinal: l.fitchRatingFinal,
     isDelayedDraw: l.isDelayedDraw,
     ddtlSpreadBps: l.ddtlSpreadBps,
     drawQuarter: l.drawQuarter,
@@ -1146,36 +1225,154 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
   // (no per-position sub-bucket on reinvestment). NR→b2 proxy if bucket unknown.
   const reinvestmentWarfFactor = BUCKET_WARF_FALLBACK[reinvestmentRating] ?? BUCKET_WARF_FALLBACK.NR;
 
-  // C1 — Max reinvestment amount that keeps post-buy Moody's WARF at or below
-  // `moodysWarfTriggerLevel`. Returns Infinity when no trigger is active, the
-  // reinvestment factor doesn't worsen WARF, or the buy fits entirely. Returns
-  // 0 when WARF is already breaching AND the reinvestment factor is worse —
-  // the engine's PPM-intent model is "manager can maintain-or-improve but not
-  // actively worsen a breaching test". Pure function of current `loanStates`.
+  // C1 — Max reinvestment amount that keeps the post-buy pool compliant with
+  // every active reinvestment-period trigger:
+  //   - Moody's Maximum WARF (`moodysWarfTriggerLevel`)
+  //   - Min Weighted Average Floating Spread (`minWasBpsTrigger`,
+  //     `floatingWAS + ExcessWAC`)
+  //   - Moody's Caa Obligations concentration (`moodysCaaLimitPctTrigger`)
+  //   - Fitch CCC Obligations concentration (`fitchCccLimitPctTrigger`)
+  // Returns `requested` when no trigger is active or the buy fits entirely;
+  // returns the boundary amount when the buy would breach a passing test;
+  // returns 0 when the test is already breaching AND the reinvestment would
+  // worsen it ("manager can maintain-or-improve but not actively worsen a
+  // breaching test" — the engine's PPM-intent model). When several triggers
+  // bind, the most restrictive boundary wins. Pure function of current
+  // `loanStates` plus per-deal trigger inputs.
   const maxCompliantReinvestment = (currentQuarter: number, requested: number): number => {
-    if (moodysWarfTriggerLevel == null || moodysWarfTriggerLevel <= 0) return requested;
-    let warfSum = 0;
-    let par = 0;
+    let allowed = requested;
+
+    // Source the sums from the shared aggregator so the gate's pre-buy state
+    // is bit-identical with `computePoolQualityMetrics`'s end-of-period
+    // output. Drift between the two would mean the gate enforces against a
+    // different pool than the one the partner sees on `qualityMetrics` —
+    // exactly the parallel-implementation trap KI-21 tracks.
+    const qLoans: QualityMetricLoan[] = [];
     for (const l of loanStates) {
       if (l.isDelayedDraw && (l.drawQuarter ?? 0) > currentQuarter) continue;
       if (l.survivingPar <= 0) continue;
-      warfSum += l.survivingPar * l.warfFactor;
-      par += l.survivingPar;
+      qLoans.push({
+        parBalance: l.survivingPar,
+        warfFactor: l.warfFactor,
+        yearsToMaturity: 0, // unused by the gate's boundary math
+        spreadBps: l.spreadBps,
+        ratingBucket: l.ratingBucket,
+        isFixedRate: l.isFixedRate,
+        fixedCouponPct: l.fixedCouponPct,
+        isDeferring: l.isDeferring,
+        isLossMitigationLoan: l.isLossMitigationLoan,
+        currency: l.currency,
+        moodysRatingFinal: l.moodysRatingFinal,
+        fitchRatingFinal: l.fitchRatingFinal,
+      });
     }
-    if (par <= 0) return requested;
-    const factor = reinvestmentWarfFactor;
-    const currentWarf = warfSum / par;
-    // Factor at-or-below current WARF: adding it improves or holds. No limit.
-    if (factor <= currentWarf) return requested;
-    const postWarf = (warfSum + requested * factor) / (par + requested);
-    if (postWarf <= moodysWarfTriggerLevel) return requested;
-    // Breach would occur. Compute boundary amount (targetWarf = trigger exactly).
-    // amount = (trigger × par − warfSum) / (factor − trigger).
-    const denom = factor - moodysWarfTriggerLevel;
-    if (denom <= 0) return requested; // factor ≤ trigger; postWarf math already ruled this out but guard anyway
-    const boundary = (moodysWarfTriggerLevel * par - warfSum) / denom;
-    if (boundary <= 0) return 0; // already breaching AND factor > trigger — block entirely
-    return Math.min(requested, boundary);
+    const {
+      warfSum,
+      totalPar: par,
+      floatingPar,
+      floatingSpreadSum,
+      fixedPar,
+      fixedCouponSum,
+      concDenom,
+      moodysCaaPar,
+      fitchCccPar,
+    } = aggregateQualityMetrics(qLoans, { dealCurrency });
+
+    // ── WARF gate ──────────────────────────────────────────────────────────
+    if (moodysWarfTriggerLevel != null && moodysWarfTriggerLevel > 0 && par > 0) {
+      const factor = reinvestmentWarfFactor;
+      const currentWarf = warfSum / par;
+      // Factor at-or-below current WARF: adding it improves or holds. No limit.
+      if (factor > currentWarf) {
+        const postWarf = (warfSum + allowed * factor) / (par + allowed);
+        if (postWarf > moodysWarfTriggerLevel) {
+          // amount = (trigger × par − warfSum) / (factor − trigger).
+          const denom = factor - moodysWarfTriggerLevel;
+          if (denom > 0) {
+            const boundary = (moodysWarfTriggerLevel * par - warfSum) / denom;
+            allowed = Math.min(allowed, Math.max(0, boundary));
+          }
+        }
+      }
+    }
+
+    // ── WAS gate (Min Weighted Average Floating Spread) ────────────────────
+    // Reinvestment is floating-rate by construction (ratingBucket fallback,
+    // spreadBps = reinvestmentSpreadBps). It contributes only to floating
+    // numerator and floating denominator; the Excess WAC numerator (a
+    // function of fixedPar / fixedCoupon) is invariant to X, the denominator
+    // floatingPar grows with X.
+    if (minWasBpsTrigger != null && minWasBpsTrigger > 0 && floatingPar > 0) {
+      const refWAFC = referenceWafcPct ?? 4.0;
+      const wafc = fixedPar > 0 ? fixedCouponSum / fixedPar : 0;
+      const excessNumerator = (wafc - refWAFC) * 100 * fixedPar;
+      // currentWAS bps = (floatingSpreadSum + excessNumerator) / floatingPar.
+      const wasNumerator = floatingSpreadSum + excessNumerator;
+      const currentWas = wasNumerator / floatingPar;
+      const spread = reinvestmentSpreadBps;
+      // If reinvestment spread ≥ current weighted-average, post-buy ≥ current.
+      // If spread ≥ trigger, dilution toward trigger from above is fine.
+      if (spread < currentWas && spread < minWasBpsTrigger) {
+        const postNumerator = wasNumerator + allowed * spread;
+        const postDenominator = floatingPar + allowed;
+        const postWas = postNumerator / postDenominator;
+        if (postWas < minWasBpsTrigger) {
+          // X * (trigger − spread) = wasNumerator − trigger × floatingPar
+          const denom = minWasBpsTrigger - spread;
+          if (denom > 0) {
+            const boundary = (wasNumerator - minWasBpsTrigger * floatingPar) / denom;
+            allowed = Math.min(allowed, Math.max(0, boundary));
+          }
+        }
+      }
+    }
+
+    // ── Moody's Caa concentration gate ─────────────────────────────────────
+    // Reinvestment counts toward Caa only when its bucket-fallback rating is
+    // CCC (engine reinvestment positions don't carry per-agency sub-buckets).
+    // Non-CCC reinvestment dilutes the existing Caa share — never violates.
+    if (
+      moodysCaaLimitPctTrigger != null &&
+      moodysCaaLimitPctTrigger > 0 &&
+      concDenom > 0 &&
+      reinvestmentRating === "CCC"
+    ) {
+      const limitFrac = moodysCaaLimitPctTrigger / 100;
+      const denominator = 1 - limitFrac;
+      if (denominator > 0) {
+        // Already breaching → adding CCC always worsens (post > current when
+        // current < 100% CCC). Block.
+        if (moodysCaaPar / concDenom > limitFrac) {
+          allowed = 0;
+        } else {
+          // Boundary: (caaPar + X)/(denom + X) = limit
+          // X = (limit × denom − caaPar) / (1 − limit)
+          const boundary = (limitFrac * concDenom - moodysCaaPar) / denominator;
+          allowed = Math.min(allowed, Math.max(0, boundary));
+        }
+      }
+    }
+
+    // ── Fitch CCC concentration gate ───────────────────────────────────────
+    if (
+      fitchCccLimitPctTrigger != null &&
+      fitchCccLimitPctTrigger > 0 &&
+      concDenom > 0 &&
+      reinvestmentRating === "CCC"
+    ) {
+      const limitFrac = fitchCccLimitPctTrigger / 100;
+      const denominator = 1 - limitFrac;
+      if (denominator > 0) {
+        if (fitchCccPar / concDenom > limitFrac) {
+          allowed = 0;
+        } else {
+          const boundary = (limitFrac * concDenom - fitchCccPar) / denominator;
+          allowed = Math.min(allowed, Math.max(0, boundary));
+        }
+      }
+    }
+
+    return allowed;
   };
 
   // C2 — Compute end-of-period portfolio quality + concentration metrics from
@@ -1194,9 +1391,19 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
         yearsToMaturity: Math.max(0, l.maturityQuarter - currentQuarter) / 4,
         spreadBps: l.spreadBps,
         ratingBucket: l.ratingBucket,
+        isFixedRate: l.isFixedRate,
+        fixedCouponPct: l.fixedCouponPct,
+        isDeferring: l.isDeferring,
+        isLossMitigationLoan: l.isLossMitigationLoan,
+        currency: l.currency,
+        moodysRatingFinal: l.moodysRatingFinal,
+        fitchRatingFinal: l.fitchRatingFinal,
       });
     }
-    return computePoolQualityMetrics(qloans);
+    return computePoolQualityMetrics(qloans, {
+      referenceWAFC: referenceWafcPct ?? undefined,
+      dealCurrency,
+    });
   };
 
   // Track tranche balances (debt outstanding per tranche)
@@ -1207,9 +1414,19 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
   const sortedTranches = [...tranches].sort((a, b) => a.seniorityRank - b.seniorityRank);
   const debtTranches = sortedTranches.filter((t) => !t.isIncomeNote);
   const resolvedAmortPerPeriod: Record<string, number> = {};
+  // Carried interest shortfall on non-deferrable tranches. Per PPM, missed
+  // interest on a non-deferrable tranche (Class A/B) is NOT a PIK accrual onto
+  // the tranche balance — it's an interest-payment shortfall that carries
+  // forward and is paid in subsequent periods before junior interest. The
+  // engine previously dropped this silently (non-deferrable shortfall ≠ PIK,
+  // so no tracking), which over-stated equity in stress scenarios. This map
+  // tracks the running balance per non-deferrable tranche; deferrable
+  // tranches use `deferredBalances` for PIK and don't accrue here.
+  const interestShortfall: Record<string, number> = {};
   for (const t of sortedTranches) {
     trancheBalances[t.className] = t.currentBalance;
     deferredBalances[t.className] = 0;
+    interestShortfall[t.className] = 0;
     if (t.isAmortising) {
       resolvedAmortPerPeriod[t.className] = t.amortisationPerPeriod ?? (t.currentBalance / CLO_DEFAULTS.defaultScheduledAmortPeriods);
     }
@@ -1665,12 +1882,18 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
       // Post-RP limited reinvestment (credit improved/risk sales, unscheduled principal)
       reinvestment = principalProceeds * (postRpReinvestmentPct / 100);
     }
-    // C1 — Reinvestment compliance enforcement. If buying at `reinvestmentRating`
-    // would push Moody's WARF past the trigger (and WARF wasn't already breaching
-    // more than the proposed buy), scale down to the boundary amount. The blocked
-    // portion falls through to the principal waterfall for senior paydown.
+    // C1 — Reinvestment compliance enforcement. The single gate
+    // `maxCompliantReinvestment` applies all four triggers in turn (WARF,
+    // Min WAS, Moody's Caa, Fitch CCC) and returns the most-restrictive
+    // boundary. The blocked portion falls through to the principal
+    // waterfall for senior paydown.
     let reinvestmentBlockedCompliance = 0;
-    if (reinvestment > 0 && hasLoans && moodysWarfTriggerLevel != null) {
+    const anyComplianceTriggerActive =
+      moodysWarfTriggerLevel != null ||
+      minWasBpsTrigger != null ||
+      moodysCaaLimitPctTrigger != null ||
+      fitchCccLimitPctTrigger != null;
+    if (reinvestment > 0 && hasLoans && anyComplianceTriggerActive) {
       const allowed = maxCompliantReinvestment(q, reinvestment);
       if (allowed < reinvestment) {
         reinvestmentBlockedCompliance = reinvestment - allowed;
@@ -1835,12 +2058,20 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     if (isAccelerated) {
       const totalCashUnderAccel = interestCollected + prelimPrincipal;
 
-      // Interest due per tranche from BOP balances × coupon × day-count fraction.
+      // Interest due per tranche from BOP balances × coupon × day-count fraction,
+      // PLUS any pre-acceleration carried shortfall on non-deferrable tranches.
+      // Once accelerated, prior-period unpaid interest becomes part of the
+      // accelerated interest claim — losing it on the handoff would silently
+      // discharge the obligation and overstate residual cash.
       const interestDueByTranche: Record<string, number> = {};
       for (const t of debtTranches) {
-        interestDueByTranche[t.className] =
+        const baseDue =
           bopTrancheBalances[t.className] * trancheCouponRate(t, baseRatePct, baseRateFloorPct) * trancheDayFrac(t);
+        interestDueByTranche[t.className] = baseDue + (interestShortfall[t.className] ?? 0);
       }
+      // Reset pre-accel carry now that it's been folded into the accelerated
+      // claim — post-accel tracks its own period shortfall in accelResult.
+      for (const t of debtTranches) interestShortfall[t.className] = 0;
 
       // Sub mgmt fee amount (same formula as normal mode, subject to cash).
       const subFeeAmountUnderAccel = beginningPar * (subFeePct / 100) * dayFracActual;
@@ -1937,6 +2168,10 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
           paidFromInterest: 0,
           endBalance: d.endBalance,
         })),
+        // Post-acceleration tracks per-period unpaid interest in
+        // `accelResult.interestShortfall`. Re-export under the same field
+        // name as the pre-acceleration emission for downstream symmetry.
+        interestShortfall: { ...accelResult.interestShortfall },
         // OC / IC / EoD tests emitted empty under acceleration — PPM-correct,
         // not a deferred simplification. The class-level OC/IC cure mechanics
         // don't apply post-acceleration: coverage-test diversions only fire
@@ -2270,25 +2505,55 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     let diverted = false;
     for (const rank of ranksInOrder) {
       const group = groupByRank.get(rank)!;
+      // Per-member effective demand = current-period base interest + carried
+      // shortfall from prior periods. Carried shortfall applies only to
+      // non-deferrable, non-amortising debt tranches; deferrable tranches
+      // PIK their shortfalls onto deferredBalances/trancheBalances and
+      // don't carry separately here. Pari-passu pro-rata weighting uses
+      // total effective demand (PPM "pro rata according to amounts due"
+      // includes prior-period claims).
       const dueByMember: Record<string, number> = {};
+      const baseDueByMember: Record<string, number> = {};
+      const carriedByMember: Record<string, number> = {};
       let totalGroupDue = 0;
       for (const t of group) {
         const rate = trancheCouponRate(t, baseRatePct, baseRateFloorPct);
-        const d = bopTrancheBalances[t.className] * rate * trancheDayFrac(t);
-        dueByMember[t.className] = d;
-        totalGroupDue += d;
+        const baseDue = bopTrancheBalances[t.className] * rate * trancheDayFrac(t);
+        baseDueByMember[t.className] = baseDue;
+        const carried =
+          !t.isDeferrable && !t.isAmortising && !t.isIncomeNote
+            ? interestShortfall[t.className] ?? 0
+            : 0;
+        carriedByMember[t.className] = carried;
+        const totalDue = baseDue + carried;
+        dueByMember[t.className] = totalDue;
+        totalGroupDue += totalDue;
       }
 
       if (diverted) {
         for (const t of group) {
           const due = dueByMember[t.className];
+          const baseDue = baseDueByMember[t.className];
           trancheInterest.push({ className: t.className, due, paid: 0 });
-          if (t.isDeferrable && due > 0 && bopTrancheBalances[t.className] > 0.01) {
+          if (t.isDeferrable && baseDue > 0 && bopTrancheBalances[t.className] > 0.01) {
+            // Existing PIK accrual on deferrable tranche shortfall.
             if (deferredInterestCompounds) {
-              trancheBalances[t.className] += due;
+              trancheBalances[t.className] += baseDue;
             } else {
-              deferredBalances[t.className] += due;
+              deferredBalances[t.className] += baseDue;
             }
+          } else if (
+            !t.isDeferrable &&
+            !t.isAmortising &&
+            !t.isIncomeNote &&
+            baseDue > 0 &&
+            bopTrancheBalances[t.className] > 0.01
+          ) {
+            // Non-deferrable: accrue base demand to interestShortfall
+            // (carried portion is already in interestShortfall and was
+            // included in `due` above; only the new base shortfall accrues
+            // additionally — paid is 0 in the diverted case).
+            interestShortfall[t.className] = (interestShortfall[t.className] ?? 0) + baseDue;
           }
         }
         continue;
@@ -2301,6 +2566,48 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
       // tranche at the senior-non-amort rank, which double-paid X amort on a
       // pari-passu A-1+A-2 split — the rank-grouped form handles X amort
       // exactly once per period regardless of A-rank cardinality.
+      // Helper: allocate `paid` to a tranche between prior-period shortfall
+      // catch-up and current-period base interest, and accrue any new
+      // shortfall. Returns nothing — mutates interestShortfall/trancheBalances/
+      // deferredBalances and pushes to trace records as appropriate.
+      const settleMember = (t: ProjectionInputs["tranches"][number], paid: number) => {
+        const baseDue = baseDueByMember[t.className];
+        const carried = carriedByMember[t.className];
+        // Pay down carried shortfall first (FIFO), then current-period base.
+        const catchup = Math.min(paid, carried);
+        const basePaid = paid - catchup;
+        interestShortfall[t.className] = Math.max(
+          0,
+          (interestShortfall[t.className] ?? 0) - catchup,
+        );
+        if (
+          t.isDeferrable &&
+          basePaid < baseDue &&
+          bopTrancheBalances[t.className] > 0.01
+        ) {
+          // Deferrable: PIK the base shortfall (existing behavior).
+          const shortfall = baseDue - basePaid;
+          if (deferredInterestCompounds) {
+            trancheBalances[t.className] += shortfall;
+          } else {
+            deferredBalances[t.className] += shortfall;
+          }
+          _stepTrace_deferredAccrualByTranche[t.className] =
+            (_stepTrace_deferredAccrualByTranche[t.className] ?? 0) + shortfall;
+        } else if (
+          !t.isDeferrable &&
+          !t.isAmortising &&
+          !t.isIncomeNote &&
+          basePaid < baseDue &&
+          bopTrancheBalances[t.className] > 0.01
+        ) {
+          // Non-deferrable: accrue base shortfall to interestShortfall for
+          // catch-up in subsequent periods.
+          const shortfall = baseDue - basePaid;
+          interestShortfall[t.className] = (interestShortfall[t.className] ?? 0) + shortfall;
+        }
+      };
+
       if (seniorNonAmortRank != null && rank === seniorNonAmortRank) {
         const totalAmortDue = Object.values(amortDemand).reduce((s, v) => s + v, 0);
         const totalStepGDue = totalAmortDue + totalGroupDue;
@@ -2317,20 +2624,12 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
             const due = dueByMember[t.className];
             const paid = due * ratio;
             trancheInterest.push({ className: t.className, due, paid });
-            if (t.isDeferrable && paid < due && bopTrancheBalances[t.className] > 0.01) {
-              const shortfall = due - paid;
-              if (deferredInterestCompounds) {
-                trancheBalances[t.className] += shortfall;
-              } else {
-                deferredBalances[t.className] += shortfall;
-              }
-              _stepTrace_deferredAccrualByTranche[t.className] = (_stepTrace_deferredAccrualByTranche[t.className] ?? 0) + shortfall;
-            }
+            settleMember(t, paid);
           }
           availableInterest = 0;
           // Step G fully consumed available; subsequent groups produce
           // zero paid via the same Math.min(totalGroupDue, 0) = 0 path,
-          // with PIK on shortfall handled per-member as below.
+          // with PIK and shortfall on shortfall handled per-member.
         } else {
           // Enough to pay X amort in full; group interest pays normally below.
           for (const [cls, amt] of Object.entries(amortDemand)) {
@@ -2347,15 +2646,7 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
             const due = dueByMember[t.className];
             const memberPaid = totalGroupDue > 0 ? groupPaid * (due / totalGroupDue) : 0;
             trancheInterest.push({ className: t.className, due, paid: memberPaid });
-            if (t.isDeferrable && memberPaid < due && bopTrancheBalances[t.className] > 0.01) {
-              const shortfall = due - memberPaid;
-              if (deferredInterestCompounds) {
-                trancheBalances[t.className] += shortfall;
-              } else {
-                deferredBalances[t.className] += shortfall;
-              }
-              _stepTrace_deferredAccrualByTranche[t.className] = (_stepTrace_deferredAccrualByTranche[t.className] ?? 0) + shortfall;
-            }
+            settleMember(t, memberPaid);
           }
         }
       } else {
@@ -2366,15 +2657,7 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
           const due = dueByMember[t.className];
           const memberPaid = totalGroupDue > 0 ? groupPaid * (due / totalGroupDue) : 0;
           trancheInterest.push({ className: t.className, due, paid: memberPaid });
-          if (t.isDeferrable && memberPaid < due && bopTrancheBalances[t.className] > 0.01) {
-            const shortfall = due - memberPaid;
-            if (deferredInterestCompounds) {
-              trancheBalances[t.className] += shortfall;
-            } else {
-              deferredBalances[t.className] += shortfall;
-            }
-            _stepTrace_deferredAccrualByTranche[t.className] = (_stepTrace_deferredAccrualByTranche[t.className] ?? 0) + shortfall;
-          }
+          settleMember(t, memberPaid);
         }
       }
 
@@ -2649,6 +2932,12 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
       interestCollected,
       trancheInterest,
       tranchePrincipal,
+      // Snapshot end-of-period interestShortfall so the period's running
+      // balance is partner-visible. Snapshot only the tracked tranches
+      // (skipping zero entries to keep the field clean in healthy runs).
+      interestShortfall: Object.fromEntries(
+        Object.entries(interestShortfall).filter(([, v]) => v > 0.01),
+      ),
       ocTests: ocResults,
       icTests: icResults,
       eodTest: eodPeriodResult,

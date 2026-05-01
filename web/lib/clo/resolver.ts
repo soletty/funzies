@@ -73,6 +73,54 @@ function normClass(s: string): string {
   return match ? match[1].replace(/\s+/g, "-") : stripped;
 }
 
+/**
+ * Per-class deferrable resolution from the interest-mechanics section.
+ *
+ * `capitalStructure[].deferrable` is unreliable upstream — the LLM cap-structure
+ * prompt asks for it, but the cap-structure pages of a PPM rarely state
+ * deferrability inline; the authoritative source is the §7 interest-mechanics
+ * block. Without this fall-through, every deal whose cap-structure extraction
+ * misses `deferrable` resolves Class C/D/E/F (etc.) to `isDeferrable: false`,
+ * silently disabling PIK accrual under junior interest shortfall.
+ *
+ * Two sources, in preference order:
+ *   1. `interestMechanics.deferralClasses` — schematized array of class names
+ *      that ARE deferrable. Treat as authoritative when non-empty.
+ *   2. `interestMechanics.interest_deferral.class_X.deferral_permitted` — raw
+ *      passthrough (snake_case base class). Sub-classes (B-1, B-2) inherit
+ *      from the base letter (class_b).
+ *
+ * Returns `undefined` when neither source has info — caller falls through to
+ * the existing default (`false`).
+ */
+function deferrableFromMechanics(
+  mechanics: ExtractedConstraints["interestMechanics"],
+  className: string,
+): boolean | undefined {
+  if (!mechanics) return undefined;
+  const target = normClass(className);
+  if (!target || target === "sub") return undefined; // residuals not in scope
+
+  // Source 1: schematized list. Non-empty list = authoritative.
+  const list = mechanics.deferralClasses;
+  if (list && list.length > 0) {
+    return list.some((c) => normClass(c) === target);
+  }
+
+  // Source 2: raw passthrough block keyed by snake_case base letter.
+  const block = (mechanics as unknown as { interest_deferral?: Record<string, { deferral_permitted?: boolean | string }> }).interest_deferral;
+  if (block) {
+    const base = target.match(/^([a-z])/)?.[1];
+    if (!base) return undefined;
+    const entry = block[`class_${base}`];
+    if (entry && typeof entry.deferral_permitted === "boolean") {
+      return entry.deferral_permitted;
+    }
+  }
+
+  return undefined;
+}
+
 function parseAmount(s: string | undefined | null): number {
   if (!s) return 0;
   // Range like "100,000,000-200,000,000" or "100,000,000 - 200,000,000": take
@@ -208,7 +256,10 @@ function resolveTranches(
           seniorityRank: t.seniorityRank ?? 99,
           isFloating: t.isFloating ?? true,
           isIncomeNote: isSub,
-          isDeferrable: t.isDeferrable ?? ppmDeferrableByClass.get(key) ?? false,
+          isDeferrable: t.isDeferrable
+            ?? ppmDeferrableByClass.get(key)
+            ?? deferrableFromMechanics(constraints.interestMechanics, t.className)
+            ?? false,
           isAmortising: hasAmort,
           amortisationPerPeriod: amortPerPeriod,
           amortStartDate: hasAmort ? (ppmAmortStartByClass.get(key) ?? defaultAmortStartDate) : null,
@@ -270,7 +321,7 @@ function resolveTranches(
       seniorityRank: denseRanks[idx],
       isFloating,
       isIncomeNote: isSub,
-      isDeferrable: e.deferrable ?? false,
+      isDeferrable: e.deferrable ?? deferrableFromMechanics(constraints.interestMechanics, className) ?? false,
       isAmortising: hasAmort,
       amortisationPerPeriod: amortPerPeriod,
       amortStartDate: hasAmort ? (ppmAmortStartByClass.get(key) ?? defaultAmortStartDate) : null,
@@ -1152,6 +1203,14 @@ export function resolveWaterfallInputs(
       pikAmount: h.pikAmount ?? undefined,
       creditWatch: creditWatch || undefined,
       warfFactor,
+      // Floating WAS denominator excludes Non-Euro Obligations per PPM
+      // Condition 1 (PDF p. 302). Sourced from holding's `currency` (post-
+      // enrichment) or `nativeCurrency` (raw); upper-cased. Undefined means
+      // the loan is assumed deal-currency-denominated.
+      currency: (h.currency ?? h.nativeCurrency ?? undefined)?.trim().toUpperCase() || undefined,
+      // isDeferring / isLossMitigationLoan are CM-designation flags not
+      // present in the SDF. Resolver leaves undefined; only relevant for
+      // distressed deals where the source extends to populate them.
     });
   });
 
@@ -1412,6 +1471,97 @@ export function resolveWaterfallInputs(
     };
   });
 
+  // Per-deal rating-agency presence — drives the silent-skip blocking-gate
+  // predicate so missing agency-tagged compliance triggers block on
+  // rated-by-that-agency deals but are silently absent on not-rated deals.
+  //
+  // Derivation: OR across two evidence sources so the predicate fails CLOSED
+  // (correctly Moody's-rated) whenever either the PPM capital structure OR
+  // the SDF compliance data carries Moody's evidence. PPM-only would fail
+  // OPEN on a deal whose extraction populated `capitalStructure` rows but
+  // dropped the per-tranche `rating` subobjects — silently disabling all
+  // three Moody's gates on a Moody's-rated deal. The qualityTests /
+  // concentrationTests rows are independent SDF-sourced evidence; a row
+  // matching `/moody/i` is conclusive even if PPM extraction missed.
+  // Symmetric for Fitch via concentrationTests (Fitch CCC Concentration is
+  // the canonical Fitch-tagged compliance test).
+  const isMoodysRated =
+    (constraints.capitalStructure ?? []).some(
+      (e) => e.rating?.moodys != null && e.rating.moodys.trim() !== "",
+    ) ||
+    qualityTests.some((q) => /moody/i.test(q.testName)) ||
+    concentrationTests.some((c) => /moody/i.test(c.testName));
+  const isFitchRated =
+    (constraints.capitalStructure ?? []).some(
+      (e) => e.rating?.fitch != null && e.rating.fitch.trim() !== "",
+    ) ||
+    qualityTests.some((q) => /fitch/i.test(q.testName)) ||
+    concentrationTests.some((c) => /fitch/i.test(c.testName));
+
+  // C1 — silent-skip blocking gate for compliance triggers. Per PPM Section 8
+  // (Collateral Quality Tests, PDF p. 287) the Moody's WARF Test, Moody's
+  // Minimum Diversity Test, Moody's Recovery Rate Test, and Min Weighted
+  // Average Floating Spread Test all apply "while Moody's-rated Notes are
+  // outstanding"; the Fitch WARF / Recovery / CCC Concentration tests apply
+  // "while Fitch-rated Notes are outstanding". A deal that IS rated by an
+  // agency but has its trigger missing from extraction is an extraction
+  // failure (silent-fallback per CLAUDE.md principle 3). On such a deal we
+  // refuse to project rather than running with no enforcement on a test that
+  // PPM-correct math would block. Deals NOT rated by the agency legitimately
+  // omit the test → silent-skip is correct.
+  const findQualityTrigger = (pattern: RegExp) => {
+    const t = qualityTests.find((q) => pattern.test(q.testName));
+    return t?.triggerLevel ?? null;
+  };
+  const findConcentrationTrigger = (pattern: RegExp) => {
+    const t = concentrationTests.find((q) => pattern.test(q.testName));
+    return t?.triggerLevel ?? null;
+  };
+  if (isMoodysRated) {
+    if (findQualityTrigger(/moody.*maximum.*weighted average rating factor/i) == null) {
+      warnings.push({
+        field: "moodysWarfTriggerLevel",
+        message:
+          "Moody's-rated deal but Moody's Maximum WARF Test trigger not found in compliance qualityTests. " +
+          "C1 reinvestment compliance cannot enforce against the WARF cap without it. Verify trustee report " +
+          "exposes the test row, or extend extraction to surface the matrix-elected WARF trigger.",
+        severity: "error", blocking: true,
+      });
+    }
+    if (findQualityTrigger(/min.*weighted average.*(floating )?spread/i) == null) {
+      warnings.push({
+        field: "minWasBps",
+        message:
+          "Moody's-rated deal but Minimum Weighted Average Floating Spread Test trigger not found in " +
+          "compliance qualityTests. C1 cannot enforce Min WAS without it. Verify trustee report exposes " +
+          "the test row.",
+        severity: "error", blocking: true,
+      });
+    }
+    if (findConcentrationTrigger(/moody.*caa.*obligation/i) == null) {
+      warnings.push({
+        field: "moodysCaaLimitPct",
+        message:
+          "Moody's-rated deal but Moody's Caa Obligations concentration trigger not found in " +
+          "concentrationTests. C1 cannot enforce Caa concentration without it. Verify trustee report " +
+          "exposes test row '(n) Moody's Caa Obligations' (or equivalent).",
+        severity: "error", blocking: true,
+      });
+    }
+  }
+  if (isFitchRated) {
+    if (findConcentrationTrigger(/fitch.*ccc.*obligation/i) == null) {
+      warnings.push({
+        field: "fitchCccLimitPct",
+        message:
+          "Fitch-rated deal but Fitch CCC Obligations concentration trigger not found in " +
+          "concentrationTests. C1 cannot enforce Fitch CCC concentration without it. Verify trustee " +
+          "report exposes test row '(o) Fitch - CCC Obligations' (or equivalent).",
+        severity: "error", blocking: true,
+      });
+    }
+  }
+
   // --- Data Source Metadata ---
   // Per-row data_source tags are a single literal "sdf" today, which is too coarse
   // to answer "which SDF files were ingested?". Infer the answer from the shape of
@@ -1611,8 +1761,51 @@ export function resolveWaterfallInputs(
     currency = currency.toUpperCase();
   }
 
+  // PPM Target Par Amount (Aggregate Excess Funded Spread denominator term).
+  // Source priority: PPM `constraints.dealSizing.targetParAmount` (current
+  // schema), else legacy top-level `constraints.targetParAmount`, else DB
+  // `pool.targetPar` (number). Null when none — treated as zero in WAS
+  // arithmetic with no blocking warning per the type docstring.
+  const parseTargetParStr = (s: string | null | undefined): number | null => {
+    if (!s || s.trim() === "") return null;
+    const v = parseFloat(s.replace(/[^\d.-]/g, ""));
+    return Number.isFinite(v) && v > 0 ? v : null;
+  };
+  const targetParAmount =
+    parseTargetParStr(constraints.dealSizing?.targetParAmount) ??
+    parseTargetParStr(constraints.targetParAmount) ??
+    (pool?.targetPar != null && pool.targetPar > 0 ? pool.targetPar : null);
+
+  // PPM Reference Weighted Average Fixed Coupon (Excess WAC term, PPM
+  // Condition 1, PDF p. 305). Per-deal extracted from PPM section 7
+  // (interest mechanics). The prior implementation hardcoded 4.0% as a
+  // "European CLO market standard" with an info-level warning — that
+  // silent fallback is the exact CLAUDE.md principle 3 violation: a
+  // partner-facing computational input (feeds Excess WAC → Min WAS
+  // compliance gate) defaulting to a deal-family constant. Wrong on every
+  // non-Ares deal whose reference WAFC is anything other than 4.0%. Now
+  // reads from `interestMechanics.referenceWeightedAverageFixedCoupon`
+  // (typed) or the raw passthrough `reference_weighted_average_fixed_coupon`
+  // (snake_case from JSON ingest); blocks if missing.
+  const ifmRaw = constraints.interestMechanics as unknown as Record<string, unknown> | undefined;
+  const referenceWeightedAverageFixedCoupon: number | null =
+    typeof constraints.interestMechanics?.referenceWeightedAverageFixedCoupon === "number"
+      ? constraints.interestMechanics.referenceWeightedAverageFixedCoupon
+      : typeof ifmRaw?.reference_weighted_average_fixed_coupon === "number"
+        ? (ifmRaw.reference_weighted_average_fixed_coupon as number)
+        : null;
+  if (referenceWeightedAverageFixedCoupon == null) {
+    warnings.push({
+      field: "referenceWeightedAverageFixedCoupon",
+      message:
+        "PPM Reference Weighted Average Fixed Coupon (Condition 1, PDF p. 305) is not extracted — required as the anchor for the Excess WAC term in Floating WAS compliance arithmetic. Without it, the per-period engine-vs-trustee Floating WAS would drift on any deal whose true reference differs from the previously-hardcoded 4.0% (Ares-family default). Refusing to run rather than ship a projection that silently mis-anchors the Excess WAC.",
+      severity: "error",
+      blocking: true,
+    });
+  }
+
   return {
-    resolved: { tranches, poolSummary, ocTriggers, icTriggers, qualityTests, concentrationTests, reinvestmentOcTrigger, eventOfDefaultTest, dates, fees, loans, metadata, principalAccountCash, interestAccountCash, interestSmoothingBalance, supplementalReserveBalance, expenseReserveBalance, preExistingDefaultedPar, preExistingDefaultRecovery, unpricedDefaultedPar, preExistingDefaultOcValue, discountObligationHaircut, longDatedObligationHaircut, cccBucketLimitPct, cccMarketValuePct, impliedOcAdjustment, quartersSinceReport, ddtlUnfundedPar, deferredInterestCompounds, baseRateFloorPct, currency },
+    resolved: { tranches, poolSummary, ocTriggers, icTriggers, qualityTests, concentrationTests, reinvestmentOcTrigger, eventOfDefaultTest, dates, fees, loans, metadata, principalAccountCash, interestAccountCash, interestSmoothingBalance, supplementalReserveBalance, expenseReserveBalance, preExistingDefaultedPar, preExistingDefaultRecovery, unpricedDefaultedPar, preExistingDefaultOcValue, discountObligationHaircut, longDatedObligationHaircut, cccBucketLimitPct, cccMarketValuePct, targetParAmount, referenceWeightedAverageFixedCoupon, isMoodysRated, isFitchRated, impliedOcAdjustment, quartersSinceReport, ddtlUnfundedPar, deferredInterestCompounds, baseRateFloorPct, currency },
     warnings,
   };
 }

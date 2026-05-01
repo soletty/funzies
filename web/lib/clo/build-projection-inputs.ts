@@ -40,6 +40,10 @@ export const EMPTY_RESOLVED: ResolvedDealData = {
   longDatedObligationHaircut: 0,
   cccBucketLimitPct: null,
   cccMarketValuePct: null,
+  targetParAmount: null,
+  referenceWeightedAverageFixedCoupon: null,
+  isMoodysRated: false,
+  isFitchRated: false,
   impliedOcAdjustment: 0,
   quartersSinceReport: 0,
   ddtlUnfundedPar: 0,
@@ -532,15 +536,41 @@ export function buildFromResolved(
     quartersSinceReport: resolved.quartersSinceReport,
     ddtlDrawPercent: userAssumptions.ddtlDrawPercent,
     ...(equityEntryPrice != null ? { equityEntryPrice } : {}),
-    // C1 — pull Moody's WARF trigger from resolved qualityTests (if present)
-    // so the engine can enforce reinvestment compliance. Name match is loose
-    // — trustee reports vary in capitalization and punctuation. Null = no
-    // trigger extracted; engine skips enforcement.
-    moodysWarfTriggerLevel: (() => {
-      const test = resolved.qualityTests.find((t) =>
+    // C1 — pull compliance triggers from resolved qualityTests/concentrationTests
+    // (when present) so the engine can enforce reinvestment compliance.
+    // Name patterns are loose — trustee reports vary in capitalization and
+    // punctuation. Null on this side means the trigger wasn't in the source
+    // data; the resolver's silent-skip blocking gate already refused for any
+    // case where extraction-failure-on-a-rated-deal would silently disable
+    // enforcement, so reaching here with null is genuinely "test does not
+    // apply to this deal" (e.g., Moody's-only deal has no Fitch test).
+    moodysWarfTriggerLevel:
+      resolved.qualityTests.find((t) =>
         /moody.*maximum.*weighted average rating factor/i.test(t.testName),
+      )?.triggerLevel ?? null,
+    minWasBps: (() => {
+      // Trustee reports the Min WAS trigger in pct (e.g. 3.65 → 365 bps).
+      const t = resolved.qualityTests.find((q) =>
+        /min.*weighted average.*(floating )?spread/i.test(q.testName),
       );
-      return test?.triggerLevel ?? null;
+      return t?.triggerLevel != null ? t.triggerLevel * 100 : null;
     })(),
+    moodysCaaLimitPct:
+      resolved.concentrationTests.find((c) =>
+        /moody.*caa.*obligation/i.test(c.testName),
+      )?.triggerLevel ?? null,
+    fitchCccLimitPct:
+      resolved.concentrationTests.find((c) =>
+        /fitch.*ccc.*obligation/i.test(c.testName),
+      )?.triggerLevel ?? null,
+    // C2 — Floating WAS / Excess WAC methodology inputs (PPM PDF p. 305).
+    // Threaded so `computePoolQualityMetrics` uses the per-deal reference
+    // anchor and the deal currency for the Non-Euro Obligation filter.
+    // Both are optional on the engine side and default to (4.0%, no filter)
+    // when null — matches the Euro XV reference. Resolver fills these from
+    // PPM extraction; null on a deal where the resolver could not extract
+    // would block via the silent-skip gate before reaching this code.
+    referenceWafcPct: resolved.referenceWeightedAverageFixedCoupon,
+    dealCurrency: resolved.currency,
   };
 }

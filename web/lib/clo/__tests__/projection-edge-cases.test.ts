@@ -38,7 +38,7 @@ function makeSimpleInputs(overrides: Partial<ProjectionInputs> = {}): Projection
     reinvestmentOcTrigger: null,
     tranches: [
       { className: "A", currentBalance: 70_000_000, spreadBps: 140, seniorityRank: 1, isFloating: true, isIncomeNote: false, isDeferrable: false },
-      { className: "J", currentBalance: 20_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
+      { className: "J", currentBalance: 20_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: false },
       { className: "Sub", currentBalance: 10_000_000, spreadBps: 0, seniorityRank: 3, isFloating: false, isIncomeNote: true, isDeferrable: false },
     ],
     ocTriggers: [],
@@ -92,7 +92,7 @@ function makeMultiTrancheInputs(overrides: Partial<ProjectionInputs> = {}): Proj
     reinvestmentOcTrigger: null,
     tranches: [
       { className: "A", currentBalance: 55_000_000, spreadBps: 140, seniorityRank: 1, isFloating: true, isIncomeNote: false, isDeferrable: false },
-      { className: "J", currentBalance: 12_000_000, spreadBps: 225, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
+      { className: "J", currentBalance: 12_000_000, spreadBps: 225, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: false },
       { className: "C", currentBalance: 8_000_000, spreadBps: 330, seniorityRank: 3, isFloating: true, isIncomeNote: false, isDeferrable: true },
       { className: "D", currentBalance: 7_000_000, spreadBps: 450, seniorityRank: 4, isFloating: true, isIncomeNote: false, isDeferrable: true },
       { className: "E", currentBalance: 6_000_000, spreadBps: 650, seniorityRank: 5, isFloating: true, isIncomeNote: false, isDeferrable: true },
@@ -617,13 +617,20 @@ describe("4. Deferred Interest / PIK Interactions", () => {
       recoveryPct: 0,
       deferredInterestCompounds: false, // non-compounding so we can track deferred separately
       tranches: [
-        // Synthetic "K" tranche used to exercise senior-tranche PIK accumulation
-        // mechanics. Renamed from "A" because D1 enforces A/B non-deferrable
-        // per PPM; the test intent is engine-mechanics coverage, not PPM fidelity.
-        { className: "K", currentBalance: 70_000_000, spreadBps: 140, seniorityRank: 1, isFloating: true, isIncomeNote: false, isDeferrable: true },
-        { className: "Sub", currentBalance: 30_000_000, spreadBps: 0, seniorityRank: 2, isFloating: false, isIncomeNote: true, isDeferrable: false },
+        // Synthetic "K" rank-3 deferrable tranche to exercise PIK accumulation
+        // + cure-paydown-targets-deferred mechanics. D1 protects the top two
+        // non-amort debt ranks; K sits at rank 3 (= Class C-equivalent PIK
+        // tranche, PPM-correct). A/B above are non-deferrable placeholders.
+        { className: "A",   currentBalance:  5_000_000, spreadBps: 110, seniorityRank: 1, isFloating: true,  isIncomeNote: false, isDeferrable: false },
+        { className: "B",   currentBalance:  5_000_000, spreadBps: 130, seniorityRank: 2, isFloating: true,  isIncomeNote: false, isDeferrable: false },
+        { className: "K",   currentBalance: 60_000_000, spreadBps: 140, seniorityRank: 3, isFloating: true,  isIncomeNote: false, isDeferrable: true  },
+        { className: "Sub", currentBalance: 30_000_000, spreadBps:   0, seniorityRank: 4, isFloating: false, isIncomeNote: true,  isDeferrable: false },
       ],
-      ocTriggers: [{ className: "K", triggerLevel: 200, rank: 1 }],
+      // OC trigger at A (rank 1) — fails → cure diverts at rank-1 boundary
+      // BEFORE K gets interest. K is non-paid → PIKs every period the trigger
+      // fails. Once cure paydown cascades down through A→B→K (deferred-first),
+      // K's deferred is paid before its principal.
+      ocTriggers: [{ className: "A", triggerLevel: 200, rank: 1 }],
       icTriggers: [],
     });
 
@@ -633,9 +640,9 @@ describe("4. Deferred Interest / PIK Interactions", () => {
     // K is deferrable → PIK accumulates. Cure paydown should reduce deferred first.
     // Verify the tranche eventually gets paid down properly.
     const lastPeriod = result.periods[result.periods.length - 1];
-    const aFinal = lastPeriod.tranchePrincipal.find((t) => t.className === "K")!;
+    const kFinal = lastPeriod.tranchePrincipal.find((t) => t.className === "K")!;
     // At maturity, everything should be settled
-    expect(aFinal.endBalance).toBeGreaterThanOrEqual(0);
+    expect(kFinal.endBalance).toBeGreaterThanOrEqual(0);
   });
 
   it("PIK should not be added to a fully redeemed tranche", () => {
@@ -647,7 +654,7 @@ describe("4. Deferred Interest / PIK Interactions", () => {
       recoveryPct: 0,
       tranches: [
         { className: "A", currentBalance: 5_000_000, spreadBps: 140, seniorityRank: 1, isFloating: true, isIncomeNote: false, isDeferrable: false },
-        { className: "J", currentBalance: 5_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
+        { className: "J", currentBalance: 5_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: false },
         { className: "Sub", currentBalance: 90_000_000, spreadBps: 0, seniorityRank: 3, isFloating: false, isIncomeNote: true, isDeferrable: false },
       ],
       ocTriggers: [],
@@ -694,7 +701,7 @@ describe("5. Class X / Amortising Edge Cases", () => {
           isAmortising: true, amortisationPerPeriod: 500_000, amortStartDate: "2025-01-01",
         },
         { className: "A", currentBalance: 70_000_000, spreadBps: 140, seniorityRank: 1, isFloating: true, isIncomeNote: false, isDeferrable: false },
-        { className: "J", currentBalance: 18_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
+        { className: "J", currentBalance: 18_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: false },
         { className: "Sub", currentBalance: 10_000_000, spreadBps: 0, seniorityRank: 3, isFloating: false, isIncomeNote: true, isDeferrable: false },
       ],
       ocTriggers: [],
@@ -736,7 +743,7 @@ describe("5. Class X / Amortising Edge Cases", () => {
           isAmortising: true, amortisationPerPeriod: 500_000, amortStartDate: "2025-01-01",
         },
         { className: "A", currentBalance: 70_000_000, spreadBps: 140, seniorityRank: 1, isFloating: true, isIncomeNote: false, isDeferrable: false },
-        { className: "J", currentBalance: 15_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
+        { className: "J", currentBalance: 15_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: false },
         { className: "Sub", currentBalance: 10_000_000, spreadBps: 0, seniorityRank: 3, isFloating: false, isIncomeNote: true, isDeferrable: false },
       ],
       // Set OC trigger for A. If X is included in denom, ratio = 100M / (5M+70M) = 133.3%
@@ -1282,11 +1289,12 @@ describe("8. Principal Waterfall / Preliminary Paydown", () => {
       recoveryPct: 0,
       deferredInterestCompounds: false,
       tranches: [
-        { className: "A", currentBalance: 10_000_000, spreadBps: 140, seniorityRank: 1, isFloating: true, isIncomeNote: false, isDeferrable: false },
-        { className: "J", currentBalance: 20_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
-        { className: "Sub", currentBalance: 70_000_000, spreadBps: 0, seniorityRank: 3, isFloating: false, isIncomeNote: true, isDeferrable: false },
+        { className: "A", currentBalance: 10_000_000, spreadBps: 140, seniorityRank: 1, isFloating: true,  isIncomeNote: false, isDeferrable: false },
+        { className: "B", currentBalance:  5_000_000, spreadBps: 175, seniorityRank: 2, isFloating: true,  isIncomeNote: false, isDeferrable: false },
+        { className: "J", currentBalance: 20_000_000, spreadBps: 300, seniorityRank: 3, isFloating: true,  isIncomeNote: false, isDeferrable: true  },
+        { className: "Sub", currentBalance: 65_000_000, spreadBps: 0, seniorityRank: 4, isFloating: false, isIncomeNote: true,  isDeferrable: false },
       ],
-      // A fails OC → interest diverted → B gets PIK
+      // A fails OC → interest diverted → J (rank-3 deferrable) gets PIK
       ocTriggers: [{ className: "A", triggerLevel: 999, rank: 1 }],
       icTriggers: [],
       // Loans mature early to generate principal flows
@@ -1298,21 +1306,21 @@ describe("8. Principal Waterfall / Preliminary Paydown", () => {
 
     const result = runProjection(inputs);
 
-    // By Q2, B should have accumulated some deferred interest from Q1 diversion.
-    // When loan matures in Q2 (50M proceeds), paydown flows to A first (10M),
-    // then to B's deferred interest, then to B's principal.
-    // After A is paid off, check that B's endBalance properly accounts for deferred.
+    // By Q2, J (rank-3 deferrable) should have accumulated some deferred
+    // interest from Q1 diversion. When loans mature in Q2 (50M proceeds),
+    // paydown flows to A first (10M), then B (5M), then to J's deferred,
+    // then J's principal.
     const q2 = result.periods[1];
-    const bQ2 = q2.tranchePrincipal.find((t) => t.className === "J")!;
+    const jQ2 = q2.tranchePrincipal.find((t) => t.className === "J")!;
 
-    // B endBalance = principal + deferred. If principal paydown targeted deferred first,
-    // the total paid should include the deferred amount.
-    expect(bQ2.endBalance).toBeGreaterThanOrEqual(0);
-    // B paid should be > 0 if there were enough proceeds after A payoff
+    // J endBalance = principal + deferred. If principal paydown targeted
+    // deferred first, the total paid should include the deferred amount.
+    expect(jQ2.endBalance).toBeGreaterThanOrEqual(0);
+    // J paid should be > 0 if there were enough proceeds after A and B payoff.
     const aQ2 = q2.tranchePrincipal.find((t) => t.className === "A")!;
-    if (aQ2.endBalance <= 0.01) {
-      // A fully paid off → remaining proceeds should hit B's deferred then principal
-      expect(bQ2.paid).toBeGreaterThan(0);
+    const bQ2 = q2.tranchePrincipal.find((t) => t.className === "B")!;
+    if (aQ2.endBalance <= 0.01 && bQ2.endBalance <= 0.01) {
+      expect(jQ2.paid).toBeGreaterThan(0);
     }
   });
 });
@@ -1506,7 +1514,7 @@ describe("ProjectionInitialState.equityBookValue / equityWipedOut", () => {
       tranches: [
         // Total non-equity debt 200M > 100M loan assets → insolvent
         { className: "A", currentBalance: 150_000_000, spreadBps: 140, seniorityRank: 1, isFloating: true, isIncomeNote: false, isDeferrable: false },
-        { className: "J", currentBalance: 50_000_000, spreadBps: 250, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: true },
+        { className: "J", currentBalance: 50_000_000, spreadBps: 250, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: false },
         { className: "Sub", currentBalance: 10_000_000, spreadBps: 0, seniorityRank: 3, isFloating: false, isIncomeNote: true, isDeferrable: false },
       ],
       ocTriggers: [],

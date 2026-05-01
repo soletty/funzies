@@ -366,9 +366,7 @@ canonical inventory of every site under this rule lives in
 (one `it()` block per site) and is independently verifiable via
 `grep "blocking: true" web/lib/clo/resolver.ts` — adding a new
 fallback site means flipping its warning to `blocking: true` and
-adding a marker test in the same change. The audit of remaining
-`severity: "warn"` resolver sites that may share the same shape
-is tracked under KI-59.
+adding a marker test in the same change.
 
 ### 4. Display equals engine output. Always.
 

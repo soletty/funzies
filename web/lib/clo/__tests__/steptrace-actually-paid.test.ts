@@ -160,7 +160,7 @@ describe("stepTrace emits actually-paid amounts under stress", () => {
       tranches: [
         { className: "X", currentBalance: 5_000_000, spreadBps: 50, seniorityRank: 1, isFloating: true, isIncomeNote: false, isDeferrable: false, isAmortising: true, amortisationPerPeriod: 500_000 },
         { className: "A", currentBalance: 60_000_000, spreadBps: 140, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: false },
-        { className: "J", currentBalance: 15_000_000, spreadBps: 250, seniorityRank: 3, isFloating: true, isIncomeNote: false, isDeferrable: true },
+        { className: "J", currentBalance: 15_000_000, spreadBps: 250, seniorityRank: 3, isFloating: true, isIncomeNote: false, isDeferrable: false },
         { className: "Sub", currentBalance: 20_000_000, spreadBps: 0, seniorityRank: 4, isFloating: false, isIncomeNote: true, isDeferrable: false },
       ],
       ocTriggers: [

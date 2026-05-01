@@ -6,6 +6,7 @@ import {
   trimRating,
   spreadToBps,
 } from "./csv-utils";
+import { validateMagnitude } from "./magnitude-validator";
 import type { SdfParseResult } from "./types";
 
 export interface SdfCollateralRow {
@@ -129,13 +130,22 @@ export function parseCollateralFile(
     // downstream par-based filters.
     const principalBalance = parseNumeric(raw.Principal_Balance);
     const fundedBalance = parseNumeric(raw.Principal_Funded_Balance);
-    const parBalance = (fundedBalance != null && fundedBalance > 0) ? fundedBalance : principalBalance;
+    const parBalance = validateMagnitude(
+      "par_balance",
+      (fundedBalance != null && fundedBalance > 0) ? fundedBalance : principalBalance,
+    );
     const commitment = parseNumeric(raw.Commitment);
     const grossPurchasePrice = parseNumeric(raw.Gross_Purchase_Price);
-    const marketValue = parseNumeric(raw.Market_Value);
+    const marketValue = validateMagnitude("market_value", parseNumeric(raw.Market_Value));
     const defaultDate = parseDate(raw.Default_Date, "DD.MM.YYYY");
     const nativeCurrency = trimOrNull(raw.Native_Currency);
-    const spreadRaw = parseNumeric(raw.Current_Spread);
+    // Spread (% per annum). Magnitude-validated so a European-locale
+    // mis-parse (e.g. "15,500" intending 15.5% → resolves to 15500 in the
+    // locale-aware parser via canonical-thousands branch) gets rejected
+    // rather than flowing into spreadToBps as 1,550,000 bps. Per CLAUDE.md
+    // anti-pattern #5 (boundaries assert sign and scale): spread is the
+    // exact field locale mis-parses target, so it must wear the validator.
+    const spreadRaw = validateMagnitude("rate_pct", parseNumeric(raw.Current_Spread));
 
     return {
       obligor_name: trimOrNull(raw.Issuer_Name),
@@ -166,10 +176,10 @@ export function parseCollateralFile(
       country: trimOrNull(raw.Country_Name),
       country_code: trimOrNull(raw.Country_Code),
       is_fixed_rate: parseCouponType(raw.Coupon_Type),
-      all_in_rate: parseNumeric(raw.All_In_Rate),
+      all_in_rate: validateMagnitude("rate_pct", parseNumeric(raw.All_In_Rate)),
       reference_rate: trimOrNull(raw.Index_Type),
-      index_rate: parseNumeric(raw.Index),
-      floor_rate: parseNumeric(raw.Index_Floor_Rate),
+      index_rate: validateMagnitude("rate_pct", parseNumeric(raw.Index)),
+      floor_rate: validateMagnitude("rate_pct", parseNumeric(raw.Index_Floor_Rate)),
       spread_bps: spreadToBps(spreadRaw),
       day_count_convention: buildDayCountConvention(
         raw.Month_Count,
