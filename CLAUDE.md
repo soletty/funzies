@@ -39,6 +39,19 @@ flows, IRR, NAV, accruals, or valuation:
   magnitude must trace to a `failsWithMagnitude` marker (or equivalent
   pinned assertion); every marker must trace to a ledger entry. New KI
   entries ship with their marker test in the same change.
+- **If you discover a candidate KI mid-task, file it before continuing.**
+  A defect noticed in passing and not captured is a defect that gets
+  forgotten. The threshold for filing is the same as for any KI: a wrong
+  number, a silent fallback, an invariant carried in code or convention
+  rather than asserted, or a hardcoded path that produces correct numbers
+  only on the current data shape. File it even mid-PR — the entry can be
+  marked tentative if uncertain (per the rule above), but it must exist
+  in the ledger before the conversation moves on. The cost of a stub
+  entry is one block of markdown; the cost of a forgotten defect is the
+  next partner-facing wrong number. The marker test ships with the entry
+  per the bijection rule, even when the entry is tentative — a marker
+  that documents current (wrong) behavior locks the bug magnitude until
+  the fix flips the assertion.
 
 ---
 
@@ -265,12 +278,22 @@ test against at least one synthetic non-Euro-XV fixture
 currency, etc.).
 
 **Why:** the T=0 Event-of-Default test was originally string-matched on
-`"Class A"`. The fix retired the pattern at T=0 with a 6-line warning
-comment; the forward-period block then regressed to the same pattern
-(KI-43). On any deal whose senior tranche is named "Class A-1" or
-similar, EoD detection is silently disabled — the test always
-passes. This is the failure shape: silent on Euro XV, catastrophic on
-the next deal. See KI-43, KI-39, KI-30, KI-41.
+`"Class A"`. A first pass replaced the T=0 site with a rank-based
+selection and left the forward-period block untouched — within one
+audit cycle the forward block was caught running the same
+`find(className === "Class A")` pattern it was supposed to retire. The
+load-bearing fix extracted a single `computeSeniorTranchePao` helper
+that both the T=0 site and the forward-period site call; the rank-
+based selection (and the pari-passu summing of all rank-1 debt
+tranches) lives in exactly one place, and the fixture suite asserts
+the same invariant against both call sites so future drift fails in
+lockstep rather than silently on one path. On any deal whose senior
+tranche is named "Class A-1", "A-1A", or any other non-literal "Class
+A", the pre-fix forward block returned `undefined` from the find, the
+denominator collapsed to zero, and EoD detection was silently disabled
+— the test always passed. This is the failure shape: silent on Euro
+XV, catastrophic on the next deal. See KI-39, KI-30, KI-41 for sibling
+instances.
 
 ### 2. Partner-facing claims are mechanically bound to engine state
 

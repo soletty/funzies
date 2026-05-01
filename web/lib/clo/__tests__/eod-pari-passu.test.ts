@@ -139,3 +139,115 @@ describe("EoD denominator — pari-passu rank-1 summing", () => {
     expect(result.initialState.eodTest!.denominator).toBeCloseTo(50_000_000, 0);
   });
 });
+
+/**
+ * Forward-period EoD denominator — same rank-based semantic, different
+ * engine site. Both the T=0 and forward sites call `computeSeniorTranchePao`
+ * (projection.ts call sites in the initial-state IIFE and the per-period
+ * waterfall loop). Pinning the same invariant against both sites means a
+ * future regression that re-introduces a name-based pattern at either site
+ * fails the corresponding fixture in lockstep, rather than slipping past
+ * a single-site test.
+ */
+describe("EoD denominator — forward-period rank-based identification", () => {
+  it("renamed senior tranche (no literal 'Class A') still identified by rank", () => {
+    // Senior tranche named "A-1" (common: Euro CLOs use "Class A-1", "A1F",
+    // "A-1A", etc.). Pre-fix forward block used `find(className === "Class A")`
+    // → undefined → denom 0 → actualPct = 999 → passing = true ALWAYS.
+    // Post-fix: rank-based selection finds A-1 regardless of name.
+    const inputs = makeInputs({
+      tranches: [
+        { className: "A-1", currentBalance: 60_000_000, spreadBps: 130, seniorityRank: 1, isFloating: true, isIncomeNote: false, isDeferrable: false },
+        { className: "B", currentBalance: 10_000_000, spreadBps: 250, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: false },
+        { className: "Sub", currentBalance: 30_000_000, spreadBps: 0, seniorityRank: 3, isFloating: false, isIncomeNote: true, isDeferrable: false },
+      ],
+      ocTriggers: [
+        { className: "A-1", triggerLevel: 130, rank: 1 },
+        { className: "B", triggerLevel: 110, rank: 2 },
+      ],
+      icTriggers: [
+        { className: "A-1", triggerLevel: 130, rank: 1 },
+        { className: "B", triggerLevel: 110, rank: 2 },
+      ],
+      eventOfDefaultTest: { triggerLevel: 100 },
+      defaultRatesByRating: uniformRates(20),
+      recoveryLagMonths: 18,
+      cprPct: 0,
+    });
+    const result = runProjection(inputs);
+    const forwardEodResults = result.periods
+      .map((p, i) => ({ p: i, e: p.eodTest }))
+      .filter((r): r is { p: number; e: NonNullable<typeof r.e> } => r.e !== null);
+    expect(forwardEodResults.length).toBeGreaterThan(0);
+    // First non-null forward period: full magnitude (catches the pre-fix
+    // bug shape — className mismatch → undefined → denom 0 → actualPct ===
+    // 999 sentinel).
+    expect(forwardEodResults[0].e.denominator).toBeGreaterThan(50_000_000);
+    expect(forwardEodResults[0].e.actualPct).toBeLessThan(900);
+    // Multi-period coverage: at least the first 4 forward periods should
+    // still carry a positive denominator. This catches a regression that
+    // broke periods 1+ while leaving period 0 intact (e.g., a stray
+    // period-conditional className branch). We can't sweep ALL periods
+    // because senior par legitimately amortizes to 0 under stress (and
+    // when it does, the engine emits actualPct === 999, colliding with
+    // the bug-shape sentinel — so a denom===0 in late periods is benign).
+    const earlyPeriods = forwardEodResults.slice(0, 4);
+    for (const { p, e } of earlyPeriods) {
+      expect(e.denominator, `period ${p}: denominator should be >0 in early life`).toBeGreaterThan(0);
+    }
+  });
+
+  it("pari-passu rank-1 senior (A-1 + A-2) sums both balances in forward periods", () => {
+    // Same shape as the T=0 pari-passu test, exercising the forward path.
+    // Pre-fix: `find(className === "Class A")` returns undefined → denom 0.
+    // Post-fix: rank-based reduce sums A-1 (35M) + A-2 (25M) = 60M.
+    // A *naive* rename-only fix that swapped find(className==="Class A") for
+    // find(seniorityRank===minRank) would catch only the FIRST tranche at
+    // rank 1 — denom would be 35M, not 60M. This test pins the reduce-over-
+    // pari-passu semantic that the helper guarantees.
+    const inputs = makeInputs({
+      tranches: [
+        { className: "A-1", currentBalance: 35_000_000, spreadBps: 130, seniorityRank: 1, isFloating: true, isIncomeNote: false, isDeferrable: false },
+        { className: "A-2", currentBalance: 25_000_000, spreadBps: 130, seniorityRank: 1, isFloating: true, isIncomeNote: false, isDeferrable: false },
+        { className: "B", currentBalance: 10_000_000, spreadBps: 250, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: false },
+        { className: "Sub", currentBalance: 30_000_000, spreadBps: 0, seniorityRank: 3, isFloating: false, isIncomeNote: true, isDeferrable: false },
+      ],
+      ocTriggers: [
+        { className: "A-1", triggerLevel: 130, rank: 1 },
+        { className: "B", triggerLevel: 110, rank: 2 },
+      ],
+      icTriggers: [
+        { className: "A-1", triggerLevel: 130, rank: 1 },
+        { className: "B", triggerLevel: 110, rank: 2 },
+      ],
+      eventOfDefaultTest: { triggerLevel: 100 },
+      defaultRatesByRating: uniformRates(20),
+      recoveryLagMonths: 18,
+      cprPct: 0,
+    });
+    const result = runProjection(inputs);
+    const forwardEodResults = result.periods
+      .map((p, i) => ({ p: i, e: p.eodTest }))
+      .filter((r): r is { p: number; e: NonNullable<typeof r.e> } => r.e !== null);
+    expect(forwardEodResults.length).toBeGreaterThan(0);
+    // Pari-passu summing in the FORWARD path. The earliest non-null period
+    // is the strongest discriminator — denom must be the SUM (~60M before
+    // material amortization), not just A-1 alone (~35M, the naive
+    // rename-only fix). Later periods amortize, so we don't apply the
+    // upper bound to them.
+    const first = forwardEodResults[0];
+    expect(first.e.denominator).toBeGreaterThan(50_000_000);
+    expect(first.e.denominator).toBeLessThanOrEqual(61_000_000);
+    // Multi-period coverage: at least the first 4 forward periods stay in
+    // pari-passu range (denom > 35M, the single-tranche bug shape). After
+    // heavy amortization the bound naturally slackens; we don't sweep all
+    // periods because senior par legitimately amortizes below 35M (and
+    // eventually to 0) under stress, and we'd be asserting on amortization
+    // dynamics rather than the rank-based identification semantic this
+    // test pins.
+    const earlyPeriods = forwardEodResults.slice(0, 4);
+    for (const { p, e } of earlyPeriods) {
+      expect(e.denominator, `period ${p}: denom should still be in pari-passu range`).toBeGreaterThan(35_000_000);
+    }
+  });
+});

@@ -568,6 +568,59 @@ export function computeEventOfDefaultTest(
 }
 
 /**
+ * Senior-tranche Principal Amount Outstanding — the EoD test denominator.
+ *
+ * The senior tranche is the rated debt tranche(s) at the lowest seniorityRank
+ * (rank 1 by convention). Identification is rank-based, NOT name-based: real
+ * CLOs name this tranche variously ("Class A", "Class A-1", "A-1A", "A"), and
+ * a pari-passu split (A-1 + A-2 sharing rank 1) sums BOTH balances. Income
+ * notes (sub notes) are excluded even when mis-ranked at rank 1 in malformed
+ * inputs.
+ *
+ * Principal-only — PPM Condition 10(a)(iv) defines the denominator as the
+ * Principal Amount Outstanding of the senior tranche, NOT principal plus
+ * deferred interest. The D1 guard at the head of `runProjection` throws on
+ * any tranche whose name starts with "A" or "B" carrying isDeferrable=true,
+ * which covers the standard naming convention but is itself name-based
+ * (would miss a senior tranche named e.g. "K-1" or "X-1" marked deferrable);
+ * if such an input ever reaches this helper, including deferred interest
+ * here would inflate the denominator and silently SUPPRESS EoD breaches,
+ * which is why the helper takes principal only and not the deferred map.
+ *
+ * Returns 0 only when there are no debt tranches at all (degenerate input).
+ *
+ * Single source of truth for the T=0 initialState EoD test and the forward-
+ * period EoD test. Keeping both sites bound to this helper prevents the
+ * recurrence of the "string match Class A" overfit pattern that the forward
+ * site silently re-introduced post-T=0 closure.
+ */
+export function computeSeniorTranchePao(
+  tranches: Array<{ className: string; seniorityRank: number; isIncomeNote: boolean }>,
+  trancheBalances: Record<string, number>,
+): number {
+  const debtTranches = tranches.filter((t) => !t.isIncomeNote);
+  if (debtTranches.length === 0) return 0;
+  const minRank = Math.min(...debtTranches.map((t) => t.seniorityRank));
+  return debtTranches
+    .filter((t) => t.seniorityRank === minRank)
+    .reduce((s, t) => {
+      // Throw on missing-key — a tranche present in `tranches` but absent
+      // from the balance map is a data-shape bug. Silent `?? 0` would
+      // collapse the EoD denominator and resurrect the exact "always
+      // passing" failure shape this helper exists to prevent. Per CLAUDE.md
+      // principle 5 (boundaries assert sign and scale).
+      const cur = trancheBalances[t.className];
+      if (cur === undefined) {
+        throw new Error(
+          `computeSeniorTranchePao: tranche "${t.className}" missing from trancheBalances ` +
+            `(cur=${cur}). Caller must construct the map from the same tranches array.`,
+        );
+      }
+      return s + cur;
+    }, 0);
+}
+
+/**
  * B2 — Post-acceleration waterfall executor (Stage 1 implementation).
  *
  * Distributes a single pool of cash (interest + principal combined, per
@@ -1292,23 +1345,7 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
         currentPrice: l.currentPrice,
         isDelayedDraw: l.isDelayedDraw,
       }));
-      // Class A Principal Amount Outstanding (PAO) — denominator is the
-      // senior-most rated debt tranche(s). Identified by `seniorityRank`,
-      // not by string match on "Class A": real CLOs name this tranche
-      // variously (e.g. "Class A", "Class A-1", "A1F", "A"), and a
-      // pari-passu split (A-1 + A-2 sharing rank 1) sums both balances.
-      // String-match on "Class A" was a Euro-XV-shaped overfit; see the
-      // synthetic-fixture #10 test (post-v6 plan §6.1) which surfaces it.
-      const debtTranchesAtT0 = tranches.filter((t) => !t.isIncomeNote);
-      const classAPao = (() => {
-        if (debtTranchesAtT0.length === 0) return 0;
-        const minRank = Math.min(...debtTranchesAtT0.map((t) => t.seniorityRank));
-        const seniorMost = debtTranchesAtT0.filter((t) => t.seniorityRank === minRank);
-        return seniorMost.reduce(
-          (s, t) => s + trancheBalances[t.className] + deferredBalances[t.className],
-          0,
-        );
-      })();
+      const classAPao = computeSeniorTranchePao(tranches, trancheBalances);
       eodTest = computeEventOfDefaultTest(
         eodLoanStates,
         initialPrincipalCash,
@@ -2047,10 +2084,7 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
           });
         }
       }
-      const classATranche = tranches.find((t) => t.className === "Class A");
-      const classAPao = classATranche
-        ? trancheBalances[classATranche.className] + deferredBalances[classATranche.className]
-        : 0;
+      const classAPao = computeSeniorTranchePao(tranches, trancheBalances);
       // Principal Account cash at measurement date = `remainingPrelim` —
       // principal proceeds still parked on the account after the first
       // paydown pass, before any further distribution. Same quantity the

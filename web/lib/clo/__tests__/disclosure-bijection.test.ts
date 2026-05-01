@@ -44,7 +44,7 @@ function findKiReferences(filePath: string): KiReference[] {
   const content = readFileSync(filePath, "utf-8");
   const lines = content.split("\n");
   const refs: KiReference[] = [];
-  // Match KI-12a, KI-43, ki-08, etc. Case-insensitive.
+  // Match KI-12a, KI-08, ki-49, etc. Case-insensitive.
   const refRe = /\bKI-(\d+[a-z]?)\b/gi;
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];

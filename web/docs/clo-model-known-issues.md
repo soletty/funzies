@@ -39,7 +39,6 @@ Categorized so a partner reading cold can separate "what's still wrong" from "wh
 - [KI-35 — Partial DDTL draw silently discards the un-drawn commitment](#ki-35)
 - [KI-40 — `diversionPct = 50%` silent fallback on extraction failure](#ki-40)
 - [KI-42 — `failsWithMagnitude` discipline gap on day-count residuals (`adminFeesPaid`, `trusteeFeesPaid`)](#ki-42)
-- [KI-43 — Forward-period EoD test uses literal `"Class A"` string match (regression of T=0 fix)](#ki-43)
 - [KI-49 — `stepTrace` emits requested fee amounts, not actually-paid, when interest is exhausted (sub mgmt + 6 senior expenses, normal mode only)](#ki-49)
 
 ### Latent — currently inactive on Euro XV; emerges on portability or stress
@@ -58,6 +57,7 @@ Categorized so a partner reading cold can separate "what's still wrong" from "wh
 - [KI-48 — `period-trace-lines` amortising-tranche heuristic is described in a comment but never implemented](#ki-48)
 - [KI-50 — `parseNumeric` strips commas without locale awareness — European-format numbers parse wrong](#ki-50)
 - [KI-51 — `normalizeComplianceTestType` derives `isPassing` as `actual >= trigger` for all tests, including lower-is-better (WARF, WAL, concentration)](#ki-51)
+- [KI-54 — D1 deferrable-A/B guard is name-based; non-A/B-named senior with `isDeferrable=true` slips through](#ki-54)
 
 ### Deferred — intentionally not modeled, magnitude known
 - [KI-02 — Step (D) Expense Reserve top-up](#ki-02)
@@ -1113,37 +1113,6 @@ Both assertions pin a numeric drift; neither is registered through `failsWithMag
 
 ---
 
-<a id="ki-43"></a>
-### [KI-43] Forward-period EoD test uses literal `"Class A"` string match (regression of T=0 fix)
-
-**PPM reference:** Condition 10(a)(iv) — Event of Default Par Value Test. Denominator is the senior-most rated debt tranche's Principal Amount Outstanding (PAO). The PPM identifies the tranche by seniority rank, not by class name.
-
-**Current engine behavior:** The T=0 path correctly identifies the senior-most rated tranche by `seniorityRank` (`projection.ts:1295-1311`). A 6-line comment at that site explicitly documents *why*: "String-match on 'Class A' was a Euro-XV-shaped overfit; see the synthetic-fixture #10 test (post-v6 plan §6.1) which surfaces it." The forward-period path at `projection.ts:2050-2053` regresses to the very pattern the T=0 fix retired:
-
-```
-const classATranche = tranches.find((t) => t.className === "Class A");
-const classAPao = classATranche
-  ? trancheBalances[classATranche.className] + deferredBalances[classATranche.className]
-  : 0;
-```
-
-When `classATranche === undefined` (any deal whose senior tranche is named "Class A-1", "A-1", "A1F", "A", or any pari-passu A-1 + A-2 split where rank 1 is shared and only one class matches — verified zero-name match would silently return 0), the test computes `classAPao = 0`. Combined with the `actualPct = (numerator / 0) > 0 ? 999 : 0` guard inside `computeEventOfDefaultTest`, the test always passes. EoD detection in the forward loop is silently disabled.
-
-**PPM-correct behavior:** Use the same `seniorityRank`-based discovery the T=0 path uses (`projection.ts:1302-1311`). On a pari-passu split (A-1 + A-2 sharing rank 1), sum both balances. The forward-period `eodInput` setup at lines 2030-2049 (the array is named `eodInput`, not `eodLoanStates` — the latter is the analogous T=0 array at line 1289) is already correct; only the denominator calculation regressed.
-
-**Quantitative magnitude:** Zero on Euro XV today (the literal name match works because the tranche IS named "Class A"). Catastrophic on every other deal at the moment EoD detection is supposed to fire — every forward-period EoD breach is silently masked. Failure mode: B2 acceleration is never triggered, the engine continues running the normal-mode waterfall through a deal that should have flipped to PPM 10(b), and the partner sees plausible-looking distributions that ignore the legal default state.
-
-**Deferral rationale:** None — this is a regression of a documented closure, not a deliberate scope choice.
-
-**Path to close:**
-1. Replace `projection.ts:2050-2053` with the same seniorityRank-based discovery used at `:1302-1311`. Extract the helper (e.g., `computeClassAPao(tranches, trancheBalances, deferredBalances)`) so the two sites cannot drift again.
-2. Add a synthetic-fixture test (the post-v6 plan §6.1 fixture #10 referenced in the T=0 comment) that asserts EoD fires under stress on a deal whose senior tranche is named "Class A-1", and a second test for the pari-passu A-1 + A-2 split.
-3. Cross-reference under [KI-21](#ki-21) Scope 3 — this is the third hardcoded enumeration site (alongside the accel executor and T=0 initialState) that maintains its own implementation of senior-tranche identification.
-
-**Test:** No active marker. When the fix lands, add `b1-event-of-default.test.ts > "EoD fires on non-Class-A-named senior tranche"` and a pari-passu split assertion.
-
----
-
 <a id="ki-48"></a>
 ### [KI-48] `period-trace-lines` amortising-tranche heuristic is described in a comment but never implemented
 
@@ -1323,6 +1292,36 @@ This fires only when the source data did not populate `isPassing` (a fallback pa
 4. Audit downstream consumers of `isPassing` to confirm whether they trust this flag or recompute. Document the answer here.
 
 **Test:** No active marker. After the fix, the directional unit tests above pin both families.
+
+---
+
+<a id="ki-54"></a>
+### [KI-54] D1 deferrable-A/B guard is name-based; non-A/B-named senior with `isDeferrable=true` slips through
+
+**PPM reference:** Class A and Class B non-payment of interest is an Event of Default, not deferral (Class C/D/E/F PIK). The PPM rule is structural — the senior-most rated tranches are non-deferrable regardless of how a particular deal labels them.
+
+**Current engine behavior:** `web/lib/clo/projection.ts:967-985` strips an optional `Class ` prefix (case-insensitive) and inspects the first character of `className`; throws only when that character is `A` or `B`. The check is identifier-based, not seniority-rank-based:
+
+```
+const core = t.className.trim().replace(/^class\s+/i, "").toUpperCase();
+const firstLetter = core.charAt(0);
+if ((firstLetter === "A" || firstLetter === "B") && t.isDeferrable) { throw ... }
+```
+
+A senior tranche named e.g. `K-1`, `X-1`, `Mezz-1`, or any non-A/B-prefixed letter, marked `isDeferrable: true` in the resolver output or test input, currently does NOT throw. Engine accepts it and the per-period waterfall PIKs accrued-but-unpaid interest into the senior's balance under the C/D/E/F deferral path.
+
+**PPM-correct behavior:** Identify the deferrability constraint by `seniorityRank` (or by the presence of an EoD-bound interest test), not by name. The structural guarantee the PPM makes is "the senior debt tranche(s) are non-deferrable" — whatever name the deal happens to use. A rank-based check (`t.seniorityRank <= 2 && !t.isIncomeNote && t.isDeferrable → throw`) covers the same intent without the name dependency.
+
+**Quantitative magnitude:** Latent on Euro XV (senior is `Class A`, caught by D1). On a deal with a non-A/B-named senior marked deferrable, every cent of senior interest shortfall PIKs onto the senior balance instead of triggering an EoD; the engine then continues distributing residual cash through the waterfall as if no breach had occurred. Equity distributions are overstated by approximately the cumulative PIK amount on the "senior" plus the foregone post-acceleration redirection of pool cash to senior paydown. Magnitude scales with senior interest × periods of underperformance — easily multiple percentage points of forward IRR on a stressed scenario.
+
+**Deferral rationale:** Latent — Euro XV's senior is named `Class A` and the existing D1 guard catches its mis-marking. The bug fires only on a non-Euro-XV deal whose senior happens to use a non-A/B prefix, which we have not yet ingested. Sibling pattern to the (now-closed) string-match-on-`Class A` failure shape in the EoD denominator: same overfit-to-naming-convention shape, different code path. Filing per the project rule ("if you discover a candidate KI mid-task, file it before continuing").
+
+**Path to close:**
+1. Replace the prefix-strip / first-letter check at `projection.ts:976-985` with a rank-based predicate: `if (t.seniorityRank <= 2 && !t.isIncomeNote && t.isDeferrable) throw ...`. Update the throw message to cite seniority rank rather than the name.
+2. Update the existing test fixtures that work around D1 by renaming senior tranches to non-A/B names (`projection-edge-cases.test.ts:621`, `projection-systematic-edge-cases.test.ts:535`) — those fixtures must move the deferrable test tranche to `seniorityRank: 3` or higher (or `isIncomeNote: true`) to avoid tripping the new rank-based guard.
+3. Flip the KI-54 marker test in `d1-ab-deferral-assertion.test.ts` from `not.toThrow()` to `toThrow()`.
+
+**Test:** Marker test in `web/lib/clo/__tests__/d1-ab-deferral-assertion.test.ts` — `KI-54: non-A/B-named senior with isDeferrable=true silently passes D1`. Currently asserts `not.toThrow()` (documenting the bug); flips to `toThrow()` when the rank-based fix lands.
 
 ---
 
