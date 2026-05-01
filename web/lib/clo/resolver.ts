@@ -416,6 +416,17 @@ function resolveTriggers(
     if (triggerLevel > 0 && triggerLevel < 10) {
       triggerLevel = triggerLevel * 100;
       warnings.push({ field: `icTrigger.${t.className}`, message: `IC trigger ${t.triggerLevel} looks like a ratio, converting to ${triggerLevel}%`, severity: "warn", blocking: false });
+    } else if (triggerLevel >= 10 && triggerLevel < 90) {
+      warnings.push({
+        field: `icTrigger.${t.className}`,
+        message: `IC trigger ${triggerLevel}% for ${t.className} is implausible — IC triggers are typically 100-200%, never 10-90%. Likely an extractor column mis-read. Check extraction and set manually.`,
+        severity: "error",
+        // Sibling shape to the OC band gate at L388-397: a misextracted
+        // IC trigger of 50% means the actual ratio of ~150% always passes,
+        // IC test silently always-on, no diversion ever fires. Refuse
+        // rather than ship a projection against an always-passing test.
+        blocking: true,
+      });
     }
     if (triggerLevel > 500) {
       warnings.push({ field: `icTrigger.${t.className}`, message: `IC trigger ${triggerLevel}% for ${t.className} seems unusually high`, severity: "warn", blocking: false });

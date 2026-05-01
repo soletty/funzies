@@ -289,6 +289,25 @@ describe("Pattern B (silent acceptance of sentinel value)", () => {
     expectGateThrows(resolved, warnings);
   });
 
+  it("IC trigger 10-90% band (resolver.ts:420) — implausible IC trigger → blocking", () => {
+    const raw = loadRaw();
+    // Sibling shape to the OC band marker. Take an IC test, set triggerLevel
+    // to 50 (no man's land — IC triggers are typically 100-200%, never
+    // 10-90%). The new IC band gate refuses rather than projecting against
+    // an always-passing test.
+    const icTest = (raw.complianceData.complianceTests as any[]).find(
+      (t: any) => t.testType === "IC",
+    );
+    expect(icTest, "fixture should have an IC test").toBeDefined();
+    icTest.triggerLevel = 50;
+    const { resolved, warnings } = runResolver(raw);
+    const w = warnings.find(
+      (w) => w.field.startsWith("icTrigger.") && w.message.includes("implausible"),
+    );
+    expectBlockingError(w, "icTrigger.* (10-90% band)");
+    expectGateThrows(resolved, warnings);
+  });
+
   it("deferredInterestCompounds (resolver.ts:1282) — deferrable tranches with non-boolean PIK info → blocking", () => {
     const raw = loadRaw();
     // Euro XV's tranches have isDeferrable:null today even though the PPM
