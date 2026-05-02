@@ -97,12 +97,20 @@ describe("Euro XV fixture — canonicalType bijection", () => {
     readFileSync(join(__dirname, "fixtures", "euro-xv-q1.json"), "utf8"),
   ) as { resolved: ResolvedDealData };
 
+  // The live-classifier bridge — without it, a regex regression that survives
+  // a fixture regeneration (e.g. the new fixture is built from the broken
+  // resolver) would silently embed wrong canonicalType values and the
+  // matches.length assertions below would still pass. Asserting that the
+  // live classifier matches the stored canonicalType for each row closes that
+  // hole.
+
   it("qualityTests carry exactly one moodys_max_warf row with trigger 3148", () => {
     const matches = fixture.resolved.qualityTests.filter(
       (t) => t.canonicalType === "moodys_max_warf",
     );
     expect(matches).toHaveLength(1);
     expect(matches[0].triggerLevel).toBe(3148);
+    expect(classifyComplianceTest(matches[0].testName)).toBe("moodys_max_warf");
   });
 
   it("qualityTests carry exactly one min_was row with trigger 3.65", () => {
@@ -111,6 +119,7 @@ describe("Euro XV fixture — canonicalType bijection", () => {
     );
     expect(matches).toHaveLength(1);
     expect(matches[0].triggerLevel).toBe(3.65);
+    expect(classifyComplianceTest(matches[0].testName)).toBe("min_was");
   });
 
   it("concentrationTests carry exactly one moodys_caa_concentration row with trigger 7.5", () => {
@@ -119,6 +128,7 @@ describe("Euro XV fixture — canonicalType bijection", () => {
     );
     expect(matches).toHaveLength(1);
     expect(matches[0].triggerLevel).toBe(7.5);
+    expect(classifyComplianceTest(matches[0].testName)).toBe("moodys_caa_concentration");
   });
 
   it("concentrationTests carry exactly one fitch_ccc_concentration row with trigger 7.5", () => {
@@ -127,6 +137,22 @@ describe("Euro XV fixture — canonicalType bijection", () => {
     );
     expect(matches).toHaveLength(1);
     expect(matches[0].triggerLevel).toBe(7.5);
+    expect(classifyComplianceTest(matches[0].testName)).toBe("fitch_ccc_concentration");
+  });
+
+  it("every fixture row's stored canonicalType matches the live classifier output", () => {
+    for (const t of fixture.resolved.qualityTests) {
+      expect(
+        classifyComplianceTest(t.testName),
+        `qualityTests[${t.testName}].canonicalType drifted from live classifier`,
+      ).toBe(t.canonicalType);
+    }
+    for (const c of fixture.resolved.concentrationTests) {
+      expect(
+        classifyComplianceTest(c.testName),
+        `concentrationTests[${c.testName}].canonicalType drifted from live classifier`,
+      ).toBe(c.canonicalType);
+    }
   });
 
   it("every fixture row carries a non-null canonicalType", () => {

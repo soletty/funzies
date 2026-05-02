@@ -171,8 +171,8 @@ describe("B2 — runPostAccelerationWaterfall (pure helper)", () => {
     const a = result.trancheDistributions.find((d) => d.className === "Class A")!;
     // A interest paid < due → shortfall recorded.
     expect(a.interestPaid).toBeLessThan(a.interestDue);
-    expect(result.interestShortfall["Class A"]).toBeGreaterThan(0);
-    expect(result.interestShortfall["Class A"]).toBeCloseTo(a.interestDue - a.interestPaid, 2);
+    expect(result.perPeriodInterestShortfall["Class A"]).toBeGreaterThan(0);
+    expect(result.perPeriodInterestShortfall["Class A"]).toBeCloseTo(a.interestDue - a.interestPaid, 2);
     // Deferred balance unchanged (no PIK under acceleration).
     expect(deferredBalances["Class A"]).toBe(0);
   });

@@ -418,22 +418,26 @@ export interface PeriodResult {
   beginningLiabilities: number;
   endingLiabilities: number;
   trancheInterest: { className: string; due: number; paid: number }[];
-  /** Per-tranche running interest-shortfall balance at end-of-period. Tracks
-   *  cumulative unpaid base interest on non-deferrable, non-amortising
-   *  senior tranches (rank-protected per PPM § 10(a)(i)). The `due` field
-   *  above is the period's pure base coupon — it does NOT include carried
-   *  shortfall (non-deferrable means non-deferrable; soft-deferrable carry-
-   *  forward into next period's pre-accel demand would silently diverge from
-   *  trustee data on stress). The running balance is consumed by:
+  /** Per-tranche **cumulative** running interest-shortfall balance at end-
+   *  of-period. Tracks unpaid base interest on non-deferrable, non-amortising
+   *  senior tranches (rank-protected per PPM § 10(a)(i)) ACCUMULATED across
+   *  all pre-acceleration periods up to and including this one. The `due`
+   *  field above is the period's pure base coupon — it does NOT include
+   *  carried shortfall (non-deferrable means non-deferrable; soft-deferrable
+   *  carry-forward into next period's pre-accel demand would silently
+   *  diverge from trustee data on stress). The cumulative carry is consumed
+   *  by:
    *    (a) the EoD-on-shortfall detector — fires when consecutive shortfall
    *        periods exceed `interestNonPaymentGracePeriods`, and
-   *    (b) the post-acceleration handoff — folds the carried shortfall into
-   *        `interestDueByTranche` so the accelerated claim is whole.
+   *    (b) the post-acceleration handoff — folds the carry into
+   *        `interestDueByTranche` so the accelerated claim is whole, then
+   *        resets the cumulative to 0.
    *  Deferrable tranches use `deferredBalances` (PIK) instead and stay at
-   *  zero here. Empty / all-zero in healthy scenarios. Under post-accel
-   *  this field is sourced from the post-accel waterfall's per-period
-   *  `accelResult.interestShortfall` (different concept — that's the
-   *  acceleration waterfall's per-period unpaid amount).
+   *  zero here. Empty / all-zero in healthy scenarios. **Always cumulative
+   *  pre-accel; always empty under post-accel** (the carry has been folded
+   *  and reset by the handoff). Under acceleration the per-period unpaid
+   *  amount lives on `perPeriodInterestShortfall` — distinct semantic, do
+   *  not confuse the two when summing across periods.
    *
    *  **Non-display field by current intent.** Per CLAUDE.md principle 4,
    *  every engine output is potentially partner-facing; this field is
@@ -447,6 +451,23 @@ export interface PeriodResult {
    *  in the UI (that breaks the "display equals engine output" invariant
    *  exactly as the April 2026 incident did for `equityFromInterest`). */
   interestShortfall: Record<string, number>;
+  /** Per-tranche **per-period** unpaid-interest amount from the accelerated
+   *  waterfall — distinct semantic from `interestShortfall` (cumulative
+   *  pre-accel carry). Empty / absent in pre-accel periods; populated only
+   *  under acceleration with the single-period shortfall the post-accel
+   *  executor could not pay. Summing this across post-accel periods gives
+   *  total unpaid since acceleration; summing it with `interestShortfall`
+   *  is meaningless (different units of time aggregation). */
+  perPeriodInterestShortfall: Record<string, number>;
+  /** Per-tranche consecutive-shortfall counter feeding the PPM § 10(a)(i)
+   *  EoD trigger. Increments each pre-acceleration period the rank-protected
+   *  tranche accrues new shortfall (`interestShortfall[c] − bopShortfall[c] >
+   *  0.01`); resets to 0 on a fully-paid period. EoD fires when count exceeds
+   *  `interestNonPaymentGracePeriods`. Frozen under post-acceleration (counter
+   *  is no longer mutated once `isAccelerated` is set). Emitted so a partner-
+   *  facing surface can show "Class A — 2 of 3 grace periods consumed" or
+   *  similar countdown without re-deriving from interestShortfall deltas. */
+  interestShortfallCount: Record<string, number>;
   /** Per-tranche principal-side state. `paid` is the TOTAL paid to the
    *  tranche this period (sum of amort-from-interest at step G + principal-
    *  pool paydowns post-step-G). `paidFromInterest` is the portion sourced
@@ -793,8 +814,14 @@ export interface PostAccelExecutorResult {
   subMgmtFeePaid: number;
   incentiveFeePaid: number;
   residualToSub: number;
-  /** Unpaid-interest shortfall on any tranche (not PIKed under acceleration). */
-  interestShortfall: Record<string, number>;
+  /** Per-period unpaid-interest shortfall on any tranche under acceleration —
+   *  difference between `interestDueByTranche` (which already includes the
+   *  pre-accel carry folded by the projection at the handoff) and what the
+   *  accelerated waterfall actually paid. Not PIKed (acceleration discharges
+   *  PIK semantics). Distinct semantic from `PeriodResult.interestShortfall`,
+   *  which is a cumulative pre-accel running balance — this field is single-
+   *  period. */
+  perPeriodInterestShortfall: Record<string, number>;
 }
 
 export function runPostAccelerationWaterfall(input: PostAccelExecutorInput): PostAccelExecutorResult {
@@ -817,7 +844,7 @@ export function runPostAccelerationWaterfall(input: PostAccelExecutorInput): Pos
 
   // ── 2. Rated tranches: P+I combined, sequential except Class B pari passu. ──
   const trancheDistributions: PostAccelExecutorResult["trancheDistributions"] = [];
-  const interestShortfall: Record<string, number> = {};
+  const perPeriodInterestShortfall: Record<string, number> = {};
 
   // Sort rated tranches (exclude sub notes + amortising Class X) by seniority.
   const ratedTranches = input.tranches
@@ -861,7 +888,7 @@ export function runPostAccelerationWaterfall(input: PostAccelExecutorInput): Pos
 
       // Shortfall: unpaid interest is NOT PIKed under acceleration.
       const shortfall = gInterestDue - gInterestPaid;
-      if (shortfall > 0.01) interestShortfall[g.className] = shortfall;
+      if (shortfall > 0.01) perPeriodInterestShortfall[g.className] = shortfall;
 
       // Post-paydown balance.
       const endBalance = Math.max(0, gPrincipal - gPrincipalPaid);
@@ -895,7 +922,7 @@ export function runPostAccelerationWaterfall(input: PostAccelExecutorInput): Pos
     subMgmtFeePaid,
     incentiveFeePaid,
     residualToSub,
-    interestShortfall,
+    perPeriodInterestShortfall,
   };
 }
 
@@ -2155,7 +2182,22 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
       }
       // Reset pre-accel carry now that it's been folded into the accelerated
       // claim — post-accel tracks its own period shortfall in accelResult.
-      for (const t of debtTranches) interestShortfall[t.className] = 0;
+      // Scope MUST mirror `accrueShortfall`'s write predicate (non-amortising
+      // non-income debt) — anything else is a no-op today (amortising and
+      // income tranches never accrue) and a latent trap if a future change
+      // routes amortising-tranche shortfall through this state.
+      //
+      // INVARIANT: this reset must occur BEFORE the EoD-on-shortfall
+      // detector reads `interestShortfall`. The current detector at the
+      // pre-accel emit site is gated `if (!isAccelerated)` — so the
+      // post-accel branch never reaches the detector. If that gate is
+      // ever relaxed (e.g., to detect a secondary EoD condition under
+      // acceleration), the reset here would have already cleared the
+      // value and `delta = end - bop` would always be ≤ 0, silently
+      // disabling the detector. Preserve the gate, or move the reset.
+      for (const t of debtTranches) {
+        if (!t.isAmortising) interestShortfall[t.className] = 0;
+      }
 
       // Sub mgmt fee amount (same formula as normal mode, subject to cash).
       const subFeeAmountUnderAccel = beginningPar * (subFeePct / 100) * dayFracActual;
@@ -2252,10 +2294,20 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
           paidFromInterest: 0,
           endBalance: d.endBalance,
         })),
-        // Post-acceleration tracks per-period unpaid interest in
-        // `accelResult.interestShortfall`. Re-export under the same field
-        // name as the pre-acceleration emission for downstream symmetry.
-        interestShortfall: { ...accelResult.interestShortfall },
+        // Pre-acceleration cumulative carry was folded into
+        // `interestDueByTranche` at the handoff (line ~2163) and reset to
+        // 0; the field's cumulative-carry semantic is consistent across
+        // accel/pre-accel by emitting empty here. Post-accel per-period
+        // unpaid lives on its own field below.
+        interestShortfall: {},
+        // Per-period unpaid interest from the accelerated waterfall.
+        // Distinct semantic from `interestShortfall` (cumulative pre-accel
+        // carry) — populated only under acceleration.
+        perPeriodInterestShortfall: { ...accelResult.perPeriodInterestShortfall },
+        // Counter is frozen under post-acceleration (no longer mutated).
+        // Emit empty so consumers iterating across periods don't see
+        // stale counter values from the breach period.
+        interestShortfallCount: {},
         // OC / IC / EoD tests emitted empty under acceleration — PPM-correct,
         // not a deferred simplification. The class-level OC/IC cure mechanics
         // don't apply post-acceleration: coverage-test diversions only fire
@@ -2955,6 +3007,28 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
       ? loanStates.reduce((s, l) => s + l.defaultedParPending, 0)
       : 0;
 
+    // PPM § 10(a)(i) EoD-on-shortfall trigger — Phase 1 (pre-emit):
+    // update `shortfallCount` based on this period's accrual and compute
+    // the `eodOnShortfall` flag. Done BEFORE the emit so the emitted
+    // `interestShortfallCount` reflects the end-of-period post-update
+    // count (consistent with `interestShortfall`, which is also end-of-
+    // period). The `isAccelerated` flip is deliberately deferred to
+    // Phase 2 (after emit) — the emit must reflect the regime period N
+    // actually ran under (pre-accel here), not the regime period N+1
+    // will run under. A period emitting `isAccelerated=true` would imply
+    // the post-acceleration waterfall executed for it, which only
+    // happens in the post-accel branch above.
+    let eodOnShortfall = false;
+    for (const cls of eodProtectedClassNames) {
+      const delta = (interestShortfall[cls] ?? 0) - (bopInterestShortfall[cls] ?? 0);
+      if (delta > 0.01) {
+        shortfallCount[cls] = (shortfallCount[cls] ?? 0) + 1;
+        if (shortfallCount[cls] > eodGrace) eodOnShortfall = true;
+      } else {
+        shortfallCount[cls] = 0;
+      }
+    }
+
     periods.push({
       periodNum: q,
       date: periodDate,
@@ -2979,11 +3053,22 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
       interestCollected,
       trancheInterest,
       tranchePrincipal,
-      // Snapshot end-of-period interestShortfall so the period's running
-      // balance is partner-visible. Snapshot only the tracked tranches
-      // (skipping zero entries to keep the field clean in healthy runs).
+      // Snapshot end-of-period interestShortfall (cumulative carry) so the
+      // period's running balance is partner-visible. Skip zero entries to
+      // keep the field clean in healthy runs.
       interestShortfall: Object.fromEntries(
         Object.entries(interestShortfall).filter(([, v]) => v > 0.01),
+      ),
+      // Empty in pre-accel periods — the per-period shortfall semantic only
+      // applies under acceleration. Pre-accel uses cumulative carry above.
+      perPeriodInterestShortfall: {},
+      // Snapshot end-of-period shortfallCount — partner-facing countdown to
+      // EoD without re-deriving the state machine. Captured AFTER the
+      // trigger block (above the emit) so the value reflects this period's
+      // post-update count: count==grace+1 on the period that fires EoD,
+      // count==0 on a fully-paid period.
+      interestShortfallCount: Object.fromEntries(
+        Object.entries(shortfallCount).filter(([, v]) => v > 0),
       ),
       ocTests: ocResults,
       icTests: icResults,
@@ -3042,32 +3127,15 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     const remainingDebt = debtTranches.reduce((s, t) => s + trancheBalances[t.className] + deferredBalances[t.className], 0);
     if (remainingDebt <= 0.01 && endingPar <= 0.01) break;
 
-    // B2 — Flip to post-acceleration mode if this period's EoD breached.
-    // Effective next period (PPM Condition 10: acceleration applies from the
-    // next payment date, not retroactively). Irreversible once set.
-    //
-    // Two independent EoD triggers:
-    //   1. compositional EoD test (`eodPeriodResult`) — collateral coverage
-    //      vs Class A balance per the deal-specific trigger.
-    //   2. PPM § 10(a)(i) interest-non-payment EoD — non-deferrable senior
-    //      tranche missed a coupon for `eodGrace + 1` consecutive periods.
-    //
-    // Either trigger flips isAccelerated; both are computed under the
-    // pre-accel branch (post-accel skips, since EoD is already declared).
-    if (!isAccelerated) {
-      let eodOnShortfall = false;
-      for (const cls of eodProtectedClassNames) {
-        const delta = (interestShortfall[cls] ?? 0) - (bopInterestShortfall[cls] ?? 0);
-        if (delta > 0.01) {
-          shortfallCount[cls] = (shortfallCount[cls] ?? 0) + 1;
-          if (shortfallCount[cls] > eodGrace) eodOnShortfall = true;
-        } else {
-          shortfallCount[cls] = 0;
-        }
-      }
-      if ((eodPeriodResult && !eodPeriodResult.passing) || eodOnShortfall) {
-        isAccelerated = true;
-      }
+    // PPM § 10(a)(i) EoD-on-shortfall trigger — Phase 2 (post-emit):
+    // flip `isAccelerated` for the NEXT period if either the compositional
+    // EoD test (`eodPeriodResult`) or the interest-non-payment grace-period
+    // gate (`eodOnShortfall`, set in Phase 1 above) tripped this period.
+    // Irreversible once set. Phase 1's `eodOnShortfall` flag is in scope
+    // here because both phases run under the same pre-accel branch — the
+    // post-accel branch `continue`s above and never reaches either phase.
+    if ((eodPeriodResult && !eodPeriodResult.passing) || eodOnShortfall) {
+      isAccelerated = true;
     }
   }
 

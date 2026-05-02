@@ -177,6 +177,26 @@ describe("Pattern A (silent fallback to common default)", () => {
     expect(resolved.cccMarketValuePct).toBeNull();
     expectGateThrows(resolved, warnings);
   });
+
+  it("referenceWeightedAverageFixedCoupon — fixed-rate deal + missing refWAFC → blocking", () => {
+    // Euro XV holds fixed-rate obligations (84 holdings carry isFixedRate=true).
+    // With those positions present, the Excess WAC term in the Floating WAS
+    // formula `(wafc − refWAFC) × 100 × (fixedPar/floatingPar)` is non-zero
+    // and depends on the per-deal anchor refWAFC. Stripping the extracted
+    // anchor on a fixed-rate deal must block — the prior implementation
+    // hardcoded 4.0% as a deal-family default which silently mis-anchored
+    // any non-Ares deal.
+    const raw = loadRaw();
+    if (raw.constraints.interestMechanics) {
+      delete raw.constraints.interestMechanics.referenceWeightedAverageFixedCoupon;
+      delete raw.constraints.interestMechanics.reference_weighted_average_fixed_coupon;
+    }
+    const { resolved, warnings } = runResolver(raw);
+    const w = warnings.find((w) => w.field === "referenceWeightedAverageFixedCoupon");
+    expectBlockingError(w, "referenceWeightedAverageFixedCoupon (fixed-rate deal)");
+    expect(resolved.referenceWeightedAverageFixedCoupon).toBeNull();
+    expectGateThrows(resolved, warnings);
+  });
 });
 
 describe("Pattern B (silent acceptance of sentinel value)", () => {
@@ -602,6 +622,40 @@ describe("Carve-out at :1434 (display-only, severity:error + blocking:false)", (
     // unmutated Euro XV fixture may emit (e.g., trustee fee per-agreement
     // post-Step-2.3). If a future change flips the carve-out to
     // blocking:true, this expectation flips and signals the regression.
+    expect(() =>
+      buildFromResolved(resolved, DEFAULT_ASSUMPTIONS, [w!]),
+    ).not.toThrow();
+  });
+
+  it("referenceWeightedAverageFixedCoupon — all-floating deal + missing refWAFC → non-blocking warn", () => {
+    // Excess WAC contribution is `(wafc − refWAFC) × 100 × (fixedPar/floatingPar)`.
+    // When fixedPar = 0, the entire term is 0 regardless of refWAFC; the
+    // engine never adds fixed-rate loans during reinvestment (every reinvest
+    // row sets isFixedRate:false), so a deal that starts all-floating stays
+    // all-floating. Blocking on the absent anchor in that case would refuse a
+    // valid projection; the resolver downgrades to a non-blocking warn so the
+    // partner sees the gap but the projection runs.
+    const raw = loadRaw();
+    if (raw.constraints.interestMechanics) {
+      delete raw.constraints.interestMechanics.referenceWeightedAverageFixedCoupon;
+      delete raw.constraints.interestMechanics.reference_weighted_average_fixed_coupon;
+    }
+    // Force all holdings to floating-rate so the conditional fixedPar=0
+    // carve-out fires.
+    for (const h of raw.holdings as any[]) {
+      h.isFixedRate = false;
+      h.fixedCouponPct = null;
+    }
+    const { resolved, warnings } = runResolver(raw);
+    const w = warnings.find((w) => w.field === "referenceWeightedAverageFixedCoupon");
+    expect(w, "expected non-blocking warn for all-floating deal").toBeDefined();
+    expect(w!.severity).toBe("warn");
+    expect(w!.blocking).toBe(false);
+    expect(resolved.referenceWeightedAverageFixedCoupon).toBeNull();
+    // Behavioral half: pass ONLY the carve-out warning to the gate. The gate
+    // must not throw when the only warning is non-blocking. (Other unmutated
+    // fixture warnings may still block on their own — isolating the assertion
+    // to this warning keeps the test focused.)
     expect(() =>
       buildFromResolved(resolved, DEFAULT_ASSUMPTIONS, [w!]),
     ).not.toThrow();

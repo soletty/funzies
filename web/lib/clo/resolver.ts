@@ -1398,21 +1398,22 @@ export function resolveWaterfallInputs(
   // cure windows are typically 5 business days post-payment-date — sub-period
   // in a quarterly model, so if a missed payment is still missed at the next
   // period checkpoint the cure has lapsed. Override only when modelling a
-  // non-standard deal whose PPM grants a multi-period grace; that override
-  // would come through `userAssumptions` (UI knob) rather than this field.
+  // non-standard deal whose PPM grants a multi-period grace.
   //
-  // Until per-deal extraction lands, every deal runs with grace=0 (engine
-  // default). Emit a non-blocking warn so the partner-facing DATA INCOMPLETE
-  // banner surfaces the gap when the PPM indicates a multi-period grace is
-  // possible. Wrong-direction error is over-trigger (false EoD), never
-  // under-trigger — safe but worth flagging. Flip to `severity: "error",
-  // blocking: true` once extraction lands per the KI-58 pattern.
+  // Severity is `info` (filtered out of the partner-facing warnings panel
+  // by `ProjectionModel.tsx`) — surfacing this on every healthy projection
+  // would be noise: grace=0 is PPM-correct for the modal CLO and the wrong-
+  // direction error is over-trigger (false EoD under stress), never under-
+  // trigger. Diagnostic visibility is preserved for engineers; partners are
+  // not spammed. When extraction lands, flip this site to
+  // `severity: "error", blocking: true` — same shape as the other
+  // computational-input blocking gates in this resolver.
   const interestNonPaymentGracePeriods: number | null = null;
   warnings.push({
     field: "interestNonPaymentGracePeriods",
     message:
-      "PPM § 10(a)(i) interest-non-payment grace period not extracted; engine defaults to 0 (any senior-interest shortfall fires Event of Default immediately). This is the conservative PPM-correct default for the modal quarterly-payment CLO (sub-period cure windows lapse before the next checkpoint), but a deal whose PPM grants a multi-period grace would over-trigger acceleration under stress. Verify PPM § 10(a)(i) before relying on stress-scenario IRRs.",
-    severity: "warn",
+      "PPM § 10(a)(i) interest-non-payment grace period not extracted; engine defaults to 0 (any senior-interest shortfall fires Event of Default immediately). This is the conservative PPM-correct default for the modal quarterly-payment CLO (sub-period cure windows lapse before the next checkpoint). A deal whose PPM grants a multi-period grace would over-trigger acceleration under stress; verify PPM § 10(a)(i) before relying on stress-scenario IRRs.",
+    severity: "info",
     blocking: false,
   });
 
@@ -1846,13 +1847,34 @@ export function resolveWaterfallInputs(
         ? (ifmRaw.reference_weighted_average_fixed_coupon as number)
         : null;
   if (referenceWeightedAverageFixedCoupon == null) {
-    warnings.push({
-      field: "referenceWeightedAverageFixedCoupon",
-      message:
-        "PPM Reference Weighted Average Fixed Coupon (Condition 1, PDF p. 305) is not extracted — required as the anchor for the Excess WAC term in Floating WAS compliance arithmetic. Without it, the per-period engine-vs-trustee Floating WAS would drift on any deal whose true reference differs from the previously-hardcoded 4.0% (Ares-family default). Refusing to run rather than ship a projection that silently mis-anchors the Excess WAC.",
-      severity: "error",
-      blocking: true,
-    });
+    // Excess WAC = (wafc − refWAFC) × 100 × (fixedPar / floatingPar). When
+    // the deal has no fixed-rate loans, fixedPar = 0 and the term is zero
+    // regardless of refWAFC — the absent extraction has no computational
+    // effect and blocking would refuse a valid all-floating-rate CLO. The
+    // engine never introduces fixed-rate loans during reinvestment (every
+    // reinvestment row is `isFixedRate: false`, see projection.ts), so a
+    // deal that starts all-floating stays all-floating. Block only when
+    // any loan is fixed-rate; otherwise emit a non-blocking warn so the
+    // partner sees the gap but the projection runs (with refWAFC defaulted
+    // in the engine via `?? 4.0`, which is multiplied by zero anyway).
+    const hasFixedRate = loans.some((l) => l.isFixedRate === true);
+    if (hasFixedRate) {
+      warnings.push({
+        field: "referenceWeightedAverageFixedCoupon",
+        message:
+          "PPM Reference Weighted Average Fixed Coupon (Condition 1, PDF p. 305) is not extracted — required as the anchor for the Excess WAC term in Floating WAS compliance arithmetic on a deal that holds fixed-rate obligations. Without it, the per-period engine-vs-trustee Floating WAS would drift on any deal whose true reference differs from the previously-hardcoded 4.0% (Ares-family default). Refusing to run rather than ship a projection that silently mis-anchors the Excess WAC.",
+        severity: "error",
+        blocking: true,
+      });
+    } else {
+      warnings.push({
+        field: "referenceWeightedAverageFixedCoupon",
+        message:
+          "PPM Reference Weighted Average Fixed Coupon (Condition 1, PDF p. 305) is not extracted, but the deal currently has no fixed-rate obligations — Excess WAC term is identically zero so the absent anchor has no computational effect. Projection proceeds; if a future ingest introduces fixed-rate positions, this warning escalates to blocking.",
+        severity: "warn",
+        blocking: false,
+      });
+    }
   }
 
   return {

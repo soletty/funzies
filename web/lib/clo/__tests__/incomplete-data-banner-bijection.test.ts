@@ -57,8 +57,9 @@ interface DivergentFilterOffender {
  *
  * Known limitation: only catches arrow / function expressions inline. A
  * `.filter(namedPredicate)` whose body references `.blocking` is not detected.
- * No production code does this today; if it ever does, KI-59 step 4 (promote
- * `blocking` to required at the type level) closes the gap structurally.
+ * No production code does this today; promoting `blocking` to required at the
+ * `ResolutionWarning` type level (already true on the discriminated union for
+ * `severity === "error"`) closes the gap structurally.
  */
 function findDivergentBlockingFilters(sf: ReturnType<Project["getSourceFile"]>): DivergentFilterOffender[] {
   if (!sf) return [];
@@ -120,9 +121,9 @@ describe("selectBlockingWarnings (the single predicate)", () => {
   it("predicate uses blocking literally, not severity (severity=error alone does not block)", () => {
     // Pre-discriminated-union, this test constructed `severity: "warn", blocking: true`
     // to prove the predicate uses `blocking === true` strict equality and not
-    // `severity === "error"`. The discriminated union (KI-59 close) now forbids
-    // that combo at the type level, so the test inverts: construct the carve-out
-    // shape `severity: "error", blocking: false` (the real-world combo at the
+    // `severity === "error"`. The discriminated union now forbids that combo at
+    // the type level, so the test inverts: construct the carve-out shape
+    // `severity: "error", blocking: false` (the real-world combo at the
     // resolver's concentration-vocabulary site) and prove the predicate does NOT
     // select it. Same intent: severity is presentational; blocking is the gate.
     const ws: ResolutionWarning[] = [
