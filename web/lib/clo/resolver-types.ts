@@ -138,8 +138,9 @@ export interface ResolvedDealData {
    *  Null = use the engine's PPM-correct default (0). Standard CLO PPMs cure
    *  EoD within ~5 business days of the payment date — sub-period in a
    *  quarterly model, so if a missed payment survives to the next checkpoint
-   *  the cure has lapsed. Override only for non-standard deals whose PPM
-   *  grants a multi-period grace (rare; threaded via `userAssumptions`). */
+   *  the cure has lapsed. Non-standard deals whose PPM grants a multi-period
+   *  grace are uncommon; if one shows up, the override path is to set this
+   *  field on the resolved deal (no UI assumption knob exists today). */
   interestNonPaymentGracePeriods: number | null;
   baseRateFloorPct: number | null; // extracted reference rate floor (null = not extracted, use default)
   /** ISO 4217 currency code for the deal (e.g. "EUR", "USD", "GBP"). Sourced
