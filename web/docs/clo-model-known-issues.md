@@ -23,8 +23,8 @@ Updated per sprint. Entries are closed by deleting the entry, its index pointer,
 Categorized so a partner reading cold can separate "what's still wrong" from "what we decided." Section membership is authoritative; the numerical KI order is historical (sprint-chronological).
 
 ### Open — currently wrong, path to close documented
-- [KI-08 — `trusteeFeesPaid` bundled steps B+C (PARTIAL: pre-fill D3 + cap mechanics C3 shipped; KI-16 PPM verifications remain)](#ki-08)
-- [KI-12a — Senior / sub management fee base discrepancy](#ki-12a)
+- [KI-08 — `trusteeFeesPaid` bundled steps B+C (PARTIAL: pre-fill D3 + cap mechanics C3 shipped; KI-16 PPM verifications remain)](#ki-08) — *day-count residual sub-component blocked on KI-12a data acquisition*
+- [KI-12a — Senior / sub management fee base discrepancy](#ki-12a) — **BLOCKED ON DATA ACQUISITION** (Q4 2025 historical SDF + trustee-report bundles)
 - [KI-16 — KI-08 closure assumptions pending PPM verification](#ki-16)
 - [KI-18 — pctCccAndBelow per-agency rollup ships; ~1.3pp residual from per-position rating extraction coverage gap](#ki-18)
 - [KI-20 — D2 legacy escape-hatch on 6 test-factory sites](#ki-20)
@@ -32,7 +32,6 @@ Categorized so a partner reading cold can separate "what's still wrong" from "wh
 - [KI-23 — Industry taxonomy missing on BuyListItem + ResolvedLoan blocks industry-cap filtering](#ki-23)
 - [KI-24 — E1 citation propagation coverage is partial (8 deferred paths)](#ki-24)
 - [KI-27 — Pre-existing tranche `deferredInterestBalance` dropped at projection start](#ki-27)
-- [KI-28 — Asset-side fixed-rate loans accrue on Actual/360 (mirrored tranche uses 30/360)](#ki-28)
 - [KI-33 — Reinvestment loan synthesis assumes par-purchase (€1 diverted = €1 par)](#ki-33)
 - [KI-34 — Non-call period not enforced; user-typed pre-NCP call dates pass through](#ki-34)
 - [KI-35 — Partial DDTL draw silently discards the un-drawn commitment](#ki-35)
@@ -44,7 +43,7 @@ Categorized so a partner reading cold can separate "what's still wrong" from "wh
 - [KI-29 — Discount / long-dated obligation haircuts are static snapshots, not recomputed forward](#ki-29)
 - [KI-31 — Hedge cost bps never extracted; engine emits zero on every hedged deal](#ki-31)
 - [KI-32 — Per-position agency recovery rates ignored for forward defaults (used only for pre-existing defaulted positions)](#ki-32)
-- [KI-36 — Per-tranche `payment_frequency` and `day_count_convention` extracted but not consumed](#ki-36)
+- [KI-36 — Per-tranche `payment_frequency` extracted but not consumed (uniform quarterly cadence)](#ki-36)
 - [KI-37 — Loan-level `floorRate`, `pikAmount`, `creditWatch`, `isCovLite` extracted but unused by engine](#ki-37)
 - [KI-38 — FX / multi-currency unmodeled; `native_currency` parsed and discarded](#ki-38)
 - [KI-51 — `normalizeComplianceTestType` derives `isPassing` as `actual >= trigger` for all tests, including lower-is-better (WARF, WAL, concentration)](#ki-51)
@@ -61,9 +60,12 @@ Categorized so a partner reading cold can separate "what's still wrong" from "wh
 - [KI-15 — B2 accelerated-mode incentive fee hardcoded inactive](#ki-15)
 
 ### Cascades — residuals that close as upstream closes
-- [KI-12b — Day-count precision active; six class-interest markers under harness period mismatch](#ki-12b)
-- [KI-13 — Sub distribution cascade residual](#ki-13)
-- [KI-14 — IC compositional parity at T=0 (cascade)](#ki-14)
+
+*All three cascades below are gated on KI-12a's harness fix, which is **blocked on data acquisition** (Q4 2025 historical SDF + trustee-report bundles). Don't attempt re-baseline or closure work on these until the source data lands; see KI-12a's blocker note for the data-availability gate and `web/CLAUDE.md` § "Source data access" for the path to acquire it.*
+
+- [KI-12b — Day-count precision active; six class-interest markers under harness period mismatch](#ki-12b) — **blocked on KI-12a data**
+- [KI-13 — Sub distribution cascade residual](#ki-13) — **blocked on KI-12a data**
+- [KI-14 — IC compositional parity at T=0 (cascade)](#ki-14) — **blocked on KI-12a data**
 
 ### Design decisions — documented for audit clarity (not open issues)
 - [KI-19 — NR positions proxied to Caa2 for WARF (Moody's convention)](#ki-19)
@@ -198,6 +200,8 @@ The genuine latent risk this entry tracks: under deferred-interest stress, defer
 
 Both markers track the 91/360-vs-90/360 day-count residual exposed by the harness period mismatch (sibling mechanism to the six KI-12b class-interest markers); they re-baseline or remove together when KI-12a lands.
 
+**Blocked on KI-12a data acquisition (added 2026-05-02).** Closure of these two day-count residual markers (the only KI-08 sub-component still moving) waits on KI-12a's harness fix, which itself is blocked on re-ingesting Q4 2025 (or earlier) historical SDF + trustee-report bundles for Euro XV — see [KI-12a's blocker note](#ki-12a). Don't attempt closure work on these markers until that data lands. KI-08's other open work (KI-16 PPM verifications) is independent and unblocked.
+
 **Cascade re-baselines**: KI-13a adjusted by the C3 split preserving aggregate behavior; `stepTrace.trusteeFeesPaid` currently bundles steps (B)+(C)+(Y)+(Z) to preserve the N1 harness bucket semantics. Split-out fields (`adminFeesPaid`, `trusteeOverflowPaid`, `adminOverflowPaid`) are additive diagnostic fields — the harness will be un-aggregated in a follow-up (see task #48).
 
 **Ledger disposition**: remain OPEN (partial) until KI-16 resolves the three PPM verifications. Then move to Closed issues.
@@ -206,6 +210,8 @@ Both markers track the 91/360-vs-90/360 day-count residual exposed by the harnes
 
 <a id="ki-12a"></a>
 ### [KI-12a] N1 harness period mismatch — engine Q2 projection vs trustee Q1 actual
+
+**Blocked on data acquisition (added 2026-05-02).** Closure requires re-ingesting at least one prior reporting cycle (Q4 2025, payment date Jan 15 2026) into the database — full SDF bundle (all `SDF *.csv` files) plus the BNY trustee monthly report and note valuation PDFs. **Neither the DB nor `~/Downloads/ARESXV_CDSDF_*` has these.** Verified 2026-05-02: `clo_report_periods` carries 17 historical rows for Euro XV, but only the latest (Q1 2026, `b064df0b-9c12-4624-9d1c-ca776bfaf600`) has full per-period ingest; all 16 prior periods carry only the Intex past-cashflows backfill (`clo_tranche_snapshots` rows with `data_source='intex_past_cashflows'`) — no holdings, no pool summary, no compliance tests, no waterfall steps, no account balances. Q1 SDF on disk does NOT carry prior-period state (no "prior period" columns; verified `parse-notes.ts` / `parse-collateral.ts`). Reverse-applying Q1 trade activity from `clo_trades` is not viable — most rows have null `par_amount` and null `trade_type` (they're cashflow events, not buy/sell records). **Don't attempt closure work on KI-12a or its dependents (KI-12b, KI-13, KI-14, KI-08 day-count residuals) until the Q4 2025 source bundle is acquired and ingested.** See `web/CLAUDE.md` § "Source data access (CLO product)" for the data-acquisition guidance.
 
 **Context:** This entry was originally framed as "Senior/sub management fee base discrepancy (attribution pending)" and then narrowed to "fee-base period-timing snapshot error." Independent review flagged that the actual issue is one level up: **the N1 harness is not a Q1 replay at all — it's a Q2 forward projection compared against Q1 trustee data.** The fee drift is the symptom most visible; the cause is structural to the harness.
 
@@ -273,13 +279,15 @@ Not closed by Sprint 1 / B3 (day-count) or Sprint 3 / C3 (fee pre-fill). Structu
 <a id="ki-12b"></a>
 ### [KI-12b] Day-count precision active; surfacing KI-12a period mismatch on 6 class-interest buckets
 
+**Blocked on KI-12a data acquisition (added 2026-05-02).** All six class-interest markers close (or re-baseline) in lockstep with KI-12a's harness fix, which is blocked on re-ingesting Q4 2025 historical SDF + trustee-report bundles. See [KI-12a's blocker note](#ki-12a). Don't attempt closure here; nothing in this entry moves until KI-12a's data lands.
+
 **Status (2026-04-23 update):** B3 shipped. `dayCountFraction` helper + per-tranche convention (Actual/360 float, 30/360 fixed) replaced the legacy `/4` everywhere in the period loop. First-principles arithmetic tests (`b3-day-count.test.ts`, 11 cases) anchor the helper to PPM worked example `2.966% × 310M × 90/360 = €2,298,650`.
 
 **What KI-12b now represents:** residual drift on the harness's six class-interest buckets caused by the KI-12a period mismatch becoming arithmetically visible. Pre-B3, the `/4 = 90/360` coincidence masked this — engine Q2 (91 days) and trustee Q1 (90 days) produced identical tranche coupons under /4. Post-B3, engine Q2 accrues Actual/360 on 91 days and diverges from trustee's 90-day window by one day of interest per tranche.
 
 **PPM reference:** Condition 1 — "Day count (Actual/360 float, 30/360 fixed)"; confirmed via `ppm.json` grep and PPM worked example (see KI-12a).
-**Current engine behavior:** B3 landed. Engine uses `dayCountFraction("actual_360"|"30_360", periodStart, periodEnd)` for tranche coupons, loan interest, and all management/trustee/hedge fees. `trancheDayFrac(t) = t.isFloating ? dayFracActual : dayFrac30`.
-**PPM-correct behavior:** Per-tranche day-count convention + actual days in the period. Applies across every interest-denominated step (tranche coupons, management fees, hedge legs).
+**Current engine behavior:** B3 landed. The engine reads `loan.dayCountConvention` and `tranche.dayCountConvention` (canonicalized to one of `actual_360 | 30_360 | 30e_360 | actual_365`) and dispatches via `dayCountFraction(convention, periodStart, periodEnd)`. Per-period cache `dayFracByConvention` precomputes all four. `trancheDayFrac(t)` returns `dayFracByConvention[t.dayCountConvention]` when set, else falls back to `t.isFloating ? actual_360 : 30_360` for legacy synthetic inputs without an explicit convention. Loan-side per-position accrual at the interest-collection site uses the same dispatch. Management / trustee / hedge fees remain on Actual/360 per Condition 1 (deal-level, not per-position).
+**PPM-correct behavior:** Per-tranche / per-loan day-count convention + actual days in the period. Applies across every interest-denominated step (tranche coupons, loan accrual, management fees, hedge legs).
 
 **Quantitative magnitude — the B3 / KI-12a interaction (new in 2026-04-23 review):**
 
@@ -334,6 +342,8 @@ The Class A/B/C/D/E/F interest tie-outs currently pass at |drift| < €1 under l
 <a id="ki-13"></a>
 ### [KI-13] Sub distribution cascade residual
 
+**Blocked on KI-12a data acquisition (added 2026-05-02).** This residual moves only as upstream KIs close. The largest open upstream — KI-12a — is blocked on re-ingesting Q4 2025 historical SDF + trustee-report bundles; see [KI-12a's blocker note](#ki-12a). Re-baselining `KI-13a-engineMath` is gated on that data landing. Don't attempt re-baseline work here until then.
+
 **PPM reference:** Step (DD) — residual to sub (equity) note.
 **Current engine behavior:** `subDistribution` is the residual bucket; every upstream drift (taxes, trustee fee, mgmt fees, fee-base) cascades into it. Direction depends on the net sign of those drifts.
 **PPM-correct behavior:** N/A — this is a cascade, not an independent mechanic. Closes automatically as upstream KIs close.
@@ -355,6 +365,8 @@ The Class A/B/C/D/E/F interest tie-outs currently pass at |drift| < €1 under l
 
 <a id="ki-14"></a>
 ### [KI-14] IC compositional parity at T=0 (cascade residual)
+
+**Blocked on KI-12a data acquisition (added 2026-05-02).** The remaining ~3 pp drift across Classes A/B, C, D is the KI-12a fee-base mismatch flowing into the IC numerator at T=0. Closes when KI-12a closes, which is blocked on re-ingesting Q4 2025 historical SDF + trustee-report bundles; see [KI-12a's blocker note](#ki-12a). Don't attempt re-baseline of `KI-IC-AB` / `KI-IC-C` / `KI-IC-D` until then.
 
 **PPM reference:** Condition 12 (Interest Coverage Test); §(A)(i), (A)(ii), (B), (C), (E)(1) components in the numerator.
 **Current engine behavior:** Engine computes IC at T=0 (`initialState.icTests`) by deducting PPM §(A)(i) taxes, §(B) trustee, §(C) admin, §(E) senior mgmt, §(F) hedge from the scheduled interest base. Under legit pins (production path via `defaultsFromResolved`), engine IC ratios still sit slightly above trustee because KI-01 (issuer profit) and KI-12a (senior mgmt fee base mismatch) remain open — net residual drift ~3 pp per class.
@@ -629,35 +641,6 @@ The per-period deferred-accrual logic (search `deferredAccrualByTranche`) correc
 
 ---
 
-<a id="ki-28"></a>
-### [KI-28] Asset-side fixed-rate loans accrue on Actual/360 (mirrored tranche uses 30/360)
-
-**PPM reference:** Per-instrument day-count convention. Floating instruments accrue on Actual/360 (European standard); fixed instruments accrue on 30/360 (US) or 30E/360 (European Eurobond basis). The PPM specifies the convention per tranche; market practice for fixed-rate loans matches the bond convention (30/360 or 30E/360).
-
-**Current engine behavior:** `web/lib/clo/projection.ts:1382-1383` correctly defines `trancheDayFrac(t)` as `t.isFloating ? dayFracActual : dayFrac30` and applies it on the liability side (lines 1761, 2075, 2136, 2239). On the asset side, the engine treats fixed and floating loans identically:
-
-- `web/lib/clo/projection.ts:1576`: `interestCollected += loanBegPar * (loan.fixedCouponPct ?? 0) / 100 * dayFracActual;` — fixed-rate branch uses `dayFracActual`.
-- `web/lib/clo/projection.ts:1578`: `interestCollected += loanBegPar * (flooredBaseRate + loan.spreadBps / 100) / 100 * dayFracActual;` — floating branch also uses `dayFracActual`.
-
-The convention for the asset side is asymmetric with the liability side: a Class B-2 fixed-rate tranche accrues on 30/360 in the engine (correctly), but a fixed-rate loan on the asset side that funds it accrues on Actual/360. Across a 91-day quarter that is `91/360 = 0.2528` vs `90/360 = 0.2500` — about 11 bps of one period's interest on the fixed-rate slice.
-
-**PPM-correct behavior:** Asset-side accrual should mirror the loan's coupon convention. A fixed-rate loan typically accrues on 30/360 (matching the underlying bond). The engine should use a per-loan day-count fraction (`loan.isFixedRate ? dayFrac30 : dayFracActual`).
-
-**Quantitative magnitude (measured 2026-04-30):** Euro XV fixed-rate share = **7.39%** (42 of 413 loans, €36,455,217 of €493,252,343 total par). Par-weighted average fixed coupon = **4.28%**. Period drift on a 91-day quarter ≈ `0.0739 × €493M × 0.0428 × (1/360) ≈ €4,335`; over a 10-year projection ≈ €43K cumulative. Smaller order than KI-12b (which moves the entire €493M floating slice by one day), but non-zero and now pinnable. **Convention question (30/360 US vs 30E/360) remains open — see step 1 below.**
-
-**Deferral rationale:** Confessed asymmetry between the asset and liability day-count branches. The fix is small in code but needs Euro XV-specific PPM/trustee verification of which fixed-rate convention applies to the underlying loan obligor (30/360 vs 30E/360) before being committed.
-
-**Path to close:**
-1. Verify against Euro XV trustee report and loan-level documentation which fixed-rate convention applies per loan. Fixture census: 31 of 42 fixed-rate loans tag "30/360 (European)" → **30E/360** (both endpoints capped at 30, no anchor rule); 4 loans "30/360 (EOM)"; 4 loans "30E/360 (ISDA)"; 2 loans "30/360 (US)"; 1 loan "Actual/365". The majority convention for Euro XV fixed-rate is 30E/360, NOT 30/360 US.
-2. **Extend `dayCountFraction` (`projection.ts:841-860`).** It currently supports only `"actual_360"` and US `"30_360"` (clamps day-of-month per ISDA §4.16(f) anchor rule). Add a `"30e_360"` branch (both endpoints capped at 30, no anchor rule) and an `"actual_365"` branch (days / 365). This must land before step 3 — otherwise step 3 will use the wrong convention for the majority of Euro XV fixed-rate positions.
-3. Add a per-loan day-count branch at `projection.ts:1576-1578`: replace the unconditional `dayFracActual` with `(loan.isFixedRate ? dayFracFixed : dayFracActual)` where `dayFracFixed` is computed from the loan-level day-count convention via the extended `dayCountFraction` from step 2.
-4. Add unit tests parallel to `b3-day-count.test.ts`: (a) a synthetic 7%-coupon fixed-rate loan with 30E/360 convention on a 91-day period producing interest equal to `par × 7% × 90/360`; (b) a synthetic Actual/365 loan over a 91-day period producing `par × coupon × 91/365`.
-5. Re-baseline N1 harness for the measured ~€4.3K/quarter shift on Euro XV's 7.39% fixed slice.
-
-**Test:** No active marker today. When the fix lands, add `KI-28-assetFixedDayCount` to `b3-day-count.test.ts` pinning the 30/360 (or 30E/360) convention on a synthetic fixed-rate loan over a 91-day period.
-
----
-
 <a id="ki-29"></a>
 ### [KI-29] Discount / long-dated obligation haircuts are static snapshots, not recomputed forward
 
@@ -835,34 +818,25 @@ When `ddtlDrawPercent < 100`, `loan.survivingPar = fundedPar` overwrites the ful
 ---
 
 <a id="ki-36"></a>
-### [KI-36] Per-tranche `payment_frequency` and `day_count_convention` extracted but not consumed
+### [KI-36] Per-tranche `payment_frequency` extracted but not consumed (uniform quarterly cadence)
 
-**PPM reference:** Per-tranche indenture terms. Each tranche's payment frequency (Quarterly / Semi-Annual / Monthly) and day-count convention (Actual/360, 30/360 US, 30E/360 European) are PPM-specified per class.
+**PPM reference:** Per-tranche indenture term. Each tranche's payment frequency (Quarterly / Semi-Annual / Monthly) is PPM-specified per class.
 
-**Current engine behavior:** Verified extraction:
+**Current engine behavior:** Extraction populates `clo_tranches.payment_frequency` from the SDF (`web/lib/clo/sdf/parse-notes.ts` `payment_frequency` column) and `access.ts:540` reads it onto `CloTranche.paymentFrequency`. The field is not propagated to `ResolvedTranche` and is unread by the engine. The projection generates period boundaries via `addQuarters(_, 1)` at the period stub anchor — quarterly cadence for every tranche regardless of indenture terms. There is no mechanism to express semi-annual or monthly cadence, nor to mix cadences across tranches in a single deal.
 
-- `web/lib/clo/sdf/parse-notes.ts:24-25` declares `payment_frequency: string | null` and `day_count_convention: string | null` on the parsed SDF notes type.
-- `web/lib/clo/sdf/parse-notes.ts:126-127` populates from raw SDF columns (`Payment_Frequency`, plus a `buildDayCountConvention` derivation).
+**PPM-correct behavior:** Each tranche carries its PPM-specified payment frequency; the engine generates per-tranche period ends and accrues interest on those windows.
 
-Neither field is consumed downstream — `web/lib/clo/resolver.ts`, `resolver-types.ts`, and `projection.ts` contain no references to either. The engine assumes (a) uniform quarterly cadence for all tranches via `addQuarters(_, 1)` at the period stub anchor (`projection.ts:944`), and (b) binary day-count via `t.isFloating ? Actual/360 : 30/360 (US)` at `projection.ts:1382-1383`. There is no mechanism to express 30E/360 (European) or to mix payment frequencies across tranches.
-
-**PPM-correct behavior:** Each tranche carries its PPM-specified payment frequency and day-count convention; the engine generates per-tranche period ends and per-tranche accrual fractions.
-
-**Quantitative magnitude:** Zero on Euro XV (all 8 tranches are quarterly; B-2 is 30/360 US per the engine's binary mapping, which happens to match Euro XV; A/B-1/C/D/E/F are Actual/360 floating, also matching). Latent on:
-- Any deal with one or more semi-annual tranches (engine treats them as quarterly → 2× the period count, distorted day-count, distorted IRR).
-- Any deal with 30E/360 fixed-rate tranches (engine treats as 30/360 US — Euro endpoint difference is small but compounds across the projection).
-- Any deal with a mixed-cadence structure (impossible to model in current engine).
+**Quantitative magnitude:** Zero on Euro XV (all 8 tranches are quarterly). Latent on any deal with one or more semi-annual tranches (engine would treat them as quarterly → 2× the period count, distorted day-count, distorted IRR), or any deal with a mixed-cadence structure (currently impossible to model).
 
 **Deferral rationale:** Engine refactor required to support variable per-tranche cadence. Closely related to KI-04 (Frequency Switch) — when KI-04 lands, the natural extension is per-tranche cadence rather than just deal-level.
 
 **Path to close:**
-1. Add `paymentFrequency: "Quarterly" | "SemiAnnual" | "Monthly"` and `dayCountConvention: "Actual360" | "Thirty360US" | "Thirty360E"` to `ResolvedTranche`.
-2. Populate from `raw.trancheSnapshots[*].payment_frequency` / `.day_count_convention` in the resolver tranche-resolution block.
-3. Replace `addQuarters(_, 1)` at `projection.ts:944` with per-tranche period-end derivation.
-4. Replace `trancheDayFrac(t)` at `projection.ts:1382-1383` with a dispatch on `t.dayCountConvention`.
-5. Update test fixtures to verify mixed-cadence deals project correctly.
+1. Add `paymentFrequency: "Quarterly" | "SemiAnnual" | "Monthly"` to `ResolvedTranche`.
+2. Populate from `CloTranche.paymentFrequency` in `resolveTranches` (both DB and PPM-fallback branches).
+3. Replace the engine's deal-level `addQuarters(_, 1)` cadence with per-tranche period-end derivation. This requires a per-tranche payment schedule, not the current single shared schedule.
+4. Update synthetic test fixtures to verify mixed-cadence deals project correctly.
 
-**Test:** No active marker on Euro XV. When extraction support lands, add resolver tests pinning the extracted values for Euro XV. When engine support lands, add synthetic-deal tests for semi-annual and 30E/360.
+**Test:** No active marker on Euro XV (uniform quarterly). When engine support lands, synthetic-deal tests for semi-annual and mixed-cadence pin the new behavior.
 
 ---
 

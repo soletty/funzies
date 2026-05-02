@@ -39,6 +39,7 @@ const SCAN_FILES: string[] = [
   "web/lib/clo/resolver-types.ts",
   "web/lib/clo/build-projection-inputs.ts",
   "web/lib/clo/pool-metrics.ts",
+  "web/lib/clo/day-count-canonicalize.ts",
 ];
 
 function parseLedgerAnchors(): Set<string> {

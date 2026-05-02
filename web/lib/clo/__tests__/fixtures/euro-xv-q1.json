@@ -13,7 +13,8 @@
         "isAmortising": false,
         "amortisationPerPeriod": null,
         "amortStartDate": null,
-        "source": "snapshot"
+        "source": "snapshot",
+        "dayCountConvention": "actual_360"
       },
       {
         "className": "Class B-1",
@@ -27,7 +28,8 @@
         "isAmortising": false,
         "amortisationPerPeriod": null,
         "amortStartDate": null,
-        "source": "snapshot"
+        "source": "snapshot",
+        "dayCountConvention": "actual_360"
       },
       {
         "className": "Class B-2",
@@ -41,7 +43,8 @@
         "isAmortising": false,
         "amortisationPerPeriod": null,
         "amortStartDate": null,
-        "source": "snapshot"
+        "source": "snapshot",
+        "dayCountConvention": "30e_360"
       },
       {
         "className": "Class C",
@@ -55,7 +58,8 @@
         "isAmortising": false,
         "amortisationPerPeriod": null,
         "amortStartDate": null,
-        "source": "snapshot"
+        "source": "snapshot",
+        "dayCountConvention": "actual_360"
       },
       {
         "className": "Class D",
@@ -69,7 +73,8 @@
         "isAmortising": false,
         "amortisationPerPeriod": null,
         "amortStartDate": null,
-        "source": "snapshot"
+        "source": "snapshot",
+        "dayCountConvention": "actual_360"
       },
       {
         "className": "Class E",
@@ -83,7 +88,8 @@
         "isAmortising": false,
         "amortisationPerPeriod": null,
         "amortStartDate": null,
-        "source": "snapshot"
+        "source": "snapshot",
+        "dayCountConvention": "actual_360"
       },
       {
         "className": "Class F",
@@ -97,7 +103,8 @@
         "isAmortising": false,
         "amortisationPerPeriod": null,
         "amortStartDate": null,
-        "source": "snapshot"
+        "source": "snapshot",
+        "dayCountConvention": "actual_360"
       },
       {
         "className": "Subordinated Notes",
@@ -111,7 +118,8 @@
         "isAmortising": false,
         "amortisationPerPeriod": null,
         "amortStartDate": null,
-        "source": "snapshot"
+        "source": "snapshot",
+        "dayCountConvention": "actual_360"
       }
     ],
     "poolSummary": {

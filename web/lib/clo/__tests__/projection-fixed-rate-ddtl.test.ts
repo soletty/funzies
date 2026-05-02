@@ -46,6 +46,41 @@ describe("Fixed-rate loan projection", () => {
     expect(high.periods[0].interestCollected).toBeCloseTo(expected, 0);
   });
 
+  it("fixed-rate loan with explicit dayCountConvention='30e_360' accrues at 30E/360", () => {
+    // Per-loan accrual reads loan.dayCountConvention. On the 92-day
+    // Mar 9 → Jun 9 window, 30E/360 collapses to 90/360 (months capped
+    // at 30) while Actual/360 reads 92/360 — visible delta of (92-90)/360
+    // = ~0.56% of one period's interest. Existing tests in this file
+    // rely on the undefined → Actual/360 fallback; if that path is ever
+    // tightened (e.g. requiring every loan to declare a convention),
+    // those tests need updating.
+    const FRAC_30E = dayCountFraction("30e_360", "2026-03-09", "2026-06-09");
+    expect(FRAC_30E).toBeCloseTo(90 / 360, 10);
+
+    const loan = {
+      parBalance: 10_000_000,
+      maturityDate: addQuarters("2026-03-09", 20),
+      ratingBucket: "B",
+      spreadBps: 0,
+      isFixedRate: true,
+      fixedCouponPct: 8.0,
+      dayCountConvention: "30e_360" as const,
+    };
+
+    const result = runProjection(
+      makeInputs({
+        loans: [loan],
+        initialPar: 10_000_000,
+        baseRatePct: 2.5,
+        defaultRatesByRating: uniformRates(0),
+        cprPct: 0,
+      })
+    );
+
+    const expected = 10_000_000 * 8 / 100 * FRAC_30E;
+    expect(result.periods[0].interestCollected).toBeCloseTo(expected, 0);
+  });
+
   it("mixed portfolio: floating + fixed", () => {
     const floating = {
       parBalance: 9_000_000,

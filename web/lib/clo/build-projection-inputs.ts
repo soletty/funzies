@@ -502,6 +502,7 @@ export function buildFromResolved(
       amortStartDate: t.amortStartDate,
       priorInterestShortfall: t.priorInterestShortfall,
       priorShortfallCount: t.priorShortfallCount,
+      dayCountConvention: t.dayCountConvention,
     })),
     ocTriggers: resolved.ocTriggers.map(t => ({
       className: t.className,

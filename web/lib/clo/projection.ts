@@ -16,6 +16,7 @@ import {
   sumSeniorExpensesPreOverflow,
   type SeniorExpenseBreakdown,
 } from "./senior-expense-breakdown";
+import type { DayCountConvention } from "./day-count-canonicalize";
 
 export interface LoanInput {
   parBalance: number;
@@ -53,6 +54,14 @@ export interface LoanInput {
   /** Per-agency Fitch sub-bucket rating (e.g. "CCC+"). Same role as
    *  `moodysRatingFinal`. */
   fitchRatingFinal?: string;
+  /** Per-position day-count convention (canonicalized from
+   *  `clo_holdings.day_count_convention`). When undefined, the engine
+   *  falls back to Actual/360 — preserves byte-identical output on
+   *  legacy fixtures whose loans don't carry this field. Reinvested
+   *  loans synthesized inside the engine are always Actual/360 (the
+   *  market default for floating Euro-denominated paper) and leave
+   *  this field unset. */
+  dayCountConvention?: DayCountConvention;
 }
 
 // C2 — Coarse RatingBucket → Moody's WARF factor. Imported from pool-metrics.ts
@@ -163,6 +172,12 @@ export interface ProjectionInputs {
      *  at the correct boundary rather than re-deriving from scratch. Same
      *  null/undefined → 0 default + same TODO as `priorInterestShortfall`. */
     priorShortfallCount?: number | null;
+    /** Per-tranche day-count convention (canonicalized from
+     *  `clo_tranches.day_count_convention`). When undefined, the engine
+     *  falls back to `isFloating ? actual_360 : 30_360` — preserves
+     *  byte-identical output on legacy fixtures. Class B-2 in Euro XV
+     *  carries 30E/360 and is the load-bearing case for this field. */
+    dayCountConvention?: DayCountConvention;
   }[];
   ocTriggers: { className: string; triggerLevel: number; rank: number }[];
   icTriggers: { className: string; triggerLevel: number; rank: number }[];
@@ -1007,40 +1022,59 @@ export function computeCallLiquidation(
 /**
  * Day-count fraction between two ISO dates per a named convention.
  *
- * Consumers (B3):
- *   - `runProjection` inner period loop — all interest/fee/coupon accrual.
+ * Consumers:
+ *   - `runProjection` inner period loop — per-loan and per-tranche accrual,
+ *     plus all management / trustee / hedge fees.
  *   - `b3-day-count.test.ts` — first-principles correctness tests (PPM worked
  *     example, leap year, 30/360 invariance).
- *   - Several legacy test files (`projection-fixed-rate-ddtl`, `projection-
- *     systematic-edge-cases`, `projection-waterfall-audit`) — use this to
- *     compute expected values instead of the old `/ 4` shortcut.
  *
- * Conventions supported (per Ares XV PPM Condition 1 "Day count"):
- *   - 'actual_360': actual days between dates / 360. Used for floating-rate
- *     tranches, loans, and all management / trustee / hedge fees.
- *   - '30_360': 30-day-month convention. Used for fixed-rate tranches
- *     (Class B-2 in Euro XV). Leap-year-neutral and quarter-uniform.
+ * Conventions supported (Ares XV PPM Condition 1 "Day count" + per-position
+ * overrides extracted from `clo_holdings.day_count_convention` and
+ * `clo_tranches.day_count_convention`):
+ *   - 'actual_360': actual days / 360. Market default for Euro-denominated
+ *     floating instruments and for management / trustee / hedge fees.
+ *   - '30_360': US 30/360 (Bond Basis). Day-of-month clamps to 30 if the
+ *     end date's day > 30 and the start date's day ≥ 30 (ISDA §4.16(f)).
+ *   - '30e_360': European 30/360 (ISDA §4.16(g)). Both endpoints capped at
+ *     30; NO anchor rule (the start-day-≥-30 condition is not required).
+ *     Used by Euro-denominated fixed-rate positions (Class B-2 carries
+ *     this on Euro XV; majority of the fixture's fixed-rate loans are
+ *     "30/360 (European)" which is the same convention).
+ *   - 'actual_365': actual days / 365 (Actual/365 Fixed). Used by a small
+ *     subset of GBP / non-Euro positions on Euro XV.
  *
  * ISO date inputs must be YYYY-MM-DD. End date is exclusive (standard CLO
  * convention): Jan 15 → Apr 15 counts as 90 actual days, not 91.
- *
- * 30/360 variant: US (Bond Basis) rule. Day-of-month clamps to 30 if the end
- * date's day > 30 and the start date's day ≥ 30. For the common case (all
- * mid-month payment dates), every quarter comes out to exactly 90/360 = 0.25.
  */
 export function dayCountFraction(
-  convention: "actual_360" | "30_360",
+  convention: DayCountConvention,
   startIso: string,
   endIso: string,
 ): number {
   const [sy, sm, sd] = startIso.split("-").map(Number);
   const [ey, em, ed] = endIso.split("-").map(Number);
   if (convention === "30_360") {
-    // US 30/360: clamp days. Ref: 2006 ISDA Definitions §4.16(f).
+    // US 30/360: ISDA §4.16(f). d1 = min(sd, 30); d2 = min(ed, 30) only
+    // when d1 >= 30 (the anchor-clamp rule).
     const d1 = sd === 31 ? 30 : sd;
     const d2 = (ed === 31 && d1 >= 30) ? 30 : ed;
     const days = (ey - sy) * 360 + (em - sm) * 30 + (d2 - d1);
     return days / 360;
+  }
+  if (convention === "30e_360") {
+    // 30E/360: ISDA §4.16(g). Both endpoints unconditionally capped at
+    // 30 — no anchor rule. Diverges from US 30/360 only when the end
+    // date is the 31st AND the start date's day < 30.
+    const d1 = sd === 31 ? 30 : sd;
+    const d2 = ed === 31 ? 30 : ed;
+    const days = (ey - sy) * 360 + (em - sm) * 30 + (d2 - d1);
+    return days / 360;
+  }
+  if (convention === "actual_365") {
+    const start = Date.UTC(sy, sm - 1, sd);
+    const end = Date.UTC(ey, em - 1, ed);
+    const days = Math.round((end - start) / 86_400_000);
+    return days / 365;
   }
   // actual_360
   const start = Date.UTC(sy, sm - 1, sd);
@@ -1264,6 +1298,11 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
      *  Cash flow is captured separately via the aggregate `recoveryPipeline`
      *  so existing downstream cash accounting is unchanged. */
     defaultEvents: Array<{ quarter: number; defaultedPar: number }>;
+    /** Per-position day-count convention. Carried from `LoanInput` (in turn
+     *  from `clo_holdings.day_count_convention`). Undefined for synthetic
+     *  reinvestment loans created mid-projection — those use Actual/360 by
+     *  market default for floating Euro paper. */
+    dayCountConvention?: DayCountConvention;
   }
 
   const loanStates: LoanState[] = loans.map((l) => ({
@@ -1288,6 +1327,7 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     currentPrice: l.currentPrice,
     defaultedParPending: 0,
     defaultEvents: [],
+    dayCountConvention: l.dayCountConvention,
   }));
 
   // Remove never_draw DDTLs (drawQuarter <= 0) — they never fund and shouldn't appear in the portfolio
@@ -1814,6 +1854,15 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     const periodEnd = periodDate;
     const dayFracActual = dayCountFraction("actual_360", periodStart, periodEnd);
     const dayFrac30 = dayCountFraction("30_360", periodStart, periodEnd);
+    const dayFrac30E = dayCountFraction("30e_360", periodStart, periodEnd);
+    const dayFracActual365 = dayCountFraction("actual_365", periodStart, periodEnd);
+    /** Per-convention cache. One lookup per loan/tranche per period. */
+    const dayFracByConvention: Record<DayCountConvention, number> = {
+      actual_360: dayFracActual,
+      "30_360": dayFrac30,
+      "30e_360": dayFrac30E,
+      actual_365: dayFracActual365,
+    };
     // Period fraction relative to a standard quarter (0.25 year). Used to
     // prorate quarterly hazard / prepay rates for stub periods. For full
     // quarters this is approximately 1.0 and would alter pinned hazards by
@@ -1822,10 +1871,16 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     const periodFraction = dayFracActual / 0.25;
     const prorate = (rate: number): number =>
       useStub && q === 1 ? 1 - Math.pow(1 - rate, periodFraction) : rate;
-    /** Day-count fraction for a given tranche this period: Actual/360 for
-     *  floating, 30/360 for fixed-rate. */
+    /** Day-count fraction for a given tranche this period. Reads the
+     *  per-tranche convention extracted from `clo_tranches.day_count_convention`
+     *  (canonicalized in resolver). Falls back to the legacy
+     *  isFloating ? actual_360 : 30_360 default when undefined — preserves
+     *  byte-identical output on legacy test fixtures whose synthetic tranches
+     *  don't carry the field. */
     const trancheDayFrac = (t: ProjectionInputs["tranches"][number]): number =>
-      t.isFloating ? dayFracActual : dayFrac30;
+      t.dayCountConvention != null
+        ? dayFracByConvention[t.dayCountConvention]
+        : (t.isFloating ? dayFracActual : dayFrac30);
 
     // ── §4.3 balance instrumentation: capture defaulted-par at period start
     // BEFORE any per-period mutations so the conservation invariant holds.
@@ -2020,10 +2075,17 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
         const loan = loanStates[i];
         if (loan.isDelayedDraw) continue;
         const loanBegPar = loanBeginningPar[i];
+        // Per-position accrual convention. Reads from
+        // `clo_holdings.day_count_convention` via the resolver/canonicalizer.
+        // Synthetic reinvestment loans carry no convention and fall back to
+        // Actual/360 (market default for floating Euro paper).
+        const loanDayFrac = loan.dayCountConvention != null
+          ? dayFracByConvention[loan.dayCountConvention]
+          : dayFracActual;
         if (loan.isFixedRate) {
-          interestCollected += loanBegPar * (loan.fixedCouponPct ?? 0) / 100 * dayFracActual;
+          interestCollected += loanBegPar * (loan.fixedCouponPct ?? 0) / 100 * loanDayFrac;
         } else {
-          interestCollected += loanBegPar * (flooredBaseRate + loan.spreadBps / 100) / 100 * dayFracActual;
+          interestCollected += loanBegPar * (flooredBaseRate + loan.spreadBps / 100) / 100 * loanDayFrac;
         }
       }
       // Q1: initial principal cash earns interest at money market rate (~ESTR) for the quarter.

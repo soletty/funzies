@@ -1,3 +1,5 @@
+import type { DayCountConvention } from "./day-count-canonicalize";
+
 export interface ResolvedReinvestmentOcTrigger {
   triggerLevel: number;
   rank: number;
@@ -181,6 +183,13 @@ export interface ResolvedTranche {
    *  of consecutive non-payment, this seeds the engine counter to N. Same
    *  null-default + same trustee-extraction TODO as `priorInterestShortfall`. */
   priorShortfallCount: number | null;
+  /** Per-tranche accrual convention (canonicalized from
+   *  `clo_tranches.day_count_convention`). Undefined when extraction
+   *  did not populate the column — engine falls back to
+   *  `isFloating ? actual_360 : 30_360` for back-compat. The blocking
+   *  gate (resolver) refuses on `null + isFixedRate` because fixed-rate
+   *  tranches have no safe market default. */
+  dayCountConvention?: DayCountConvention;
 }
 
 export interface ResolvedPool {
@@ -293,6 +302,13 @@ export interface ResolvedLoan {
    *  Fitch CCC concentration tests. Not extracted from SDF today — resolver
    *  leaves undefined; only relevant when CM has designated workout positions. */
   isLossMitigationLoan?: boolean;
+  /** Per-position accrual convention (canonicalized from
+   *  `clo_holdings.day_count_convention`). Undefined when extraction
+   *  did not populate the column — engine falls back to Actual/360 for
+   *  back-compat. Resolver blocks when the column is non-empty but
+   *  unrecognized, or when the column is null on a fixed-rate position
+   *  (no market default exists). */
+  dayCountConvention?: DayCountConvention;
 }
 
 export type WarningSeverity = "info" | "warn" | "error";

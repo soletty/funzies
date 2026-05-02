@@ -27,10 +27,7 @@ const ASSUMPTIONS_REGISTER: { domain: string; items: Assumption[] }[] = [
     items: [
       { label: "Flat rate assumption", detail: "The base rate (EURIBOR) is held constant for the entire projection. There is no forward curve, no rate volatility, and no term structure. Since CLO equity returns are highly sensitive to rate movements, this is a major simplification.", impact: "high" },
       { label: "EURIBOR floored at 0%", detail: "The model floors the base rate at 0% for both collateral interest and tranche coupons. Most European CLOs have this floor, but the exact floor level may vary by deal.", impact: "low" },
-      { label: "Limited day-count conventions", detail: "Day-count is Actual/360 (floating) and 30/360 US (fixed) per tranche, applied across the period loop. 30E/360 European and Actual/365 conventions for fixed-rate assets remain unmodeled.", impact: "low" }, // KI-28 (asset-side fixed-rate conventions)
       { label: "No EURIBOR fixing lag", detail: "The model uses the input rate immediately. Real deals reference EURIBOR fixings from 2 business days prior to the interest period start.", impact: "low" },
-      // arch-boundary-allow: ui-hardcodes-currency-symbol
-      { label: "Asset-side day-count is uniformly Actual/360", detail: "Tranche-side day-count differentiates fixed (30/360) from floating (Actual/360). Asset-side per-loan accrual is uniformly Actual/360 — asymmetric, ~€4,335/quarter drift on Euro XV's 7.39% fixed-rate slice.", impact: "low" }, // KI-28 (asset-side fixed-rate conventions)
     ],
   },
   {

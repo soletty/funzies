@@ -6,6 +6,7 @@ import { isRatingSentinel, parseNumeric, parseDecoratedAmount } from "./sdf/csv-
 import { CLO_DEFAULTS } from "./defaults";
 import { computeTopNObligorsPct } from "./pool-metrics";
 import { assignDenseSeniorityRanks, classOrderBucket } from "./seniority-rank";
+import { canonicalizeDayCount, type DayCountConvention } from "./day-count-canonicalize";
 
 /** Defensive sentinel stripper for rating strings already in the DB. The SDF
  *  parser now filters these at ingest (see trimRating), but pre-fix rows can
@@ -266,13 +267,49 @@ function resolveTranches(
           });
         }
 
+        // Per-tranche accrual convention. Two-axis decision:
+        //   1. carveOut = isSub || hasAmort. Income notes don't accrue a
+        //      coupon; amortising tranches (Class X) ride the engine's
+        //      `isFloating ? actual_360 : 30_360` fallback. Both cases
+        //      bypass the blocking-on-null rule below.
+        //   2. The canonicalizer is invoked iff `t.dayCountConvention`
+        //      is non-null OR carveOut is false. When carveOut is true
+        //      AND the source is null, the resolved field is left
+        //      undefined so the engine fallback fires (preserves pre-fix
+        //      accrual on null-DCC Class X / Sub). When the source is
+        //      non-null, canonicalization runs regardless of carveOut so
+        //      an explicit DCC on a Sub note (Euro XV's "Actual/360") is
+        //      preserved as `actual_360` rather than dropped.
+        // Outside the carve-out: explicit DCC canonicalizes; null DCC
+        // blocks for fixed-rate (no market default) and falls back to
+        // Actual/360 with severity:"warn" for floating (Euro default).
+        const isFloating = t.isFloating ?? true;
+        const carveOut = isSub || hasAmort;
+        let trancheDayCountConvention: DayCountConvention | undefined;
+        if (carveOut && t.dayCountConvention == null) {
+          trancheDayCountConvention = undefined;
+        } else {
+          const dccResult = canonicalizeDayCount(t.dayCountConvention, {
+            isFixedRate: !isFloating && !carveOut,
+            field: `${t.className}.dayCountConvention`,
+          });
+          if (dccResult.warning) {
+            warnings.push(
+              dccResult.blocking
+                ? { field: "dayCountConvention", message: dccResult.warning, severity: "error", blocking: true }
+                : { field: "dayCountConvention", message: dccResult.warning, severity: "warn", blocking: false },
+            );
+          }
+          trancheDayCountConvention = dccResult.convention;
+        }
+
         return {
           className: t.className,
           currentBalance: snap?.endingBalance ?? snap?.currentBalance ?? t.originalBalance ?? ppmBalanceByClass.get(key) ?? 0,
           originalBalance: ppmBalanceByClass.get(key) ?? t.originalBalance ?? 0,
           spreadBps,
           seniorityRank: t.seniorityRank ?? 99,
-          isFloating: t.isFloating ?? true,
+          isFloating,
           isIncomeNote: isSub,
           isDeferrable: t.isDeferrable
             ?? ppmDeferrableByClass.get(key)
@@ -288,6 +325,7 @@ function resolveTranches(
           // is the path-to-close for distressed deals.
           priorInterestShortfall: null,
           priorShortfallCount: null,
+          dayCountConvention: trancheDayCountConvention,
           source: snap ? "snapshot" as const : "db_tranche" as const,
         };
       });
@@ -338,6 +376,30 @@ function resolveTranches(
       });
     }
 
+    // PPM capital structure carries no day-count convention column. Same
+    // tier rule as the DB-tranche branch: income notes don't accrue and
+    // amortising tranches (Class X) ride the engine `isFloating ?
+    // actual_360 : 30_360` fallback; floating defaults to A/360; fixed
+    // non-amortising non-income tranches block (no market default).
+    const carveOut = isSub || hasAmort;
+    let ppmTrancheDayCountConvention: DayCountConvention | undefined;
+    if (carveOut) {
+      ppmTrancheDayCountConvention = undefined;
+    } else {
+      const dccResult = canonicalizeDayCount(undefined, {
+        isFixedRate: !isFloating,
+        field: `${className}.dayCountConvention`,
+      });
+      if (dccResult.warning) {
+        warnings.push(
+          dccResult.blocking
+            ? { field: "dayCountConvention", message: dccResult.warning, severity: "error", blocking: true }
+            : { field: "dayCountConvention", message: dccResult.warning, severity: "warn", blocking: false },
+        );
+      }
+      ppmTrancheDayCountConvention = dccResult.convention;
+    }
+
     return {
       className,
       currentBalance: parseAmount(e.principalAmount),
@@ -353,6 +415,7 @@ function resolveTranches(
       // PPM § 10(a)(i) prior-period state — null until trustee extraction populates.
       priorInterestShortfall: null,
       priorShortfallCount: null,
+      dayCountConvention: ppmTrancheDayCountConvention,
       source: "ppm" as const,
     };
   });
@@ -1202,6 +1265,24 @@ export function resolveWaterfallInputs(
       ?? moodysWarfFactor(moodys)
       ?? undefined;
 
+    // Per-loan accrual convention. Block if non-empty unrecognized OR if
+    // null on a fixed-rate position (no market default for fixed). Floating
+    // null falls back to Actual/360 with severity:"warn" (data-quality
+    // signal: market default IS Actual/360 for Euro paper, but non-Euro
+    // floating positions use other conventions, so a missing DCC merits
+    // more than an FYI).
+    const dccResult = canonicalizeDayCount(h.dayCountConvention, {
+      isFixedRate: isFixed,
+      field: `${h.obligorName ?? "unknown"}.dayCountConvention`,
+    });
+    if (dccResult.warning) {
+      warnings.push(
+        dccResult.blocking
+          ? { field: "dayCountConvention", message: dccResult.warning, severity: "error", blocking: true }
+          : { field: "dayCountConvention", message: dccResult.warning, severity: "warn", blocking: false },
+      );
+    }
+
     return stripNulls({
       parBalance: holdingPar(h),
       maturityDate: h.maturityDate ?? fallbackMaturity,
@@ -1239,6 +1320,7 @@ export function resolveWaterfallInputs(
       // isDeferring / isLossMitigationLoan are CM-designation flags not
       // present in the SDF. Resolver leaves undefined; only relevant for
       // distressed deals where the source extends to populate them.
+      dayCountConvention: dccResult.convention,
     });
   });
 
