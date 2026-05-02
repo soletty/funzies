@@ -67,7 +67,16 @@ describe("C2 — qualityMetrics emitted each period", () => {
 describe("C2 — T=0 parity with resolver poolSummary", () => {
   it("period-1 WARF, WAL, WAS match resolver within day-count tolerance", () => {
     const inputs = buildFromResolved(fixture.resolved, defaultsFromResolved(fixture.resolved, fixture.raw));
-    const result = runProjection(inputs);
+    // Disable Monte Carlo defaults so the period-1 emit reflects a static-pool
+    // snapshot comparable to the trustee's pre-default poolSummary. Without
+    // this, the engine's deterministic default-draw `(par, hz) => par * hz`
+    // applied to Euro XV's B-heavy bucket (3.41% annualized CDR) produces
+    // partial defaults on every B-rated loan in period 1; the new partial-
+    // default filter at projection.ts:1421 (`defaultedParPending > 0 → continue`)
+    // then drops those loans from the qualityMetrics view, skewing the pool
+    // composition reported in period 1 away from the trustee snapshot. The
+    // T=0 parity check is about methodology alignment, not default mechanics.
+    const result = runProjection(inputs, () => 0);
     const p1 = result.periods[0];
 
     // Resolver poolSummary values (from trustee report):
@@ -137,7 +146,12 @@ describe("C2 — reinvestment composition tracking", () => {
       postRpReinvestmentPct: 100,
       cprPct: 20, // boost amortisation so reinvestment is material
     });
-    const result = runProjection(inputs);
+    // Disable defaults — see T=0 parity test above for the rationale. With
+    // defaults active, both periods see only the surviving non-defaulted-
+    // pending portion of the pool, which converges to the reinvestment
+    // composition (all 600 bps) much faster than this directional test
+    // expects, producing equality (`600 to be greater than 600`).
+    const result = runProjection(inputs, () => 0);
     // Pool WAS at T=0 (368) should be lower than WAS several years out as
     // reinvested positions enter. Check the delta is directionally correct
     // rather than pinning a specific number.

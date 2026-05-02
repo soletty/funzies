@@ -157,23 +157,23 @@ export function aggregateQualityMetrics(
   const dealCurrency = opts.dealCurrency ?? null;
 
   // Caller-side invariant — defaulted positions are EXCLUDED from `loans`
-  // implicitly. The engine moves par from `survivingPar` into
-  // `defaultedParPending` on each default event, so a fully-defaulted loan
-  // has `survivingPar = 0` and drops out of `projection.ts`'s
-  // `survivingPar > 0` filter at the call site. There is NO explicit
-  // `!isDefaulted` field on `LoanState` — `LoanState` carries
-  // `defaultedParPending: number`, not an `isDefaulted: boolean`. PPM
-  // Condition 1 ("Caa Obligations", PDF p. 138) excludes Defaulted
-  // Obligations from the per-agency Caa and Fitch CCC sets, and the
-  // implicit filter satisfies the PPM exclusion for FULL defaults.
-  //
-  // PARTIAL defaults are a known semantic gap tracked as KI-61: a loan
-  // with `survivingPar > 0` AND `defaultedParPending > 0` retains its
-  // surviving piece in the concentration denominator, while PPM treats
-  // the obligor's whole position as a Defaulted Obligation. The current
-  // implementation matches PPM intent for full defaults but treats the
-  // surviving piece of a partial default as performing collateral. See
-  // KI-61 for the verification path.
+  // by `projection.ts` and `switch-simulator.ts` before this helper is
+  // called. The exclusion uses two filters at the call sites:
+  //   1. `survivingPar > 0` — drops fully-defaulted loans (par migrates
+  //      from `survivingPar` to `defaultedParPending` on default).
+  //   2. `defaultedParPending > 0 → continue` — drops partially-defaulted
+  //      loans entirely (the surviving piece does NOT count toward Caa/CCC
+  //      numerator or denominator). Conservative interpretation of PPM
+  //      Condition 1 "Defaulted Obligations" (PDF p. 138): once any
+  //      portion of an obligor is defaulted, the whole obligor is excluded
+  //      from the Caa Obligations and Fitch CCC Obligations sets. The
+  //      alternative interpretation (count surviving piece) would silently
+  //      inflate concentration if the partially-defaulted loan is rated
+  //      Caa/CCC — partner-facing wrong number under stress.
+  // There is NO `isDefaulted: boolean` on `LoanState`; the invariant lives
+  // at the call sites via the two filters above (see
+  // `projection.ts:1383-1407` for `computeQualityMetrics` and
+  // `:1242-1268` for `maxCompliantReinvestment`).
 
   let totalPar = 0;
   let warfSum = 0;

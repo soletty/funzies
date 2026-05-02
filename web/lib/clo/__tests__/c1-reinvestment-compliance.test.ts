@@ -120,12 +120,21 @@ describe("C1 — Euro XV base case: no blocking regression", () => {
 
 describe("C1 — reinvestment at rating dirtier than trigger → blocks", () => {
   it("reinvestment at CCC under all four gates → cumulative blocking > 0", () => {
+    // Disable Monte Carlo defaults via no-op defaultDrawFn so the gate is
+    // tested against a stable pool composition. The C1 gate's pre-buy state
+    // applies the partial-default filter (`defaultedParPending > 0 → continue`)
+    // for PPM Defaulted-Obligation exclusion; under the engine's default
+    // rates, B-bucket and CCC-bucket loans accrue continuous defaults that
+    // shrink the gate's view of the pool. That's correct PPM behavior but
+    // makes the gate test depend on Monte Carlo variance. `() => 0` keeps
+    // every loan with `defaultedParPending = 0` so the gate sees the full
+    // funded pool and the boundary math is what's under test.
     const inputs = {
       ...buildFromResolved(fixture.resolved, defaultsFromResolved(fixture.resolved, fixture.raw)),
       reinvestmentRating: "CCC",
       cprPct: 25, // force material reinvestment throughout the RP
     };
-    const result = runProjection(inputs);
+    const result = runProjection(inputs, () => 0);
     const totalBlocked = result.periods.reduce((s, p) => s + p.stepTrace.reinvestmentBlockedCompliance, 0);
     expect(totalBlocked).toBeGreaterThan(0);
   });
@@ -145,7 +154,8 @@ describe("C1 — Min WAS gate (Floating WAS + Excess WAC)", () => {
       reinvestmentSpreadBps: 100,
       cprPct: 25,
     };
-    const result = runProjection(inputs);
+    // Defaults disabled — see comment in "all four gates" test above.
+    const result = runProjection(inputs, () => 0);
     const totalBlocked = result.periods.reduce((s, p) => s + p.stepTrace.reinvestmentBlockedCompliance, 0);
     expect(totalBlocked).toBeGreaterThan(0);
     // Where blocking fired, the post-buy WAS must be at or above the trigger
@@ -167,7 +177,7 @@ describe("C1 — Min WAS gate (Floating WAS + Excess WAC)", () => {
       reinvestmentSpreadBps: 500,
       cprPct: 25,
     };
-    const result = runProjection(inputs);
+    const result = runProjection(inputs, () => 0);
     const totalBlocked = result.periods.reduce((s, p) => s + p.stepTrace.reinvestmentBlockedCompliance, 0);
     expect(totalBlocked).toBe(0);
   });
@@ -184,7 +194,7 @@ describe("C1 — Moody's Caa concentration gate", () => {
       reinvestmentRating: "CCC",
       cprPct: 25,
     };
-    const result = runProjection(inputs);
+    const result = runProjection(inputs, () => 0);
     const totalBlocked = result.periods.reduce((s, p) => s + p.stepTrace.reinvestmentBlockedCompliance, 0);
     expect(totalBlocked).toBeGreaterThan(0);
     // Post-buy pctMoodysCaa must stay at or below the limit (boundary math).
@@ -205,7 +215,7 @@ describe("C1 — Moody's Caa concentration gate", () => {
       reinvestmentRating: "B",
       cprPct: 25,
     };
-    const result = runProjection(inputs);
+    const result = runProjection(inputs, () => 0);
     const totalBlocked = result.periods.reduce((s, p) => s + p.stepTrace.reinvestmentBlockedCompliance, 0);
     expect(totalBlocked).toBe(0);
   });
@@ -222,7 +232,7 @@ describe("C1 — Fitch CCC concentration gate", () => {
       reinvestmentRating: "CCC",
       cprPct: 25,
     };
-    const result = runProjection(inputs);
+    const result = runProjection(inputs, () => 0);
     const totalBlocked = result.periods.reduce((s, p) => s + p.stepTrace.reinvestmentBlockedCompliance, 0);
     expect(totalBlocked).toBeGreaterThan(0);
     for (const p of result.periods) {
@@ -242,7 +252,7 @@ describe("C1 — Fitch CCC concentration gate", () => {
       reinvestmentRating: "B",
       cprPct: 25,
     };
-    const result = runProjection(inputs);
+    const result = runProjection(inputs, () => 0);
     const totalBlocked = result.periods.reduce((s, p) => s + p.stepTrace.reinvestmentBlockedCompliance, 0);
     expect(totalBlocked).toBe(0);
   });

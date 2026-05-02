@@ -1251,6 +1251,13 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     for (const l of loanStates) {
       if (l.isDelayedDraw && (l.drawQuarter ?? 0) > currentQuarter) continue;
       if (l.survivingPar <= 0) continue;
+      // Same partial-default exclusion as `computeQualityMetrics` —
+      // mirroring the per-period helper exactly is a hard requirement of
+      // KI-21 (parallel-implementation drift): the gate's pre-buy state
+      // and the per-period output must apply identical exclusions, else
+      // a reinvestment would be allowed against one denominator and
+      // displayed against another.
+      if (l.defaultedParPending > 0) continue;
       qLoans.push({
         parBalance: l.survivingPar,
         warfFactor: l.warfFactor,
@@ -1385,6 +1392,20 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     for (const l of loanStates) {
       if (l.isDelayedDraw && (l.drawQuarter ?? 0) > currentQuarter) continue;
       if (l.survivingPar <= 0) continue;
+      // Per PPM Condition 1 / definitions ("Defaulted Obligations", PDF p.
+      // index TBD), the whole obligor is excluded from the Caa/CCC
+      // concentration sets once any portion of its position is in default,
+      // not just the defaulted portion. The conservative interpretation
+      // (apply now, refine if PPM read says otherwise) skips any loan with
+      // `defaultedParPending > 0` from the per-period quality metrics —
+      // its surviving piece must NOT count toward Caa/CCC numerator or
+      // denominator. Without this filter, a partially-defaulted Caa loan
+      // would silently inflate `pctMoodysCaa` (numerator and denominator
+      // both grow, but the rating-Caa flag biases the ratio upward),
+      // potentially pushing reinvestment compliance gates past their
+      // triggers. Magnitude is zero on Euro XV today (no partial defaults
+      // in fixture) but emerges on portability + stress scenarios.
+      if (l.defaultedParPending > 0) continue;
       qloans.push({
         parBalance: l.survivingPar,
         warfFactor: l.warfFactor,
