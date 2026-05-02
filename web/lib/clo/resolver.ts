@@ -1,5 +1,5 @@
 import type { ExtractedConstraints, CloPoolSummary, CloComplianceTest, CloTranche, CloTrancheSnapshot, CloHolding, CloAccountBalance, CloParValueAdjustment } from "./types";
-import type { Citation, ResolvedDealData, ResolvedTranche, ResolvedPool, ResolvedTrigger, ResolvedReinvestmentOcTrigger, ResolvedDates, ResolvedFees, ResolvedLoan, ResolvedComplianceTest, ResolvedEodTest, ResolvedMetadata, ResolutionWarning } from "./resolver-types";
+import type { Citation, ComplianceTestType, ResolvedDealData, ResolvedTranche, ResolvedPool, ResolvedTrigger, ResolvedReinvestmentOcTrigger, ResolvedDates, ResolvedFees, ResolvedLoan, ResolvedComplianceTest, ResolvedEodTest, ResolvedMetadata, ResolutionWarning } from "./resolver-types";
 import { parseSpreadToBps, normalizeWacSpread } from "./ingestion-gate";
 import { mapToRatingBucket, moodysWarfFactor } from "./rating-mapping";
 import { isRatingSentinel, parseNumeric, parseDecoratedAmount } from "./sdf/csv-utils";
@@ -129,6 +129,24 @@ function parseAmount(s: string | undefined | null): number {
   const rangeMatch = s.match(/^[^0-9]*?([\d,._]+)\s*[-–—]\s*([\d,._]+)/);
   if (rangeMatch) return parseNumeric(rangeMatch[1]) ?? 0;
   return parseDecoratedAmount(s) ?? 0;
+}
+
+/** Classifies a compliance-test row into one of the canonical types the
+ *  engine and downstream filters reason about. The four "real" types map
+ *  to load-bearing compliance triggers (Moody's WARF cap, Min WAS, Moody's
+ *  Caa concentration, Fitch CCC concentration). All other rows — per-class
+ *  OC/IC, WAL, diversity, recovery, lettered concentration buckets — fall
+ *  through to "other" and are surfaced for UI display only. The regex set
+ *  is intentionally tolerant of trustee report wording variations
+ *  ("Min" vs "Minimum", "Floating Spread" vs "Spread"). New canonical types
+ *  must extend `ComplianceTestType` and add a branch here. */
+export function classifyComplianceTest(testName: string | null | undefined): ComplianceTestType {
+  const name = (testName ?? "").toLowerCase();
+  if (/moody.*maximum.*weighted average rating factor/.test(name)) return "moodys_max_warf";
+  if (/min(?:imum)?.*weighted average.*(?:floating )?spread/.test(name)) return "min_was";
+  if (/moody.*caa.*obligation/.test(name)) return "moodys_caa_concentration";
+  if (/fitch.*ccc.*obligation/.test(name)) return "fitch_ccc_concentration";
+  return "other";
 }
 
 function isOcTest(t: { testType?: string | null; testName?: string | null }): boolean {
@@ -1375,6 +1393,29 @@ export function resolveWaterfallInputs(
     });
   }
 
+  // --- Interest Non-Payment Grace Period (PPM § 10(a)(i)) ---
+  // Null = "use the engine's PPM-correct default" (0 periods). PPM § 10(a)(i)
+  // cure windows are typically 5 business days post-payment-date — sub-period
+  // in a quarterly model, so if a missed payment is still missed at the next
+  // period checkpoint the cure has lapsed. Override only when modelling a
+  // non-standard deal whose PPM grants a multi-period grace; that override
+  // would come through `userAssumptions` (UI knob) rather than this field.
+  //
+  // Until per-deal extraction lands, every deal runs with grace=0 (engine
+  // default). Emit a non-blocking warn so the partner-facing DATA INCOMPLETE
+  // banner surfaces the gap when the PPM indicates a multi-period grace is
+  // possible. Wrong-direction error is over-trigger (false EoD), never
+  // under-trigger — safe but worth flagging. Flip to `severity: "error",
+  // blocking: true` once extraction lands per the KI-58 pattern.
+  const interestNonPaymentGracePeriods: number | null = null;
+  warnings.push({
+    field: "interestNonPaymentGracePeriods",
+    message:
+      "PPM § 10(a)(i) interest-non-payment grace period not extracted; engine defaults to 0 (any senior-interest shortfall fires Event of Default immediately). This is the conservative PPM-correct default for the modal quarterly-payment CLO (sub-period cure windows lapse before the next checkpoint), but a deal whose PPM grants a multi-period grace would over-trigger acceleration under stress. Verify PPM § 10(a)(i) before relying on stress-scenario IRRs.",
+    severity: "warn",
+    blocking: false,
+  });
+
   // --- Quality & Concentration Tests ---
   // Quality tests (WARF/WAL/WAS/diversity/recovery) come from clo_compliance_tests
   // (populated by §6 Collateral Quality Tests section extraction).
@@ -1396,6 +1437,7 @@ export function resolveWaterfallInputs(
       triggerLevel: t.triggerLevel,
       cushion: round4(t.cushionPct),
       isPassing: t.isPassing,
+      canonicalType: classifyComplianceTest(t.testName),
     }));
 
   // Concentration tests come from three sources of varying completeness:
@@ -1439,13 +1481,21 @@ export function resolveWaterfallInputs(
     // Prefer compliance test (has both actual + trigger + passing flag)
     const ct = concTestsByLetter.get(concType.toLowerCase());
     if (ct) {
+      const resolvedName = bucketName || ct.testName;
+      // Classify on the richest available name. `bucketName` falls through to
+      // `concentrationType` (e.g. "n", "o") on deals where `concentrations.bucketName`
+      // is null, so a single-letter `resolvedName` would silently classify as
+      // "other" and the silent-skip gate would then refuse to project. The
+      // compliance-test row carries the lettered + English form ("(n) Moody's
+      // Caa Obligations") which is unambiguous to the classifier; prefer it.
       return {
-        testName: bucketName || ct.testName,
+        testName: resolvedName,
         testClass: null,
         actualValue: ct.actualValue,
         triggerLevel: ct.triggerLevel,
         cushion: round4(ct.cushionPct ?? (ct.triggerLevel != null && ct.actualValue != null ? ct.triggerLevel - ct.actualValue : null)),
         isPassing: ct.isPassing,
+        canonicalType: classifyComplianceTest(ct.testName || bucketName),
       };
     }
 
@@ -1468,6 +1518,7 @@ export function resolveWaterfallInputs(
       triggerLevel,
       cushion: round4((triggerLevel != null && actualValue != null) ? triggerLevel - actualValue : null),
       isPassing: typeof c.isPassing === "boolean" ? c.isPassing : null,
+      canonicalType: classifyComplianceTest(bucketName),
     };
   });
 
@@ -1509,16 +1560,16 @@ export function resolveWaterfallInputs(
   // refuse to project rather than running with no enforcement on a test that
   // PPM-correct math would block. Deals NOT rated by the agency legitimately
   // omit the test → silent-skip is correct.
-  const findQualityTrigger = (pattern: RegExp) => {
-    const t = qualityTests.find((q) => pattern.test(q.testName));
+  const findQualityTrigger = (type: ComplianceTestType) => {
+    const t = qualityTests.find((q) => q.canonicalType === type);
     return t?.triggerLevel ?? null;
   };
-  const findConcentrationTrigger = (pattern: RegExp) => {
-    const t = concentrationTests.find((q) => pattern.test(q.testName));
+  const findConcentrationTrigger = (type: ComplianceTestType) => {
+    const t = concentrationTests.find((q) => q.canonicalType === type);
     return t?.triggerLevel ?? null;
   };
   if (isMoodysRated) {
-    if (findQualityTrigger(/moody.*maximum.*weighted average rating factor/i) == null) {
+    if (findQualityTrigger("moodys_max_warf") == null) {
       warnings.push({
         field: "moodysWarfTriggerLevel",
         message:
@@ -1528,7 +1579,7 @@ export function resolveWaterfallInputs(
         severity: "error", blocking: true,
       });
     }
-    if (findQualityTrigger(/min.*weighted average.*(floating )?spread/i) == null) {
+    if (findQualityTrigger("min_was") == null) {
       warnings.push({
         field: "minWasBps",
         message:
@@ -1538,7 +1589,7 @@ export function resolveWaterfallInputs(
         severity: "error", blocking: true,
       });
     }
-    if (findConcentrationTrigger(/moody.*caa.*obligation/i) == null) {
+    if (findConcentrationTrigger("moodys_caa_concentration") == null) {
       warnings.push({
         field: "moodysCaaLimitPct",
         message:
@@ -1550,7 +1601,7 @@ export function resolveWaterfallInputs(
     }
   }
   if (isFitchRated) {
-    if (findConcentrationTrigger(/fitch.*ccc.*obligation/i) == null) {
+    if (findConcentrationTrigger("fitch_ccc_concentration") == null) {
       warnings.push({
         field: "fitchCccLimitPct",
         message:
@@ -1805,7 +1856,7 @@ export function resolveWaterfallInputs(
   }
 
   return {
-    resolved: { tranches, poolSummary, ocTriggers, icTriggers, qualityTests, concentrationTests, reinvestmentOcTrigger, eventOfDefaultTest, dates, fees, loans, metadata, principalAccountCash, interestAccountCash, interestSmoothingBalance, supplementalReserveBalance, expenseReserveBalance, preExistingDefaultedPar, preExistingDefaultRecovery, unpricedDefaultedPar, preExistingDefaultOcValue, discountObligationHaircut, longDatedObligationHaircut, cccBucketLimitPct, cccMarketValuePct, targetParAmount, referenceWeightedAverageFixedCoupon, isMoodysRated, isFitchRated, impliedOcAdjustment, quartersSinceReport, ddtlUnfundedPar, deferredInterestCompounds, baseRateFloorPct, currency },
+    resolved: { tranches, poolSummary, ocTriggers, icTriggers, qualityTests, concentrationTests, reinvestmentOcTrigger, eventOfDefaultTest, dates, fees, loans, metadata, principalAccountCash, interestAccountCash, interestSmoothingBalance, supplementalReserveBalance, expenseReserveBalance, preExistingDefaultedPar, preExistingDefaultRecovery, unpricedDefaultedPar, preExistingDefaultOcValue, discountObligationHaircut, longDatedObligationHaircut, cccBucketLimitPct, cccMarketValuePct, targetParAmount, referenceWeightedAverageFixedCoupon, isMoodysRated, isFitchRated, impliedOcAdjustment, quartersSinceReport, ddtlUnfundedPar, deferredInterestCompounds, interestNonPaymentGracePeriods, baseRateFloorPct, currency },
     warnings,
   };
 }

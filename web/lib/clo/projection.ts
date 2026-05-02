@@ -212,6 +212,17 @@ export interface ProjectionInputs {
   quartersSinceReport?: number; // quarters between compliance report and projection start (adjusts default recovery timing)
   ddtlDrawPercent?: number; // % of DDTL par actually funded on draw (default 100)
   equityEntryPrice?: number; // user-specified entry price for equity IRR (overrides balance-sheet implied value)
+  /** PPM § 10(a)(i) — number of consecutive *payment-date* interest
+   *  shortfalls on a non-deferrable senior tranche before an Event of
+   *  Default fires. Null/undefined defaults to 0 — the PPM-correct
+   *  semantic for the standard cure window. PPM § 10(a)(i) typically
+   *  cures EoD if the missed payment is made within ~5 business days
+   *  of the payment date, which is sub-period in a quarterly model:
+   *  if the payment is still unpaid at the *next* checkpoint (this
+   *  engine's period boundary), the cure window has lapsed. Set
+   *  explicitly only when modelling a deal whose PPM grants a multi-
+   *  period grace (rare; provided as an input for completeness). */
+  interestNonPaymentGracePeriods?: number | null;
   /** C1 — Moody's Maximum WARF trigger (e.g. 3148 on Euro XV). When set, the
    *  engine scales down reinvestment if the purchase at `reinvestmentRating`
    *  would cause post-buy WARF to breach the trigger (and WARF wasn't already
@@ -409,10 +420,32 @@ export interface PeriodResult {
   trancheInterest: { className: string; due: number; paid: number }[];
   /** Per-tranche running interest-shortfall balance at end-of-period. Tracks
    *  cumulative unpaid base interest on non-deferrable, non-amortising
-   *  tranches (Class A/B per PPM). The `due` field above includes any
-   *  carried shortfall for the period; once paid down, it leaves this map
-   *  at zero. Deferrable tranches use `deferredBalances` (PIK) instead and
-   *  stay at zero here. Empty / all-zero in healthy scenarios. */
+   *  senior tranches (rank-protected per PPM § 10(a)(i)). The `due` field
+   *  above is the period's pure base coupon — it does NOT include carried
+   *  shortfall (non-deferrable means non-deferrable; soft-deferrable carry-
+   *  forward into next period's pre-accel demand would silently diverge from
+   *  trustee data on stress). The running balance is consumed by:
+   *    (a) the EoD-on-shortfall detector — fires when consecutive shortfall
+   *        periods exceed `interestNonPaymentGracePeriods`, and
+   *    (b) the post-acceleration handoff — folds the carried shortfall into
+   *        `interestDueByTranche` so the accelerated claim is whole.
+   *  Deferrable tranches use `deferredBalances` (PIK) instead and stay at
+   *  zero here. Empty / all-zero in healthy scenarios. Under post-accel
+   *  this field is sourced from the post-accel waterfall's per-period
+   *  `accelResult.interestShortfall` (different concept — that's the
+   *  acceleration waterfall's per-period unpaid amount).
+   *
+   *  **Non-display field by current intent.** Per CLAUDE.md principle 4,
+   *  every engine output is potentially partner-facing; this field is
+   *  emitted for engine observability (EoD trigger introspection in tests,
+   *  N1-harness diagnostics, post-accel claim audit) but is NOT surfaced
+   *  in any UI row today. The sibling `stepTrace.deferredAccrualByTranche`
+   *  has the same shape (engine-internal observability for the deferrable-
+   *  PIK flow) and the same non-display status. If a partner-facing
+   *  surface needs to display "senior interest shortfall: €X,XXX", the
+   *  rule is: read FROM this field — never re-derive from `due − paid`
+   *  in the UI (that breaks the "display equals engine output" invariant
+   *  exactly as the April 2026 incident did for `equityFromInterest`). */
   interestShortfall: Record<string, number>;
   /** Per-tranche principal-side state. `paid` is the TOTAL paid to the
    *  tranche this period (sum of amort-from-interest at step G + principal-
@@ -1016,7 +1049,13 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     dealCurrency = null,
     useLegacyBucketHazard = false,
     overriddenBuckets,
+    interestNonPaymentGracePeriods,
   } = inputs;
+  // PPM § 10(a)(i) grace period for non-deferrable senior interest
+  // shortfall before EoD fires. Default 0 (conservative — any shortfall
+  // fires immediately) when the resolver hasn't extracted a per-deal
+  // value. See ProjectionInputs docstring.
+  const eodGrace = interestNonPaymentGracePeriods ?? 0;
   const overriddenBucketSet = overriddenBuckets && overriddenBuckets.length > 0
     ? new Set<string>(overriddenBuckets)
     : null;
@@ -1435,23 +1474,41 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
   const sortedTranches = [...tranches].sort((a, b) => a.seniorityRank - b.seniorityRank);
   const debtTranches = sortedTranches.filter((t) => !t.isIncomeNote);
   const resolvedAmortPerPeriod: Record<string, number> = {};
-  // Carried interest shortfall on non-deferrable tranches. Per PPM, missed
-  // interest on a non-deferrable tranche (Class A/B) is NOT a PIK accrual onto
-  // the tranche balance — it's an interest-payment shortfall that carries
-  // forward and is paid in subsequent periods before junior interest. The
-  // engine previously dropped this silently (non-deferrable shortfall ≠ PIK,
-  // so no tracking), which over-stated equity in stress scenarios. This map
-  // tracks the running balance per non-deferrable tranche; deferrable
-  // tranches use `deferredBalances` for PIK and don't accrue here.
+  // Interest-payment shortfall on non-deferrable senior tranches. Per PPM
+  // § 10(a)(i), missed interest on a non-deferrable tranche is NOT a PIK
+  // accrual (no soft-deferrable carry-forward into next period's pre-accel
+  // demand) — it is an EoD trigger after the deal-specific grace period.
+  // This map records cumulative unpaid base interest per tranche so:
+  //   (a) the EoD detector can fire when consecutive shortfall periods
+  //       exceed `interestNonPaymentGracePeriods`, and
+  //   (b) the post-acceleration handoff folds the running balance into
+  //       `interestDueByTranche` (line ~2091) so the breach claim is whole.
+  // Deferrable tranches use `deferredBalances` for PIK and don't accrue
+  // here. Empty / all-zero in healthy scenarios.
   const interestShortfall: Record<string, number> = {};
+  // Consecutive-period shortfall counter per non-deferrable senior tranche.
+  // Increments each period the tranche is owed interest and receives less
+  // than the full amount; resets to 0 on a fully-paid period. Drives the
+  // PPM § 10(a)(i) grace-period gate for EoD detection.
+  const shortfallCount: Record<string, number> = {};
   for (const t of sortedTranches) {
     trancheBalances[t.className] = t.currentBalance;
     deferredBalances[t.className] = 0;
     interestShortfall[t.className] = 0;
+    shortfallCount[t.className] = 0;
     if (t.isAmortising) {
       resolvedAmortPerPeriod[t.className] = t.amortisationPerPeriod ?? (t.currentBalance / CLO_DEFAULTS.defaultScheduledAmortPeriods);
     }
   }
+  // EoD-protected tranches per PPM § 10(a)(i): the same set the D1 guard
+  // uses (non-income, non-amortising tranches at the lowest two distinct
+  // seniorityRank values). Computed once here rather than re-derived per
+  // period — the rank topology is invariant across the projection.
+  const eodProtectedClassNames = new Set(
+    tranches
+      .filter((t) => !t.isIncomeNote && !t.isAmortising && seniorProtectedRanks.has(t.seniorityRank))
+      .map((t) => t.className),
+  );
 
   const ocTriggersByClass = ocTriggers;
   const icTriggersByClass = icTriggers;
@@ -1625,6 +1682,12 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     const periodDate = periodEndDate(q);
     const inRP = rpEndDate ? new Date(periodDate) <= rpEndDate : false;
     const isMaturity = q === totalQuarters;
+    // Snapshot interestShortfall at start of period so we can detect
+    // whether THIS period accrued a shortfall (post − pre > 0) for
+    // shortfallCount + EoD-on-shortfall gating. Only pre-accel mutates
+    // interestShortfall via accrueShortfall; post-accel folds the prior
+    // running balance into interestDueByTranche and resets to 0.
+    const bopInterestShortfall: Record<string, number> = { ...interestShortfall };
     // §7.5 + decision R: pull this quarter's path map once and use it for
     // BOTH the bucket-map hazard (legacy / fallback branch of the per-loan
     // default loop) AND the per-bucket multiplier on the per-position WARF
@@ -2526,56 +2589,61 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     let diverted = false;
     for (const rank of ranksInOrder) {
       const group = groupByRank.get(rank)!;
-      // Per-member effective demand = current-period base interest + carried
-      // shortfall from prior periods. Carried shortfall applies only to
-      // non-deferrable, non-amortising debt tranches; deferrable tranches
-      // PIK their shortfalls onto deferredBalances/trancheBalances and
-      // don't carry separately here. Pari-passu pro-rata weighting uses
-      // total effective demand (PPM "pro rata according to amounts due"
-      // includes prior-period claims).
       const dueByMember: Record<string, number> = {};
-      const baseDueByMember: Record<string, number> = {};
-      const carriedByMember: Record<string, number> = {};
       let totalGroupDue = 0;
       for (const t of group) {
         const rate = trancheCouponRate(t, baseRatePct, baseRateFloorPct);
-        const baseDue = bopTrancheBalances[t.className] * rate * trancheDayFrac(t);
-        baseDueByMember[t.className] = baseDue;
-        const carried =
-          !t.isDeferrable && !t.isAmortising && !t.isIncomeNote
-            ? interestShortfall[t.className] ?? 0
-            : 0;
-        carriedByMember[t.className] = carried;
-        const totalDue = baseDue + carried;
-        dueByMember[t.className] = totalDue;
-        totalGroupDue += totalDue;
+        const d = bopTrancheBalances[t.className] * rate * trancheDayFrac(t);
+        dueByMember[t.className] = d;
+        totalGroupDue += d;
       }
+
+      // Helper: at every payment-allocation site below, accrue the per-member
+      // shortfall to either deferredBalances (deferrable, PIK semantic) or
+      // interestShortfall (non-deferrable, EoD-trigger semantic). PPM-correct
+      // non-deferrable mechanic: missed interest is NOT paid back in pre-
+      // acceleration; it's tracked here for visibility, fed into the EoD
+      // detector (consecutive-shortfall-count > grace → EoD), and folded
+      // into post-acceleration interestDueByTranche when the breach declares.
+      const accrueShortfall = (
+        t: ProjectionInputs["tranches"][number],
+        due: number,
+        paid: number,
+      ) => {
+        if (paid >= due - 0.01) return;
+        if (bopTrancheBalances[t.className] <= 0.01) return;
+        const shortfall = due - paid;
+        if (t.isDeferrable) {
+          if (deferredInterestCompounds) {
+            trancheBalances[t.className] += shortfall;
+          } else {
+            deferredBalances[t.className] += shortfall;
+          }
+          _stepTrace_deferredAccrualByTranche[t.className] =
+            (_stepTrace_deferredAccrualByTranche[t.className] ?? 0) + shortfall;
+        } else if (!t.isAmortising && !t.isIncomeNote) {
+          // Non-deferrable debt tranche: shortfall accrues for diagnostic
+          // visibility and post-acceleration claim integrity. Carry-forward
+          // into next period's pre-accel demand is INTENTIONALLY NOT
+          // performed — that would model a soft-deferrable behavior which
+          // is the antithesis of "non-deferrable". The shortfall is
+          // collected (a) by the EoD trigger when consecutive-shortfall-
+          // count on a RANK-PROTECTED tranche (top-two non-amort debt
+          // ranks per `eodProtectedClassNames`) exceeds the PPM grace
+          // period — non-protected non-deferrable juniors track shortfall
+          // here but don't drive the EoD trigger; and (b) by the post-
+          // acceleration handoff which folds the running interestShortfall
+          // balance for ALL non-deferrable debt tranches into
+          // interestDueByTranche.
+          interestShortfall[t.className] = (interestShortfall[t.className] ?? 0) + shortfall;
+        }
+      };
 
       if (diverted) {
         for (const t of group) {
           const due = dueByMember[t.className];
-          const baseDue = baseDueByMember[t.className];
           trancheInterest.push({ className: t.className, due, paid: 0 });
-          if (t.isDeferrable && baseDue > 0 && bopTrancheBalances[t.className] > 0.01) {
-            // Existing PIK accrual on deferrable tranche shortfall.
-            if (deferredInterestCompounds) {
-              trancheBalances[t.className] += baseDue;
-            } else {
-              deferredBalances[t.className] += baseDue;
-            }
-          } else if (
-            !t.isDeferrable &&
-            !t.isAmortising &&
-            !t.isIncomeNote &&
-            baseDue > 0 &&
-            bopTrancheBalances[t.className] > 0.01
-          ) {
-            // Non-deferrable: accrue base demand to interestShortfall
-            // (carried portion is already in interestShortfall and was
-            // included in `due` above; only the new base shortfall accrues
-            // additionally — paid is 0 in the diverted case).
-            interestShortfall[t.className] = (interestShortfall[t.className] ?? 0) + baseDue;
-          }
+          accrueShortfall(t, due, 0);
         }
         continue;
       }
@@ -2587,48 +2655,6 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
       // tranche at the senior-non-amort rank, which double-paid X amort on a
       // pari-passu A-1+A-2 split — the rank-grouped form handles X amort
       // exactly once per period regardless of A-rank cardinality.
-      // Helper: allocate `paid` to a tranche between prior-period shortfall
-      // catch-up and current-period base interest, and accrue any new
-      // shortfall. Returns nothing — mutates interestShortfall/trancheBalances/
-      // deferredBalances and pushes to trace records as appropriate.
-      const settleMember = (t: ProjectionInputs["tranches"][number], paid: number) => {
-        const baseDue = baseDueByMember[t.className];
-        const carried = carriedByMember[t.className];
-        // Pay down carried shortfall first (FIFO), then current-period base.
-        const catchup = Math.min(paid, carried);
-        const basePaid = paid - catchup;
-        interestShortfall[t.className] = Math.max(
-          0,
-          (interestShortfall[t.className] ?? 0) - catchup,
-        );
-        if (
-          t.isDeferrable &&
-          basePaid < baseDue &&
-          bopTrancheBalances[t.className] > 0.01
-        ) {
-          // Deferrable: PIK the base shortfall (existing behavior).
-          const shortfall = baseDue - basePaid;
-          if (deferredInterestCompounds) {
-            trancheBalances[t.className] += shortfall;
-          } else {
-            deferredBalances[t.className] += shortfall;
-          }
-          _stepTrace_deferredAccrualByTranche[t.className] =
-            (_stepTrace_deferredAccrualByTranche[t.className] ?? 0) + shortfall;
-        } else if (
-          !t.isDeferrable &&
-          !t.isAmortising &&
-          !t.isIncomeNote &&
-          basePaid < baseDue &&
-          bopTrancheBalances[t.className] > 0.01
-        ) {
-          // Non-deferrable: accrue base shortfall to interestShortfall for
-          // catch-up in subsequent periods.
-          const shortfall = baseDue - basePaid;
-          interestShortfall[t.className] = (interestShortfall[t.className] ?? 0) + shortfall;
-        }
-      };
-
       if (seniorNonAmortRank != null && rank === seniorNonAmortRank) {
         const totalAmortDue = Object.values(amortDemand).reduce((s, v) => s + v, 0);
         const totalStepGDue = totalAmortDue + totalGroupDue;
@@ -2645,12 +2671,12 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
             const due = dueByMember[t.className];
             const paid = due * ratio;
             trancheInterest.push({ className: t.className, due, paid });
-            settleMember(t, paid);
+            accrueShortfall(t, due, paid);
           }
           availableInterest = 0;
           // Step G fully consumed available; subsequent groups produce
           // zero paid via the same Math.min(totalGroupDue, 0) = 0 path,
-          // with PIK and shortfall on shortfall handled per-member.
+          // with PIK / shortfall on shortfall handled per-member.
         } else {
           // Enough to pay X amort in full; group interest pays normally below.
           for (const [cls, amt] of Object.entries(amortDemand)) {
@@ -2667,7 +2693,7 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
             const due = dueByMember[t.className];
             const memberPaid = totalGroupDue > 0 ? groupPaid * (due / totalGroupDue) : 0;
             trancheInterest.push({ className: t.className, due, paid: memberPaid });
-            settleMember(t, memberPaid);
+            accrueShortfall(t, due, memberPaid);
           }
         }
       } else {
@@ -2678,7 +2704,7 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
           const due = dueByMember[t.className];
           const memberPaid = totalGroupDue > 0 ? groupPaid * (due / totalGroupDue) : 0;
           trancheInterest.push({ className: t.className, due, paid: memberPaid });
-          settleMember(t, memberPaid);
+          accrueShortfall(t, due, memberPaid);
         }
       }
 
@@ -3019,8 +3045,29 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     // B2 — Flip to post-acceleration mode if this period's EoD breached.
     // Effective next period (PPM Condition 10: acceleration applies from the
     // next payment date, not retroactively). Irreversible once set.
-    if (eodPeriodResult && !eodPeriodResult.passing) {
-      isAccelerated = true;
+    //
+    // Two independent EoD triggers:
+    //   1. compositional EoD test (`eodPeriodResult`) — collateral coverage
+    //      vs Class A balance per the deal-specific trigger.
+    //   2. PPM § 10(a)(i) interest-non-payment EoD — non-deferrable senior
+    //      tranche missed a coupon for `eodGrace + 1` consecutive periods.
+    //
+    // Either trigger flips isAccelerated; both are computed under the
+    // pre-accel branch (post-accel skips, since EoD is already declared).
+    if (!isAccelerated) {
+      let eodOnShortfall = false;
+      for (const cls of eodProtectedClassNames) {
+        const delta = (interestShortfall[cls] ?? 0) - (bopInterestShortfall[cls] ?? 0);
+        if (delta > 0.01) {
+          shortfallCount[cls] = (shortfallCount[cls] ?? 0) + 1;
+          if (shortfallCount[cls] > eodGrace) eodOnShortfall = true;
+        } else {
+          shortfallCount[cls] = 0;
+        }
+      }
+      if ((eodPeriodResult && !eodPeriodResult.passing) || eodOnShortfall) {
+        isAccelerated = true;
+      }
     }
   }
 

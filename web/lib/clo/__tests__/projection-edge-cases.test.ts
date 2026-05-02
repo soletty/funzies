@@ -532,78 +532,101 @@ describe("3. Boundary Conditions", () => {
 // ═════════════════════════════════════════════════════════════════════════════
 
 describe("4. Deferred Interest / PIK Interactions", () => {
+  // Helper: 4-tranche structure with a genuinely deferrable junior at
+  // rank 3 (rank 1/2 are protected per PPM § 10(a)(i) and cannot be
+  // deferrable per the D1 guard). Senior fee is high enough to short the
+  // junior's interest while keeping ranks 1+2 whole — so the new EoD-on-
+  // shortfall trigger does NOT fire and PIK accrual on rank 3 is the
+  // observable. The earlier 3-tranche fixture mislabeled J (rank 2 non-
+  // deferrable) as "PIKing" — under the new mechanic it correctly
+  // accelerates instead.
+  function makePikInputs(overrides: Partial<ProjectionInputs> = {}): ProjectionInputs {
+    return makeSimpleInputs({
+      tranches: [
+        { className: "A", currentBalance: 60_000_000, spreadBps: 140, seniorityRank: 1, isFloating: true, isIncomeNote: false, isDeferrable: false },
+        { className: "B", currentBalance: 10_000_000, spreadBps: 200, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: false },
+        { className: "C", currentBalance: 20_000_000, spreadBps: 400, seniorityRank: 3, isFloating: true, isIncomeNote: false, isDeferrable: true },
+        { className: "Sub", currentBalance: 10_000_000, spreadBps: 0, seniorityRank: 4, isFloating: false, isIncomeNote: true, isDeferrable: false },
+      ],
+      // Pool collects ~1.875M/quarter (100M × 7.5% / 4). Senior fee 3% =
+      // 750K leaves 1.125M → A coupon 735K (whole) → 390K → B coupon
+      // 137.5K (whole) → 252.5K → C demand 375K → C shorts ~122.5K → PIKs.
+      // A+B remain whole, so the EoD-on-shortfall trigger does NOT fire.
+      seniorFeePct: 3,
+      ...overrides,
+    });
+  }
+
   it("PIK (compounding) increases tranche balance and inflates OC denominator", () => {
-    // Set up scenario where B tranche can't be paid (all interest diverted at A).
-    // PIK compounds onto B balance → OC denom grows → OC gets worse over time.
-    const inputs = makeSimpleInputs({
+    // C (rank 3 deferrable) shorts under stressed senior fee → PIKs onto its
+    // own balance under compounding. A+B (rank-protected) remain whole, so
+    // the EoD-on-shortfall trigger does NOT fire. Verifies the PIK mechanic
+    // on a genuinely deferrable junior — earlier 3-tranche fixture testing
+    // PIK on a NON-deferrable rank-2 J was structurally wrong (the fixture
+    // never PIKed, the engine silently dropped the shortfall, and the new
+    // EoD-on-shortfall mechanic now correctly accelerates instead).
+    const inputs = makePikInputs({
       reinvestmentPeriodEnd: "2026-01-01",
-      defaultRatesByRating: uniformRates(40), // extreme defaults
+      defaultRatesByRating: uniformRates(0),
       cprPct: 0,
       recoveryPct: 0,
       deferredInterestCompounds: true,
-      ocTriggers: [{ className: "A", triggerLevel: 999, rank: 1 }], // impossible → full diversion
+      ocTriggers: [],
       icTriggers: [],
     });
 
     const result = runProjection(inputs);
 
-    // B tranche should PIK (it's deferrable, all interest diverted after A)
-    // Check that B's end balance grows over time due to PIK
-    const bBalances = result.periods.map((p) =>
-      p.tranchePrincipal.find((t) => t.className === "J")!.endBalance
+    // No acceleration — A+B remain whole.
+    expect(result.periods.every((p) => !p.isAccelerated)).toBe(true);
+    // C balance grows period-over-period from PIK.
+    const cBalances = result.periods.slice(0, 5).map(
+      (p) => p.tranchePrincipal.find((t) => t.className === "C")!.endBalance,
     );
-
-    // First few periods: B balance should increase (PIK adds to it)
-    // until paydown from the cure kicks in
-    const bQ1 = bBalances[0];
-    const bQ2 = bBalances[1];
-    // With full diversion, PIK should push B balance above original 20M
-    // (Note: cure paydown at rank 1 may reduce A before B gets PIK'd)
-    // At minimum, B should not have been paid down (it's junior to the failing OC)
-    expect(bQ1).toBeGreaterThanOrEqual(20_000_000 - 1); // deferred + principal
+    expect(cBalances[1]).toBeGreaterThan(cBalances[0]);
   });
 
   it("non-compounding PIK tracked in deferredBalances counts toward OC denominator", () => {
-    // With non-compounding PIK: deferredBalances are separate but still in OC denom
-    const compounding = makeSimpleInputs({
+    // With non-compounding PIK: deferredBalances are separate but still in OC denom.
+    // C (rank 3 deferrable) is the PIK-target; A+B (protected) stay whole.
+    const compounding = makePikInputs({
       reinvestmentPeriodEnd: "2026-01-01",
-      defaultRatesByRating: uniformRates(30),
+      defaultRatesByRating: uniformRates(0),
       cprPct: 0,
       recoveryPct: 0,
       deferredInterestCompounds: true,
-      ocTriggers: [{ className: "A", triggerLevel: 200, rank: 1 }],
+      ocTriggers: [],
       icTriggers: [],
     });
 
-    const nonCompounding = makeSimpleInputs({
+    const nonCompounding = makePikInputs({
       reinvestmentPeriodEnd: "2026-01-01",
-      defaultRatesByRating: uniformRates(30),
+      defaultRatesByRating: uniformRates(0),
       cprPct: 0,
       recoveryPct: 0,
       deferredInterestCompounds: false,
-      ocTriggers: [{ className: "A", triggerLevel: 200, rank: 1 }],
+      ocTriggers: [],
       icTriggers: [],
     });
 
     const compResult = runProjection(compounding);
     const nonCompResult = runProjection(nonCompounding);
 
-    // Both should have OC failing. The compounding case should be slightly worse
-    // because deferred interest itself earns interest (higher denom).
-    // In either case, B endBalance (principal + deferred) should be >= original
-    const compB = compResult.periods[1].tranchePrincipal.find((t) => t.className === "J")!;
-    const nonCompB = nonCompResult.periods[1].tranchePrincipal.find((t) => t.className === "J")!;
+    expect(compResult.periods.every((p) => !p.isAccelerated)).toBe(true);
+    expect(nonCompResult.periods.every((p) => !p.isAccelerated)).toBe(true);
 
-    // Both should show inflated end balance (PIK added)
-    expect(compB.endBalance).toBeGreaterThanOrEqual(20_000_000 - 1);
-    expect(nonCompB.endBalance).toBeGreaterThanOrEqual(20_000_000 - 1);
+    const compC2 = compResult.periods[1].tranchePrincipal.find((t) => t.className === "C")!;
+    const nonCompC2 = nonCompResult.periods[1].tranchePrincipal.find((t) => t.className === "C")!;
 
-    // Compounding should grow faster (interest-on-interest)
-    // Over 2+ periods, compounding balance should exceed non-compounding
-    const compB3 = compResult.periods[2]?.tranchePrincipal.find((t) => t.className === "J")!;
-    const nonCompB3 = nonCompResult.periods[2]?.tranchePrincipal.find((t) => t.className === "J")!;
-    if (compB3 && nonCompB3) {
-      expect(compB3.endBalance).toBeGreaterThanOrEqual(nonCompB3.endBalance - 1);
+    // Both inflated above original (PIK added).
+    expect(compC2.endBalance).toBeGreaterThan(20_000_000);
+    expect(nonCompC2.endBalance).toBeGreaterThanOrEqual(20_000_000 - 1);
+
+    // Compounding ≥ non-compounding (interest-on-interest).
+    const compC3 = compResult.periods[2]?.tranchePrincipal.find((t) => t.className === "C");
+    const nonCompC3 = nonCompResult.periods[2]?.tranchePrincipal.find((t) => t.className === "C");
+    if (compC3 && nonCompC3) {
+      expect(compC3.endBalance).toBeGreaterThanOrEqual(nonCompC3.endBalance - 1);
     }
   });
 

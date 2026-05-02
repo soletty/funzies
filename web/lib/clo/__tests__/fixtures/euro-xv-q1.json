@@ -211,7 +211,8 @@
         "actualValue": 25.69,
         "triggerLevel": 28,
         "cushion": 2.3099999999999987,
-        "isPassing": true
+        "isPassing": true,
+        "canonicalType": "other"
       },
       {
         "testName": "Fitch Minimum Weighted Average Recovery Rate Test",
@@ -219,7 +220,8 @@
         "actualValue": 61.7,
         "triggerLevel": 57.15,
         "cushion": 4.550000000000004,
-        "isPassing": true
+        "isPassing": true,
+        "canonicalType": "other"
       },
       {
         "testName": "Moody's Maximum Weighted Average Rating Factor Test",
@@ -227,7 +229,8 @@
         "actualValue": 3035,
         "triggerLevel": 3148,
         "cushion": 113,
-        "isPassing": true
+        "isPassing": true,
+        "canonicalType": "moodys_max_warf"
       },
       {
         "testName": "Moody's Minimum Weighted Averge Recovery Rate Test",
@@ -235,7 +238,8 @@
         "actualValue": 44.6,
         "triggerLevel": 42.6,
         "cushion": 2,
-        "isPassing": true
+        "isPassing": true,
+        "canonicalType": "other"
       },
       {
         "testName": "Minimum Weighted Average Floating Spread Test",
@@ -243,7 +247,8 @@
         "actualValue": 3.68,
         "triggerLevel": 3.65,
         "cushion": 0.03000000000000025,
-        "isPassing": true
+        "isPassing": true,
+        "canonicalType": "min_was"
       },
       {
         "testName": "Moody's Minimum Diversity",
@@ -251,7 +256,8 @@
         "actualValue": 67,
         "triggerLevel": 59,
         "cushion": 8,
-        "isPassing": true
+        "isPassing": true,
+        "canonicalType": "other"
       },
       {
         "testName": "Weighted Average Life Test",
@@ -259,7 +265,8 @@
         "actualValue": 4.15,
         "triggerLevel": 4.5,
         "cushion": 0.34999999999999964,
-        "isPassing": true
+        "isPassing": true,
+        "canonicalType": "other"
       },
       {
         "testName": "Minimum WAS excl floor incl Agg Exc Funded Spread",
@@ -267,7 +274,8 @@
         "actualValue": 3.65,
         "triggerLevel": null,
         "cushion": null,
-        "isPassing": null
+        "isPassing": null,
+        "canonicalType": "other"
       },
       {
         "testName": "Minimum WAS excl floor excl Agg Exc Funded Spread",
@@ -275,7 +283,8 @@
         "actualValue": 3.65,
         "triggerLevel": null,
         "cushion": null,
-        "isPassing": null
+        "isPassing": null,
+        "canonicalType": "other"
       }
     ],
     "concentrationTests": [
@@ -285,7 +294,8 @@
         "actualValue": 100,
         "triggerLevel": 90,
         "cushion": 10,
-        "isPassing": true
+        "isPassing": true,
+        "canonicalType": "other"
       },
       {
         "testName": "Senior Secured Loans",
@@ -293,7 +303,8 @@
         "actualValue": 89.33,
         "triggerLevel": 70,
         "cushion": 19.33,
-        "isPassing": true
+        "isPassing": true,
+        "canonicalType": "other"
       },
       {
         "testName": "Unsecured / HY / Mezz / 2nd Lien",
@@ -301,7 +312,8 @@
         "actualValue": 0,
         "triggerLevel": 10,
         "cushion": 10,
-        "isPassing": true
+        "isPassing": true,
+        "canonicalType": "other"
       },
       {
         "testName": "Fixed Rate CDOs",
@@ -309,7 +321,8 @@
         "actualValue": 7.42,
         "triggerLevel": 10,
         "cushion": 2.58,
-        "isPassing": true
+        "isPassing": true,
+        "canonicalType": "other"
       },
       {
         "testName": "Sr Secured Bonds / HY Bonds / Mezz",
@@ -317,7 +330,8 @@
         "actualValue": 10.67,
         "triggerLevel": 30,
         "cushion": 19.33,
-        "isPassing": true
+        "isPassing": true,
+        "canonicalType": "other"
       },
       {
         "testName": "Cov-Lite Loans",
@@ -325,7 +339,8 @@
         "actualValue": 0.93,
         "triggerLevel": 30,
         "cushion": 29.07,
-        "isPassing": true
+        "isPassing": true,
+        "canonicalType": "other"
       },
       {
         "testName": "Hedged CDOs",
@@ -333,7 +348,8 @@
         "actualValue": 0,
         "triggerLevel": 30,
         "cushion": 30,
-        "isPassing": true
+        "isPassing": true,
+        "canonicalType": "other"
       },
       {
         "testName": "Country ceiling < AAA (Fitch)",
@@ -341,7 +357,8 @@
         "actualValue": 4.32,
         "triggerLevel": 10,
         "cushion": 5.68,
-        "isPassing": true
+        "isPassing": true,
+        "canonicalType": "other"
       },
       {
         "testName": "Domicile below Aa3 (Moody's)",
@@ -349,7 +366,8 @@
         "actualValue": 0.4,
         "triggerLevel": 10,
         "cushion": 9.6,
-        "isPassing": true
+        "isPassing": true,
+        "canonicalType": "other"
       },
       {
         "testName": "Current Pay Obligations",
@@ -357,7 +375,8 @@
         "actualValue": 0,
         "triggerLevel": 5,
         "cushion": 5,
-        "isPassing": true
+        "isPassing": true,
+        "canonicalType": "other"
       },
       {
         "testName": "Bridge Loans",
@@ -365,7 +384,8 @@
         "actualValue": 0,
         "triggerLevel": 2.5,
         "cushion": 2.5,
-        "isPassing": true
+        "isPassing": true,
+        "canonicalType": "other"
       },
       {
         "testName": "Revolving + Delayed Drawdown",
@@ -373,7 +393,8 @@
         "actualValue": 0.07,
         "triggerLevel": 5,
         "cushion": 4.93,
-        "isPassing": true
+        "isPassing": true,
+        "canonicalType": "other"
       },
       {
         "testName": "PIK Securities",
@@ -381,7 +402,8 @@
         "actualValue": 0.51,
         "triggerLevel": 5,
         "cushion": 4.49,
-        "isPassing": true
+        "isPassing": true,
+        "canonicalType": "other"
       },
       {
         "testName": "Moody's Caa Obligations",
@@ -389,7 +411,8 @@
         "actualValue": 6.92,
         "triggerLevel": 7.5,
         "cushion": 0.5800000000000001,
-        "isPassing": true
+        "isPassing": true,
+        "canonicalType": "moodys_caa_concentration"
       },
       {
         "testName": "Fitch CCC Obligations",
@@ -397,7 +420,8 @@
         "actualValue": 5.87,
         "triggerLevel": 7.5,
         "cushion": 1.63,
-        "isPassing": true
+        "isPassing": true,
+        "canonicalType": "fitch_ccc_concentration"
       },
       {
         "testName": "Highest Single Obligor Sr Sec",
@@ -405,7 +429,8 @@
         "actualValue": 1.02,
         "triggerLevel": 2.5,
         "cushion": 1.48,
-        "isPassing": true
+        "isPassing": true,
+        "canonicalType": "other"
       },
       {
         "testName": "6th Highest Sr Sec Obligor",
@@ -413,7 +438,8 @@
         "actualValue": 1,
         "triggerLevel": 2,
         "cushion": 1,
-        "isPassing": true
+        "isPassing": true,
+        "canonicalType": "other"
       },
       {
         "testName": "Highest Single Obligor non-Sr-Sec",
@@ -421,7 +447,8 @@
         "actualValue": 0,
         "triggerLevel": 2,
         "cushion": 2,
-        "isPassing": true
+        "isPassing": true,
+        "canonicalType": "other"
       },
       {
         "testName": "6th Highest non-Sr-Sec",
@@ -429,7 +456,8 @@
         "actualValue": 0,
         "triggerLevel": 1.5,
         "cushion": 1.5,
-        "isPassing": true
+        "isPassing": true,
+        "canonicalType": "other"
       },
       {
         "testName": "Highest Single Obligor any",
@@ -437,7 +465,8 @@
         "actualValue": 1.02,
         "triggerLevel": 2.5,
         "cushion": 1.48,
-        "isPassing": true
+        "isPassing": true,
+        "canonicalType": "other"
       },
       {
         "testName": "6th Highest Obligor any",
@@ -445,7 +474,8 @@
         "actualValue": 1,
         "triggerLevel": 2,
         "cushion": 1,
-        "isPassing": true
+        "isPassing": true,
+        "canonicalType": "other"
       },
       {
         "testName": "Top 10 Obligors",
@@ -453,7 +483,8 @@
         "actualValue": 9.46,
         "triggerLevel": 16,
         "cushion": 6.539999999999999,
-        "isPassing": true
+        "isPassing": true,
+        "canonicalType": "other"
       },
       {
         "testName": "Largest Single Fitch Industry",
@@ -461,7 +492,8 @@
         "actualValue": 11.01,
         "triggerLevel": 17.5,
         "cushion": 6.49,
-        "isPassing": true
+        "isPassing": true,
+        "canonicalType": "other"
       },
       {
         "testName": "2nd Largest Fitch Industry",
@@ -469,7 +501,8 @@
         "actualValue": 10.71,
         "triggerLevel": 15,
         "cushion": 4.289999999999999,
-        "isPassing": true
+        "isPassing": true,
+        "canonicalType": "other"
       },
       {
         "testName": "Largest Three Fitch Industries",
@@ -477,7 +510,8 @@
         "actualValue": 31.71,
         "triggerLevel": 40,
         "cushion": 8.29,
-        "isPassing": true
+        "isPassing": true,
+        "canonicalType": "other"
       },
       {
         "testName": "Corporate Rescue Loans",
@@ -485,7 +519,8 @@
         "actualValue": 0,
         "triggerLevel": 5,
         "cushion": 5,
-        "isPassing": true
+        "isPassing": true,
+        "canonicalType": "other"
       },
       {
         "testName": "Highest Obligor Corporate Rescue",
@@ -493,7 +528,8 @@
         "actualValue": 0,
         "triggerLevel": 2,
         "cushion": 2,
-        "isPassing": true
+        "isPassing": true,
+        "canonicalType": "other"
       },
       {
         "testName": "Participations",
@@ -501,7 +537,8 @@
         "actualValue": 0,
         "triggerLevel": 5,
         "cushion": 5,
-        "isPassing": true
+        "isPassing": true,
+        "canonicalType": "other"
       },
       {
         "testName": "Obligors Total Indebt 200-250m",
@@ -509,7 +546,8 @@
         "actualValue": 0,
         "triggerLevel": 5,
         "cushion": 5,
-        "isPassing": true
+        "isPassing": true,
+        "canonicalType": "other"
       },
       {
         "testName": "Discount Obligations",
@@ -517,7 +555,8 @@
         "actualValue": 0,
         "triggerLevel": 25,
         "cushion": 25,
-        "isPassing": true
+        "isPassing": true,
+        "canonicalType": "other"
       },
       {
         "testName": "Portfolio Company",
@@ -525,7 +564,8 @@
         "actualValue": 0,
         "triggerLevel": 10,
         "cushion": 10,
-        "isPassing": true
+        "isPassing": true,
+        "canonicalType": "other"
       },
       {
         "testName": "Fitch Individual AAA",
@@ -533,7 +573,8 @@
         "actualValue": 0,
         "triggerLevel": null,
         "cushion": null,
-        "isPassing": true
+        "isPassing": true,
+        "canonicalType": "other"
       },
       {
         "testName": "Fitch Individual AA+",
@@ -541,7 +582,8 @@
         "actualValue": 0,
         "triggerLevel": null,
         "cushion": null,
-        "isPassing": true
+        "isPassing": true,
+        "canonicalType": "other"
       },
       {
         "testName": "Fitch Individual AA",
@@ -549,7 +591,8 @@
         "actualValue": 0,
         "triggerLevel": null,
         "cushion": null,
-        "isPassing": true
+        "isPassing": true,
+        "canonicalType": "other"
       },
       {
         "testName": "Fitch Individual AA-",
@@ -557,7 +600,8 @@
         "actualValue": 0,
         "triggerLevel": null,
         "cushion": null,
-        "isPassing": true
+        "isPassing": true,
+        "canonicalType": "other"
       },
       {
         "testName": "Fitch Individual A+",
@@ -565,7 +609,8 @@
         "actualValue": 0,
         "triggerLevel": null,
         "cushion": null,
-        "isPassing": true
+        "isPassing": true,
+        "canonicalType": "other"
       },
       {
         "testName": "Fitch Individual A",
@@ -573,7 +618,8 @@
         "actualValue": 0,
         "triggerLevel": null,
         "cushion": null,
-        "isPassing": true
+        "isPassing": true,
+        "canonicalType": "other"
       },
       {
         "testName": "Fitch Individual A- or below",
@@ -581,7 +627,8 @@
         "actualValue": 0,
         "triggerLevel": null,
         "cushion": null,
-        "isPassing": true
+        "isPassing": true,
+        "canonicalType": "other"
       },
       {
         "testName": "Fitch Aggregate AAA",
@@ -589,7 +636,8 @@
         "actualValue": 0,
         "triggerLevel": null,
         "cushion": null,
-        "isPassing": true
+        "isPassing": true,
+        "canonicalType": "other"
       },
       {
         "testName": "Fitch Aggregate AA+",
@@ -597,7 +645,8 @@
         "actualValue": 0,
         "triggerLevel": null,
         "cushion": null,
-        "isPassing": true
+        "isPassing": true,
+        "canonicalType": "other"
       },
       {
         "testName": "Fitch Aggregate AA",
@@ -605,7 +654,8 @@
         "actualValue": 0,
         "triggerLevel": null,
         "cushion": null,
-        "isPassing": true
+        "isPassing": true,
+        "canonicalType": "other"
       },
       {
         "testName": "Fitch Aggregate AA-",
@@ -613,7 +663,8 @@
         "actualValue": 0,
         "triggerLevel": null,
         "cushion": null,
-        "isPassing": true
+        "isPassing": true,
+        "canonicalType": "other"
       },
       {
         "testName": "Fitch Aggregate A+",
@@ -621,7 +672,8 @@
         "actualValue": 0,
         "triggerLevel": null,
         "cushion": null,
-        "isPassing": true
+        "isPassing": true,
+        "canonicalType": "other"
       },
       {
         "testName": "Fitch Aggregate A",
@@ -629,7 +681,8 @@
         "actualValue": 0,
         "triggerLevel": null,
         "cushion": null,
-        "isPassing": true
+        "isPassing": true,
+        "canonicalType": "other"
       },
       {
         "testName": "Fitch Aggregate A- or below",
@@ -637,7 +690,8 @@
         "actualValue": 0,
         "triggerLevel": null,
         "cushion": null,
-        "isPassing": true
+        "isPassing": true,
+        "canonicalType": "other"
       },
       {
         "testName": "Moody's Aggregate Aaa or Lower",
@@ -645,7 +699,8 @@
         "actualValue": 0,
         "triggerLevel": null,
         "cushion": null,
-        "isPassing": true
+        "isPassing": true,
+        "canonicalType": "other"
       },
       {
         "testName": "Moody's Aggregate Aa1 or Lower",
@@ -653,7 +708,8 @@
         "actualValue": 0,
         "triggerLevel": null,
         "cushion": null,
-        "isPassing": true
+        "isPassing": true,
+        "canonicalType": "other"
       },
       {
         "testName": "Moody's Aggregate Aa2",
@@ -661,7 +717,8 @@
         "actualValue": 0,
         "triggerLevel": null,
         "cushion": null,
-        "isPassing": true
+        "isPassing": true,
+        "canonicalType": "other"
       },
       {
         "testName": "Moody's Aggregate Aa3",
@@ -669,7 +726,8 @@
         "actualValue": 0,
         "triggerLevel": null,
         "cushion": null,
-        "isPassing": true
+        "isPassing": true,
+        "canonicalType": "other"
       },
       {
         "testName": "Moody's Aggregate A1",
@@ -677,7 +735,8 @@
         "actualValue": 0,
         "triggerLevel": null,
         "cushion": null,
-        "isPassing": true
+        "isPassing": true,
+        "canonicalType": "other"
       },
       {
         "testName": "Moody's Aggregate A2 or Lower w P-1",
@@ -685,7 +744,8 @@
         "actualValue": 0,
         "triggerLevel": null,
         "cushion": null,
-        "isPassing": true
+        "isPassing": true,
+        "canonicalType": "other"
       },
       {
         "testName": "Moody's Aggregate A2 or Lower wo P-1",
@@ -693,7 +753,8 @@
         "actualValue": 0,
         "triggerLevel": null,
         "cushion": null,
-        "isPassing": true
+        "isPassing": true,
+        "canonicalType": "other"
       },
       {
         "testName": "Moody's Individual Aaa",
@@ -701,7 +762,8 @@
         "actualValue": 0,
         "triggerLevel": null,
         "cushion": null,
-        "isPassing": true
+        "isPassing": true,
+        "canonicalType": "other"
       },
       {
         "testName": "Moody's Individual Aa1",
@@ -709,7 +771,8 @@
         "actualValue": 0,
         "triggerLevel": null,
         "cushion": null,
-        "isPassing": true
+        "isPassing": true,
+        "canonicalType": "other"
       },
       {
         "testName": "Moody's Individual Aa2",
@@ -717,7 +780,8 @@
         "actualValue": 0,
         "triggerLevel": null,
         "cushion": null,
-        "isPassing": true
+        "isPassing": true,
+        "canonicalType": "other"
       },
       {
         "testName": "Moody's Individual Aa3",
@@ -725,7 +789,8 @@
         "actualValue": 0,
         "triggerLevel": null,
         "cushion": null,
-        "isPassing": true
+        "isPassing": true,
+        "canonicalType": "other"
       },
       {
         "testName": "Moody's Individual A1",
@@ -733,7 +798,8 @@
         "actualValue": 0,
         "triggerLevel": null,
         "cushion": null,
-        "isPassing": true
+        "isPassing": true,
+        "canonicalType": "other"
       },
       {
         "testName": "Moody's Individual A2 w P-1",
@@ -741,7 +807,8 @@
         "actualValue": 0,
         "triggerLevel": null,
         "cushion": null,
-        "isPassing": true
+        "isPassing": true,
+        "canonicalType": "other"
       },
       {
         "testName": "Moody's Individual A2 wo P-1",
@@ -749,7 +816,8 @@
         "actualValue": 0,
         "triggerLevel": null,
         "cushion": null,
-        "isPassing": true
+        "isPassing": true,
+        "canonicalType": "other"
       },
       {
         "testName": "Annual Obligations",
@@ -757,7 +825,8 @@
         "actualValue": 0,
         "triggerLevel": 5,
         "cushion": 5,
-        "isPassing": true
+        "isPassing": true,
+        "canonicalType": "other"
       },
       {
         "testName": "Distressed Exchange",
@@ -765,7 +834,8 @@
         "actualValue": 0,
         "triggerLevel": 2.5,
         "cushion": 2.5,
-        "isPassing": true
+        "isPassing": true,
+        "canonicalType": "other"
       },
       {
         "testName": "Integral services / casinos / gambling",
@@ -773,7 +843,8 @@
         "actualValue": 1,
         "triggerLevel": 5,
         "cushion": 4,
-        "isPassing": true
+        "isPassing": true,
+        "canonicalType": "other"
       },
       {
         "testName": "Moody's Rating derived from S&P",
@@ -781,7 +852,8 @@
         "actualValue": 0,
         "triggerLevel": 10,
         "cushion": 10,
-        "isPassing": true
+        "isPassing": true,
+        "canonicalType": "other"
       }
     ],
     "reinvestmentOcTrigger": {
@@ -8164,13 +8236,14 @@
     "cccBucketLimitPct": 7.5,
     "cccMarketValuePct": 70,
     "targetParAmount": 500000000,
-    "referenceWeightedAverageFixedCoupon": 4.0,
+    "referenceWeightedAverageFixedCoupon": 4,
     "isMoodysRated": true,
     "isFitchRated": true,
     "impliedOcAdjustment": 0,
     "quartersSinceReport": 0,
     "ddtlUnfundedPar": 0,
     "deferredInterestCompounds": true,
+    "interestNonPaymentGracePeriods": null,
     "baseRateFloorPct": null,
     "currency": "EUR",
     "eventOfDefaultTest": {
@@ -8426,7 +8499,7 @@
       ],
       "collateralManager": "Ares Management Limited",
       "interestMechanics": {
-        "referenceWeightedAverageFixedCoupon": 4.0,
+        "referenceWeightedAverageFixedCoupon": 4,
         "conventions": {
           "rounding": "Nearest €0.01",
           "day_count_floating": "Actual/360",

@@ -569,39 +569,47 @@ describe("E. PIK interactions", () => {
   });
 
   it("E3: PIK accumulation inflates OC denominator causing progressive OC failure", () => {
-    // Each period of PIK increases liabilities → OC denom grows → ratio drops
-    // Even with stable par, OC can fail from PIK accumulation alone.
+    // PIK on a rank-3 deferrable tranche grows OC denominator over time.
+    // A+B (rank-protected, non-deferrable per PPM § 10(a)(i)) are kept whole
+    // so the EoD-on-shortfall trigger does NOT fire — the test stays in
+    // pre-acceleration and the PIK mechanic is the observable. Earlier
+    // version of this test placed PIK on rank-2 J (non-deferrable per the
+    // makeInputs default fixture) — that was structurally wrong: the wrong-
+    // semantic engine silently dropped the shortfall on a non-deferrable
+    // tranche, and the new EoD-on-shortfall mechanic correctly accelerates
+    // it instead of letting it PIK.
     const inputs = makeInputs({
       reinvestmentPeriodEnd: addQuarters("2026-01-15", 20),
-      defaultRatesByRating: uniformRates(0), // no defaults — par stable
+      defaultRatesByRating: uniformRates(0),
       cprPct: 0,
       recoveryPct: 0,
       deferredInterestCompounds: true,
-      // Tight OC that barely passes initially, then fails as PIK accumulates
-      // B denom = A + B = 90M. OC = 100M/90M = 111.1%. Trigger at 111.
-      // As B PIKs, denom grows: 90M → 90.325M → ... eventually fails.
-      ocTriggers: [{ className: "J", triggerLevel: 111, rank: 2 }],
+      tranches: [
+        { className: "A", currentBalance: 60_000_000, spreadBps: 140, seniorityRank: 1, isFloating: true, isIncomeNote: false, isDeferrable: false },
+        { className: "B", currentBalance: 10_000_000, spreadBps: 200, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: false },
+        { className: "C", currentBalance: 20_000_000, spreadBps: 400, seniorityRank: 3, isFloating: true, isIncomeNote: false, isDeferrable: true },
+        { className: "Sub", currentBalance: 10_000_000, spreadBps: 0, seniorityRank: 4, isFloating: false, isIncomeNote: true, isDeferrable: false },
+      ],
+      // No OC triggers — PIK is driven by senior-fee stress, not diversion.
+      ocTriggers: [],
       icTriggers: [],
-      // Force B to PIK by diverting at rank 1 but with a passable trigger
-      // Actually, to get B to PIK, we need diversion. Let's use a different approach:
-      // Set high fees so interest doesn't reach B, causing partial payment / PIK.
-      seniorFeePct: 2.0, // 2% on 100M = 500K/quarter
-      trusteeFeeBps: 100, // 1% = 250K/quarter
-      hedgeCostBps: 100, // 1% = 250K/quarter
-      // Total fees = 1M. Interest = 100M * 7.5% / 4 = 1.875M. After fees: 875K.
-      // A interest = 70M * (3.5+1.4)/100/4 = 857.5K. B interest = 20M * (3.5+3)/100/4 = 325K.
-      // After paying A: 875K - 857.5K = 17.5K for B. B due = 325K → shortfall = 307.5K → PIK
+      // Pool collects ~1.875M/quarter. Senior fee 3% = 750K leaves 1.125M.
+      // A coupon 735K (whole) → 390K. B coupon 137.5K (whole) → 252.5K.
+      // C demand 375K → C shorts 122.5K → PIKs. A+B whole → no EoD trigger.
+      seniorFeePct: 3,
     });
 
     const result = runProjection(inputs);
 
-    // B should have increasing endBalance due to PIK
-    const bBalances = result.periods.slice(0, 5).map(
-      (p) => p.tranchePrincipal.find((t) => t.className === "J")!.endBalance
+    // No acceleration — A+B remain whole under the EoD-on-shortfall mechanic.
+    expect(result.periods.every((p) => !p.isAccelerated)).toBe(true);
+
+    // C should have non-decreasing endBalance due to PIK
+    const cBalances = result.periods.slice(0, 5).map(
+      (p) => p.tranchePrincipal.find((t) => t.className === "C")!.endBalance,
     );
-    // Each period, B balance grows due to PIK of ~307K
-    for (let i = 1; i < bBalances.length; i++) {
-      expect(bBalances[i]).toBeGreaterThan(bBalances[i - 1] - 1);
+    for (let i = 1; i < cBalances.length; i++) {
+      expect(cBalances[i]).toBeGreaterThan(cBalances[i - 1] - 1);
     }
   });
 });

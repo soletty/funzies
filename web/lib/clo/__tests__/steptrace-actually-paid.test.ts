@@ -105,45 +105,54 @@ describe("stepTrace emits actually-paid amounts under stress", () => {
     ).toBeGreaterThan(0);
   });
 
-  it("admin-fee stress: adminFeesPaid trace ≤ interestCollected per period", () => {
+  it("admin-fee stress: adminFeesPaid trace ≤ interestCollected per period (pre-accel)", () => {
     // Spike adminFeeBps to 2000 (20%/yr on par) with no senior-expense cap,
     // so requested admin fee (~5M/quarter on 100M) far exceeds interest
     // collected (~1.46M/quarter). Pre-fix: trace emitted ~5M as
     // adminFeesPaid. Post-fix: trace emits the truncated paid amount.
+    //
+    // Scope: pre-acceleration periods only. Under PPM 10(b) post-
+    // acceleration, the Senior Expenses Cap is removed and admin pays
+    // directly from the pooled interest+principal cash — adminFeesPaid
+    // can legitimately exceed interestCollected because principal cash
+    // is also drawn on. The truncation invariant tested here is a pre-
+    // accel property; once the EoD-on-shortfall trigger fires (admin fee
+    // this stressful shorts both protected senior tranches), subsequent
+    // periods run under acceleration and a different invariant applies.
     const inputs = makeInputs({
       adminFeeBps: 2000,
       seniorExpensesCapBps: undefined, // no cap
     });
     const result = runProjection(inputs);
 
-    for (let i = 0; i < result.periods.length; i++) {
-      const p = result.periods[i];
-      // Per-field assertion: requested admin alone (~5M/quarter) exceeds
-      // interestCollected, so pre-fix this assertion would have failed
-      // immediately in early periods.
+    const preAccelPeriods = result.periods.filter((p) => !p.isAccelerated);
+    expect(
+      preAccelPeriods.length,
+      "fixture flipped to acceleration in period 1; no pre-accel period to validate",
+    ).toBeGreaterThan(0);
+
+    for (let i = 0; i < preAccelPeriods.length; i++) {
+      const p = preAccelPeriods[i];
       expect(
         p.stepTrace.adminFeesPaid,
-        `period ${i}: adminFeesPaid (${p.stepTrace.adminFeesPaid.toFixed(2)}) > interestCollected (${p.interestCollected.toFixed(2)})`,
+        `pre-accel period ${i}: adminFeesPaid (${p.stepTrace.adminFeesPaid.toFixed(2)}) > interestCollected (${p.interestCollected.toFixed(2)})`,
       ).toBeLessThanOrEqual(p.interestCollected + 0.01);
-      // Σ-tie invariant: same as sub-fee test, sums every interest-side
-      // consumer of stepTrace and asserts the canonical CLAUDE.md §4
-      // inequality. Independent discriminator from the per-field check.
       const sumPaid = sumInterestSideConsumers(p);
       expect(
         sumPaid,
-        `period ${i}: Σ stepTrace interest consumers (${sumPaid.toFixed(2)}) > interestCollected (${p.interestCollected.toFixed(2)})`,
+        `pre-accel period ${i}: Σ stepTrace interest consumers (${sumPaid.toFixed(2)}) > interestCollected (${p.interestCollected.toFixed(2)})`,
       ).toBeLessThanOrEqual(p.interestCollected + 0.01);
     }
 
-    // At least one period must show truncation under this fixture.
-    const requestedAdmin = (p: (typeof result.periods)[number]) =>
+    // At least one pre-accel period must show truncation under this fixture.
+    const requestedAdmin = (p: (typeof preAccelPeriods)[number]) =>
       p.beginningPar * 0.2 * 0.25;
-    const truncated = result.periods.filter(
+    const truncated = preAccelPeriods.filter(
       (p) => p.stepTrace.adminFeesPaid < requestedAdmin(p) * 0.95,
     );
     expect(
       truncated.length,
-      "no period exhibited admin-fee truncation; fixture not stressful enough",
+      "no pre-accel period exhibited admin-fee truncation; fixture not stressful enough",
     ).toBeGreaterThan(0);
   });
 

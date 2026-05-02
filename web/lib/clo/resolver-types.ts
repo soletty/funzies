@@ -4,6 +4,22 @@ export interface ResolvedReinvestmentOcTrigger {
   diversionPct: number; // % of remaining interest diverted when test fails (e.g. 50 for 50%)
 }
 
+/** Canonical classification of compliance tests used by the engine and
+ *  filter pipelines. Resolved at the resolver build sites so downstream
+ *  consumers (build-projection-inputs, buy-list-filter, the resolver's own
+ *  silent-skip blocking gate) match by enum instead of re-running fragile
+ *  name regexes. Adding a new canonical type means: extend this union, add
+ *  a branch in `classifyComplianceTest`, and consume it where the test is
+ *  surfaced. The "other" bucket covers tests the engine doesn't reason
+ *  about (per-class OC/IC, WAL, diversity, recovery, lettered concentration
+ *  rows, etc.); they retain `testName` and remain visible to the UI. */
+export type ComplianceTestType =
+  | "moodys_max_warf"
+  | "min_was"
+  | "moodys_caa_concentration"
+  | "fitch_ccc_concentration"
+  | "other";
+
 export interface ResolvedComplianceTest {
   testName: string;
   testClass: string | null;
@@ -11,6 +27,7 @@ export interface ResolvedComplianceTest {
   triggerLevel: number | null;
   cushion: number | null;
   isPassing: boolean | null;
+  canonicalType: ComplianceTestType;
 }
 
 export interface ResolvedMetadata {
@@ -92,8 +109,9 @@ export interface ResolvedDealData {
    *  field today. The AEFS contribution is therefore zero in the engine's
    *  Floating WAS calculation. Null on extraction-miss is intentional and
    *  harmless while the AEFS term is unimplemented. When AEFS is wired, this
-   *  needs a blocking-on-null gate identical to KI-58/KI-59 sites. Tracked as
-   *  a deferred-implementation follow-up. */
+   *  field must promote to `severity: "error", blocking: true` on null —
+   *  partner-facing computational input cannot accept a silent fallback.
+   *  Tracked as a deferred-implementation follow-up. */
   targetParAmount: number | null;
   /** PPM Reference Weighted Average Fixed Coupon (%). Used by the Excess WAC
    *  term: `(WeightedAvgFixedCoupon − referenceWAFC) × (fixedPar / floatingPar)`
@@ -115,6 +133,14 @@ export interface ResolvedDealData {
   quartersSinceReport: number; // quarters between compliance report date and projection start (adjusts pre-existing default recovery timing)
   ddtlUnfundedPar: number; // total DDTL commitment par (for dynamic OC deduction in projection)
   deferredInterestCompounds: boolean; // whether PIK'd interest itself earns interest in subsequent periods
+  /** PPM § 10(a)(i) — number of consecutive payment-date interest shortfalls
+   *  on a non-deferrable senior tranche before an Event of Default fires.
+   *  Null = use the engine's PPM-correct default (0). Standard CLO PPMs cure
+   *  EoD within ~5 business days of the payment date — sub-period in a
+   *  quarterly model, so if a missed payment survives to the next checkpoint
+   *  the cure has lapsed. Override only for non-standard deals whose PPM
+   *  grants a multi-period grace (rare; threaded via `userAssumptions`). */
+  interestNonPaymentGracePeriods: number | null;
   baseRateFloorPct: number | null; // extracted reference rate floor (null = not extracted, use default)
   /** ISO 4217 currency code for the deal (e.g. "EUR", "USD", "GBP"). Sourced
    *  from `CloDeal.dealCurrency` when populated, otherwise derived as the

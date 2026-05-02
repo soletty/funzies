@@ -48,6 +48,7 @@ export const EMPTY_RESOLVED: ResolvedDealData = {
   quartersSinceReport: 0,
   ddtlUnfundedPar: 0,
   deferredInterestCompounds: true,
+  interestNonPaymentGracePeriods: null,
   baseRateFloorPct: null,
   currency: null,
 };
@@ -525,6 +526,7 @@ export function buildFromResolved(
     cccBucketLimitPct: userAssumptions.cccBucketLimitPct,
     cccMarketValuePct: userAssumptions.cccMarketValuePct,
     deferredInterestCompounds: userAssumptions.deferredInterestCompounds ?? resolved.deferredInterestCompounds,
+    interestNonPaymentGracePeriods: resolved.interestNonPaymentGracePeriods,
     initialPrincipalCash: resolved.principalAccountCash,
     preExistingDefaultedPar: resolved.preExistingDefaultedPar,
     preExistingDefaultRecovery: resolved.preExistingDefaultRecovery,
@@ -538,31 +540,28 @@ export function buildFromResolved(
     ...(equityEntryPrice != null ? { equityEntryPrice } : {}),
     // C1 — pull compliance triggers from resolved qualityTests/concentrationTests
     // (when present) so the engine can enforce reinvestment compliance.
-    // Name patterns are loose — trustee reports vary in capitalization and
-    // punctuation. Null on this side means the trigger wasn't in the source
-    // data; the resolver's silent-skip blocking gate already refused for any
-    // case where extraction-failure-on-a-rated-deal would silently disable
-    // enforcement, so reaching here with null is genuinely "test does not
-    // apply to this deal" (e.g., Moody's-only deal has no Fitch test).
+    // Match by `canonicalType` populated at the resolver normalization point —
+    // the trustee-name regex lives in one place (resolver.ts:classifyComplianceTest)
+    // so consumers cannot drift apart. Null on this side means the trigger
+    // wasn't in the source data; the resolver's silent-skip blocking gate
+    // already refused for any case where extraction-failure-on-a-rated-deal
+    // would silently disable enforcement, so reaching here with null is
+    // genuinely "test does not apply to this deal" (e.g., Moody's-only deal
+    // has no Fitch test).
     moodysWarfTriggerLevel:
-      resolved.qualityTests.find((t) =>
-        /moody.*maximum.*weighted average rating factor/i.test(t.testName),
-      )?.triggerLevel ?? null,
+      resolved.qualityTests.find((t) => t.canonicalType === "moodys_max_warf")
+        ?.triggerLevel ?? null,
     minWasBps: (() => {
       // Trustee reports the Min WAS trigger in pct (e.g. 3.65 → 365 bps).
-      const t = resolved.qualityTests.find((q) =>
-        /min.*weighted average.*(floating )?spread/i.test(q.testName),
-      );
+      const t = resolved.qualityTests.find((q) => q.canonicalType === "min_was");
       return t?.triggerLevel != null ? t.triggerLevel * 100 : null;
     })(),
     moodysCaaLimitPct:
-      resolved.concentrationTests.find((c) =>
-        /moody.*caa.*obligation/i.test(c.testName),
-      )?.triggerLevel ?? null,
+      resolved.concentrationTests.find((c) => c.canonicalType === "moodys_caa_concentration")
+        ?.triggerLevel ?? null,
     fitchCccLimitPct:
-      resolved.concentrationTests.find((c) =>
-        /fitch.*ccc.*obligation/i.test(c.testName),
-      )?.triggerLevel ?? null,
+      resolved.concentrationTests.find((c) => c.canonicalType === "fitch_ccc_concentration")
+        ?.triggerLevel ?? null,
     // C2 — Floating WAS / Excess WAC methodology inputs (PPM PDF p. 305).
     // Threaded so `computePoolQualityMetrics` uses the per-deal reference
     // anchor and the deal currency for the Non-Euro Obligation filter.

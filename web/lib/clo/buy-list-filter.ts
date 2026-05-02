@@ -118,18 +118,17 @@ export function filterBuyList(items: BuyListItem[], filters: BuyListFilterParams
   return { passed, dropped };
 }
 
-/** Pre-fill filter thresholds from resolved PPM data. Matches Moody's
+/** Pre-fill filter thresholds from resolved PPM data. Matches the Moody's
  *  Maximum WARF test and Minimum Weighted Average Floating Spread Test by
- *  loose name regex. Null when the resolver didn't extract the test (UI
- *  falls back to user-entered values). Binary flags intentionally NOT
- *  auto-set — partner opts into excludeCaa / excludeCovLite explicitly. */
+ *  `canonicalType` populated at the resolver normalization point — the
+ *  classification regex lives in one place (resolver.ts:classifyComplianceTest)
+ *  so this consumer cannot drift apart from the engine's compliance gate.
+ *  Null when the resolver didn't extract the test (UI falls back to
+ *  user-entered values). Binary flags intentionally NOT auto-set — partner
+ *  opts into excludeCaa / excludeCovLite explicitly. */
 export function buyListFiltersFromResolved(resolved: ResolvedDealData): BuyListFilterParams {
-  const warfTest = resolved.qualityTests.find((t) =>
-    /moody.*maximum.*weighted average rating factor/i.test(t.testName),
-  );
-  const wasTest = resolved.qualityTests.find((t) =>
-    /minimum.*weighted average.*(floating )?spread/i.test(t.testName),
-  );
+  const warfTest = resolved.qualityTests.find((t) => t.canonicalType === "moodys_max_warf");
+  const wasTest = resolved.qualityTests.find((t) => t.canonicalType === "min_was");
   return {
     maxWarfFactor: warfTest?.triggerLevel ?? null,
     // Minimum WAS trigger is reported in % (e.g. 3.65); filter field is bps.
