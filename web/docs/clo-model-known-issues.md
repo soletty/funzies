@@ -31,7 +31,6 @@ Categorized so a partner reading cold can separate "what's still wrong" from "wh
 - [KI-21 — Parallel implementations of same calculation (PARTIAL — Scope 1+2 closed; Scope 3 accel + T=0 remains)](#ki-21)
 - [KI-23 — Industry taxonomy missing on BuyListItem + ResolvedLoan blocks industry-cap filtering](#ki-23)
 - [KI-24 — E1 citation propagation coverage is partial (8 deferred paths)](#ki-24)
-- [KI-27 — Pre-existing tranche `deferredInterestBalance` dropped at projection start](#ki-27)
 - [KI-33 — Reinvestment loan synthesis assumes par-purchase (€1 diverted = €1 par)](#ki-33)
 - [KI-34 — Non-call period not enforced; user-typed pre-NCP call dates pass through](#ki-34)
 - [KI-35 — Partial DDTL draw silently discards the un-drawn commitment](#ki-35)
@@ -162,11 +161,11 @@ The genuine latent risk this entry tracks: under deferred-interest stress, defer
 
 **PPM-correct behavior:** Separate step lines for current interest (J/M/P/S) and deferred-balance accrual / pay-down (K/N/Q/T). Engine should emit a `stepTrace.classX_deferredPaydown` row distinct from `classX_current` whenever residual interest pays down deferred balance.
 
-**Quantitative magnitude:** 0 drift on Euro XV Q1 2026 (no deferred-balance state to pay down). Under stress where Class C/D/E/F deferred balances accumulate (per KI-27) and then a high-interest period flushes some of that deferred back, the bundled output cannot be cleanly compared against split trustee lines.
+**Quantitative magnitude:** 0 drift on Euro XV Q1 2026 (no deferred-balance state to pay down). Under stress where Class C/D/E/F deferred balances accumulate and then a high-interest period flushes some of that deferred back, the bundled output cannot be cleanly compared against split trustee lines.
 
 **Deferral rationale:** No deferred state in current data → no observable bundling on Euro XV. Splitting requires extending `stepTrace` with deferred-paydown rows distinct from current-interest rows.
 
-**Path to close:** After KI-27 (deferred-interest seeding) and B1+B2 (compositional EoD + post-acceleration) land — engine then carries non-trivial deferred-balance state across periods. Add `stepTrace.classX_deferredPaydown` for X ∈ {C, D, E, F}, populated from `deferredPay` at `projection.ts:1956-1957`. Update `backtest-harness.ts` and `ppm-step-map.ts` mappings to surface the new field as PPM step (K)/(N)/(Q)/(T). Update the trace renderer to display the row.
+**Path to close:** After B1+B2 (compositional EoD + post-acceleration) land — engine then carries non-trivial deferred-balance state across periods (T=0 deferred-interest seeding for non-compounding PPMs is wired via `ResolvedTranche.deferredInterestBalance` and the conditional seed at `projection.ts`). Add `stepTrace.classX_deferredPaydown` for X ∈ {C, D, E, F}, populated from `deferredPay` at `projection.ts:1956-1957`. Update `backtest-harness.ts` and `ppm-step-map.ts` mappings to surface the new field as PPM step (K)/(N)/(Q)/(T). Update the trace renderer to display the row.
 
 **Test:** `n1-correctness.test.ts > "green buckets" > Class C/D/E/F deferred interest is zero (no stress)`. No stress case exists on Euro XV; under deferred-interest stress this assertion will need to move into a `failsWithMagnitude` marker covering the new `classX_deferredPaydown` row.
 
@@ -602,42 +601,6 @@ Each affects partner-facing OC numerator (where the PPM routes the account into 
 6. The fixture-regeneration full-equality iterator (KI-22) already enforces round-trip on `resolved.accountBalances` — no extension needed there.
 
 **Test:** No active marker on Euro XV (all four balances null/zero by construction → drift = 0). When the fix lands, add `KI-26-accountSeed` against a synthetic fixture where one of the four reserves has a non-zero opening balance, asserting the corresponding waterfall row reflects the seed.
-
----
-
-<a id="ki-27"></a>
-### [KI-27] Pre-existing tranche `deferredInterestBalance` dropped at projection start
-
-**PPM reference:** Tranche-specific deferred-interest accumulation (PPM steps K, N, Q, T for Class C/D/E/F deferred interest); Condition 12 (PIK accrual mechanics on subordinate notes).
-
-**Current engine behavior:** Verified end-to-end:
-- `web/lib/clo/types/entities.ts:112` declares `deferredInterestBalance: number | null` on the raw tranche-snapshot type.
-- `web/lib/clo/extraction/schemas.ts:252` requests it during PPM/SDF extraction.
-- `web/lib/clo/extraction/prompts.ts:364` instructs extraction to populate it.
-- `web/lib/clo/access.ts:566` reads it from the database (`row.deferred_interest_balance`).
-- `web/lib/clo/backtest-types.ts:37, 83, 122` propagates it through the backtest types.
-- **`web/lib/clo/resolver-types.ts:94-107` (`ResolvedTranche`) has no `deferredInterestBalance` field.** The data path stops at the resolver.
-- **`web/lib/clo/projection.ts:1141` initializes `deferredBalances[t.className] = 0` unconditionally** for every tranche on every projection.
-
-The per-period deferred-accrual logic (search `deferredAccrualByTranche`) correctly *grows* the deferred balance when interest cannot be paid current (`projection.ts:2187-2194`) and *pays it down* when residual interest becomes available (`projection.ts:1956-1958` at maturity/call; `projection.ts:2173-2178` on diversion). Only the T=0 seed is wrong — it always starts at zero.
-
-**Compounding interaction (matters for the fix):** the dual-bucket structure means when `deferredInterestCompounds = true` (the default), per-period shortfalls compound INTO `trancheBalances` (lines 2175, 2190); only `deferredInterestCompounds = false` accumulates in `deferredBalances`. The seed at line 1141 thus matters most when compounding is disabled. When compounding is enabled, the question is whether the trustee's `deferredInterestBalance` field is a *separate-non-compounding-bucket* number or a *cumulative-PIK-since-issuance* number — if the latter, prior PIK has already been included in the snapshot's `endingBalance` (which seeds `trancheBalances` at line 1140 via `t.currentBalance`), and naively also seeding `deferredBalances` from `deferredInterestBalance` would double-count. The semantics of the trustee field need to be documented in the resolver before the fix lands.
-
-**PPM-correct behavior:** Forward projection's tranche state must initialize each `deferredBalances[t.className]` from the deal's current deferred balance (the value extracted into the trustee_balance row). Subsequent-period mechanics already work correctly.
-
-**Quantitative magnitude:** All 8 trustee snapshots in the Euro XV Q1 2026 fixture have `deferredInterestBalance: null` (`fixtures/euro-xv-q1.json:12526, 12554, 12582, 12610, 12638, 12666, 12694, 12722`). Latent on Euro XV. On any deal where one or more mezzanine/junior tranches are actively deferring interest at projection start (typical for distressed European CLOs in the post-2020 / 2022 cohort, particularly Class E and Class F under stress), equity IRR is over-stated by approximately the entire prior deferred balance plus its projected accrual over remaining periods. For a Class E with €5M of accumulated PIK at 8% coupon (quarterly compounding) and 5 remaining years, that compounds to €5M × (1 + 0.08/4)^20 = ~€7.43M of equity-distribution overstatement (undiscounted), roughly 18.5pp on a €42M sub note book value at 95c.
-
-**Deferral rationale:** Latent on Euro XV (no class is deferring at Q1 2026). Surfaces immediately on any deal whose extraction yields a non-null deferred balance. The data is collected; only the resolver-and-projection plumbing is missing.
-
-**Path to close:**
-1. Add `deferredInterestBalance: number | null` to the `ResolvedTranche` interface (`web/lib/clo/resolver-types.ts:94-107`).
-2. Populate from `raw.trancheSnapshots[*].deferredInterestBalance` in the tranche-resolution block of `web/lib/clo/resolver.ts`.
-3. In `web/lib/clo/build-projection-inputs.ts`, plumb the field through to whatever shape `projection.ts:1141` reads tranches from (currently `tranches[t.className]`).
-4. Replace `deferredBalances[t.className] = 0` at `projection.ts:1141` with seed logic that respects `deferredInterestCompounds`: under non-compounding, `deferredBalances[t.className] = t.deferredInterestBalance ?? 0`; under compounding, verify whether `currentBalance` (post-PIK trustee `endingBalance`) already includes the deferred amount — if so, no extra seeding needed; if not, add to `trancheBalances` instead. Document the trustee field semantics in the resolver.
-5. Verify the per-period deferred-accrual logic correctly uses the seed: at `projection.ts:2173-2194` (deferred-routing on diversion + shortfall) and `projection.ts:1956-1958` (deferred-paydown at maturity/call), confirm the seeded balance is consumed correctly in both paths.
-6. The fixture-regeneration full-equality iterator (KI-22) will catch the new resolver field automatically.
-
-**Test:** Add `KI-27-deferredSeed` `failsWithMagnitude` marker against a synthetic fixture where Class E starts with €5M deferred. Assertion: forward equity-distribution drift relative to the seed=0 baseline equals at least €5M (the deferred balance itself never returns to equity until paid current). No active marker on Euro XV (null seeds → drift = 0 by construction); marker fires the moment a real deal produces non-null deferred values.
 
 ---
 

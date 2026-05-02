@@ -183,6 +183,52 @@ export interface ResolvedTranche {
    *  of consecutive non-payment, this seeds the engine counter to N. Same
    *  null-default + same trustee-extraction TODO as `priorInterestShortfall`. */
   priorShortfallCount: number | null;
+  /** PPM Condition 6(c) — opening "Deferred Interest" balance for
+   *  deferrable mezzanine/junior tranches at T=0 (€). Sourced from
+   *  `CloTrancheSnapshot.deferredInterestBalance` (trustee compliance
+   *  report). Null = trustee did not report a value (default for healthy
+   *  deals; Ares-family trustees do not maintain a separate column).
+   *
+   *  Sign + scale invariants (boundary):
+   *    - **Non-negative.** Deferred Interest is a non-negative claim
+   *      against the Issuer; a negative value would silently reduce
+   *      noteholder claims. The boundary gate in `composeBuildWarnings`
+   *      refuses negative values with a blocking warning.
+   *    - **Bounded by `currentBalance` under compounding.** PPM 6(c):
+   *      deferral is "added to the principal amount", so Deferred
+   *      Interest is a subset of PAO. A trustee value above
+   *      `currentBalance` is mathematically impossible and signals
+   *      extraction misalignment (gate refuses).
+   *    - **Zero on paid-off tranches.** Once PAO reaches zero the
+   *      deferred claim is extinguished; a positive value on a
+   *      zero-currentBalance tranche is invalid (gate refuses).
+   *    - **Unit: euros (deal currency).** Same scale as
+   *      `currentBalance`.
+   *
+   *  Semantics depend on the deal's `deferredInterestCompounds` flag:
+   *    - `compounds=true` (Ares family — PPM 6(c): deferral "added to
+   *      the principal amount … and thereafter will accrue interest at
+   *      the rate of interest applicable to that Class"). Prior PIK is
+   *      already embedded in `currentBalance`; the trustee value, if
+   *      any, is informational. The engine ignores it; seeding from it
+   *      would double-count.
+   *    - `compounds=false` (non-compounding PPMs that hold deferred in
+   *      a separate sub-account). The trustee value carries the T=0
+   *      sub-account balance; the engine seeds `deferredBalances` from
+   *      it.
+   *
+   *  Disjointness: only deferrable tranches can carry a non-null value;
+   *  buildFromResolved emits a blocking warning when the field is
+   *  populated on a non-deferrable tranche (data-shape invariant — non-
+   *  deferrables breach EoD on missed interest, they cannot accumulate
+   *  to a deferred bucket).
+   *
+   *  The trustee field's semantics were resolved by reading PPM Ares CLO
+   *  XV Condition 6(c) verbatim; structural codebase signals (schema
+   *  shape, DB column presence, parser absence-of-evidence) had been
+   *  consistent with both compounding-PPM and non-compounding-PPM
+   *  interpretations until the clause text disambiguated. */
+  deferredInterestBalance: number | null;
   /** Per-tranche accrual convention (canonicalized from
    *  `clo_tranches.day_count_convention`). Undefined when extraction
    *  did not populate the column — engine falls back to

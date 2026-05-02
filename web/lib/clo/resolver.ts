@@ -325,6 +325,13 @@ function resolveTranches(
           // is the path-to-close for distressed deals.
           priorInterestShortfall: null,
           priorShortfallCount: null,
+          // PPM Condition 6(c) opening Deferred Interest balance — sourced
+          // directly from the trustee snapshot. Semantics gated by the
+          // deal's `deferredInterestCompounds` flag downstream; see the
+          // `ResolvedTranche.deferredInterestBalance` JSDoc and the
+          // build-projection-inputs gate for the cause-tree on populated
+          // values under compounding PPMs.
+          deferredInterestBalance: snap?.deferredInterestBalance ?? null,
           dayCountConvention: trancheDayCountConvention,
           source: snap ? "snapshot" as const : "db_tranche" as const,
         };
@@ -415,6 +422,8 @@ function resolveTranches(
       // PPM § 10(a)(i) prior-period state — null until trustee extraction populates.
       priorInterestShortfall: null,
       priorShortfallCount: null,
+      // No trustee snapshot available on this PPM-fallback path → null.
+      deferredInterestBalance: null,
       dayCountConvention: ppmTrancheDayCountConvention,
       source: "ppm" as const,
     };

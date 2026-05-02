@@ -172,6 +172,15 @@ export interface ProjectionInputs {
      *  at the correct boundary rather than re-deriving from scratch. Same
      *  null/undefined → 0 default + same TODO as `priorInterestShortfall`. */
     priorShortfallCount?: number | null;
+    /** PPM Condition 6(c) — opening Deferred Interest balance at T=0 (€).
+     *  Sourced from trustee `CloTrancheSnapshot.deferredInterestBalance`.
+     *  Engine seed semantics are conditional on `deferredInterestCompounds`:
+     *    - compounds=true → ignored (PIK already in currentBalance under
+     *      compounding PPM; seeding would double-count).
+     *    - compounds=false → seeds `deferredBalances[className]` (separate
+     *      sub-account convention).
+     *  Resolver populates from snapshot; null = trustee did not report. */
+    deferredInterestBalance?: number | null;
     /** Per-tranche day-count convention (canonicalized from
      *  `clo_tranches.day_count_convention`). When undefined, the engine
      *  falls back to `isFloating ? actual_360 : 30_360` — preserves
@@ -1189,11 +1198,19 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
       );
     }
     // PPM § 10(a)(i) seed validation: priorInterestShortfall and
-    // priorShortfallCount are non-deferrable-only state. Misuse on a
-    // deferrable tranche silently produces wrong post-accel handoff
-    // claims (deferred-interest seeding for deferrable tranches uses
-    // separate state — see KI-27's deferredInterestBalance scope).
-    // Misuse on income notes / amortising tranches is undefined.
+    // priorShortfallCount are non-deferrable-only state. Deferrables
+    // track shortfall via `deferredBalances` (separate engine state).
+    //
+    // The user-facing UX for this data-shape invariant flows through
+    // the blocking-warning gate in `buildFromResolved` (DATA INCOMPLETE
+    // banner via `selectBlockingWarnings` → `IncompleteDataError`). The
+    // engine assert below is defense-in-depth ONLY — a backstop for
+    // code paths
+    // that synthesize `ProjectionInputs` without going through
+    // `buildFromResolved` (e.g. test fixtures constructed by hand). On
+    // those paths the user sees an engine throw rather than the banner;
+    // the recommended path is to construct via buildFromResolved so the
+    // banner fires instead.
     const hasShortfallSeed =
       (t.priorInterestShortfall ?? null) !== null ||
       (t.priorShortfallCount ?? null) !== null;
@@ -1202,7 +1219,37 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
         `Tranche "${t.className}" carries priorInterestShortfall / ` +
           `priorShortfallCount but is deferrable / amortising / income-note. ` +
           `These seeds apply only to non-deferrable senior debt tranches per ` +
-          `PPM § 10(a)(i). Check resolver output.`,
+          `PPM § 10(a)(i). Construct ProjectionInputs via buildFromResolved ` +
+          `to surface this as a DATA INCOMPLETE banner instead of a throw.`,
+      );
+    }
+    // PPM Condition 6(c) deferred-bucket seed validation: deferrables
+    // are the only class that carries `deferredInterestBalance`. Same
+    // user-facing UX rule as above — the canonical surface is the
+    // banner via `buildFromResolved`; this throw is defense-in-depth
+    // for hand-constructed inputs that bypass the gate.
+    if (t.deferredInterestBalance != null && !t.isDeferrable) {
+      throw new Error(
+        `Tranche "${t.className}" is non-deferrable but carries ` +
+          `deferredInterestBalance. Non-deferrables breach EoD on missed ` +
+          `interest per PPM § 10(a)(i); they cannot accumulate to a deferred ` +
+          `bucket. Construct ProjectionInputs via buildFromResolved to ` +
+          `surface this as a DATA INCOMPLETE banner instead of a throw.`,
+      );
+    }
+    // Sign invariant on the deferred-bucket seed. The boundary gate in
+    // composeBuildWarnings refuses negative values before buildFromResolved
+    // can return; this throw mirrors that on the hand-constructed-inputs
+    // path so a negative seed cannot reach the engine and produce a
+    // negative-balance bucket at runtime.
+    if (t.deferredInterestBalance != null && t.deferredInterestBalance < 0) {
+      throw new Error(
+        `Tranche "${t.className}" carries a negative ` +
+          `deferredInterestBalance (${t.deferredInterestBalance}). The ` +
+          `deferred-interest sub-account is non-negative by construction; ` +
+          `a negative value indicates extraction sign-flip or column ` +
+          `misalignment. Construct ProjectionInputs via buildFromResolved ` +
+          `to surface this as a DATA INCOMPLETE banner instead of a throw.`,
       );
     }
   }
@@ -1592,7 +1639,31 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
   const shortfallCount: Record<string, number> = {};
   for (const t of sortedTranches) {
     trancheBalances[t.className] = t.currentBalance;
-    deferredBalances[t.className] = 0;
+    // PPM Condition 6(c) opening Deferred Interest seed. Conditional on
+    // the deal's compounding convention:
+    //   - compounds=true (Ares-family PPMs): per Condition 6(c),
+    //     "Deferred Interest [...] will be added to the principal amount
+    //     of the [Class] Notes [...] and thereafter will accrue interest
+    //     at the rate of interest applicable to that Class." Prior PIK
+    //     is therefore embedded in `currentBalance` (the trustee's
+    //     `endingBalance`/`Current` column reflects PAO + accumulated
+    //     PIK). Seeding from `t.deferredInterestBalance` would double-
+    //     count. Engine ignores the trustee field; the
+    //     buildFromResolved gate emits a soft cause-tree warning when a
+    //     populated value is encountered under compounding so the
+    //     partner can verify (informational disclosure vs extraction
+    //     misalignment vs non-Ares snapshot-timing wrinkle).
+    //   - compounds=false (non-compounding PPMs that hold deferred in a
+    //     separate sub-account, NOT added to PAO). The trustee field
+    //     carries the T=0 sub-account balance; engine seeds here.
+    //
+    // The buildFromResolved gate ensures the trustee value, if present
+    // on a non-deferrable tranche, has already been refused (DATA
+    // INCOMPLETE banner). It also blocks values exceeding currentBalance
+    // under compounding (mathematically impossible per PPM 6(c)).
+    deferredBalances[t.className] = deferredInterestCompounds
+      ? 0
+      : (t.deferredInterestBalance ?? 0);
     // Seed PPM § 10(a)(i) running state from the input. Null/undefined → 0
     // (no prior carry; standard for a healthy projection start). Populated
     // from a resolver-extracted trustee shortfall snapshot when the deal's

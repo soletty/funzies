@@ -426,16 +426,204 @@ export class IncompleteDataError extends Error {
   }
 }
 
+/**
+ * Returns caller-supplied warnings composed with per-tranche data-shape
+ * gates evaluated against the resolved object. The full composed set
+ * (blocking AND non-blocking) is observable via this function, since
+ * `IncompleteDataError` carries only the blocking subset — partner-
+ * facing UX surfaces (banner, advisory list) and tests that pin
+ * non-blocking soft-warn emission read through here.
+ *
+ * Caller warnings appear first, then per-tranche checks in stable order.
+ */
+export function composeBuildWarnings(
+  resolved: ResolvedDealData,
+  userAssumptions: UserAssumptions,
+  callerWarnings: ResolutionWarning[] = [],
+): ResolutionWarning[] {
+  const composedWarnings: ResolutionWarning[] = [...callerWarnings];
+
+  // Per-tranche data-shape gates. Each emits a ResolutionWarning rather
+  // than throwing — partner-facing UX is the DATA INCOMPLETE banner via
+  // `selectBlockingWarnings` → `IncompleteDataError`, never a stack
+  // trace. The engine carries lightweight backstop asserts on the same
+  // invariants for code paths that bypass this gate.
+  //
+  //   (a)  DISJOINTNESS — `deferredInterestBalance != null` only on
+  //        deferrable tranches. Non-deferrables breach EoD on missed
+  //        interest per PPM § 10(a)(i); they cannot accumulate to a
+  //        deferred bucket.
+  //   (a') BOUNDARY INVARIANT — `dib >= 0` (claims are non-negative);
+  //        `dib > 0 → currentBalance > 0` (extinct on paid-off tranches).
+  //   (b)  THRESHOLD under compounding — `dib <= currentBalance` is
+  //        mathematical when PPM 6(c) adds Deferred Interest to PAO,
+  //        because PAO includes the deferred amount. A value above
+  //        currentBalance is impossible under any benign reading;
+  //        cause is extraction misalignment.
+  //   (b') SOFT CAUSE-TREE — populated value under compounding is
+  //        benign-or-suspicious depending on cause. Engine ignores
+  //        the value (PIK is already in currentBalance under
+  //        compounding); banner enumerates the three plausible causes
+  //        so the partner-facing investigator doesn't re-derive them.
+  //   (c)  SHORTFALL-SEED MISUSE — `priorInterestShortfall` /
+  //        `priorShortfallCount` are non-deferrable-senior-only state
+  //        per PPM § 10(a)(i). On a deferrable / amortising / income-
+  //        note tranche the seeds either silently produce wrong post-
+  //        accel handoff claims or feed deferred state via the wrong
+  //        path; refuse the projection.
+  const compounds =
+    userAssumptions.deferredInterestCompounds ?? resolved.deferredInterestCompounds;
+  for (const t of resolved.tranches) {
+    const dib = t.deferredInterestBalance;
+
+    // (a) and (a') are INDEPENDENT — a non-deferrable tranche with a
+    // negative dib violates two invariants (wrong tranche assignment AND
+    // sign-convention error); both warnings fire so the partner sees
+    // every root cause, not just the first to trip the gate.
+
+    // (a) Disjointness — deferred bucket on a non-deferrable tranche.
+    if (dib != null && !t.isDeferrable) {
+      composedWarnings.push({
+        field: `tranches.${t.className}.deferredInterestBalance`,
+        message:
+          `Tranche "${t.className}" is non-deferrable but carries ` +
+          `deferredInterestBalance=${dib}. Non-deferrables breach EoD on missed ` +
+          `interest per PPM § 10(a)(i); they cannot accumulate to a deferred ` +
+          `bucket. Likely cause: extraction misalignment (LLM read the wrong ` +
+          `column or the snapshot was attached to the wrong tranche). Fix the ` +
+          `extraction or set the field to null.`,
+        severity: "error",
+        blocking: true,
+      });
+    }
+
+    // (a') Sign-convention boundary invariant — fires regardless of
+    // tranche type. A negative trustee value would silently reduce
+    // claims; the boundary refuses regardless of whether the value is
+    // also misplaced on a non-deferrable tranche.
+    if (dib != null && dib < 0) {
+      composedWarnings.push({
+        field: `tranches.${t.className}.deferredInterestBalance`,
+        message:
+          `Tranche "${t.className}": deferredInterestBalance=${dib} is negative. ` +
+          `Deferred Interest is a non-negative claim against the Issuer; a ` +
+          `negative value would silently reduce the amount owed to noteholders. ` +
+          `Likely cause: extraction sign-convention error (some trustees report ` +
+          `claims as negative; the boundary should canonicalize to non-negative). ` +
+          `Fix the extraction.`,
+        severity: "error",
+        blocking: true,
+      });
+    }
+
+    // The remaining dib-related gates (a''), (b), (b') are scoped to
+    // deferrable tranches with a non-null value — under that scope
+    // (a''), (b), (b') are mutually exclusive structural conditions on
+    // the same field, so they share an if/else if ladder.
+    if (t.isDeferrable && dib != null) {
+      // (a'') Paid-off — positive value on a tranche with no remaining
+      // principal. Deferred claim is extinguished once PAO reaches zero.
+      if (dib > 0 && t.currentBalance <= 0) {
+        composedWarnings.push({
+          field: `tranches.${t.className}.deferredInterestBalance`,
+          message:
+            `Tranche "${t.className}": deferredInterestBalance=${dib} on a paid-off ` +
+            `tranche (currentBalance=${t.currentBalance}). A deferred-interest claim ` +
+            `cannot exist on a tranche whose principal has been fully repaid — ` +
+            `Deferred Interest is paid via the priority of payments and subtracted ` +
+            `from PAO; once PAO reaches zero the deferred claim is extinguished. ` +
+            `Likely cause: stale snapshot, extraction misalignment, or the ` +
+            `snapshot was attached to the wrong tranche. Fix the extraction.`,
+          severity: "error",
+          blocking: true,
+        });
+      }
+      // (b) Threshold — value above currentBalance is mathematically
+      // impossible under compounding PPM (PIK is a subset of PAO). Only
+      // checked on tranches with positive currentBalance (the (a'')
+      // branch above handles the paid-off case with a more specific
+      // message).
+      else if (compounds && dib > t.currentBalance && t.currentBalance > 0) {
+        composedWarnings.push({
+          field: `tranches.${t.className}.deferredInterestBalance`,
+          message:
+            `Tranche "${t.className}": trustee deferredInterestBalance=${dib} ` +
+            `exceeds currentBalance=${t.currentBalance} under deferredInterestCompounds=true. ` +
+            `Mathematically impossible — under PPM compounding semantics (e.g. Ares ` +
+            `Condition 6(c)), Deferred Interest is "added to the principal amount" ` +
+            `and is therefore a subset of currentBalance. Likely cause: extraction ` +
+            `misalignment (LLM read currentBalance into deferredInterestBalance). ` +
+            `Fix the extraction.`,
+          severity: "error",
+          blocking: true,
+        });
+      }
+      // (b') Soft cause-tree — populated value within threshold under
+      // compounding. Benign (informational disclosure on an actually-
+      // deferring deal) OR suspicious (extraction misalignment /
+      // non-Ares snapshot-timing wrinkle). Engine ignores the value.
+      else if (compounds && dib > 0 && t.currentBalance > 0) {
+        composedWarnings.push({
+          field: `tranches.${t.className}.deferredInterestBalance`,
+          message:
+            `Tranche "${t.className}": trustee deferredInterestBalance=${dib} ` +
+            `under deferredInterestCompounds=true. Engine ignores the trustee ` +
+            `value (under compounding PPM, PIK is already in currentBalance; ` +
+            `seeding from the trustee field would double-count). Plausible causes: ` +
+            `(1) trustee informational disclosure on a compounding deal — benign, ` +
+            `no action required; (2) LLM extraction read the wrong column — fix ` +
+            `prompt or schema; (3) deal's PPM holds deferred in a transient ` +
+            `sub-account with snapshot-timing wrinkle (not present in Ares family) ` +
+            `— file new KI, engine ignore is incorrect for that case.`,
+          severity: "warn",
+          blocking: false,
+        });
+      }
+    }
+
+    // (c) priorInterestShortfall / priorShortfallCount × non-senior-debt.
+    // Independent of dib: a tranche can violate both invariants
+    // simultaneously, and the partner-facing banner should enumerate
+    // every gate that fires on this tranche.
+    const hasShortfallSeed =
+      (t.priorInterestShortfall ?? null) !== null ||
+      (t.priorShortfallCount ?? null) !== null;
+    if (hasShortfallSeed && (t.isDeferrable || t.isAmortising || t.isIncomeNote)) {
+      composedWarnings.push({
+        field: `tranches.${t.className}.priorInterestShortfall`,
+        message:
+          `Tranche "${t.className}" carries priorInterestShortfall / ` +
+          `priorShortfallCount but is deferrable / amortising / income-note. ` +
+          `These seeds apply only to non-deferrable senior debt tranches per ` +
+          `PPM § 10(a)(i). Deferrables track shortfall via a separate state ` +
+          `(deferredInterestBalance). Fix the resolver / extraction so the ` +
+          `seed lands on the correct tranche.`,
+        severity: "error",
+        blocking: true,
+      });
+    }
+  }
+
+  return composedWarnings;
+}
+
 export function buildFromResolved(
   resolved: ResolvedDealData,
   userAssumptions: UserAssumptions,
   warnings: ResolutionWarning[] = [],
 ): ProjectionInputs {
-  // Any extraction-side warning marked `blocking: true` refuses to
-  // construct ProjectionInputs. The engine never receives an inputs
-  // object built from a fallback / sentinel value where extraction
-  // missed a load-bearing field.
-  const blocking = selectBlockingWarnings(warnings);
+  // Compose caller-supplied warnings with per-tranche data-shape gates.
+  // Engine-internal `throw new Error(...)` for a data-shape invariant
+  // bypasses the DATA INCOMPLETE banner and produces a stack trace,
+  // which is the failure mode the blocking-warning + IncompleteDataError
+  // plumbing exists to prevent — see selectBlockingWarnings above.
+  const composedWarnings = composeBuildWarnings(resolved, userAssumptions, warnings);
+
+  // Any warning marked `blocking: true` refuses to construct
+  // ProjectionInputs. The engine never receives an inputs object built
+  // from a fallback / sentinel value where extraction missed a load-
+  // bearing field, or from a data-shape invariant violation.
+  const blocking = selectBlockingWarnings(composedWarnings);
   if (blocking.length > 0) {
     throw new IncompleteDataError(blocking);
   }
@@ -502,6 +690,7 @@ export function buildFromResolved(
       amortStartDate: t.amortStartDate,
       priorInterestShortfall: t.priorInterestShortfall,
       priorShortfallCount: t.priorShortfallCount,
+      deferredInterestBalance: t.deferredInterestBalance,
       dayCountConvention: t.dayCountConvention,
     })),
     ocTriggers: resolved.ocTriggers.map(t => ({
