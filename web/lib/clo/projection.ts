@@ -148,6 +148,21 @@ export interface ProjectionInputs {
     isAmortising?: boolean; // principal paid from interest waterfall on fixed schedule (e.g. Class X)
     amortisationPerPeriod?: number | null; // fixed amount per quarter (null = pay full remaining balance)
     amortStartDate?: string | null; // date when amort begins (e.g. second payment date). If null or past, amort active immediately.
+    /** PPM § 10(a)(i) — prior-period cumulative unpaid base interest carried
+     *  into the projection (€). Seeds the engine's running `interestShortfall`
+     *  state at T=0. Null/undefined → 0 (no carry). On a deal whose trustee
+     *  report shows mid-grace shortfall on a non-deferrable senior tranche,
+     *  populating this from the resolver makes EoD-on-shortfall fire at the
+     *  PPM-correct period. Today the resolver returns null pending PPM
+     *  extraction; the type and engine path are wired so a future extraction
+     *  fix is a one-line resolver change. */
+    priorInterestShortfall?: number | null;
+    /** PPM § 10(a)(i) — consecutive-period shortfall counter at T=0. Pairs
+     *  with `priorInterestShortfall`: if the trustee report shows N periods
+     *  of consecutive non-payment, seed counter to N so the engine fires EoD
+     *  at the correct boundary rather than re-deriving from scratch. Same
+     *  null/undefined → 0 default + same TODO as `priorInterestShortfall`. */
+    priorShortfallCount?: number | null;
   }[];
   ocTriggers: { className: string; triggerLevel: number; rank: number }[];
   icTriggers: { className: string; triggerLevel: number; rank: number }[];
@@ -1521,8 +1536,12 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
   for (const t of sortedTranches) {
     trancheBalances[t.className] = t.currentBalance;
     deferredBalances[t.className] = 0;
-    interestShortfall[t.className] = 0;
-    shortfallCount[t.className] = 0;
+    // Seed PPM § 10(a)(i) running state from the input. Null/undefined → 0
+    // (no prior carry; standard for a healthy projection start). Populated
+    // from a resolver-extracted trustee shortfall snapshot when the deal's
+    // most recent payment date showed unpaid senior interest mid-grace.
+    interestShortfall[t.className] = t.priorInterestShortfall ?? 0;
+    shortfallCount[t.className] = t.priorShortfallCount ?? 0;
     if (t.isAmortising) {
       resolvedAmortPerPeriod[t.className] = t.amortisationPerPeriod ?? (t.currentBalance / CLO_DEFAULTS.defaultScheduledAmortPeriods);
     }
@@ -1531,6 +1550,18 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
   // uses (non-income, non-amortising tranches at the lowest two distinct
   // seniorityRank values). Computed once here rather than re-derived per
   // period — the rank topology is invariant across the projection.
+  //
+  // Edge case: a deal with NO non-amortising debt tranches (entire debt
+  // stack is amortising — extremely unusual, structurally inconsistent
+  // with PPM § 10(a)(i) which presumes a non-deferrable senior at risk
+  // of payment shortfall) yields an empty set. The shortfall mechanic
+  // then silently does nothing. This matches reality: there's no rank-
+  // protected tranche to protect; § 10(a)(i) does not apply.
+  // `accrueShortfall` skips amortising tranches anyway (line ~2660 below),
+  // so `interestShortfall` would stay all-zero and the trigger has nothing
+  // to detect. If a deal of this shape ever appears, the silent-disable
+  // is the correct PPM-faithful behavior — but flag for a cross-check
+  // against the deal's specific § 10 wording.
   const eodProtectedClassNames = new Set(
     tranches
       .filter((t) => !t.isIncomeNote && !t.isAmortising && seniorProtectedRanks.has(t.seniorityRank))
@@ -2368,7 +2399,7 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
           classXAmortFromInterest: 0,
           // Deferred-accrual map empty under acceleration — deferred interest
           // does NOT PIK post-breach (PPM 10(b)); unpaid interest becomes a
-          // shortfall captured in accelResult.interestShortfall instead.
+          // shortfall captured in accelResult.perPeriodInterestShortfall instead.
           deferredAccrualByTranche: {},
           // Acceleration skips the normal-mode reinvestment decision entirely
           // (sequential P+I paydown by seniority); no C1 enforcement applies.

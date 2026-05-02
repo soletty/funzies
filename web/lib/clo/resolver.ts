@@ -281,6 +281,13 @@ function resolveTranches(
           isAmortising: hasAmort,
           amortisationPerPeriod: amortPerPeriod,
           amortStartDate: hasAmort ? (ppmAmortStartByClass.get(key) ?? defaultAmortStartDate) : null,
+          // PPM § 10(a)(i) prior-period state — null until trustee extraction
+          // populates the carried-shortfall and consecutive-period-count
+          // fields. Engine treats null as 0 (no prior carry) which is the
+          // healthy-start default; populating from a real trustee snapshot
+          // is the path-to-close for distressed deals.
+          priorInterestShortfall: null,
+          priorShortfallCount: null,
           source: snap ? "snapshot" as const : "db_tranche" as const,
         };
       });
@@ -343,6 +350,9 @@ function resolveTranches(
       isAmortising: hasAmort,
       amortisationPerPeriod: amortPerPeriod,
       amortStartDate: hasAmort ? (ppmAmortStartByClass.get(key) ?? defaultAmortStartDate) : null,
+      // PPM § 10(a)(i) prior-period state — null until trustee extraction populates.
+      priorInterestShortfall: null,
+      priorShortfallCount: null,
       source: "ppm" as const,
     };
   });
@@ -1413,7 +1423,7 @@ export function resolveWaterfallInputs(
     field: "interestNonPaymentGracePeriods",
     message:
       "PPM § 10(a)(i) interest-non-payment grace period not extracted; engine defaults to 0 (any senior-interest shortfall fires Event of Default immediately). This is the conservative PPM-correct default for the modal quarterly-payment CLO (sub-period cure windows lapse before the next checkpoint). A deal whose PPM grants a multi-period grace would over-trigger acceleration under stress; verify PPM § 10(a)(i) before relying on stress-scenario IRRs.",
-    severity: "info",
+    severity: "warn",
     blocking: false,
   });
 

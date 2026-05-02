@@ -233,6 +233,55 @@ describe("non-deferrable senior interest shortfall — EoD trigger (PPM § 10(a)
     expect((result.periods[0].interestShortfall.C ?? 0)).toBeGreaterThan(0);
   });
 
+  it("priorShortfallCount seed: EoD fires earlier on a deal entering mid-grace", () => {
+    // PPM § 10(a)(i) prior-period state seeding. With grace=2 and a fresh
+    // start, EoD fires after 3 consecutive shortfall periods (count climbs
+    // 0→1→2→3, breaches at >2). Seeding `priorShortfallCount: 2` represents
+    // a deal where the trustee's most recent payment date showed 2 prior
+    // consecutive non-payments — EoD must fire 1 period earlier (at the
+    // first projected shortfall, count climbs 2→3, breaches immediately).
+    const fresh = runProjection(makeStressInputs(30, { interestNonPaymentGracePeriods: 2 }));
+    expect(fresh.periods[0].isAccelerated).toBe(false);
+    expect(fresh.periods[1].isAccelerated).toBe(false);
+    expect(fresh.periods[2].isAccelerated).toBe(false);
+    expect(fresh.periods[3].isAccelerated).toBe(true);
+
+    const inputsSeeded = makeStressInputs(30, { interestNonPaymentGracePeriods: 2 });
+    inputsSeeded.tranches = inputsSeeded.tranches.map((t) =>
+      t.className === "A"
+        ? { ...t, priorShortfallCount: 2 }
+        : t,
+    );
+    const seeded = runProjection(inputsSeeded);
+    // First period of projected shortfall: count = 2 + 1 = 3, breaches > 2.
+    // Period 1 still emits pre-accel; period 2 flips.
+    expect(seeded.periods[0].isAccelerated).toBe(false);
+    expect(seeded.periods[1].isAccelerated).toBe(true);
+  });
+
+  it("priorInterestShortfall seed: post-acceleration handoff folds the carried balance", () => {
+    // Seed Class A with a €1M prior shortfall. When EoD fires (whichever
+    // path), the post-accel handoff at projection.ts:~2181 folds the
+    // running interestShortfall into interestDueByTranche so the
+    // accelerated claim is whole. Without seeding, the handoff would
+    // under-state the claim by exactly €1M.
+    const inputs = makeStressInputs(30, { interestNonPaymentGracePeriods: 0 });
+    inputs.tranches = inputs.tranches.map((t) =>
+      t.className === "A"
+        ? { ...t, priorInterestShortfall: 1_000_000 }
+        : t,
+    );
+    const result = runProjection(inputs);
+    // Period 1: pre-accel emit shows the seeded carry on the running
+    // balance map (plus this period's accrual).
+    expect(result.periods[0].interestShortfall.A ?? 0).toBeGreaterThan(1_000_000);
+    // Period 2: post-accel. Due reflects coupon + carried shortfall.
+    expect(result.periods[1].isAccelerated).toBe(true);
+    const a2 = result.periods[1].trancheInterest.find((t) => t.className === "A")!;
+    // a2.due includes the >€1M fold-in; the bare coupon would be ~€213K.
+    expect(a2.due).toBeGreaterThan(1_100_000);
+  });
+
   it("post-EoD handoff: pre-accel shortfall folds into post-accel interestDueByTranche", () => {
     const result = runProjection(makeStressInputs(30, { interestNonPaymentGracePeriods: 1 }));
     // Period 1: shortfall accrues, count=1 (1>1=false). Period 2: shortfall
@@ -252,5 +301,50 @@ describe("non-deferrable senior interest shortfall — EoD trigger (PPM § 10(a)
     const a2 = result.periods[1].trancheInterest.find((t) => t.className === "A")!;
     const a3 = result.periods[2].trancheInterest.find((t) => t.className === "A")!;
     expect(a3.due).toBeGreaterThan(a2.due * 1.5);
+  });
+
+  it("null grace-periods input defaults to 0 (PPM-correct for standard CLOs)", () => {
+    // The engine reads `interestNonPaymentGracePeriods ?? 0` — a null/
+    // undefined input must behave identically to grace=0. Pin this so a
+    // future PR that accidentally changes the default to 1 (or any other
+    // value) breaks loud rather than silently mis-modeling every deal where
+    // the resolver emits null (currently the default — see resolver.ts and
+    // resolver-types.ts for the documented rationale: standard CLO cure
+    // windows are sub-period in a quarterly model so the cure has lapsed
+    // by the next checkpoint).
+    const stressed = makeStressInputs(30);
+    delete (stressed as Partial<ProjectionInputs>).interestNonPaymentGracePeriods;
+    const nullInput = runProjection(stressed);
+    const explicitZero = runProjection(makeStressInputs(30, { interestNonPaymentGracePeriods: 0 }));
+
+    // Same acceleration behavior — period 2 flips under both shapes.
+    expect(nullInput.periods[1].isAccelerated).toBe(true);
+    expect(explicitZero.periods[1].isAccelerated).toBe(true);
+    // Same number of accelerated periods overall (no off-by-one drift).
+    expect(nullInput.periods.filter((p) => p.isAccelerated).length).toBe(
+      explicitZero.periods.filter((p) => p.isAccelerated).length,
+    );
+  });
+
+  it("emits interestShortfallCount populated from post-update count snapshot", () => {
+    // Pin the new PeriodResult.interestShortfallCount field so a partner-
+    // facing surface can read "Class A — 2 of 3 grace periods consumed"
+    // without re-deriving the state machine. Snapshot is post-update
+    // (taken AFTER the EoD-on-shortfall trigger increments the counter
+    // for the period), which is the only correct ordering — pre-update
+    // would lag by a period and a consumer summing the count across
+    // periods would read off-by-one numbers.
+    const result = runProjection(makeStressInputs(30, { interestNonPaymentGracePeriods: 5 }));
+    // Period 1: count climbs 0→1 → emit shows {A: 1}. Pre-accel.
+    expect(result.periods[0].interestShortfallCount.A).toBe(1);
+    expect(result.periods[0].isAccelerated).toBe(false);
+    // Period 2: count climbs 1→2 → emit shows {A: 2}.
+    expect(result.periods[1].interestShortfallCount.A).toBe(2);
+    // Period 6: count climbs 5→6 (>5=grace) → fires EoD, period 7 accelerates.
+    // The breach period itself emits the post-update count of 6.
+    expect(result.periods[5].interestShortfallCount.A).toBe(6);
+    // Post-accel emit (period 7): counter frozen, field empty per docstring.
+    expect(result.periods[6].isAccelerated).toBe(true);
+    expect(result.periods[6].interestShortfallCount).toEqual({});
   });
 });

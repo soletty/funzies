@@ -500,6 +500,8 @@ export function buildFromResolved(
       isAmortising: t.isAmortising,
       amortisationPerPeriod: t.amortisationPerPeriod,
       amortStartDate: t.amortStartDate,
+      priorInterestShortfall: t.priorInterestShortfall,
+      priorShortfallCount: t.priorShortfallCount,
     })),
     ocTriggers: resolved.ocTriggers.map(t => ({
       className: t.className,

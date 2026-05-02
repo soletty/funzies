@@ -168,6 +168,19 @@ export interface ResolvedTranche {
   amortisationPerPeriod: number | null;
   amortStartDate: string | null; // when amort begins (null = active immediately)
   source: ResolvedSource;
+  /** PPM § 10(a)(i) — prior-period cumulative unpaid base interest carried
+   *  into the projection (€). When the trustee report shows mid-grace
+   *  shortfall on a non-deferrable senior tranche, populating this lets the
+   *  engine fire EoD-on-shortfall at the PPM-correct period rather than
+   *  starting the count from zero. Null = no prior shortfall (default for a
+   *  healthy projection start). Resolver returns null today; trustee
+   *  extraction work needed to populate. */
+  priorInterestShortfall: number | null;
+  /** PPM § 10(a)(i) — consecutive-period shortfall counter at T=0. Pairs
+   *  with `priorInterestShortfall`: if the trustee report shows N periods
+   *  of consecutive non-payment, this seeds the engine counter to N. Same
+   *  null-default + same trustee-extraction TODO as `priorInterestShortfall`. */
+  priorShortfallCount: number | null;
 }
 
 export interface ResolvedPool {

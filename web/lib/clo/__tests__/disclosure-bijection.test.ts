@@ -28,6 +28,17 @@ const SCAN_FILES: string[] = [
   // catches stale references that would otherwise escape CI because
   // CLAUDE.md is not in any other test surface.
   "CLAUDE.md",
+  // Engine files. KI annotations in docstrings and comments here are the
+  // most common source of stale-reference drift after a closure (the
+  // closing PR is responsible for removing them but the four-file scan
+  // above used to miss them). Anything that grows a `KI-XX` token must
+  // resolve to a current ledger anchor or describe the invariant
+  // directly per closed=deleted doctrine.
+  "web/lib/clo/projection.ts",
+  "web/lib/clo/resolver.ts",
+  "web/lib/clo/resolver-types.ts",
+  "web/lib/clo/build-projection-inputs.ts",
+  "web/lib/clo/pool-metrics.ts",
 ];
 
 function parseLedgerAnchors(): Set<string> {

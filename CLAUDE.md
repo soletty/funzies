@@ -420,11 +420,12 @@ took an opaque `string` and emitted a `number`. `normalizeComplianceTestType`
 derives `isPassing` as `actual >= trigger` for all directions
 (including lower-is-better tests like WARF), again because the
 boundary type carries no direction invariant — see KI-51 for the
-in-flight tracking. The disputed KI-44 audit candidate (whether
-`Market_Value` was percent or absolute) was verifiable only by reading
-the spec, the parser, and the consumer together; the type system
-carried no invariant — closed not-a-bug, but the audit cost reflected
-the type-system gap. Sign convention has the same shape — see KI-08
+in-flight tracking. The disputed `Market_Value` audit candidate
+(whether the column was percent-shaped or absolute, raised during
+the 2026-04-30 audit) was verifiable only by reading the spec, the
+parser, and the consumer together; the type system carried no
+invariant — closed not-a-bug, but the audit cost reflected the
+type-system gap. Sign convention has the same shape — see KI-08
 for the bundled steps B+C cascade.
 
 ### 6. Missing memoization deps are silent
