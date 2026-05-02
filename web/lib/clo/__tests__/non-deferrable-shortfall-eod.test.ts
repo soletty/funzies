@@ -233,6 +233,23 @@ describe("non-deferrable senior interest shortfall — EoD trigger (PPM § 10(a)
     expect((result.periods[0].interestShortfall.C ?? 0)).toBeGreaterThan(0);
   });
 
+  it("priorShortfallCount > grace at T=0: deal starts already accelerated", () => {
+    // Deal arrives mid-grace at the boundary already breached: count=3
+    // with grace=2 means the consecutive-shortfall threshold was crossed
+    // BEFORE the projection window opened. Period 1 must run under post-
+    // acceleration; otherwise the engine silently lets one extra pre-accel
+    // period of distributions through (interest paid to junior tranches
+    // that under PPM should already be diverted to senior P+I).
+    const inputs = makeStressInputs(0.15, { interestNonPaymentGracePeriods: 2 });
+    inputs.tranches = inputs.tranches.map((t) =>
+      t.className === "A"
+        ? { ...t, priorShortfallCount: 3 }
+        : t,
+    );
+    const result = runProjection(inputs);
+    expect(result.periods[0].isAccelerated).toBe(true);
+  });
+
   it("priorShortfallCount seed: EoD fires earlier on a deal entering mid-grace", () => {
     // PPM § 10(a)(i) prior-period state seeding. With grace=2 and a fresh
     // start, EoD fires after 3 consecutive shortfall periods (count climbs

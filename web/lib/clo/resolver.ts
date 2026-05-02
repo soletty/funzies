@@ -1410,14 +1410,13 @@ export function resolveWaterfallInputs(
   // period checkpoint the cure has lapsed. Override only when modelling a
   // non-standard deal whose PPM grants a multi-period grace.
   //
-  // Severity is `info` (filtered out of the partner-facing warnings panel
-  // by `ProjectionModel.tsx`) — surfacing this on every healthy projection
-  // would be noise: grace=0 is PPM-correct for the modal CLO and the wrong-
-  // direction error is over-trigger (false EoD under stress), never under-
-  // trigger. Diagnostic visibility is preserved for engineers; partners are
-  // not spammed. When extraction lands, flip this site to
-  // `severity: "error", blocking: true` — same shape as the other
-  // computational-input blocking gates in this resolver.
+  // Severity is `warn`, non-blocking: surfaced in the partner-facing
+  // warnings panel (`ProjectionModel.tsx` filters only `info`), but the
+  // projection is allowed to run because the wrong-direction error is
+  // over-trigger (false EoD under stress), never under-trigger — the
+  // displayed numbers are conservative-correct. When extraction lands,
+  // flip this site to `severity: "error", blocking: true` — same shape
+  // as the other computational-input blocking gates in this resolver.
   const interestNonPaymentGracePeriods: number | null = null;
   warnings.push({
     field: "interestNonPaymentGracePeriods",

@@ -1154,6 +1154,23 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
           `an Event of Default, not deferral. Check resolver output or tranche input.`,
       );
     }
+    // PPM § 10(a)(i) seed validation: priorInterestShortfall and
+    // priorShortfallCount are non-deferrable-only state. Misuse on a
+    // deferrable tranche silently produces wrong post-accel handoff
+    // claims (deferred-interest seeding for deferrable tranches uses
+    // separate state — see KI-27's deferredInterestBalance scope).
+    // Misuse on income notes / amortising tranches is undefined.
+    const hasShortfallSeed =
+      (t.priorInterestShortfall ?? null) !== null ||
+      (t.priorShortfallCount ?? null) !== null;
+    if (hasShortfallSeed && (t.isDeferrable || t.isAmortising || t.isIncomeNote)) {
+      throw new Error(
+        `Tranche "${t.className}" carries priorInterestShortfall / ` +
+          `priorShortfallCount but is deferrable / amortising / income-note. ` +
+          `These seeds apply only to non-deferrable senior debt tranches per ` +
+          `PPM § 10(a)(i). Check resolver output.`,
+      );
+    }
   }
 
   // Stub-period anchor (post-v6 plan §4.2). When `stubPeriod === true` and
@@ -1733,7 +1750,21 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
   // which we model as permanent). Triggered by EoD breach at T=0 or in any
   // forward period. Flip happens AT the end of the breaching period, so the
   // NEXT period runs under acceleration.
-  let isAccelerated = initialState.eodTest !== null && !initialState.eodTest.passing;
+  //
+  // Two independent T=0 EoD checks:
+  //   1. Compositional EoD (par-coverage test) via `initialState.eodTest`.
+  //   2. PPM § 10(a)(i) interest-non-payment grace already exceeded at T=0
+  //      via a seeded `priorShortfallCount` exceeding `eodGrace` on a
+  //      rank-protected tranche. Without this check, a deal arriving with
+  //      e.g. count=3 / grace=2 would silently run period 1 under pre-accel
+  //      (which is wrong — the breach already occurred pre-projection).
+  let isAccelerated =
+    (initialState.eodTest !== null && !initialState.eodTest.passing) ||
+    sortedTranches.some(
+      (t) =>
+        eodProtectedClassNames.has(t.className) &&
+        (t.priorShortfallCount ?? 0) > eodGrace,
+    );
 
   const draw: DefaultDrawFn = defaultDrawFn ?? ((par, hz) => par * hz);
   for (let q = 1; q <= totalQuarters; q++) {
