@@ -252,9 +252,14 @@ describe("N1 correctness — currently broken buckets (documented in KI ledger)"
   //
   // MAINTENANCE WARNING: this expectedDrift MUST be re-baselined whenever any
   // upstream KI (01 / 08 / 09 / 10 / 11 / 12a / 12b) closes or its own expected
-  // magnitude changes. A stale expected value here either masks a regression
-  // (false green) or fabricates one (false red). PR template reminder lives
-  // in docs/clo-model-known-issues.md §KI-13.
+  // magnitude changes. Also re-baseline on the next live ingest after KI-62
+  // sub-fix B: bond par_balance now follows live Commitment, lifting Tele
+  // Columbus pool-par contribution by ~€581K (€2.5M → €3.08M). The €581K
+  // cascades through fee base + OC denominator + reinvestment composition;
+  // the n1 sub-distribution drift will shift outside the €100 tolerance and
+  // this marker will fail loud. A stale expected value here either masks a
+  // regression (false green) or fabricates one (false red). PR template
+  // reminder lives in docs/clo-model-known-issues.md §KI-13.
   failsWithMagnitude(
     {
       ki: "KI-13a-engineMath",
