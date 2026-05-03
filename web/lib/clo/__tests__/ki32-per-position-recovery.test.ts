@@ -1,6 +1,10 @@
 /**
- * KI-32 closure marker — per-position agency recovery rates apply at the
- * forward-default site, not just at the resolver's T=0 reduction.
+ * Per-position agency recovery rates apply at the forward-default site,
+ * not just at the resolver's T=0 reduction. Regression guard: a future
+ * change that drops `recoveryRateAgency` from `LoanState`, makes the
+ * helper fall back to global on every loan, or rewrites either call
+ * site (resolver T=0 reduction OR engine LoanState construction) to
+ * pass a different agency subset must fail here.
  *
  * Two synthetic loans default in the same period under identical hazard.
  * One carries `recoveryRateMoodys = 70` (70%), the other carries 30 (30%).
@@ -17,10 +21,15 @@
  * back to global) shows up as both events recovering at 50% — visible at
  * the per-event grain regardless of total.
  *
- * Closure of KI-32 keeps this file as a positive-correctness regression
- * guard. The bijection with the ledger is structural rather than ledger-
- * tracked: deleting the file is the closure signal that the per-position
- * convention has been retired (which would itself be a regression).
+ * The third test ("call site passes all three agencies") closes a
+ * coverage gap raised during review: the helper's own unit test pins
+ * the helper's output behavior, but does not exercise the call-site
+ * agency-selection. A future PR that drops Moody's at the call site
+ * (e.g., to address per-deal-PPM language about "Lesser of Fitch and
+ * S&P") would fix the agency subset without touching the helper —
+ * unit-helper tests would still pass while the actual semantic
+ * flipped. Asserting end-to-end that a Moody's-lowest scenario picks
+ * the Moody's value through the engine binds the call site directly.
  */
 
 import { describe, it, expect } from "vitest";
@@ -111,7 +120,7 @@ function buildKi32Inputs(): ProjectionInputs {
   };
 }
 
-describe("KI-32: per-position agency recovery rate at forward-default site", () => {
+describe("per-position agency recovery rate at forward-default site", () => {
   it("two loans default same period; per-event recoveryAmount reflects each loan's agency rate, not the global", () => {
     const result = runProjection(buildKi32Inputs());
     const period1 = result.periods[0];
@@ -120,7 +129,7 @@ describe("KI-32: per-position agency recovery rate at forward-default site", () 
     // (Quarterly hazard from a 99.99% annual CDR is ~90% so each €1M loan
     // contributes ~€900k of defaults; the precise number is set by the
     // engine's annualized→quarterly conversion and is incidental — the
-    // KI-32 invariant lives in the per-event RATE, not the total.)
+    // invariant lives in the per-event RATE, not the total.)
     expect(period1.loanDefaultEvents.length).toBe(2);
     expect(period1.defaults).toBeGreaterThan(1_500_000);
 
@@ -159,5 +168,36 @@ describe("KI-32: per-position agency recovery rate at forward-default site", () 
     const middle = events[1];
     expect(lowest.recoveryAmount / lowest.defaultedPar).toBeCloseTo(0.30, 2);
     expect(middle.recoveryAmount / middle.defaultedPar).toBeCloseTo(0.50, 2);
+  });
+
+  it("call site passes all three agency rates — Moody's-lowest scenario picks Moody's value end-to-end", () => {
+    // Closes a coverage gap between the helper's unit test (which pins
+    // `Math.min` over whatever's passed) and the call-site behavior
+    // (which is what the open agency-subset question is about). A loan
+    // with three distinct rates whose lowest is Moody's tells us that
+    // the call site (LoanState construction in projection.ts) passes
+    // Moody's into the helper. If a future PR drops Moody's at that
+    // call site (say, to address per-deal-PPM language about "Lesser
+    // of Fitch and S&P"), this assertion fails — the recoveryAmount
+    // would land at min(50, 60) = 50%, not 20%.
+    const inputs = buildKi32Inputs();
+    inputs.loans[0] = {
+      ...inputs.loans[0],
+      recoveryRateMoodys: 20,
+      recoveryRateSp: 50,
+      recoveryRateFitch: 60,
+    };
+    inputs.loans[1] = {
+      ...inputs.loans[1],
+      recoveryRateMoodys: 80,  // park other loan well above so sort is index-stable
+      recoveryRateSp: undefined,
+      recoveryRateFitch: undefined,
+    };
+    const result = runProjection(inputs);
+    const events = [...result.periods[0].loanDefaultEvents].sort(
+      (a, b) => a.recoveryAmount - b.recoveryAmount,
+    );
+    const lowestEvent = events[0];
+    expect(lowestEvent.recoveryAmount / lowestEvent.defaultedPar).toBeCloseTo(0.20, 2);
   });
 });

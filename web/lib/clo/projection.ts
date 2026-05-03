@@ -272,6 +272,53 @@ export interface ProjectionInputs {
   cccMarketValuePct: number; // market value assumption for CCC excess haircut (% of par)
   deferredInterestCompounds: boolean; // whether PIK'd interest itself earns interest
   initialPrincipalCash?: number; // uninvested principal in accounts at projection start (flows through waterfall Q1)
+  /** Interest Account opening balance at T=0. Per PPM Condition 3(j)(ii)(1)
+   *  the Interest Account is fully transferred to the Payment Account on the
+   *  Business Day prior to each Payment Date for disbursement under the
+   *  Interest Priority of Payments — so the opening balance flows into Q1
+   *  `availableInterest` ahead of step (A)(i). The balance also earns yield
+   *  per Condition 3(j)(ii)(B); the engine mirrors `initialPrincipalCash`
+   *  yield treatment. NOT credited to the OC numerator (Adjusted Collateral
+   *  Principal Amount per Condition 1(d) limits account-cash credit to the
+   *  Principal Account and the Unused Proceeds Account only). Included in
+   *  `equityBookValue` as a balance-sheet identity. */
+  initialInterestAccountCash?: number;
+  /** Interest Smoothing Account opening balance at T=0. Per PPM
+   *  Condition 3(j)(xii) the Smoothing Amount deposited at a given
+   *  Determination Date is transferred BACK to the Interest Account on
+   *  the BD after the next Payment Date — so a non-zero opening balance
+   *  is mid-cycle and flushes into Q1 `availableInterest` automatically.
+   *  Q1 treatment of opening balance is independent of Frequency Switch
+   *  Event (FSE only gates FUTURE deposits to zero per the Smoothing
+   *  Amount definition). Multi-period FSE-coupled deposit/withdrawal
+   *  dynamics are out-of-scope here (KI-04). NOT credited to the OC
+   *  numerator. Included in `equityBookValue`. */
+  initialInterestSmoothingBalance?: number;
+  /** Expense Reserve Account opening balance at T=0. Per PPM
+   *  Condition 3(j)(x)(4) and Interest Priority of Payments steps (B) +
+   *  (C), the Expense Reserve Balance augments the Senior Expenses Cap
+   *  each period: trustee/admin fees can draw up to
+   *  `seniorExpensesCap + expenseReserveBalance`. Drains as overflow is
+   *  paid; carries forward across periods until exhausted. Distinct
+   *  from KI-02 step (D) deposit-into-reserve flow. NOT credited to the
+   *  OC numerator. Included in `equityBookValue`. */
+  initialExpenseReserveBalance?: number;
+  /** Supplemental Reserve Account opening balance at T=0. Per PPM
+   *  Condition 3(j)(vi) the Collateral Manager has discretion across
+   *  eight Permitted Uses; no automatic flow on a determination date.
+   *  Q1 treatment is governed by `supplementalReserveDisposition`
+   *  (modeling assumption — defaults to "principalCash" which mirrors
+   *  `initialPrincipalCash` Q1 routing). NOT credited to the OC
+   *  numerator. Included in `equityBookValue`. */
+  initialSupplementalReserveBalance?: number;
+  /** User assumption — Q1 disposition of the Supplemental Reserve
+   *  opening balance. PPM Condition 3(j)(vi) gives the manager
+   *  discretion; this is a modeling assumption, not an extracted value.
+   *  "principalCash" (default) mirrors `initialPrincipalCash` routing
+   *  (RP→reinvestment, post-RP→senior paydown). "interest" routes the
+   *  balance into Q1 `availableInterest` (PPM 3(j)(vi)(B)). "hold"
+   *  leaves the balance on the books (claim against equity at maturity). */
+  supplementalReserveDisposition?: "principalCash" | "interest" | "hold";
   preExistingDefaultedPar?: number; // par of pre-existing defaulted loans
   preExistingDefaultRecovery?: number; // market-price recovery for priced defaulted holdings
   unpricedDefaultedPar?: number; // par of defaulted holdings without market price (model applies recoveryPct)
@@ -391,8 +438,11 @@ export interface PeriodStepTrace {
    *  hedge. The amount entering the tranche-interest pari-passu loop (PPM
    *  step (G) onward).
    *
-   *  NULL under acceleration mode (PPM 10(b)): senior expenses cap is removed
-   *  and interest+principal pool together for sequential P+I distribution by
+   *  NULL under acceleration mode: the Post-Acceleration Priority of
+   *  Payments steps (B)+(C) proviso ("provided that following an acceleration
+   *  of the Notes pursuant to Condition 10(b) (Acceleration) [...] the
+   *  Senior Expenses Cap shall not apply") removes the cap, and
+   *  interest+principal pool together for sequential P+I distribution by
    *  seniority; "available for tranches" doesn't have a coherent meaning. UI
    *  must hide the row when null AND render an explanatory header.
    *
@@ -409,7 +459,10 @@ export interface PeriodStepTrace {
   /** PPM step (Y) — trustee-fee overflow paid from residual interest after
    *  tranche interest + sub mgmt fee. Zero when trustee + admin fees were
    *  fully accommodated under the Senior Expenses Cap, and zero under
-   *  acceleration (cap disappears per PPM 10(b)). */
+   *  acceleration (cap removed by Post-Acceleration Priority of Payments
+   *  steps (B)+(C) proviso citing Condition 10(b) Acceleration; the
+   *  post-accel executor pays trustee/admin uncapped from the pooled
+   *  stream and there is no overflow lane). */
   trusteeOverflowPaid: number;
   /** PPM step (Z) — admin-expense overflow. Same mechanics as trustee. */
   adminOverflowPaid: number;
@@ -429,6 +482,13 @@ export interface PeriodStepTrace {
    *  is active (no trigger set) or the purchase fit within the trigger.
    *  Blocked principal flows to senior paydown instead of reinvestment. */
   reinvestmentBlockedCompliance: number;
+  /** Per-period draw from the Expense Reserve Account used to pay PPM steps
+   *  (B) and (C) above the standard Senior Expenses Cap (Condition 3(j)(x)(4)).
+   *  Zero when the standard cap was sufficient OR when the reserve is empty.
+   *  Always zero under acceleration: Post-Acceleration Priority of
+   *  Payments steps (B)+(C) proviso citing Condition 10(b) removes the
+   *  cap, so there is no over-cap to draw on. */
+  expenseReserveDraw: number;
 }
 
 /** C2 — Forward-projected portfolio quality + concentration metrics.
@@ -617,6 +677,20 @@ export interface ProjectionInitialState {
    *  UI must label this state ("Deal is balance-sheet insolvent; IRR not
    *  meaningful") rather than show "N/A". */
   equityWipedOut: boolean;
+  /** T=0 opening balances of each named PPM account. Emitted on
+   *  initialState (T=0 invariants) per Principle 4 — UI reads from here
+   *  rather than re-deriving from inputs. `principalAccountCash` is
+   *  signed (overdrafts negative). The four reserves are positive-only
+   *  by convention. All five contribute to `equityBookValue` as a
+   *  balance-sheet identity; only `principalAccountCash` is credited
+   *  to the OC numerator (PPM Condition 1(d)). */
+  openingAccountBalances: {
+    principalAccountCash: number;
+    interestAccountCash: number;
+    interestSmoothingBalance: number;
+    supplementalReserveBalance: number;
+    expenseReserveBalance: number;
+  };
 }
 
 export interface ProjectionResult {
@@ -1201,7 +1275,13 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     loans, defaultRatesByRating, cdrMultiplierPathFn, cprPct, recoveryPct, recoveryLagMonths,
     reinvestmentSpreadBps, reinvestmentTenorQuarters, reinvestmentRating: reinvestmentRatingOverride,
     cccBucketLimitPct, cccMarketValuePct, deferredInterestCompounds,
-    initialPrincipalCash = 0, preExistingDefaultedPar = 0, preExistingDefaultRecovery = 0, unpricedDefaultedPar = 0, preExistingDefaultOcValue = 0,
+    initialPrincipalCash = 0,
+    initialInterestAccountCash = 0,
+    initialInterestSmoothingBalance = 0,
+    initialExpenseReserveBalance = 0,
+    initialSupplementalReserveBalance = 0,
+    supplementalReserveDisposition = "principalCash",
+    preExistingDefaultedPar = 0, preExistingDefaultRecovery = 0, unpricedDefaultedPar = 0, preExistingDefaultOcValue = 0,
     discountObligationHaircut = 0, longDatedObligationHaircut = 0, impliedOcAdjustment = 0, quartersSinceReport = 0,
     ddtlDrawPercent = 100,
     moodysWarfTriggerLevel = null,
@@ -1839,7 +1919,20 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
 
   const totalDebtOutstanding = debtTranches.reduce((s, t) => s + t.currentBalance, 0);
   // Equity investment: user-specified entry price if provided, otherwise balance-sheet implied value.
-  const totalAssets = hasLoans ? loanTotal + initialPrincipalCash : initialPar;
+  // Balance-sheet identity: cash held in the four reserve accounts is a real claim against equity
+  // at T=0 regardless of the manager's eventual disposition (Interest / Supplemental flow per their
+  // PPM rules; Smoothing flushes back; Expense Reserve drains as cap overflow). Per PPM Condition 1
+  // these reserves do NOT enter the OC numerator (Adjusted Collateral Principal Amount limits
+  // account-cash credit to Principal + Unused Proceeds), but they DO sit on the deal's balance
+  // sheet and the equity holder's claim includes them.
+  const reserveAccountTotal =
+    initialInterestAccountCash +
+    initialInterestSmoothingBalance +
+    initialSupplementalReserveBalance +
+    initialExpenseReserveBalance;
+  const totalAssets = hasLoans
+    ? loanTotal + initialPrincipalCash + reserveAccountTotal
+    : initialPar + reserveAccountTotal;
   // The Math.max(0, totalAssets - totalDebtOutstanding) here is an
   // ACCOUNTING-CONVENTION floor (Phase 8 triage category β): negative
   // balance-sheet equity is reported as zero by convention. NOT a heuristic-
@@ -1929,9 +2022,78 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     const adminFeeAmountT0 = poolPar * (adminFeeBps / 10000) / 4;
     const seniorFeeAmountT0 = poolPar * (seniorFeePct / 100) / 4;
     const hedgeCostAmountT0 = poolPar * (hedgeCostBps / 10000) / 4;
+    // PPM Condition 1, "Interest Coverage Amount" definition (paraphrased
+    // and elided for brevity from the Ares Euro CLO XV final offering
+    // circular, ll. 8951-9005; sub-paragraph labels follow the source's
+    // labelling, which intentionally reuses (a)/(b) — verbatim text for
+    // each sub-paragraph the engine consumes is quoted in full below):
+    //   "Interest Coverage Amount" means, on any particular Measurement Date
+    //   (without double counting), the sum of:
+    //     (a) the Balance standing to the credit of the Interest Account;
+    //     (b) plus the scheduled interest payments [...] due but not yet
+    //         received [...] in the Due Period in which such Measurement Date
+    //         occurs [...]
+    //     [next-(a)] minus the amounts payable pursuant to paragraphs (A)
+    //         through to (F) of the Interest Priority of Payments on the
+    //         following Payment Date;
+    //     [next-(b)] minus any of the above amounts that would be payable
+    //         into the Interest Smoothing Account on the BD after the
+    //         Determination Date at the end of the Due Period;
+    //     (c) plus any amounts that would be payable from the Expense
+    //         Reserve Account (only in respect of amounts that are not
+    //         designated for transfer to the Principal Account), the First
+    //         Period Reserve Account, the Interest Smoothing Account
+    //         and/or the Currency Account to the Interest Account in the
+    //         Due Period in which such Measurement Date falls (without
+    //         double counting any such amounts which have been already
+    //         transferred to the Interest Account).
+    // Engine modeling — verified PPM citations:
+    //   • paragraph (a): `initialInterestAccountCash`
+    //   • paragraph (c) Smoothing: `initialInterestSmoothingBalance`
+    //     (Condition 3(j)(xii) flushback BD after next Payment Date)
+    //   • paragraph (c) Expense Reserve: `expenseReserveInflowT0` =
+    //     min(reserve, max(0, requested - standardCap)) — the projected
+    //     over-cap transfer per Condition 3(j)(x)(4) on PD-2BD
+    //   • Supplemental routed to Interest only when disposition === "interest"
+    //     (PPM 3(j)(vi)(B))
+    //   • paragraph (c) First Period Reserve and Currency Account are NOT
+    //     currently threaded as inputs — Euro XV reports zero on both.
+    //     Resolver gates a non-zero opening balance on a future deal as a
+    //     blocking extraction failure (`severity: "error"`) so the engine
+    //     refuses to run rather than silently understate the IC numerator.
+    const capAmountFromCapBpsT0 = seniorExpensesCapBps != null
+      ? poolPar * (seniorExpensesCapBps / 10000) / 4
+      : Infinity;
+    const cappedRequestedT0 = trusteeFeeAmountT0 + adminFeeAmountT0;
+    const expenseReserveInflowT0 = Math.min(
+      initialExpenseReserveBalance,
+      Math.max(0, cappedRequestedT0 - capAmountFromCapBpsT0),
+    );
+    const reserveContributionT0 =
+      initialInterestAccountCash +
+      initialInterestSmoothingBalance +
+      expenseReserveInflowT0 +
+      (supplementalReserveDisposition === "interest"
+        ? initialSupplementalReserveBalance
+        : 0);
+    // Yield on the FOUR reserve accounts during Q1 (Interest, Smoothing,
+    // Expense, Supplemental) — cash sits in the accounts and accrues at the
+    // floored base rate regardless of which disposition the manager later
+    // directs. Q1 in-loop adds the same term to `interestCollected` (see
+    // the reserve-yield block at q===1). T=0 uses the /4 flat quarterly
+    // approximation while Q1 uses the precise `dayFracActual` — directionally
+    // consistent (both ~one-quarter), not numerically identical on stub
+    // first periods.
+    const reserveYieldBaseT0 =
+      initialInterestAccountCash +
+      initialInterestSmoothingBalance +
+      initialExpenseReserveBalance +
+      initialSupplementalReserveBalance;
+    const flooredBaseRateT0 = Math.max(baseRatePct, baseRateFloorPct);
+    const reserveYieldT0 = reserveYieldBaseT0 * flooredBaseRateT0 / 100 / 4;
     const interestAfterFeesT0 = Math.max(
       0,
-      scheduledInterestOnCollateral - taxesAmountT0 - issuerProfitAmountT0 - trusteeFeeAmountT0 - adminFeeAmountT0 - seniorFeeAmountT0 - hedgeCostAmountT0,
+      scheduledInterestOnCollateral + reserveContributionT0 + reserveYieldT0 - taxesAmountT0 - issuerProfitAmountT0 - trusteeFeeAmountT0 - adminFeeAmountT0 - seniorFeeAmountT0 - hedgeCostAmountT0,
     );
     const icTests: ProjectionInitialState["icTests"] = icTriggersByClass.map((ic) => {
       const interestDueAtAndAbove = ocEligibleAtStart
@@ -1964,7 +2126,22 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
       );
     }
 
-    return { poolPar, ocNumerator, ocTests, icTests, eodTest, equityBookValue: bookValue, equityWipedOut };
+    return {
+      poolPar,
+      ocNumerator,
+      ocTests,
+      icTests,
+      eodTest,
+      equityBookValue: bookValue,
+      equityWipedOut,
+      openingAccountBalances: {
+        principalAccountCash: initialPrincipalCash,
+        interestAccountCash: initialInterestAccountCash,
+        interestSmoothingBalance: initialInterestSmoothingBalance,
+        supplementalReserveBalance: initialSupplementalReserveBalance,
+        expenseReserveBalance: initialExpenseReserveBalance,
+      },
+    };
   })();
 
   // B2 — Post-acceleration mode flag. Persists across periods once set (PPM
@@ -1989,6 +2166,31 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     );
 
   const draw: DefaultDrawFn = defaultDrawFn ?? ((par, hz) => par * hz);
+
+  // Expense Reserve Account multi-period state. Per PPM Condition 3(j)(x)(4)
+  // and Interest Priority of Payments steps (B) + (C), the Expense Reserve
+  // Balance augments the Senior Expenses Cap each period: trustee/admin fees
+  // can be paid up to `Senior Expenses Cap + expenseReserveBalance`, with
+  // any draw above the standard cap draining the reserve. Carries forward
+  // across periods until exhausted; deposits into the reserve via step (D)
+  // are KI-02's scope (out of this PR), so the balance only decreases here.
+  let expenseReserveBalance = initialExpenseReserveBalance;
+
+  // Supplemental Reserve Account multi-period state under "hold" disposition.
+  // Per PPM Condition 3(j)(vi)(G), the Balance is released to the Payment
+  // Account for distribution under the Principal Priority of Payments or
+  // the Post-Acceleration Priorities of Payment "(1) at the direction of
+  // the Collateral Manager at any time prior to a Note Event of Default
+  // or (2) automatically upon an acceleration of the Notes in accordance
+  // with Condition 10(b) (Acceleration)". Modeling: the balance is held
+  // until the projection's terminal event — either the maturity period
+  // (manager-directed release at deal wind-up) or the first period running
+  // under acceleration (automatic release per (G)(2)). After release the
+  // balance is zeroed so subsequent periods contribute nothing. Under the
+  // "principalCash" / "interest" dispositions the balance is consumed at
+  // q=1 elsewhere; this state stays at 0 in those cases.
+  let heldSupplementalReserveBalance =
+    supplementalReserveDisposition === "hold" ? initialSupplementalReserveBalance : 0;
   for (let q = 1; q <= totalQuarters; q++) {
     const periodDate = periodEndDate(q);
     const inRP = rpEndDate ? new Date(periodDate) <= rpEndDate : false;
@@ -2195,10 +2397,16 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
           // performing loan, not a recovery proxy.
           // Reinvested-loan asymmetry: synthetic loans created at the four
           // reinvestment-synthesis sites carry no `recoveryRateAgency` and so
-          // recover at the global rate. Closing this asymmetry requires a
-          // per-deal-PPM bucket→recovery mapping (CLAUDE.md anti-pattern #1
-          // "don't overfit to a single deal" forbids hardcoding a market-
-          // standard table); filed as a follow-up KI rather than landed here.
+          // recover at the global `recoveryPct`. The agency-rate path needs
+          // an extracted per-position rate, which a synthesized loan has no
+          // source for at the moment of synthesis. Closing the asymmetry
+          // would require a per-deal-PPM bucket→recovery mapping; CLAUDE.md
+          // anti-pattern #1 ("don't overfit to a single deal") forbids
+          // hardcoding a market-standard table without per-deal extraction.
+          // Until that extraction lands, synthetic loans share the global
+          // rate with the sensitivity slider's perturbation domain — the
+          // slider therefore moves recoveries on synthesized + agency-rate-
+          // missing loans only, not on agency-rate-covered original loans.
           const rate = loan.recoveryRateAgency ?? (recoveryPct / 100);
           const recoveredCash = loanDefaults * rate;
           // B1 Tier 2: track per-position defaulted par + scheduled recovery.
@@ -2319,6 +2527,57 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
         // base rate as a proxy — ESTR tracks ~10-15bps below 3M EURIBOR, immaterial here.
         interestCollected += initialPrincipalCash * flooredBaseRate / 100 * dayFracActual;
       }
+      // Q1: yield on the four reserve account opening balances. PPM
+      // Condition 3(j)(ii)(B) routes "all interest accrued in respect of
+      // the Balances standing to the credit of the [non-Counterparty-
+      // Downgrade] Accounts" into the Interest Account — same ESTR-proxy
+      // rate as the Principal Account. The yield on the Supplemental
+      // balance accrues regardless of the manager's eventual disposition
+      // choice (cash sits in the account during the period until disposed).
+      //
+      // Q1: opening balances of the Interest Account and the Interest
+      // Smoothing Account flow into `interestCollected` (PPM 3(j)(ii)(1):
+      // "all Interest Proceeds standing to the credit of the Interest
+      // Account shall be transferred to the Payment Account to the extent
+      // required for disbursement pursuant to the Interest Priority of
+      // Payments save for amounts deposited after the end of the related
+      // Due Period and any amounts to be disbursed pursuant to (2) below
+      // [collateral acquisition accrued interest] or amounts representing
+      // any Hedge Issuer Tax Credit Payments to be disbursed pursuant to
+      // (3) below"; the engine routes the full opening balance because
+      // (i) the carve-outs are all zero or near-zero on Euro XV and
+      // (ii) the residual is a fungible Interest Account balance against
+      // the next-period IC numerator either way; PPM 3(j)(xii): Smoothing
+      // Account flushed back to Interest Account on BD after the next
+      // Payment Date). The Supplemental Reserve balance also routes here
+      // when the user disposition is "interest" (PPM 3(j)(vi)(B)). All
+      // three flow through the IC numerator (`interestAfterFees`) at line
+      // ~2565 — PPM Condition 1's Interest Coverage Amount definition
+      // (a) "the Balance standing to the credit of the Interest Account"
+      // requires this. NOT credited to the OC numerator (Adjusted CPA per
+      // Condition 1(d) limits account-cash credit to Principal Account +
+      // Unused Proceeds Account).
+      if (q === 1) {
+        const suppToInterest =
+          supplementalReserveDisposition === "interest"
+            ? initialSupplementalReserveBalance
+            : 0;
+        const reserveBalanceContribution =
+          initialInterestAccountCash +
+          initialInterestSmoothingBalance +
+          suppToInterest;
+        const reserveYieldBase =
+          initialInterestAccountCash +
+          initialInterestSmoothingBalance +
+          initialExpenseReserveBalance +
+          initialSupplementalReserveBalance;
+        if (reserveBalanceContribution > 0) {
+          interestCollected += reserveBalanceContribution;
+        }
+        if (reserveYieldBase > 0) {
+          interestCollected += reserveYieldBase * flooredBaseRate / 100 * dayFracActual;
+        }
+      }
     } else {
       const allInRate = (flooredBaseRate + wacSpreadBps / 100) / 100;
       interestCollected = beginningPar * allInRate * dayFracActual;
@@ -2333,8 +2592,33 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     // Policy: during RP, cash IS reinvested (manager has discretion to deploy).
     // Post-RP, cash goes to paydown only — the indenture restricts reinvestment to new
     // principal proceeds from the portfolio, not pre-existing account balances.
-    const q1Cash = (q === 1) ? initialPrincipalCash : 0;
-    const totalPrincipalAvailable = principalProceeds + q1Cash;
+    //
+    // Supplemental Reserve opening balance (PPM Condition 3(j)(vi)) joins
+    // the q1Cash bucket only when the user disposition is "principalCash"
+    // (default — mirrors manager-incentive-aligned canonical case). The
+    // "interest" disposition routes the balance into Q1 `availableInterest`
+    // separately (handled at the interest-waterfall opening below); the
+    // "hold" disposition keeps the balance held in `heldSupplementalReserveBalance`
+    // (no Q1 cash effect) until the terminal release per Condition
+    // 3(j)(vi)(G) at maturity or upon acceleration — handled below.
+    const q1SuppToPrincipal =
+      q === 1 && supplementalReserveDisposition === "principalCash"
+        ? initialSupplementalReserveBalance
+        : 0;
+    // PPM Condition 3(j)(vi)(G) terminal release. Under "hold" disposition
+    // the held balance is released to the Payment Account at maturity (1)
+    // or upon acceleration (2). Released amount routes through the
+    // Principal Priority of Payments via `prelimPrincipal` (normal path)
+    // or pools into `totalCashUnderAccel` (post-accel path). Fires at most
+    // once per projection — `heldSupplementalReserveBalance` is zeroed on
+    // release so subsequent periods contribute nothing.
+    let suppReserveTerminalRelease = 0;
+    if (heldSupplementalReserveBalance > 0 && (isMaturity || isAccelerated)) {
+      suppReserveTerminalRelease = heldSupplementalReserveBalance;
+      heldSupplementalReserveBalance = 0;
+    }
+    const q1Cash = (q === 1) ? initialPrincipalCash + q1SuppToPrincipal : 0;
+    const totalPrincipalAvailable = principalProceeds + q1Cash + suppReserveTerminalRelease;
     if (!isMaturity && inRP) {
       reinvestment = totalPrincipalAvailable;
     } else if (!isMaturity && postRpReinvestmentPct > 0 && principalProceeds > 0) {
@@ -2418,11 +2702,38 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     const trusteeFeeRequested = beginningPar * (trusteeFeeBps / 10000) * dayFracActual;
     const adminFeeRequested = beginningPar * (adminFeeBps / 10000) * dayFracActual;
     const cappedRequested = trusteeFeeRequested + adminFeeRequested;
-    const capAmount = seniorExpensesCapBps != null
+    // Expense Reserve cap-augmentation per PPM Condition 3(j)(x)(4): trustee
+    // (B) and admin (C) fees can be paid up to `cap + expenseReserveBalance`.
+    // The opening cap (PPM-defined Senior Expenses Cap) and the augmentation
+    // are separate: cappedPaid above the opening cap drains the reserve
+    // pro-tanto; the rest still routes to Y/Z overflow. Reserve balance is
+    // floored at zero by the PPM ("shall not cause the balance of the
+    // Expense Reserve Account to fall below zero").
+    const capAmountFromCapBps = seniorExpensesCapBps != null
       ? beginningPar * (seniorExpensesCapBps / 10000) * dayFracActual
       : Infinity;
+    const capAmount = capAmountFromCapBps + expenseReserveBalance;
     const cappedPaid = Math.min(cappedRequested, capAmount);
     const cappedOverflowTotal = cappedRequested - cappedPaid;
+    // Drain bookkeeping deferred to the senior-expense waterfall site —
+    // the reserve PHYSICALLY transfers cash to the Interest Account before
+    // the helper consumes the augmented pool (Condition 3(j)(x)(4)
+    // "second Business Day prior to each Payment Date"), so the drain
+    // equals the transfer amount, not a post-hoc accounting subtraction.
+    // Initialized to zero here; mutated below where `availableInterest`
+    // is augmented and the helper consumes the augmented pool. Gated on
+    // !isAccelerated — under acceleration the engine runs the Post-
+    // Acceleration Priority of Payments via `runPostAccelerationWaterfall`,
+    // which has its OWN cap-removal proviso at steps (B)+(C): "provided
+    // that following an acceleration of the Notes pursuant to Condition
+    // 10(b) (Acceleration) [...] the Senior Expenses Cap shall not apply"
+    // (PPM ll. 14167-14177). The cap-augmentation mechanism does not
+    // apply in that branch — the post-accel executor pays trustee/admin
+    // uncapped from the pooled interest+principal stream. (PPM Condition
+    // 3(c)(i)(B)+(C) carries an analogous proviso for pre-acceleration
+    // EoD, but the engine's `isAccelerated=true` corresponds to the
+    // post-acceleration state, not pre-accel-with-EoD.)
+    let expenseReserveDraw = 0;
     // Allocate capped portion pro rata between trustee and admin so each
     // stepTrace bucket reflects the same cap ratio.
     const cappedRatio = cappedRequested > 0 ? cappedPaid / cappedRequested : 0;
@@ -2473,6 +2784,20 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
       adminOverflow: 0,
     };
     const totalSeniorExpenses = sumSeniorExpensesPreOverflow(seniorExpenseBreakdown);
+    // PPM Condition 1 paragraph (c) Expense Reserve inflow — the projected
+    // over-cap transfer per Condition 3(j)(x)(4). Computed here (before the
+    // IC numerator) so both the IC numerator AND the cash-flow path (which
+    // mutates `availableInterest` and `expenseReserveBalance` at the helper
+    // site below) consume the SAME value. T=0 IC carries the same term
+    // (`expenseReserveInflowT0`); per-period parity requires this to be
+    // included in `interestAfterFees`. Gated on !isAccelerated mirroring
+    // the cap-suppression branch.
+    const expenseReserveTransferToInterest = !isAccelerated
+      ? Math.min(
+          expenseReserveBalance,
+          Math.max(0, cappedRequested - capAmountFromCapBps),
+        )
+      : 0;
     // The Math.max(0, …) floor here is load-bearing for the requested-vs-paid
     // equivalence noted above: under stress where requested > available, paid
     // = available (truncated by the helper), so available − paid = 0; without
@@ -2480,7 +2805,10 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     // formulations would diverge in the IC numerator. If you remove the
     // floor (e.g., to throw on < 0 as a stricter invariant), the IC consumer
     // must switch to `seniorExpensesApplied.paid` to preserve the equivalence.
-    const interestAfterFees = Math.max(0, interestCollected - totalSeniorExpenses);
+    const interestAfterFees = Math.max(
+      0,
+      interestCollected + expenseReserveTransferToInterest - totalSeniorExpenses,
+    );
 
     const bopTrancheBalances: Record<string, number> = {};
     for (const t of debtTranches) {
@@ -2503,7 +2831,7 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
                 : endingPar)
           : endingPar)
       : 0;
-    let prelimPrincipal = prepayments + scheduledMaturities + recoveries + q1Cash - reinvestment + liquidationProceeds;
+    let prelimPrincipal = prepayments + scheduledMaturities + recoveries + q1Cash + suppReserveTerminalRelease - reinvestment + liquidationProceeds;
     if (prelimPrincipal < 0) prelimPrincipal = 0;
 
     // B2 — Post-acceleration branch. If the prior period triggered EoD
@@ -2562,10 +2890,13 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
           // Issuer Profit at step (A.ii). Fixed
           // absolute € per period; still paid under acceleration per PPM.
           issuerProfit: issuerProfitPaid,
-          // PPM 10(b): Senior Expenses Cap DISAPPEARS under acceleration —
-          // trustee + admin fees pay uncapped (steps B + C directly, no
-          // overflow deferral to Y/Z). Pass the REQUESTED amounts, not the
-          // cap-truncated amounts used in normal mode.
+          // Post-Acceleration Priority of Payments steps (B)+(C) proviso
+          // (PPM ll. 14167-14177): "provided that following an acceleration
+          // of the Notes pursuant to Condition 10(b) (Acceleration) [...]
+          // the Senior Expenses Cap shall not apply". Trustee + admin fees
+          // pay uncapped (Post-Accel POP steps B + C directly, no overflow
+          // deferral). Pass the REQUESTED amounts, not the cap-truncated
+          // amounts used in normal mode.
           trusteeFees: trusteeFeeRequested,
           adminExpenses: adminFeeRequested,
           // Inherits KI-12a fee-base discrepancy (beginningPar vs prior
@@ -2672,9 +3003,11 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
         equityDistribution: equityDistributionAccel,
         defaultsByRating,
         stepTrace: {
-          // Under acceleration PPM 10(b) removes the Senior Expenses Cap, so
-          // trustee + admin pay directly at steps (B)+(C) uncapped, with no
-          // overflow deferral to (Y)/(Z). Each step emits its own bucket so
+          // Post-Acceleration Priority of Payments steps (B)+(C) proviso
+          // citing Condition 10(b) (PPM ll. 14167-14177) suppresses the
+          // Senior Expenses Cap, so trustee + admin pay directly at the
+          // post-accel steps (B)+(C) uncapped, with no overflow deferral
+          // to (Y)/(Z). Each step emits its own bucket so
           // the N1 harness compares B vs B and C vs C — the B2 regression
           // guard asserts adminFeesPaid > 0 directly, no subtraction needed.
           taxes: accelResult.seniorExpensesPaid.taxes,
@@ -2685,10 +3018,13 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
           adminOverflowPaid: 0,
           seniorMgmtFeePaid: accelResult.seniorExpensesPaid.seniorMgmtFee,
           hedgePaymentPaid: accelResult.seniorExpensesPaid.hedgePayments,
-          // Acceleration mode (PPM 10(b)): senior expenses cap is removed
-          // and interest+principal pool together for sequential P+I
-          // distribution. "Available for tranches" doesn't have a coherent
-          // meaning here. UI hides the row + renders an explanatory header.
+          // Acceleration mode: Post-Acceleration Priority of Payments
+          // steps (B)+(C) proviso citing Condition 10(b) (PPM ll.
+          // 14167-14177) removes the Senior Expenses Cap, and
+          // interest+principal pool together for sequential P+I
+          // distribution. "Available for tranches" doesn't have a
+          // coherent meaning here. UI hides the row + renders an
+          // explanatory header.
           availableForTranches: null,
           subMgmtFeePaid: accelResult.subMgmtFeePaid,
           // Incentive fee collapsed into a single bucket under acceleration —
@@ -2721,6 +3057,11 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
           // Acceleration skips the normal-mode reinvestment decision entirely
           // (sequential P+I paydown by seniority); no C1 enforcement applies.
           reinvestmentBlockedCompliance: 0,
+          // Acceleration removes the Senior Expenses Cap (Post-Acceleration
+          // Priority of Payments steps (B)+(C) proviso citing Condition
+          // 10(b), PPM ll. 14167-14177), so no cap-overflow draw on the
+          // Expense Reserve under accel.
+          expenseReserveDraw: 0,
         },
         qualityMetrics: computeQualityMetrics(q),
       });
@@ -2826,7 +3167,28 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     const currentDdtlUnfundedPar = hasLoans
       ? loanStates.filter(l => l.isDelayedDraw).reduce((s, l) => s + l.survivingPar, 0)
       : 0;
-    let ocNumerator = endingPar + remainingPrelim + pendingRecoveryValue + ocDefaultAdjustment
+    // Adjusted CPA per PPM Condition 1(d) limits account-cash credit to
+    // the Principal Account and Unused Proceeds Account — Reserve accounts
+    // do NOT credit. The released Supplemental balance entered
+    // `prelimPrincipal` at the maturity / acceleration release site (PPM
+    // 3(j)(vi)(G) routes through the Principal Priority of Payments). If
+    // any portion remains in `remainingPrelim` after rated-tranche
+    // paydown, that residual is reserve cash, not Principal Account cash,
+    // and is excluded from the Adjusted CPA numerator below.
+    //
+    // Observability note: under the engine's current waterfall structure,
+    // a non-zero `remainingPrelim` post-paydown at `isMaturity=true`
+    // implies all rated debt was retired (cash > debt), which collapses
+    // the OC ratio denominator to 0 and surfaces the `999` sentinel —
+    // making the inflation invisible in `ocTests[i].actual`. The
+    // subtraction is therefore not pinned by an observable test today;
+    // it is retained as a Principle 5 ("boundaries assert sign and
+    // scale") invariant — `ocNumerator` is a boundary that the PPM
+    // Adjusted-CPA semantic forbids reserve cash from crossing,
+    // independent of whether any current downstream consumer reads it.
+    const suppReserveLeftoverInRemainingPrelim = Math.min(remainingPrelim, suppReserveTerminalRelease);
+    let ocNumerator = endingPar + remainingPrelim - suppReserveLeftoverInRemainingPrelim
+      + pendingRecoveryValue + ocDefaultAdjustment
       - discountObligationHaircut - longDatedObligationHaircut - impliedOcAdjustment - currentDdtlUnfundedPar;
     if (hasLoans && cccBucketLimitPct > 0) {
       const cccPar = loanStates
@@ -2928,6 +3290,30 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     // and Class A interest are paid pro rata per PPM Step G if there is a shortfall.
     let availableInterest = interestCollected;
     const trancheInterest: PeriodResult["trancheInterest"] = [];
+
+    // Expense Reserve cash transfer to Interest Account per PPM
+    // Condition 3(j)(x)(4): "on the second Business Day prior to each
+    // Payment Date, any amounts to be paid pursuant to paragraphs (B) and
+    // (C) of the Interest Priority of Payments in excess of the Senior
+    // Expenses Cap to the Interest Account, provided that any such
+    // payments [...] shall not cause the balance of the Expense Reserve
+    // Account to fall below zero". The reserve is held as cash; it
+    // physically transfers to the Interest Account before the waterfall
+    // fires and augments the cash pool from which (B)+(C) are paid.
+    // Modeled as a pre-augmentation of `availableInterest` before the
+    // helper consumes it. Drain equals the transfer (the reserve cash
+    // physically left the account). Same paragraph (c) flow that the
+    // T=0 IC numerator construction includes, mirrored at Q1.
+    // Gated on !isAccelerated — under PPM Condition 3(c)(i)(B)+(C)
+    // proviso "following the occurrence of an Event of Default, the
+    // Senior Expenses Cap shall not apply", post-accel fees pay
+    // uncapped from the pooled stream and the reserve cap-augmentation
+    // mechanism does not apply.
+    if (expenseReserveTransferToInterest > 0) {
+      availableInterest += expenseReserveTransferToInterest;
+      expenseReserveBalance -= expenseReserveTransferToInterest;
+      expenseReserveDraw = expenseReserveTransferToInterest;
+    }
 
     // PPM Steps (A)(i) → (F): senior expenses deducted in strict PPM order
     // (taxes → issuer profit → trustee capped → admin capped → senior mgmt
@@ -3457,6 +3843,7 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
         classXAmortFromInterest: _stepTrace_classXAmortFromInterest,
         deferredAccrualByTranche: _stepTrace_deferredAccrualByTranche,
         reinvestmentBlockedCompliance,
+        expenseReserveDraw,
       },
       qualityMetrics: computeQualityMetrics(q),
     });
@@ -3473,7 +3860,27 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
 
     // Stop early if all debt paid off and collateral is depleted
     const remainingDebt = debtTranches.reduce((s, t) => s + trancheBalances[t.className] + deferredBalances[t.className], 0);
-    if (remainingDebt <= 0.01 && endingPar <= 0.01) break;
+    if (remainingDebt <= 0.01 && endingPar <= 0.01) {
+      // PPM Condition 3(j)(vi)(G)(1): "at the direction of the Collateral
+      // Manager at any time prior to a Note Event of Default" — natural
+      // wind-up (collateral and debt both depleted before the configured
+      // maturity quarter) is functionally a manager-directed terminal
+      // event. Release any pending "hold" Supplemental Reserve balance
+      // into the just-emitted period's principal residual so the partner-
+      // facing equity distribution at deal end reflects it. This preserves
+      // the configured-maturity-or-acceleration release path above for
+      // those scenarios; this branch covers the deal-winds-up-early case.
+      if (heldSupplementalReserveBalance > 0.01) {
+        const release = heldSupplementalReserveBalance;
+        heldSupplementalReserveBalance = 0;
+        const lastPeriod = periods[periods.length - 1];
+        lastPeriod.equityDistribution += release;
+        lastPeriod.stepTrace.equityFromPrincipal += release;
+        totalEquityDistributions += release;
+        equityCashFlows[equityCashFlows.length - 1] += release;
+      }
+      break;
+    }
 
     // PPM § 10(a)(i) EoD-on-shortfall trigger — Phase 2 (post-emit):
     // flip `isAccelerated` for the NEXT period if either the compositional

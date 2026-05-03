@@ -1,10 +1,14 @@
 /**
- * D7 — Non-principal CLO account balances.
+ * Non-principal CLO account balances — extraction shape.
  *
  * Resolver extracts interest account, interest smoothing, supplemental
  * reserve, and expense reserve balances from `accountBalances[]` and exposes
- * them on ResolvedDealData. Exposure only — NOT integrated into the engine
- * OC numerator (deal-specific per PPM).
+ * them on ResolvedDealData. Engine consumption (Q1 routing per PPM Conditions
+ * 3(j)(ii) / 3(j)(vi) / 3(j)(x) / 3(j)(xii)) and the resolver block on a
+ * missing-section path live in their respective marker tests
+ * (account-opening-balances.test.ts, blocking-extraction-failures.test.ts).
+ * This file pins the case-insensitive matcher and abbreviation handling at
+ * the resolver layer.
  */
 
 import { describe, it, expect } from "vitest";
@@ -41,7 +45,12 @@ describe("D7 — Non-principal account balances on ResolvedDealData", () => {
     expect(resolved.expenseReserveBalance).toBe(0);
   });
 
-  it("empty accountBalances array: all four fields default to 0", () => {
+  it("empty accountBalances array on a real deal: resolver still returns zeros (gate fires separately)", () => {
+    // The four reserve fields zero out at the extraction layer when no rows
+    // are present. The blocking gate that refuses the projection on a
+    // missing-section path lives in `blocking-extraction-failures.test.ts`
+    // — extraction-shape and gate-behavior are distinct surfaces, kept in
+    // their own files for marker discoverability.
     const { resolved } = runResolver([]);
     expect(resolved.interestAccountCash).toBe(0);
     expect(resolved.interestSmoothingBalance).toBe(0);

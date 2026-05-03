@@ -178,6 +178,31 @@ describe("Pattern A (silent fallback to common default)", () => {
     expectGateThrows(resolved, warnings);
   });
 
+  it("accountBalances — missing/empty section on an ingested-trustee deal → blocking", () => {
+    // Every CLO trustee report carries an Accounts section (Principal Account,
+    // Interest Account, Expense Reserve, Supplemental Reserve, Smoothing). When
+    // the trustee bundle is otherwise present (compliance data + tranche
+    // snapshots) but `accountBalances` is empty, the SDF Accounts CSV was not
+    // parsed for this period — partial extraction. Silent fallback to all-zero
+    // balances would understate equity-side cash claims and (for the Principal
+    // Account specifically) misstate the OC numerator's signed-overdraft term.
+    // Synthetic resolver tests with empty `complianceData` or empty
+    // `trancheSnapshots` are not real deals and bypass this gate by construction.
+    const raw = loadRaw();
+    raw.accountBalances = [];
+    const { resolved, warnings } = runResolver(raw);
+    const w = warnings.find((w) => w.field === "accountBalances");
+    expectBlockingError(w, "accountBalances");
+    // Resolver still returns the (zeroed) data shape; the warning is the
+    // partner-facing signal and IncompleteDataError is the gate.
+    expect(resolved.principalAccountCash).toBe(0);
+    expect(resolved.interestAccountCash).toBe(0);
+    expect(resolved.interestSmoothingBalance).toBe(0);
+    expect(resolved.supplementalReserveBalance).toBe(0);
+    expect(resolved.expenseReserveBalance).toBe(0);
+    expectGateThrows(resolved, warnings);
+  });
+
   it("nonCallPeriodEnd (resolver.ts:1064) — missing in keyDates → blocking", () => {
     // Every CLO has a PPM-defined Non-Call Period (Condition 7.2); a
     // null-return is an extraction gap, not a deal without one. The

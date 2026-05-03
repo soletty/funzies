@@ -1,6 +1,28 @@
 import type { Pass1Output, Pass2Output, Pass3Output, Pass4Output, Pass5Output } from "./schemas";
 import { normalizeClassName } from "../api";
 import { parseNumeric } from "../sdf/csv-utils";
+import { validateMagnitude } from "../sdf/magnitude-validator";
+
+/**
+ * Boundary coercion for LLM-PDF agency recovery rates. Raw JSON values
+ * arrive as `unknown` because `normalizeSectionResults` reads
+ * `sections.default_detail` without Zod parsing — so the field can be
+ * a number (the prompt template's documented shape — `"recoveryRateMoodys":
+ * 45.0 | null`), a string (if the LLM accidentally quotes the number),
+ * or null/undefined. Coerce to number via `parseNumeric` for strings,
+ * pass-through for numbers, then magnitude-validate. Mirrors the SDF
+ * parser's `validateMagnitude("recovery_rate_pct", parseNumeric(...))`
+ * shape exactly. Returns null on any unrecognized shape, malformed
+ * string, or out-of-range value — null is treated downstream as "data
+ * missing" and the engine falls back to the global `recoveryPct`.
+ */
+function coerceAgencyRecoveryRate(v: unknown): number | null {
+  const num =
+    typeof v === "number" ? v
+    : typeof v === "string" ? parseNumeric(v)
+    : null;
+  return validateMagnitude("recovery_rate_pct", num);
+}
 
 function toSnakeCase(str: string): string {
   // Handle consecutive uppercase (acronyms): "ISINCode" → "isin_code", "WAL" → "wal"
@@ -676,9 +698,24 @@ export function normalizeSectionResults(
         const obligor = ((h.obligor_name ?? "") as string).toLowerCase().trim();
         if (obligor && (obligor === defName || obligor.includes(defName) || defName.includes(obligor))) {
           // Set recovery rates from default detail if not already present
-          if (d.recoveryRateFitch ?? d.recovery_rate_fitch) h.recovery_rate_fitch = h.recovery_rate_fitch ?? (d.recoveryRateFitch ?? d.recovery_rate_fitch);
-          if (d.recoveryRateSp ?? d.recovery_rate_sp) h.recovery_rate_sp = h.recovery_rate_sp ?? (d.recoveryRateSp ?? d.recovery_rate_sp);
-          if (d.recoveryRateMoodys ?? d.recovery_rate_moodys) h.recovery_rate_moodys = h.recovery_rate_moodys ?? (d.recoveryRateMoodys ?? d.recovery_rate_moodys);
+          // Per CLAUDE.md anti-pattern #5 ("boundaries assert sign and scale"),
+          // validate magnitude at the ingestion boundary via the
+          // `coerceAgencyRecoveryRate` helper at the top of this file. The
+          // SDF parser does the same wrap at parse-collateral.ts:205-207.
+          // Out-of-range or unparseable values become null (treated as
+          // "data missing") so the downstream `resolveAgencyRecovery`
+          // helper does not have to throw on a value a partner-facing
+          // path could realistically produce.
+          //
+          // The outer guard uses `!= null` rather than truthy: a literal 0%
+          // recovery rate is a valid PPM-specified value on distressed
+          // credit; truthy check would skip enrichment for those positions.
+          const rateFitch = (d.recoveryRateFitch ?? d.recovery_rate_fitch);
+          if (rateFitch != null) h.recovery_rate_fitch = h.recovery_rate_fitch ?? coerceAgencyRecoveryRate(rateFitch);
+          const rateSp = (d.recoveryRateSp ?? d.recovery_rate_sp);
+          if (rateSp != null) h.recovery_rate_sp = h.recovery_rate_sp ?? coerceAgencyRecoveryRate(rateSp);
+          const rateMoodys = (d.recoveryRateMoodys ?? d.recovery_rate_moodys);
+          if (rateMoodys != null) h.recovery_rate_moodys = h.recovery_rate_moodys ?? coerceAgencyRecoveryRate(rateMoodys);
           if (d.marketPrice ?? d.market_price) h.current_price = h.current_price ?? (d.marketPrice ?? d.market_price);
         }
       }
@@ -707,9 +744,11 @@ export function normalizeSectionResults(
         parBalance:         parAmount,
         isDefaulted:        true,
         currentPrice:       d.marketPrice ?? d.market_price,
-        recoveryRateMoodys: d.recoveryRateMoodys ?? d.recovery_rate_moodys,
-        recoveryRateSp:     d.recoveryRateSp ?? d.recovery_rate_sp,
-        recoveryRateFitch:  d.recoveryRateFitch ?? d.recovery_rate_fitch,
+        // Magnitude-validated at the LLM-PDF ingestion boundary via
+        // `coerceAgencyRecoveryRate` (see helper definition at top of file).
+        recoveryRateMoodys: coerceAgencyRecoveryRate(d.recoveryRateMoodys ?? d.recovery_rate_moodys),
+        recoveryRateSp:     coerceAgencyRecoveryRate(d.recoveryRateSp ?? d.recovery_rate_sp),
+        recoveryRateFitch:  coerceAgencyRecoveryRate(d.recoveryRateFitch ?? d.recovery_rate_fitch),
         dataSource:         "pdf_extraction_synthesized",
       }, base));
       synthesized++;

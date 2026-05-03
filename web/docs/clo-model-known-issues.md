@@ -38,7 +38,6 @@ Categorized so a partner reading cold can separate "what's still wrong" from "wh
 ### Latent — currently inactive on Euro XV; emerges on portability or stress
 *Distinct from "Deferred" (those are intentional design choices about mechanics that exist in the indenture but the model elects not to simulate). "Latent" entries are unmodeled or hardcoded paths whose current Euro XV magnitude happens to be zero, but which will produce wrong numbers the moment a deal hits the triggering condition (different deal structure, different PPM, non-zero balance, FX exposure, etc.). Treat each as a real bug whose materiality is data-dependent, not a deliberate scope decision.*
 
-- [KI-26 — Reserve account opening balances dropped (Interest, Smoothing, Supplemental, Expense)](#ki-26)
 - [KI-29 — Discount / long-dated obligation haircuts are static snapshots, not recomputed forward](#ki-29)
 - [KI-31 — Hedge cost bps never extracted; engine emits zero on every hedged deal](#ki-31)
 - [KI-36 — Per-tranche `payment_frequency` extracted but not consumed (uniform quarterly cadence)](#ki-36)
@@ -123,7 +122,7 @@ These were originally tracked as "A10" and "A11" in the 2026-04-30 audit. They a
 ### [KI-05] Supplemental Reserve Account (step BB)
 
 **PPM reference:** Condition 3.3(b).
-**Current engine behavior:** Not modeled. No `stepTrace.supplementalReserve` field exists; the N1 harness mapper hardcodes the bucket to 0 (`backtest-harness.ts:288`). `ppm-step-map.ts:130` documents the bucket as "NOT EMITTED by engine (KI-05)". This entry covers the *flow into* the account during the waterfall; the *opening balance* (`resolved.supplementalReserveBalance`) is tracked separately by the resolver and addressed in [KI-26](#ki-26).
+**Current engine behavior:** Not modeled. No `stepTrace.supplementalReserve` field exists; the N1 harness mapper hardcodes the bucket to 0 (`backtest-harness.ts:288`). `ppm-step-map.ts:130` documents the bucket as "NOT EMITTED by engine (KI-05)". This entry covers the *flow into* the account during the waterfall; the *opening balance* is consumed by the engine via `ProjectionInputs.initialSupplementalReserveBalance` per the user-driven `supplementalReserveDisposition` (PPM Condition 3(j)(vi) manager discretion).
 **PPM-correct behavior:** CM-discretionary deposit during Reinvestment Period, funds reinvestment buffer.
 **Quantitative magnitude:** Not exercised on Euro XV per observed waterfall data.
 **Deferral rationale:** CM-discretionary; not used in current operations.
@@ -568,37 +567,6 @@ Tier 1 closes the most common partner "where from?" questions; Tier 2+ wait for 
 **Alternative considered:** Make NR fallback a user input so the partner can override (e.g., when managers have obtained shadow ratings). Not done in Sprint 3 — adds UI surface without clear demand. Revisit if a deal ships NR loans with documented shadow ratings.
 
 **Test:** `c2-quality-forward-projection.test.ts > "every period has a qualityMetrics object with finite numbers"` covers the path. Explicit NR-convention test could be added when a fixture with meaningful NR concentration arrives.
-
----
-
-<a id="ki-26"></a>
-### [KI-26] Reserve account opening balances dropped (Interest, Smoothing, Supplemental, Expense)
-
-**PPM reference:** Condition 3.3 (account hierarchy); Condition 1 (Account definitions). Five PPM-defined accounts: Principal Account, Interest Account, Interest Smoothing Account, Supplemental Reserve Account, Expense Reserve Account.
-
-**Current engine behavior:** `web/lib/clo/resolver.ts:1050-1076` extracts and emits four balances on `ResolvedDealData.accountBalances`: `interestAccountCash`, `interestSmoothingBalance`, `supplementalReserveBalance`, `expenseReserveBalance`. The type declaration at `web/lib/clo/resolver-types.ts:62-78` carries the explicit comment for each: *"Resolver-exposed only; not wired into engine OC math."* Only `principalAccountCash` is consumed by the engine. The four reserve balances are present in `EMPTY_RESOLVED` (`build-projection-inputs.ts:31-34`, all set to 0 — note this is the empty `ResolvedDealData` placeholder, NOT `DEFAULT_ASSUMPTIONS`; `UserAssumptions` does not have these fields) but are not propagated into `ProjectionInputs` or read anywhere in `projection.ts`. Verified by grep: zero references in `web/lib/clo/projection.ts` and zero references in `web/app/clo/` (the trace renderer does not display them either).
-
-**PPM-correct behavior:** Each account participates in the waterfall on a per-deal basis defined by the PPM:
-- **Interest Account** opening balance flows into the first-period `availableInterest` ahead of step (A)(i).
-- **Interest Smoothing Account** balance is conditionally drawable under the smoothing mechanism (Condition 1; interacts with Frequency Switch Event).
-- **Supplemental Reserve Account** balance is available for reinvestment use during the Reinvestment Period and for redemption thereafter.
-- **Expense Reserve Account** balance offsets near-future senior-expense draws (steps B/C/Y/Z) — not fresh income, but a cure against cap-overflow.
-
-Each affects partner-facing OC numerator (where the PPM routes the account into CPA), available-for-distribution, or both.
-
-**Quantitative magnitude:** All four balances are 0 in the Euro XV Q1 2026 fixture, so today's harness is unaffected. Latent. On any deal where a partner has built a Supplemental Reserve over multiple quarters (CM-discretionary; sized at 25 bps × pool = ~€1.2M on a €493M pool), the engine silently ignores that cash claim against equity. Magnitude scales linearly with the reserve practice.
-
-**Deferral rationale:** The resolver's own comment cites "deal-specific per the PPM" as the reason for non-integration — i.e., we don't know which accounts flow into which CPA buckets without reading each deal's indenture. That is a real complication, not a free pass: the engine still treats the four accounts as if they didn't exist, which is wrong for any deal that has them populated. Distinct from KI-02 (step D Expense Reserve *deposit*) and KI-05 (step BB Supplemental Reserve *deposit*) — those cover *flows into* the accounts; this entry covers the *opening balance* that should already be on the engine's books at T=0.
-
-**Path to close:**
-1. Add the four reserve balances as fields on `ProjectionInputs` (currently absent — only on `UserAssumptions` defaults).
-2. Plumb from `ResolvedDealData.accountBalances` into `ProjectionInputs` via `build-projection-inputs.ts`.
-3. In the engine's first-period waterfall, add Interest-Account opening balance into `availableInterest` ahead of step (A)(i). Decide and document the canonical routing for the other three (per-deal PPM read in the resolver, or a `reserveAccountRouting` configuration object).
-4. Track all four reserve balances as engine state across periods (analogous to `principalAccountCash`); allow draws and deposits per their respective PPM mechanics. Interest Account drains in Q1; Smoothing/Supplemental/Expense persist multi-period.
-5. Surface each balance in `stepTrace.openingAccountBalances` so the partner-facing trace is auditable.
-6. The fixture-regeneration full-equality iterator (KI-22) already enforces round-trip on `resolved.accountBalances` — no extension needed there.
-
-**Test:** No active marker on Euro XV (all four balances null/zero by construction → drift = 0). When the fix lands, add `KI-26-accountSeed` against a synthetic fixture where one of the four reserves has a non-zero opening balance, asserting the corresponding waterfall row reflects the seed.
 
 ---
 

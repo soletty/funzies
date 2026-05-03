@@ -23,7 +23,8 @@ import { makeInputs } from "./test-helpers";
 
 /**
  * The canonical correctness invariant from CLAUDE.md principle 4:
- * `Σ stepTrace.*(interest waterfall buckets) ≤ interestCollected` per period.
+ * `Σ stepTrace.*(interest waterfall buckets) ≤ interestCollected +
+ * expenseReserveDraw` per period.
  *
  * Every interest-side consumer of `availableInterest` is included: senior
  * expenses (A.i, A.ii, B, C, E, F), tranche interest (G onward), Class X
@@ -35,9 +36,15 @@ import { makeInputs } from "./test-helpers";
  * incentiveFeeFromPrincipal) which consume from a different pool, and
  * `availableForTranches` which is an intermediate marker, not a consumer.
  *
- * Pre-fix shape: senior-expense + sub-fee fields emitted REQUESTED amounts;
- * under stress these exceeded actually-deducted, so Σ broke this inequality.
- * Post-fix: every consumer reads from a truncated paid value.
+ * The bound is `interestCollected + expenseReserveDraw` rather than
+ * `interestCollected` alone because PPM Condition 3(j)(x)(4) physically
+ * transfers Expense Reserve cash to the Interest Account on the second
+ * BD prior to each Payment Date — so under stress the Σ may legitimately
+ * exceed `interestCollected` by the reserve transfer amount, with that
+ * transfer captured in `stepTrace.expenseReserveDraw`. Pre-fix shape:
+ * senior-expense + sub-fee fields emitted REQUESTED amounts; under stress
+ * these exceeded actually-deducted, so Σ broke this inequality. Post-fix:
+ * every consumer reads from a truncated paid value.
  */
 function sumInterestSideConsumers(p: PeriodResult): number {
   const t = p.stepTrace;
@@ -83,10 +90,11 @@ describe("stepTrace emits actually-paid amounts under stress", () => {
     for (let i = 0; i < result.periods.length; i++) {
       const p = result.periods[i];
       const sumPaid = sumInterestSideConsumers(p);
+      const bound = p.interestCollected + p.stepTrace.expenseReserveDraw + 0.01;
       expect(
         sumPaid,
-        `period ${i}: Σ stepTrace interest consumers (${sumPaid.toFixed(2)}) > interestCollected (${p.interestCollected.toFixed(2)})`,
-      ).toBeLessThanOrEqual(p.interestCollected + 0.01);
+        `period ${i}: Σ stepTrace interest consumers (${sumPaid.toFixed(2)}) > interestCollected + expenseReserveDraw (${bound.toFixed(2)})`,
+      ).toBeLessThanOrEqual(bound);
     }
 
     // Discriminating-power sanity: under this stressed fixture, at least
@@ -133,15 +141,16 @@ describe("stepTrace emits actually-paid amounts under stress", () => {
 
     for (let i = 0; i < preAccelPeriods.length; i++) {
       const p = preAccelPeriods[i];
+      const adminBound = p.interestCollected + p.stepTrace.expenseReserveDraw + 0.01;
       expect(
         p.stepTrace.adminFeesPaid,
-        `pre-accel period ${i}: adminFeesPaid (${p.stepTrace.adminFeesPaid.toFixed(2)}) > interestCollected (${p.interestCollected.toFixed(2)})`,
-      ).toBeLessThanOrEqual(p.interestCollected + 0.01);
+        `pre-accel period ${i}: adminFeesPaid (${p.stepTrace.adminFeesPaid.toFixed(2)}) > interestCollected + expenseReserveDraw (${adminBound.toFixed(2)})`,
+      ).toBeLessThanOrEqual(adminBound);
       const sumPaid = sumInterestSideConsumers(p);
       expect(
         sumPaid,
-        `pre-accel period ${i}: Σ stepTrace interest consumers (${sumPaid.toFixed(2)}) > interestCollected (${p.interestCollected.toFixed(2)})`,
-      ).toBeLessThanOrEqual(p.interestCollected + 0.01);
+        `pre-accel period ${i}: Σ stepTrace interest consumers (${sumPaid.toFixed(2)}) > interestCollected + expenseReserveDraw (${adminBound.toFixed(2)})`,
+      ).toBeLessThanOrEqual(adminBound);
     }
 
     // At least one pre-accel period must show truncation under this fixture.
@@ -203,9 +212,10 @@ describe("stepTrace emits actually-paid amounts under stress", () => {
     for (let i = 0; i < periodsWithAmort.length; i++) {
       const p = periodsWithAmort[i];
       const sumPaid = sumInterestSideConsumers(p);
+      const expected = p.interestCollected + p.stepTrace.expenseReserveDraw;
       expect(
-        Math.abs(sumPaid - p.interestCollected),
-        `amort period ${i}: |Σ stepTrace interest consumers (${sumPaid.toFixed(2)}) − interestCollected (${p.interestCollected.toFixed(2)})| > 0.01 — Σ-tie equality broken`,
+        Math.abs(sumPaid - expected),
+        `amort period ${i}: |Σ stepTrace interest consumers (${sumPaid.toFixed(2)}) − (interestCollected + expenseReserveDraw) (${expected.toFixed(2)})| > 0.01 — Σ-tie equality broken`,
       ).toBeLessThanOrEqual(0.01);
     }
     // Inequality across ALL periods (including non-amort) catches any
@@ -213,10 +223,11 @@ describe("stepTrace emits actually-paid amounts under stress", () => {
     for (let i = 0; i < result.periods.length; i++) {
       const p = result.periods[i];
       const sumPaid = sumInterestSideConsumers(p);
+      const bound = p.interestCollected + p.stepTrace.expenseReserveDraw + 0.01;
       expect(
         sumPaid,
-        `period ${i}: Σ stepTrace interest consumers (${sumPaid.toFixed(2)}) > interestCollected (${p.interestCollected.toFixed(2)})`,
-      ).toBeLessThanOrEqual(p.interestCollected + 0.01);
+        `period ${i}: Σ stepTrace interest consumers (${sumPaid.toFixed(2)}) > interestCollected + expenseReserveDraw (${bound.toFixed(2)})`,
+      ).toBeLessThanOrEqual(bound);
     }
   });
 

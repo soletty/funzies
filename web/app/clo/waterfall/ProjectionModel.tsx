@@ -181,6 +181,15 @@ export default function ProjectionModel({
   const [ddtlDrawAssumption, setDdtlDrawAssumption] = useState<'draw_at_deadline' | 'never_draw' | 'custom_quarter'>('draw_at_deadline');
   const [ddtlDrawQuarter, setDdtlDrawQuarter] = useState<number>(CLO_DEFAULTS.ddtlDrawQuarter);
   const [ddtlDrawPercent, setDdtlDrawPercent] = useState<number>(CLO_DEFAULTS.ddtlDrawPercent);
+  // Q1 disposition of the Supplemental Reserve opening balance. PPM
+  // Condition 3(j)(vi) gives the Collateral Manager open-ended discretion
+  // across eight Permitted Uses, so this is a modeling assumption (like
+  // CPR / recovery) rather than an extracted value. Default
+  // "principalCash" mirrors the existing initialPrincipalCash Q1 routing
+  // (RP→reinvestment, post-RP→senior paydown), which is the manager-
+  // incentive-aligned canonical case.
+  const [supplementalReserveDisposition, setSupplementalReserveDisposition] =
+    useState<"principalCash" | "interest" | "hold">("principalCash");
   const [equityEntryPriceCents, setEquityEntryPriceCents] = useState<number | null>(null); // null = use book value
   // Forward IRR anchor price (in cents). Free-text input — user types the
   // entry price they want to evaluate. Empty string means "fall back to
@@ -452,6 +461,7 @@ export default function ProjectionModel({
           ddtlDrawQuarter,
           ddtlDrawPercent,
           equityEntryPriceCents,
+          supplementalReserveDisposition,
         },
         resolutionWarnings,
       );
@@ -463,6 +473,7 @@ export default function ProjectionModel({
       seniorFeePct, subFeePct, taxesBps, issuerProfitAmount, trusteeFeeBps, adminFeeBps, seniorExpensesCapBps,
       hedgeCostBps, incentiveFeePct, incentiveFeeHurdleIrr, postRpReinvestmentPct,
       callMode, callDate, callPricePct, callPriceMode, ddtlDrawAssumption, ddtlDrawQuarter, ddtlDrawPercent, equityEntryPriceCents,
+      supplementalReserveDisposition,
     ]
   );
 
@@ -521,6 +532,7 @@ export default function ProjectionModel({
     ddtlDrawQuarter,
     ddtlDrawPercent,
     equityEntryPriceCents,
+    supplementalReserveDisposition,
   }), [
     baseRatePct, baseRateFloorPct, defaultRates, overriddenBuckets, cprPct, recoveryPct, recoveryLagMonths,
     reinvestmentSpreadBps, reinvestmentTenorYears, reinvestmentRating, cccBucketLimitPct, cccMarketValuePct,
@@ -529,6 +541,7 @@ export default function ProjectionModel({
     taxesBps, issuerProfitAmount, trusteeFeeBps, adminFeeBps, seniorExpensesCapBps,
     incentiveFeePct, incentiveFeeHurdleIrr,
     ddtlDrawAssumption, ddtlDrawQuarter, ddtlDrawPercent, equityEntryPriceCents,
+    supplementalReserveDisposition,
   ]);
 
   const validationErrors = useMemo(() => validateInputs(inputs), [inputs]);
@@ -1011,6 +1024,21 @@ export default function ProjectionModel({
             />
             <div style={{ fontSize: "0.62rem", color: "var(--color-text-muted)", marginTop: "0.3rem", lineHeight: 1.4, opacity: 0.8 }}>
               Rating bucket for reinvested loans. &quot;Portfolio Avg&quot; uses the par-weighted modal rating.
+            </div>
+          </div>
+          <div>
+            <SelectInput
+              label="Supplemental Reserve Use"
+              value={supplementalReserveDisposition}
+              onChange={(v) => setSupplementalReserveDisposition(v as "principalCash" | "interest" | "hold")}
+              options={[
+                { value: "principalCash", label: "Reinvest / Paydown" },
+                { value: "interest", label: "Interest Distribution" },
+                { value: "hold", label: "Hold on Books" },
+              ]}
+            />
+            <div style={{ fontSize: "0.62rem", color: "var(--color-text-muted)", marginTop: "0.3rem", lineHeight: 1.4, opacity: 0.8 }}>
+              PPM Condition 3(j)(vi) gives the manager discretion. &quot;Reinvest / Paydown&quot; routes the opening Supplemental balance into Q1 principal proceeds (RP→reinvestment, post-RP→senior paydown). &quot;Interest Distribution&quot; routes it into Q1 available interest. &quot;Hold&quot; leaves it on the books as a claim against equity at maturity. Yield accrues to the Interest Account in all three cases.
             </div>
           </div>
         </div>

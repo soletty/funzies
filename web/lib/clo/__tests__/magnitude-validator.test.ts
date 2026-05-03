@@ -114,4 +114,28 @@ describe("validateMagnitude", () => {
       expect(warnSpy).toHaveBeenCalledTimes(1);
     });
   });
+
+  describe("NaN handling — comparisons silently return false, must reject explicitly", () => {
+    // Without an explicit Number.isNaN branch, `NaN < min` and `NaN > max`
+    // both return false, so NaN falls through belowMin/aboveMax checks and
+    // propagates downstream. The engine-side helper would throw at runtime,
+    // not at the parser boundary. Reject NaN at the boundary to fail loud
+    // where the bad value originated.
+    it("rejects NaN on par_balance to null", () => {
+      expect(validateMagnitude("par_balance", NaN)).toBeNull();
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+      expect(warnSpy.mock.calls[0][0]).toMatch(/par_balance=NaN/);
+    });
+
+    it("rejects NaN on recovery_rate_pct to null", () => {
+      expect(validateMagnitude("recovery_rate_pct", NaN)).toBeNull();
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+      expect(warnSpy.mock.calls[0][0]).toMatch(/recovery_rate_pct=NaN/);
+    });
+
+    it("rejects NaN on rate_pct to null (covers max-only-bounded fields)", () => {
+      expect(validateMagnitude("rate_pct", NaN)).toBeNull();
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+    });
+  });
 });

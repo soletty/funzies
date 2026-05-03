@@ -18,27 +18,25 @@
 // in KI-63 as the residual agency-subset question awaiting per-deal
 // PPM extraction.
 //
-// Scale boundary contract (CLAUDE.md anti-pattern #5 — "boundaries assert
-// sign and scale"). Each agency rate may arrive in either percent shape
-// (45 = "45%") or fraction shape (0.45 = "45%"). The convention is
-// per-source, not per-agency, so on a single loan all three rates SHOULD
-// share a scale — but the type system carries no such invariant, and
-// non-SDF ingestion paths (LLM-PDF normalizer at
-// `extraction/normalizer.ts:710-712`) write the same fields without the
-// SDF parser's `validateMagnitude` boundary check. Mixed-scale inputs
-// must be handled correctly OR refused.
-//
-// The fix: normalize EACH rate first, THEN take min. A naive
-// min-then-scale silently returns the LARGER value when scales mix:
-//   min(45, 0.70) = 0.70 → < 1 → treated as 70%
-// but the correct lesser of 45% and 70% is 45%. The bug shape is
-// "silently returns the wrong agency's rate" — the kind that doesn't
-// surface in any test until a future deal's SDF emits a fraction-shaped
-// recovery column alongside another in percent form.
+// Scale boundary contract (CLAUDE.md anti-pattern #5 — "boundaries
+// assert sign and scale"). Inputs are PERCENT in [0, 100]. The two
+// ingestion paths that populate `clo_holdings.recovery_rate_*` are
+// both percent-shape: the SDF parser at `parse-collateral.ts:205-207`
+// runs `validateMagnitude("recovery_rate_pct", ...)` with bound
+// max=100, and the LLM-PDF prompt at `extraction/prompts.ts:192-193`
+// instructs the model to emit values like "45.0" (percent). The
+// helper does NOT accept fraction shape (0..1) — a `1.0` input
+// unambiguously means 1%, not 100%. Pre-narrowing the helper carried
+// a `r >= 1 ? r/100 : r` dual-shape branch; the `1.0` boundary
+// silently mapped to 1% under that branch (correct under the actual
+// percent convention, but a surprise if a caller assumed fraction
+// input — silent 99pp error). The narrowed contract eliminates that
+// ambiguity at the helper layer; the parser-side `validateMagnitude`
+// is the canonical scale boundary.
 
-const FRACTION_THRESHOLD = 1;
+const MAX_PERCENT = 100;
 
-function normalizeRate(r: number): number {
+function normalizePercentRate(r: number): number {
   if (Number.isNaN(r)) {
     throw new Error(
       `resolveAgencyRecovery: NaN agency recovery rate. NaN through Math.min(...) ` +
@@ -52,40 +50,34 @@ function normalizeRate(r: number): number {
         `recovery is non-negative by construction (par cannot recover into the lender).`,
     );
   }
-  // Convention: r >= 1 is percent shape (45 → 45%), r < 1 is fraction (0.45 → 45%).
-  // 1.0 is treated as percent ("1%") to match the pre-existing convention at
-  // resolver.ts:1456 — preserving cross-site consistency outweighs the marginal
-  // ambiguity. Real recovery rates concentrate in 25-70%, far from this edge.
-  const norm = r >= FRACTION_THRESHOLD ? r / 100 : r;
-  if (norm > 1) {
+  if (r > MAX_PERCENT) {
     throw new Error(
-      `resolveAgencyRecovery: agency recovery rate ${r} normalizes to ${norm} ` +
-        `(> 1.0 = > 100%). Magnitude violation — recovery cannot exceed full par. ` +
-        `Likely a parser failure (basis-point shape, absolute-vs-percent confusion, ` +
-        `or 100× locale mis-parse). Refuse rather than silently miscompute.`,
+      `resolveAgencyRecovery: agency recovery rate ${r} > 100. Magnitude violation — ` +
+        `recovery cannot exceed full par. Inputs must be percent shape (0..100); a ` +
+        `value above 100 indicates a parser failure (basis-point shape, absolute-vs- ` +
+        `percent confusion, or 100× locale mis-parse). Refuse rather than silently ` +
+        `miscompute.`,
     );
   }
-  return norm;
+  return r / MAX_PERCENT;
 }
 
 /**
  * Resolve a per-position recovery rate from a holding's agency-supplied
- * recovery rates. Inputs may be null/undefined (data gap) or numbers in
- * either percent or fraction shape — the helper normalizes each
- * independently before taking the minimum.
+ * recovery rates. Inputs are PERCENT in [0, 100]; null/undefined entries
+ * signal data gaps and are skipped.
  *
- * Returns the normalized minimum as a fraction in [0, 1], or `undefined`
- * when no rates are present (caller falls back to a global recovery
- * convention).
+ * Returns the minimum across present rates as a fraction in [0, 1], or
+ * `undefined` when no rates are present (caller falls back to a global
+ * recovery convention).
  *
- * Throws on NaN, negative, or post-normalize > 1.0 — see file header
- * for rationale.
+ * Throws on NaN, negative, or > 100 — see file header for rationale.
  */
 export function resolveAgencyRecovery(
   rates: ReadonlyArray<number | null | undefined>,
 ): number | undefined {
   const present = rates.filter((r): r is number => r != null);
   if (present.length === 0) return undefined;
-  const normalized = present.map(normalizeRate);
+  const normalized = present.map(normalizePercentRate);
   return Math.min(...normalized);
 }

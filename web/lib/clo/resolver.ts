@@ -1479,6 +1479,50 @@ export function resolveWaterfallInputs(
     return s;
   }, 0);
 
+  // --- Account-balances extraction gate ---
+  // Every CLO has a populated set of trustee accounts: at minimum the Principal
+  // Account, the Interest Account, and the standard reserve accounts (Expense
+  // Reserve, Supplemental Reserve, Interest Smoothing). When the SDF compliance
+  // bundle has been ingested for this period (compliance tests populated AND
+  // tranche snapshots present) but the `accountBalances` array is missing or
+  // empty, the SDF Accounts CSV was not parsed — partial extraction. Silent
+  // fallback to zero on the four reserve balances would understate equity-side
+  // cash claims and (for the Principal Account specifically) misstate the OC
+  // numerator signed-overdraft term. CLAUDE.md principle 3: refuse to project
+  // rather than substitute a "common default" guess.
+  //
+  // Predicate gates on `complianceTests.length > 0` rather than `complianceData
+  // != null` so:
+  //   - Intex-only historical periods (where `data_source = 'intex_past_cashflows'`
+  //     populates `trancheSnapshots` but the SDF compliance bundle was never
+  //     ingested → empty `complianceTests`) are NOT blocked. The SDF Accounts
+  //     CSV is genuinely unavailable on those periods by design — the historical
+  //     projection has no source data to demand.
+  //   - Synthetic test fixtures with empty / `{}` complianceData fall through.
+  //   - Production current-period runs (compliance tests fully populated)
+  //     correctly require the Accounts section.
+  const trusteeBundleIngested =
+    (complianceData?.complianceTests?.length ?? 0) > 0 &&
+    trancheSnapshots.length > 0;
+  if (
+    trusteeBundleIngested &&
+    (accountBalances == null || accountBalances.length === 0)
+  ) {
+    warnings.push({
+      field: "accountBalances",
+      message:
+        "Account-balances section missing or empty despite the trustee " +
+        "bundle (compliance data + tranche snapshots) being ingested. The " +
+        "SDF Accounts CSV likely was not parsed for this period. Without " +
+        "it, principalAccountCash, interestAccountCash, the three reserve " +
+        "balances, and any overdraft default silently to zero — wrong " +
+        "engine output on any deal whose accounts are non-zero. Refusing " +
+        "until extraction lands.",
+      severity: "error",
+      blocking: true,
+    });
+  }
+
   // --- Principal Account Cash ---
   // Uninvested principal sitting in the Principal Account. Counts toward the
   // OC numerator per PPM 10(a)(iv) — SIGNED: credits positive, overdrafts

@@ -50,10 +50,15 @@ const BOUNDS: Record<string, Bound> = {
   // CLO loans 25-70). Distinct bound from `rate_pct` because recovery is
   // half the natural ceiling of an interest rate. 100 is the hard cap;
   // values above signal absolute-vs-percent shape confusion or a parser
-  // failure on "Recovery_Rate" columns expressed in basis points.
+  // failure on "Recovery_Rate" columns expressed in basis points. `min: 0`
+  // is load-bearing — without it negative values pass the parser-side
+  // validator and reach `resolveAgencyRecovery`'s throw, which would
+  // surface as an unhandled exception out of `runProjection` rather than
+  // a clean DATA-INCOMPLETE banner.
   recovery_rate_pct: {
+    min: 0,
     max: 100,
-    description: "agency recovery rate as percent (typical 25-70, max 100)",
+    description: "agency recovery rate as percent (typical 25-70, range 0-100)",
   },
 };
 
@@ -64,6 +69,18 @@ export function validateMagnitude(
   if (value == null) return value;
   const bound = BOUNDS[field];
   if (!bound) return value;
+
+  // NaN comparisons always return false — without this branch, NaN bypasses
+  // both belowMin and aboveMax and propagates downstream (where the engine-
+  // side helper throws at runtime, not at the boundary). Reject at the
+  // parser boundary, consistent with the rest of this module.
+  if (Number.isNaN(value)) {
+    console.warn(
+      `[magnitude-validator] ${field}=NaN (${bound.description}). ` +
+        `Likely parser failure — value rejected (null).`,
+    );
+    return null;
+  }
 
   const belowMin = bound.min != null && value < bound.min;
   const aboveMax = bound.max != null && value > bound.max;

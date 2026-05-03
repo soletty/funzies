@@ -79,21 +79,33 @@ export interface ResolvedDealData {
   loans: ResolvedLoan[];
   metadata: ResolvedMetadata;
   principalAccountCash: number; // uninvested cash in principal accounts (counts toward OC numerator)
-  /** D7: Interest Account cash — collections awaiting distribution on the next
-   *  payment date (PPM Interest Account). Exposed for downstream consumers but
-   *  NOT integrated into the engine OC numerator (deal-specific per-PPM). */
+  /** Interest Account cash — collections awaiting distribution on the next
+   *  payment date. Per PPM Condition 3(j)(ii)(1) the entire balance is
+   *  transferred to the Payment Account on the BD prior to each Payment Date
+   *  for disbursement under the Interest Priority of Payments; the engine
+   *  routes this value into Q1 `availableInterest` ahead of step (A)(i) via
+   *  `ProjectionInputs.initialInterestAccountCash`. NOT credited to the OC
+   *  numerator (Adjusted Collateral Principal Amount per Condition 1(d)
+   *  limits account-cash credit to Principal Account + Unused Proceeds). */
   interestAccountCash: number;
-  /** D7: Interest Smoothing Account balance — reserve used to smooth interest
-   *  distributions across periods (PPM Interest Smoothing Account). Resolver-
-   *  exposed only; not wired into engine OC math. */
+  /** Interest Smoothing Account balance — reserve used to smooth interest
+   *  distributions across periods (PPM Condition 3(j)(xii)). Opening balance
+   *  is mid-cycle and flushes back to the Interest Account on the BD after
+   *  the next Payment Date; the engine consumes this via Q1 `availableInterest`.
+   *  Multi-period FSE-coupled deposit/withdrawal dynamics are out-of-scope
+   *  (KI-04). NOT credited to the OC numerator. */
   interestSmoothingBalance: number;
-  /** D7: Supplemental Reserve Account balance — discretionary reserve governed
-   *  by the collateral manager (PPM Supplemental Reserve Account). Resolver-
-   *  exposed only; not wired into engine OC math. */
+  /** Supplemental Reserve Account balance — discretionary reserve governed
+   *  by the Collateral Manager (PPM Condition 3(j)(vi)). Eight Permitted
+   *  Uses; no automatic flow on a determination date. Q1 disposition is
+   *  driven by `userAssumptions.supplementalReserveDisposition` (modeling
+   *  assumption, not extracted). NOT credited to the OC numerator. */
   supplementalReserveBalance: number;
-  /** D7: Expense Reserve Account balance — reserved for ongoing deal expenses
-   *  (PPM Expense Reserve Account). Resolver-exposed only; not wired into
-   *  engine OC math. */
+  /** Expense Reserve Account balance — reserved for senior expenses (PPM
+   *  Condition 3(j)(x)). Per Interest Priority of Payments steps (B) + (C)
+   *  the balance augments the Senior Expenses Cap each period; the engine
+   *  drains it as overflow is paid. Distinct from KI-02 step (D) deposit-
+   *  into-reserve flow. NOT credited to the OC numerator. */
   expenseReserveBalance: number;
   preExistingDefaultedPar: number; // par of defaulted loans excluded from loan list
   preExistingDefaultRecovery: number; // market-price recovery for priced defaulted holdings

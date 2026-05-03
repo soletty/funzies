@@ -72,6 +72,13 @@ export interface UserAssumptions {
   deferredInterestCompounds: boolean;
   postRpReinvestmentPct: number;
   hedgeCostBps: number;
+  /** Q1 disposition of the Supplemental Reserve opening balance. Modeling
+   *  assumption — PPM Condition 3(j)(vi) gives the Collateral Manager open-
+   *  ended discretion across eight Permitted Uses, so this is exposed as a
+   *  user choice rather than auto-routed. Default "principalCash" mirrors
+   *  the existing `initialPrincipalCash` Q1 routing (RP→reinvestment,
+   *  post-RP→senior paydown), the manager-incentive-aligned canonical case. */
+  supplementalReserveDisposition: "principalCash" | "interest" | "hold";
   /** Manager-call gating (post-v6 plan §4.1). Default "none" so the engine
    *  projects to legal final unless the user explicitly chooses to model a
    *  call. The Phase A type union excludes "economic" mode (Phase D §7.4). */
@@ -137,6 +144,7 @@ export const DEFAULT_ASSUMPTIONS: UserAssumptions = {
   deferredInterestCompounds: true,
   postRpReinvestmentPct: 0,
   hedgeCostBps: 0,
+  supplementalReserveDisposition: "principalCash",
   callMode: "none",
   callDate: null,
   callPricePct: 100,
@@ -721,6 +729,11 @@ export function buildFromResolved(
     deferredInterestCompounds: userAssumptions.deferredInterestCompounds ?? resolved.deferredInterestCompounds,
     interestNonPaymentGracePeriods: resolved.interestNonPaymentGracePeriods,
     initialPrincipalCash: resolved.principalAccountCash,
+    initialInterestAccountCash: resolved.interestAccountCash,
+    initialInterestSmoothingBalance: resolved.interestSmoothingBalance,
+    initialExpenseReserveBalance: resolved.expenseReserveBalance,
+    initialSupplementalReserveBalance: resolved.supplementalReserveBalance,
+    supplementalReserveDisposition: userAssumptions.supplementalReserveDisposition,
     preExistingDefaultedPar: resolved.preExistingDefaultedPar,
     preExistingDefaultRecovery: resolved.preExistingDefaultRecovery,
     unpricedDefaultedPar: resolved.unpricedDefaultedPar,
