@@ -42,7 +42,6 @@ Categorized so a partner reading cold can separate "what's still wrong" from "wh
 - [KI-31 — Hedge cost bps never extracted; engine emits zero on every hedged deal](#ki-31)
 - [KI-32 — Per-position agency recovery rates ignored for forward defaults (used only for pre-existing defaulted positions)](#ki-32)
 - [KI-36 — Per-tranche `payment_frequency` extracted but not consumed (uniform quarterly cadence)](#ki-36)
-- [KI-37 — Loan-level `isPik` not propagated; PIK accretion engine dispatch missing](#ki-37)
 - [KI-38 — FX / multi-currency unmodeled; `native_currency` parsed and discarded](#ki-38)
 - [KI-56 — N1 harness step-G sharing: `classA_interest` bucket compares against trustee[g] which on a Class X-bearing deal includes Class X amort](#ki-56)
 - [KI-60 — Three independent `normalizeClassName` implementations with divergent output shapes (sibling pattern to KI-21)](#ki-60)
@@ -771,35 +770,6 @@ When `ddtlDrawPercent < 100`, `loan.survivingPar = fundedPar` overwrites the ful
 4. Update synthetic test fixtures to verify mixed-cadence deals project correctly.
 
 **Test:** No active marker on Euro XV (uniform quarterly). When engine support lands, synthetic-deal tests for semi-annual and mixed-cadence pin the new behavior.
-
----
-
-<a id="ki-37"></a>
-### [KI-37] Loan-level `isPik` not propagated; PIK accretion engine dispatch missing
-
-**PPM reference:** Per-loan PIK toggle. PIK ("payment-in-kind") loans accrete coupon to par rather than paying cash; PPM convention varies by tranche but the per-position behavior is uniform: `survivingPar += period accrual`, `interestCollected += 0`.
-
-**Current engine behavior:** `web/lib/clo/types/entities.ts:151` declares `isPik: boolean | null` on the raw `CloHolding` type (verified at `access.ts:313, 542`; extracted via `extraction/section-prompts.ts:219`; accepted by Zod at `extraction/schemas.ts:126`). Not propagated to `ResolvedLoan` — the resolver mapping does not write `isPik` and the engine's per-loan accrual loop unconditionally feeds into `interestCollected` regardless of PIK status. On a PIK-bearing deal the projection over-counts cash interest and under-counts par growth.
-
-**Source-side gap (SDF path):** SDF Asset_Level CSV does not carry an `Is_PIK` column; only `PIK_Amount` (the period's accrued €). The resolver currently has no path to populate `isPik` for SDF-ingested deals. Two clean options when the fix lands: (a) parser-side derivation in `parse-asset-level.ts` setting `is_pik = pik_amount > 0`, plus a resolver-side fallback `isPik: h.isPik ?? (h.pikAmount != null && h.pikAmount > 0)` for existing DB rows; (b) DB backfill SQL. Option (a) avoids a migration and lets the LLM-PDF path's explicit `isPik` continue to win when present.
-
-**PPM-correct behavior:** when `loan.isPik === true`, accrete `coupon × parBalance × dayFrac` to `loan.survivingPar` and add zero to `interestCollected`. When `loan.isPik === false` (or undefined and `pikAmount == 0`), feed accrual into `interestCollected` as today.
-
-**Quantitative magnitude:** scales with the share of PIK loans. Euro XV currently has 12 holdings reporting positive `pik_amount` (cumulative ~€2.5M), all carrying `isPik: null` on the SDF path — under the strict three-tier blocking rule the projection refuses until the parser-side derivation lands. Non-zero on US BSL and stressed-European deals: a 5% PIK share at 8% coupon over-counts interest by ~€1M/quarter on a €493M pool — roughly 25 bps of forward equity IRR.
-
-**Deferral rationale (PR2 of the KI-37 close):** floorRate, isCovLite, creditWatch, and pikAmount were closed in PR1 (per-loan EURIBOR floor dispatch, isCovLite delta-recompute on switch simulator, deletion of unused fields). The remaining isPik / PIK-accretion work is the only cash-flow-mutating change; it ships in its own PR for clean rollback surface.
-
-**Path to close:**
-1. **Parser-side derivation:** in `parse-asset-level.ts:185`, set `is_pik = (pik_amount != null && pik_amount > 0)`. Anti-pattern #5: locale-aware magnitude validation on `PIK_Amount` (sign invariant — negative PIK is meaningless).
-2. **Resolver-side fallback:** `isPik: h.isPik ?? (h.pikAmount != null && h.pikAmount > 0)` for existing DB rows.
-3. **Three-tier blocking** (anti-pattern #3):
-   - `pikAmount > 0 AND isPik == null` → block (extraction gap on a position whose source data demonstrably exhibits PIK behavior).
-   - `isPik === false AND pikAmount > 0` → block (data-shape contradiction).
-   - `pikAmount < 0` → block (sign invariant).
-4. **Engine dispatch:** add `isPik?: boolean` to `LoanInput` and `LoanState`; in the per-loan accrual loop (`projection.ts:2215-2230`), use a two-pass pattern — compute every per-loan `periodAccrual` in pass 1 (no mutation of `survivingPar`); apply PIK accretions to `survivingPar` in pass 2; non-PIK accruals fold into `interestCollected` in pass 1.
-5. **applySwitch pctPik delta-recompute:** mirror the pctCovLite delta-recompute pattern from PR1 (sub-fix C). Replace the d4 stale-inherit pin test for `pctPik` with positive-enforcement.
-
-**Test:** synthetic 2-loan deal with one PIK / one non-PIK; assert `interestCollected` excludes PIK and `survivingPar[B] = beg + coupon × parB × dayFrac`. Add ordering test: PIK loan that fully defaults at period start accretes one period of coupon onto pre-default beginning par, then survivingPar zeros at the post-default subtraction step. Resolver-side: blocking warns for the three tier conditions above.
 
 ---
 

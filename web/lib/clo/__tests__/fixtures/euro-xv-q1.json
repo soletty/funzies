@@ -1064,6 +1064,7 @@
         "isDefaulted": false,
         "floorRate": 0,
         "isCovLite": false,
+        "isPik": true,
         "warfFactor": 4770,
         "currency": "EUR",
         "dayCountConvention": "actual_360"
@@ -1877,6 +1878,7 @@
         "isDefaulted": false,
         "floorRate": 0,
         "isCovLite": false,
+        "isPik": true,
         "warfFactor": 4770,
         "currency": "EUR",
         "dayCountConvention": "actual_360"
@@ -4530,6 +4532,7 @@
         "marketValue": 58.5,
         "isDefaulted": false,
         "isCovLite": false,
+        "isPik": true,
         "warfFactor": 6500,
         "currency": "EUR",
         "dayCountConvention": "30e_360"
@@ -6568,6 +6571,7 @@
         "marketValue": 58.5,
         "isDefaulted": false,
         "isCovLite": false,
+        "isPik": true,
         "warfFactor": 6500,
         "currency": "EUR",
         "dayCountConvention": "30e_360"
@@ -7220,6 +7224,7 @@
         "marketValue": 58.5,
         "isDefaulted": false,
         "isCovLite": false,
+        "isPik": true,
         "warfFactor": 6500,
         "currency": "EUR",
         "dayCountConvention": "30e_360"
@@ -7599,6 +7604,7 @@
         "marketValue": 58.5,
         "isDefaulted": false,
         "isCovLite": false,
+        "isPik": true,
         "warfFactor": 6500,
         "currency": "EUR",
         "dayCountConvention": "30e_360"

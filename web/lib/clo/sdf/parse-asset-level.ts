@@ -56,6 +56,11 @@ export interface SdfAssetLevelRow {
 
   // Structural
   pik_amount: number | null;
+  /** Derived from `pik_amount > 0` at the parser boundary (the SDF
+   *  Asset_Level CSV does not carry an explicit Is_PIK column; the
+   *  per-period accrued amount IS the structural signal). Null when
+   *  pik_amount is null/zero AND no other source provides the flag. */
+  is_pik: boolean | null;
   credit_spread_adj: number | null;
   is_current_pay: boolean | null;
   is_defaulted: boolean | null;
@@ -181,8 +186,20 @@ export function parseAssetLevel(
     kbra_rating: trimRating(raw.Portfolio_Issue_Derived_Rating_KBRA),
     kbra_recovery_rate: parseNumeric(raw.Recovery_Rate_KBRA),
 
-    // Structural
-    pik_amount: parseNumeric(raw.PIK_Amount),
+    // Structural — pik_amount derives is_pik (no explicit Is_PIK column
+    // in the Asset_Level CSV; per-period accrued amount IS the structural
+    // signal). Anti-pattern #5: a non-zero pik_amount means the loan
+    // accreted PIK in this period; the engine needs the boolean flag to
+    // dispatch accretion-vs-cash logic on forward periods. The LLM-PDF
+    // extraction path can override with an explicit isPik (handled at the
+    // resolver via `h.isPik ?? (pikAmount > 0)`).
+    ...(((): { pik_amount: number | null; is_pik: boolean | null } => {
+      const pikAmount = parseNumeric(raw.PIK_Amount);
+      return {
+        pik_amount: pikAmount,
+        is_pik: pikAmount != null && pikAmount > 0 ? true : null,
+      };
+    })()),
     credit_spread_adj: parseNumeric(raw.Credit_Spread_Adj),
     is_current_pay: parseBoolean(raw.Is_Current_Pay),
     is_defaulted: parseBoolean(raw.Is_Default),

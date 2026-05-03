@@ -218,7 +218,7 @@ describe("D4 — pctCovLite delta-recompute", () => {
       fixture.resolved.poolSummary.pctCovLite!,
     );
     // No coverage warning when both legs are known.
-    expect(warnings.filter(w => w.field === "switchedPctCovLite")).toHaveLength(0);
+    expect(warnings.filter(w => w.field === "switched_pctCovLite")).toHaveLength(0);
   });
 
   it("inherits + emits coverage warning when buy leg has unknown isCovLite", () => {
@@ -245,31 +245,85 @@ describe("D4 — pctCovLite delta-recompute", () => {
       fixture.resolved.poolSummary.pctCovLite,
     );
     // Coverage warning emitted.
-    const coverageWarn = warnings.find(w => w.field === "switchedPctCovLite");
+    const coverageWarn = warnings.find(w => w.field === "switched_pctCovLite");
     expect(coverageWarn).toBeDefined();
     expect(coverageWarn!.severity).toBe("warn");
     expect(coverageWarn!.blocking).toBe(false);
   });
 
-  // pctPik recompute lands when isPik propagation ships separately. Pin
-  // the current stale-inherit contract until then to catch silent drift.
-  it("pctPik stays at base value on switched pool (pending isPik propagation)", () => {
+  // pctPik delta-recompute mirrors the pctCovLite logic. Same gating:
+  // both swap legs need a known isPik for the recompute to fire.
+  it("pctPik delta-recompute fires when both legs have known isPik", () => {
+    const sellNonPikIdx = fixture.resolved.loans.findIndex(
+      (l) => l.isPik === undefined && l.parBalance > 500_000 && !l.isDelayedDraw,
+    );
+    expect(sellNonPikIdx).toBeGreaterThan(-1);
+    const sellLoan = fixture.resolved.loans[sellNonPikIdx];
+    const buyLoan: ResolvedLoan = {
+      parBalance: sellLoan.parBalance,
+      maturityDate: sellLoan.maturityDate,
+      ratingBucket: "B",
+      spreadBps: sellLoan.spreadBps,
+      obligorName: "PIK Replacement",
+      warfFactor: sellLoan.warfFactor,
+      isPik: true,
+    };
+    // Sell leg needs explicit isPik=false for the delta-recompute to
+    // fire (undefined isPik blocks the recompute the same way undefined
+    // isCovLite does). Mirror the resolver's "explicit-false propagates"
+    // behavior by overriding the sell loan's isPik on this synthetic call.
+    const sellWithIsPik = { ...sellLoan, isPik: false };
+    const swappedResolved = {
+      ...fixture.resolved,
+      loans: fixture.resolved.loans.map((l, i) => i === sellNonPikIdx ? sellWithIsPik : l),
+    };
+    const warnings: import("@/lib/clo/resolver-types").ResolutionWarning[] = [];
+    const result = applySwitch(
+      swappedResolved,
+      { sellLoanIndex: sellNonPikIdx, sellParAmount: sellLoan.parBalance, buyLoan, sellPrice: 100, buyPrice: 100 },
+      assumptions,
+      warnings,
+    );
+
+    // Delta: sell is non-PIK (removed=0); buy is PIK (added=sellLoan.par).
+    // Expected pctPik = (basePar + sellLoan.par) / switchedSumLoans × 100
+    // (with basePar = (basePctPik/100) × baseTotalPar; null base → null).
+    const switchedSumLoans = result.switchedResolved.loans.reduce((s, l) => s + l.parBalance, 0);
+    if (fixture.resolved.poolSummary.pctPik != null) {
+      const basePikPar = (fixture.resolved.poolSummary.pctPik / 100) * fixture.resolved.poolSummary.totalPar;
+      const expectedPct = ((basePikPar + sellLoan.parBalance) / switchedSumLoans) * 100;
+      expect(result.switchedResolved.poolSummary.pctPik).toBeCloseTo(expectedPct, 4);
+    } else {
+      // Base pctPik is null on Euro XV (no pool-level PIK share extracted) —
+      // delta-recompute returns null and emits coverage warn.
+      expect(result.switchedResolved.poolSummary.pctPik).toBeNull();
+      expect(warnings.find(w => w.field === "switched_pctPik")).toBeDefined();
+    }
+  });
+
+  it("pctPik inherits base + emits coverage warning when buy leg has unknown isPik", () => {
     const sellLoan = fixture.resolved.loans[sellIdx];
     const buyLoan: ResolvedLoan = {
       parBalance: sellLoan.parBalance,
       maturityDate: sellLoan.maturityDate,
       ratingBucket: "B",
       spreadBps: sellLoan.spreadBps,
-      obligorName: "No-Op Swap",
+      obligorName: "Unknown PIK",
       warfFactor: sellLoan.warfFactor,
+      // isPik deliberately omitted
     };
+    const warnings: import("@/lib/clo/resolver-types").ResolutionWarning[] = [];
     const result = applySwitch(
       fixture.resolved,
       { sellLoanIndex: sellIdx, sellParAmount: sellLoan.parBalance, buyLoan, sellPrice: 100, buyPrice: 100 },
       assumptions,
+      warnings,
     );
     expect(result.switchedResolved.poolSummary.pctPik).toBe(
       fixture.resolved.poolSummary.pctPik,
     );
+    const coverageWarn = warnings.find(w => w.field === "switched_pctPik");
+    expect(coverageWarn).toBeDefined();
+    expect(coverageWarn!.severity).toBe("warn");
   });
 });

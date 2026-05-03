@@ -1324,6 +1324,45 @@ export function resolveWaterfallInputs(
       });
     }
 
+    // PIK classification. Three-tier blocking rule (anti-pattern #3):
+    //   (1) `isPik === true` (explicit) OR (`isPik == null AND pikAmount > 0`)
+    //       → treat as PIK. The fallback derivation matches the parser-side
+    //       derivation in `parse-asset-level.ts`; resolver-side fallback
+    //       handles existing DB rows that predate the parser change.
+    //   (2) `isPik === false AND pikAmount > 0` → block (data-shape
+    //       contradiction: explicit-false claim contradicts the source's
+    //       reported per-period PIK accrual).
+    //   (3) `pikAmount < 0` → block (sign invariant — negative PIK is
+    //       structurally meaningless).
+    // The engine consumes only the boolean dispatch flag; pikAmount is
+    // strictly observability for a future Q1 audit harness.
+    let derivedIsPik: boolean | undefined;
+    if (h.pikAmount != null && h.pikAmount < 0) {
+      warnings.push({
+        field: "pikAmount",
+        message: `Holding "${h.obligorName ?? "unknown"}": pikAmount=${h.pikAmount} is negative. PIK accruals are non-negative by construction; a negative value indicates a parser failure or upstream sign-convention error. Refuse and verify the pik_amount ingestion.`,
+        severity: "error",
+        blocking: true,
+      });
+    } else if (h.isPik === false && (h.pikAmount ?? 0) > 0) {
+      warnings.push({
+        field: "isPik",
+        message: `Holding "${h.obligorName ?? "unknown"}": isPik=false but pikAmount=${h.pikAmount} > 0. The source reports per-period PIK accrual on a position the structural flag claims is non-PIK; one of the two is wrong. Engine cannot dispatch correctly under this contradiction (treating as cash-paying would over-state interestCollected by ${h.pikAmount} this period). Refuse and reconcile upstream.`,
+        severity: "error",
+        blocking: true,
+      });
+    } else if (h.isPik === true) {
+      derivedIsPik = true;
+    } else if (h.isPik == null && (h.pikAmount ?? 0) > 0) {
+      // Parser-side derivation should already have set is_pik=true on this
+      // row; fallback covers DB rows ingested before the parser change.
+      derivedIsPik = true;
+    } else if (h.isPik === false) {
+      derivedIsPik = false;
+    }
+    // h.isPik == null AND pikAmount in {null, 0} → leave undefined
+    // (no PIK behavior demonstrated; default-to-cash is safe).
+
     return stripNulls({
       parBalance: holdingPar(h),
       maturityDate: h.maturityDate ?? fallbackMaturity,
@@ -1351,6 +1390,7 @@ export function resolveWaterfallInputs(
       defaultDate: h.defaultDate ?? undefined,
       floorRate: h.floorRate ?? undefined,
       isCovLite: h.isCovLite ?? undefined,
+      isPik: derivedIsPik,
       warfFactor,
       // Floating WAS denominator excludes Non-Euro Obligations per PPM
       // Condition 1 (PDF p. 302). Sourced from holding's `currency` (post-

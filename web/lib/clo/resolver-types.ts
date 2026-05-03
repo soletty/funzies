@@ -360,6 +360,14 @@ export interface ResolvedLoan {
    *  coverage warning, avoiding silent inflation OR deflation of the
    *  partner-visible share. */
   isCovLite?: boolean;
+  /** PIK ("payment-in-kind") classification. Sourced from
+   *  `clo_holdings.is_pik` when explicitly set (LLM-PDF extraction path),
+   *  else derived from `pikAmount > 0` (SDF Asset_Level path: parser-side
+   *  derivation in `parse-asset-level.ts`, with a resolver-side fallback
+   *  for existing DB rows). When true, the engine accretes the period's
+   *  coupon to `survivingPar` and adds zero to `interestCollected`; when
+   *  false/undefined, the coupon flows as cash interest as today. */
+  isPik?: boolean;
 }
 
 export type WarningSeverity = "info" | "warn" | "error";

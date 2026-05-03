@@ -112,43 +112,47 @@ export function applySwitch(
     switchedLoans.map((l) => (l.obligorName ?? "").toLowerCase().trim()).filter((s) => s.length > 0),
   ).size;
 
-  // pctCovLite delta-recompute. The deal-level pctCovLite from
-  // poolSummary already carries its own coverage (it's sourced from the
-  // concentrations table or pool-summary directly). We adjust it for the
-  // swap ONLY when both swap legs carry a known isCovLite — otherwise
+  // pctCovLite / pctPik delta-recompute. The deal-level values from
+  // poolSummary already carry their own coverage (sourced from the
+  // concentrations table or pool-summary directly). We adjust them for the
+  // swap ONLY when both swap legs carry the relevant boolean — otherwise
   // the post-swap share is ambiguous and we inherit the base value with
   // an explicit coverage warning. This avoids both the silent-inflation
   // failure mode (mapping null → false would deflate the share when
   // per-loan coverage is incomplete) and the silent-deflation failure
   // mode (an unconditional recompute from per-loan flags overwrites the
   // resolver's deal-level signal with a possibly-incomplete pool view).
-  let switchedPctCovLite: number | null = resolved.poolSummary.pctCovLite;
-  if (
-    resolved.poolSummary.pctCovLite != null &&
-    sellLoan.isCovLite != null &&
-    buyLoan.isCovLite != null
-  ) {
-    const baseCovLitePar =
-      (resolved.poolSummary.pctCovLite / 100) * resolved.poolSummary.totalPar;
-    const removedCovLitePar = sellLoan.isCovLite ? actualSellPar : 0;
-    const addedCovLitePar = buyLoan.isCovLite ? buyLoan.parBalance : 0;
-    const newCovLitePar = baseCovLitePar - removedCovLitePar + addedCovLitePar;
-    switchedPctCovLite = switchedTotalPar > 0
-      ? (newCovLitePar / switchedTotalPar) * 100
-      : 0;
-  } else if (warnings != null) {
-    warnings.push({
-      field: "switchedPctCovLite",
-      message:
-        `applySwitch: cannot delta-recompute pctCovLite — at least one swap leg has unknown isCovLite ` +
-        `(sell="${sellLoan.obligorName ?? "?"}".isCovLite=${sellLoan.isCovLite}, ` +
-        `buy="${buyLoan.obligorName ?? "?"}".isCovLite=${buyLoan.isCovLite}). ` +
-        `Inheriting the base-pool pctCovLite (${resolved.poolSummary.pctCovLite}%); the partner-visible ` +
-        `share does not reflect the swap.`,
-      severity: "warn",
-      blocking: false,
-    });
+  function deltaRecompute(
+    field: "pctCovLite" | "pctPik",
+    flagName: "isCovLite" | "isPik",
+  ): number | null {
+    const baseValue = resolved.poolSummary[field];
+    const sellFlag = (sellLoan as Record<string, unknown>)[flagName];
+    const buyFlag = (buyLoan as Record<string, unknown>)[flagName];
+    if (baseValue == null || sellFlag == null || buyFlag == null) {
+      if (warnings != null) {
+        warnings.push({
+          field: `switched_${field}`,
+          message:
+            `applySwitch: cannot delta-recompute ${field} — at least one swap leg has unknown ${flagName} ` +
+            `(sell="${sellLoan.obligorName ?? "?"}".${flagName}=${sellFlag}, ` +
+            `buy="${buyLoan.obligorName ?? "?"}".${flagName}=${buyFlag}). ` +
+            `Inheriting the base-pool ${field} (${baseValue}); the partner-visible ` +
+            `share does not reflect the swap.`,
+          severity: "warn",
+          blocking: false,
+        });
+      }
+      return baseValue;
+    }
+    const basePar = (baseValue / 100) * resolved.poolSummary.totalPar;
+    const removed = sellFlag === true ? actualSellPar : 0;
+    const added = buyFlag === true ? buyLoan.parBalance : 0;
+    const newPar = basePar - removed + added;
+    return switchedTotalPar > 0 ? (newPar / switchedTotalPar) * 100 : 0;
   }
+  const switchedPctCovLite = deltaRecompute("pctCovLite", "isCovLite");
+  const switchedPctPik = deltaRecompute("pctPik", "isPik");
 
   const switchedResolved: ResolvedDealData = {
     ...resolved,
@@ -162,16 +166,16 @@ export function applySwitch(
       walYears: switchedQuality.walYears,
       pctCccAndBelow: switchedQuality.pctCccAndBelow,
       pctCovLite: switchedPctCovLite,
+      pctPik: switchedPctPik,
       numberOfObligors: switchedObligors,
       top10ObligorsPct: switchedTop10,
-      // Other composition fields (pctFixedRate, pctPik, pctBonds, pctSeniorSecured,
+      // Other composition fields (pctFixedRate, pctBonds, pctSeniorSecured,
       // pctSecondLien, pctCurrentPay, diversityScore, waRecoveryRate,
-      // totalMarketValue, numberOfAssets) are inherited from the base pool via
-      // the spread above. pctPik specifically requires `isPik` propagation on
-      // ResolvedLoan which lands separately; the rest require additional per-loan
-      // flags whose extraction-side coverage isn't yet reliable enough for a
-      // delta-recompute (see CLAUDE.md anti-pattern #3 — "silent fallbacks on
-      // extraction failures are bugs, not defaults").
+      // totalMarketValue, numberOfAssets) are inherited from the base pool
+      // via the spread above. They require additional per-loan flags whose
+      // extraction-side coverage isn't yet reliable enough for a
+      // delta-recompute (see CLAUDE.md anti-pattern #3 — "silent fallbacks
+      // on extraction failures are bugs, not defaults").
     },
   };
 

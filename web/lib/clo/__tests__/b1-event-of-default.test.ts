@@ -295,10 +295,21 @@ describe("B1 — computeEventOfDefaultTest (pure helper)", () => {
     // matching scheduledRecoveryQuarter) × recoveryPct/100.
     // (Period index in result.periods is 0-based; q=0 corresponds to internal
     // quarter 1, so scheduledRecoveryQuarter=Q corresponds to result.periods[Q-1].)
-    for (let Q = 1; Q <= result.periods.length; Q++) {
+    //
+    // Maturity-period sweep: on the LAST period the engine drains every
+    // pending recovery (`recoveryPipeline.filter(r => r.quarter >= q)`),
+    // not just events scheduled FOR that quarter. The expected calc on
+    // Q=N folds in every event whose scheduledRecoveryQuarter falls past
+    // the projection horizon, mirroring the engine's sweep. Pre-PR2 this
+    // case happened to have zero late-period defaults (the pool decays to
+    // near-zero before period 38 under uniform 15% CDR), but PIK accretion
+    // keeps PIK loans resilient enough to default in late periods, exposing
+    // the real semantic.
+    const lastQ = result.periods.length;
+    for (let Q = 1; Q <= lastQ; Q++) {
       const expectedRecoveryPar = result.periods
         .flatMap((p) => p.loanDefaultEvents)
-        .filter((e) => e.scheduledRecoveryQuarter === Q)
+        .filter((e) => Q === lastQ ? e.scheduledRecoveryQuarter >= Q : e.scheduledRecoveryQuarter === Q)
         .reduce((s, e) => s + e.defaultedPar, 0);
       const expectedRecoveryCash = expectedRecoveryPar * (recoveryPct / 100);
       const actualRecoveryCash = result.periods[Q - 1].recoveries;
