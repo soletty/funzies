@@ -24,7 +24,7 @@
  * the no-call semantic in one place.
  */
 
-import type { ProjectionInputs } from "../projection";
+import { InvalidCallDateError, type ProjectionInputs } from "../projection";
 
 export function deriveNoCallBaseInputs(
   inputs: ProjectionInputs & { equityEntryPrice?: number },
@@ -34,10 +34,42 @@ export function deriveNoCallBaseInputs(
   return { ...rest, callMode: "none", callDate: null };
 }
 
+/**
+ * Bounds against which `applyOptionalRedemptionCall` validates `callDate`.
+ *
+ * `currentDate` is required (a past callDate is always refused).
+ * `nonCallPeriodEnd` is required as `string | null`: when set the function
+ * refuses `callDate < nonCallPeriodEnd`; when null the gate is skipped
+ * (NCP not known → cannot enforce, which is documented as the synthetic-
+ * fixture path; production-deal NCP is gated to non-null at the resolver
+ * layer). Forcing the caller to pass `null` explicitly rather than
+ * omitting the field makes "I considered the NCP and it's truly absent"
+ * distinguishable from "I forgot to wire it through."
+ */
+export interface OptionalRedemptionBounds {
+  currentDate: string;
+  nonCallPeriodEnd: string | null;
+}
+
+/**
+ * Overlay an optional-redemption call onto a no-call baseline.
+ *
+ * Validates `callDate` against `bounds` before constructing the inputs.
+ * Throws `InvalidCallDateError` on violation (the UI catches and renders a
+ * non-dismissible inline message; the engine's pre-projection guard is a
+ * backstop for hand-constructed inputs that bypass this service).
+ */
 export function applyOptionalRedemptionCall(
   noCallBase: ProjectionInputs,
   callDate: string,
+  bounds: OptionalRedemptionBounds,
 ): ProjectionInputs {
+  if (callDate < bounds.currentDate) {
+    throw new InvalidCallDateError("past", callDate, bounds.currentDate, bounds.nonCallPeriodEnd);
+  }
+  if (bounds.nonCallPeriodEnd != null && callDate < bounds.nonCallPeriodEnd) {
+    throw new InvalidCallDateError("preNcp", callDate, bounds.currentDate, bounds.nonCallPeriodEnd);
+  }
   return {
     ...noCallBase,
     callMode: "optionalRedemption",

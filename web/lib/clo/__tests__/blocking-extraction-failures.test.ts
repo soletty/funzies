@@ -178,6 +178,21 @@ describe("Pattern A (silent fallback to common default)", () => {
     expectGateThrows(resolved, warnings);
   });
 
+  it("nonCallPeriodEnd (resolver.ts:1064) — missing in keyDates → blocking", () => {
+    // Every CLO has a PPM-defined Non-Call Period (Condition 7.2); a
+    // null-return is an extraction gap, not a deal without one. The
+    // engine's runtime guard on pre-NCP callDates is gated on this field —
+    // a silent null here would let a user modelling a call produce an IRR
+    // for an economically impossible scenario, bypassing the engine gate.
+    const raw = loadRaw();
+    if (raw.constraints.keyDates) raw.constraints.keyDates.nonCallPeriodEnd = null;
+    const { resolved, warnings } = runResolver(raw);
+    const w = warnings.find((w) => w.field === "dates.nonCallPeriodEnd");
+    expectBlockingError(w, "dates.nonCallPeriodEnd");
+    expect(resolved.dates.nonCallPeriodEnd).toBeNull();
+    expectGateThrows(resolved, warnings);
+  });
+
   it("referenceWeightedAverageFixedCoupon — fixed-rate deal + missing refWAFC → blocking", () => {
     // Euro XV holds fixed-rate obligations (84 holdings carry isFixedRate=true).
     // With those positions present, the Excess WAC term in the Floating WAS

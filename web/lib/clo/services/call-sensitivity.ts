@@ -6,11 +6,11 @@
  * Each cell is a separate `runProjection` invocation under
  * `callMode: "optionalRedemption"` with the cell's date and price mode.
  *
- * Default callDates derive from the deal's `optionalRedemptionDate` plus
- * annual offsets `[ord, ord+1y, ord+2y, ord+3y]`. The Euro-XV-specific
+ * Default callDates derive from the deal's `nonCallPeriodEnd` plus
+ * annual offsets `[ncp, ncp+1y, ncp+2y, ncp+3y]`. The Euro-XV-specific
  * hardcoded dates would be wrong for any deal with a different non-call
  * period; deal-aware default selection generalizes. If
- * `optionalRedemptionDate` is null and the caller did not supply explicit
+ * `nonCallPeriodEnd` is null and the caller did not supply explicit
  * `callDates`, the service throws — there is no defensible default to
  * fall back to without the deal-level non-call date.
  *
@@ -20,6 +20,14 @@
  * partners need the par column to render even when extraction is partial.
  * Manual mode is intentionally omitted from defaults; supply it explicitly
  * if needed (along with a `callPricePct`).
+ *
+ * `InvalidCallDateError` is NOT caught per-cell — it propagates and aborts
+ * the entire grid. The default `defaultCallDates(ncp)` derivation is safe
+ * by construction (every generated date is at-or-after NCP and forward of
+ * any plausible currentDate). Callers passing an explicit `options.callDates`
+ * array are responsible for filtering pre-NCP / past dates before the call;
+ * a thrown `InvalidCallDateError` indicates a programmer error in the caller,
+ * not a per-cell extraction gap.
  */
 
 import { runProjection, addQuarters, MarketPriceMissingError, type ProjectionInputs } from "../projection";
@@ -38,13 +46,13 @@ export interface CallSensitivityOptions {
   callDates?: string[];
   callPriceModes?: CallSensitivityPriceMode[];
   callPricePct?: number;
-  optionalRedemptionDate?: string | null;
+  nonCallPeriodEnd?: string | null;
 }
 
-function defaultCallDates(ord: string): string[] {
+function defaultCallDates(ncp: string): string[] {
   // Annual offsets via addQuarters(_, 4) — same calendar arithmetic the
   // engine uses for period stepping, so leap-year edge cases line up.
-  return [ord, addQuarters(ord, 4), addQuarters(ord, 8), addQuarters(ord, 12)];
+  return [ncp, addQuarters(ncp, 4), addQuarters(ncp, 8), addQuarters(ncp, 12)];
 }
 
 export function callSensitivityGrid(
@@ -53,13 +61,13 @@ export function callSensitivityGrid(
 ): CallSensitivityCell[] {
   const callDates = options?.callDates
     ?? (() => {
-      const ord = options?.optionalRedemptionDate ?? null;
-      if (!ord) {
+      const ncp = options?.nonCallPeriodEnd ?? null;
+      if (!ncp) {
         throw new Error(
-          "Cannot derive default callDates without optionalRedemptionDate; supply explicit callDates option.",
+          "Cannot derive default callDates without nonCallPeriodEnd; supply explicit callDates option.",
         );
       }
-      return defaultCallDates(ord);
+      return defaultCallDates(ncp);
     })();
   const callPriceModes = options?.callPriceModes ?? ["par" as const, "market" as const];
   const callPricePct = options?.callPricePct ?? 100;

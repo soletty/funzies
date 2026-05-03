@@ -1058,10 +1058,26 @@ export function resolveWaterfallInputs(
     });
   }
 
+  const resolvedNonCallPeriodEnd = constraints.keyDates?.nonCallPeriodEnd ?? null;
+  if (resolvedNonCallPeriodEnd == null) {
+    warnings.push({
+      field: "dates.nonCallPeriodEnd",
+      message:
+        "Non-Call Period End not extracted. Every CLO has a PPM-defined " +
+        "Non-Call Period (Condition 7.2); a missing value indicates an " +
+        "extraction gap, not a deal without one. The runtime guard on " +
+        "pre-NCP callDates is gated on this field — without it, a user " +
+        "modelling a call could silently produce IRR for an economically " +
+        "impossible scenario. Refusing to project until NCP is resolved.",
+      severity: "error",
+      blocking: true,
+    });
+  }
+
   const dates: ResolvedDates = {
     maturity: resolvedMaturity,
     reinvestmentPeriodEnd: dealDates?.reinvestmentPeriodEnd ?? constraints.keyDates?.reinvestmentPeriodEnd ?? null,
-    nonCallPeriodEnd: constraints.keyDates?.nonCallPeriodEnd ?? null,
+    nonCallPeriodEnd: resolvedNonCallPeriodEnd,
     firstPaymentDate: constraints.keyDates?.firstPaymentDate ?? null,
     currentDate,
   };
@@ -1259,13 +1275,6 @@ export function resolveWaterfallInputs(
       }
     }
 
-    const creditWatch = [
-      h.moodysIssuerWatch,
-      h.moodysSecurityWatch,
-      h.spIssuerWatch,
-      h.spSecurityWatch,
-    ].some(w => w && w.toLowerCase().includes('negative')) || undefined;
-
     // Moody's uses its DP (Default Probability) rating for WARF when available,
     // falling back to the final/published rating, then the raw Moody's rating.
     const warfFactor =
@@ -1290,6 +1299,29 @@ export function resolveWaterfallInputs(
           ? { field: "dayCountConvention", message: dccResult.warning, severity: "error", blocking: true }
           : { field: "dayCountConvention", message: dccResult.warning, severity: "warn", blocking: false },
       );
+    }
+
+    // Per-loan EURIBOR floor sign + scale invariants (anti-pattern #5).
+    // Source convention is PERCENT (e.g. 0.5 = 50bp) on the SDF
+    // Collateral File path; magnitude validator rejects > 50%. Sign
+    // invariant: a negative floor is structurally meaningless (a floor
+    // below zero is no floor at all). Catching it here rather than in
+    // the engine because the boundary is the right place to enforce
+    // type-system gaps.
+    if (h.floorRate != null && h.floorRate < 0) {
+      warnings.push({
+        field: "floorRate",
+        message: `Holding "${h.obligorName ?? "unknown"}": floorRate=${h.floorRate} is negative. Per-position EURIBOR floors are non-negative by construction; a negative value indicates a parser failure or upstream sign-convention error. Refuse and verify the floor_rate ingestion.`,
+        severity: "error",
+        blocking: true,
+      });
+    } else if (h.floorRate != null && h.floorRate > 5) {
+      warnings.push({
+        field: "floorRate",
+        message: `Holding "${h.obligorName ?? "unknown"}": floorRate=${h.floorRate}% is implausibly high (typical Euro CLO floors 0.0–1.0%). Likely scale or locale mis-parse.`,
+        severity: "warn",
+        blocking: false,
+      });
     }
 
     return stripNulls({
@@ -1318,8 +1350,7 @@ export function resolveWaterfallInputs(
       isDefaulted: h.isDefaulted ?? undefined,
       defaultDate: h.defaultDate ?? undefined,
       floorRate: h.floorRate ?? undefined,
-      pikAmount: h.pikAmount ?? undefined,
-      creditWatch: creditWatch || undefined,
+      isCovLite: h.isCovLite ?? undefined,
       warfFactor,
       // Floating WAS denominator excludes Non-Euro Obligations per PPM
       // Condition 1 (PDF p. 302). Sourced from holding's `currency` (post-
@@ -1836,6 +1867,31 @@ export function resolveWaterfallInputs(
       warnings.push({
         field: "complianceTests.uncomputedTests",
         message: `${uncomputed.length} test(s) have an actual value but no trigger and are not marked passing — consumers filtering on triggerLevel != null will hide them. Examples: ${names}`,
+        severity: "warn", blocking: false,
+      });
+    }
+  }
+
+  // (c) Compliance tests with both actualValue AND triggerLevel populated but
+  // isPassing is null. This is the symptom of a quantitative test where the
+  // ingestion gate's direction-aware dispatch (lib/clo/ingestion-gate.ts
+  // normalizeComplianceTestType) could not determine higher-is-better vs
+  // lower-is-better and correctly left isPassing unset rather than silently
+  // defaulting. Display-only metadata under the carve-out: severity warn,
+  // non-blocking — the projection runs unaffected, but the partner-facing
+  // PASS/FAIL badge is unavailable for these rows on `app/clo/page.tsx`,
+  // which the banner attributes to the data gap.
+  {
+    const ambiguousDirection = allComplianceTests.filter(t =>
+      t.actualValue != null
+      && t.triggerLevel != null
+      && t.isPassing == null
+    );
+    if (ambiguousDirection.length > 0) {
+      const names = ambiguousDirection.map(t => t.testName).filter(Boolean).slice(0, 5).join("; ");
+      warnings.push({
+        field: "complianceTests.ambiguousDirection",
+        message: `${ambiguousDirection.length} compliance test(s) have both actual value and trigger populated but no PASS/FAIL signal — direction (higher-is-better vs lower-is-better) could not be determined from testType / testName / clause-letter. PASS/FAIL badge unavailable on these rows. Examples: ${names}`,
         severity: "warn", blocking: false,
       });
     }

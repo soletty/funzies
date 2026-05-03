@@ -181,7 +181,7 @@ describe("KI-27 case 2 — compounding regression (engine ignores trustee field)
       baseline.totalEquityDistributions,
       2,
     );
-    expect(populated.equityIrr).toBeCloseTo(baseline.equityIrr, 8);
+    expect(populated.equityIrr).toBeCloseTo(baseline.equityIrr!, 8);
   });
 });
 

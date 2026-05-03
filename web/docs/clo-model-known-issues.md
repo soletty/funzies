@@ -32,7 +32,6 @@ Categorized so a partner reading cold can separate "what's still wrong" from "wh
 - [KI-23 — Industry taxonomy missing on BuyListItem + ResolvedLoan blocks industry-cap filtering](#ki-23)
 - [KI-24 — E1 citation propagation coverage is partial (8 deferred paths)](#ki-24)
 - [KI-33 — Reinvestment loan synthesis assumes par-purchase (€1 diverted = €1 par)](#ki-33)
-- [KI-34 — Non-call period not enforced; user-typed pre-NCP call dates pass through](#ki-34)
 - [KI-35 — Partial DDTL draw silently discards the un-drawn commitment](#ki-35)
 
 ### Latent — currently inactive on Euro XV; emerges on portability or stress
@@ -43,9 +42,8 @@ Categorized so a partner reading cold can separate "what's still wrong" from "wh
 - [KI-31 — Hedge cost bps never extracted; engine emits zero on every hedged deal](#ki-31)
 - [KI-32 — Per-position agency recovery rates ignored for forward defaults (used only for pre-existing defaulted positions)](#ki-32)
 - [KI-36 — Per-tranche `payment_frequency` extracted but not consumed (uniform quarterly cadence)](#ki-36)
-- [KI-37 — Loan-level `floorRate`, `pikAmount`, `creditWatch`, `isCovLite` extracted but unused by engine](#ki-37)
+- [KI-37 — Loan-level `isPik` not propagated; PIK accretion engine dispatch missing](#ki-37)
 - [KI-38 — FX / multi-currency unmodeled; `native_currency` parsed and discarded](#ki-38)
-- [KI-51 — `normalizeComplianceTestType` derives `isPassing` as `actual >= trigger` for all tests, including lower-is-better (WARF, WAL, concentration)](#ki-51)
 - [KI-56 — N1 harness step-G sharing: `classA_interest` bucket compares against trustee[g] which on a Class X-bearing deal includes Class X amort](#ki-56)
 - [KI-60 — Three independent `normalizeClassName` implementations with divergent output shapes (sibling pattern to KI-21)](#ki-60)
 
@@ -713,33 +711,6 @@ The reinvestment loan synthesis paths at `projection.ts:1631, 1635` (per-period 
 
 ---
 
-<a id="ki-34"></a>
-### [KI-34] Non-call period not enforced; user-typed pre-NCP call dates pass through
-
-**PPM reference:** Condition 7.2 (Non-Call Period); the dealer cannot redeem before the Non-Call Period End. Modelling a pre-NCP call is economically incoherent (the option doesn't exist).
-
-**Current engine behavior:** UI provides a sensible default but no enforcement.
-
-- `web/app/clo/waterfall/ProjectionModel.tsx:545-550` — `defaultCallDate = (ncEnd > currentDate) ? ncEnd : currentDate`. Initial value floors at NCP.
-- `web/app/clo/waterfall/ProjectionModel.tsx:553-561` — `withCallDate = userCallDate.trim() || defaultCallDate`, with the only validation being `/^\d{4}-\d{2}-\d{2}$/.test(trimmed)`.
-
-Any user-typed date that parses as `YYYY-MM-DD` passes through to `applyOptionalRedemptionCall`, including dates before `nonCallPeriodEnd`. The engine accepts it without complaint. The forward IRR returned is for an economically impossible scenario.
-
-**PPM-correct behavior:** A pre-NCP call should either be (a) refused at the UI level (date input restricted to ≥ NCP), or (b) accepted only with an explicit `allowPreNonCallStress: true` flag for the case where an analyst is modelling a hypothetical regulatory or contractual override.
-
-**Quantitative magnitude:** Bug fires only on user error. No silent automatic incorrectness. Severity is low but the current behavior — silently producing IRR for an impossible scenario — is misleading. A partner-facing demo where the analyst types the wrong year in the call-date input gets a plausible-looking number with no warning.
-
-**Deferral rationale:** UI input-validation cleanup. Engine purity precludes side effects (no fetch, no DB) but does NOT preclude argument validation; the right fix is either UI-side (restrict the input) or engine-side (reject pre-NCP callDate unless an explicit override flag is set).
-
-**Path to close:**
-1. UI fix: add a `min` attribute to the call-date input bound to `defaultCallDate`, or validate `withCallDate >= nonCallPeriodEnd` and surface a warning banner above the projection panel if violated.
-2. Engine guard: in `applyOptionalRedemptionCall` (or wherever `callDate` enters `runProjection`), throw a typed error if `callDate < nonCallPeriodEnd && !allowPreNonCallStress`. Default the new flag to `false`.
-3. Add a test asserting both behaviors: (i) UI rejects user input below NCP, (ii) engine throws on pre-NCP callDate without the override.
-
-**Test:** No active marker. When the fix lands, add a test in `app/clo/waterfall/__tests__/` covering the UI input boundary and a unit test in the engine asserting the throw behavior.
-
----
-
 <a id="ki-35"></a>
 ### [KI-35] Partial DDTL draw silently discards the un-drawn commitment
 
@@ -804,36 +775,31 @@ When `ddtlDrawPercent < 100`, `loan.survivingPar = fundedPar` overwrites the ful
 ---
 
 <a id="ki-37"></a>
-### [KI-37] Loan-level `floorRate`, `pikAmount`, `creditWatch`, `isCovLite` extracted but unused by engine
+### [KI-37] Loan-level `isPik` not propagated; PIK accretion engine dispatch missing
 
-**PPM reference:** Per-loan indenture terms (floor rate / EURIBOR floor, PIK toggle and balance, credit watch status, covenant-lite classification).
+**PPM reference:** Per-loan PIK toggle. PIK ("payment-in-kind") loans accrete coupon to par rather than paying cash; PPM convention varies by tranche but the per-position behavior is uniform: `survivingPar += period accrual`, `interestCollected += 0`.
 
-**Current engine behavior:** Each field is set on `ResolvedLoan` or its precursor types but never consumed:
+**Current engine behavior:** `web/lib/clo/types/entities.ts:151` declares `isPik: boolean | null` on the raw `CloHolding` type (verified at `access.ts:313, 542`; extracted via `extraction/section-prompts.ts:219`; accepted by Zod at `extraction/schemas.ts:126`). Not propagated to `ResolvedLoan` — the resolver mapping does not write `isPik` and the engine's per-loan accrual loop unconditionally feeds into `interestCollected` regardless of PIK status. On a PIK-bearing deal the projection over-counts cash interest and under-counts par growth.
 
-- `web/lib/clo/resolver.ts:974` sets `floorRate: h.floorRate ?? undefined` on `ResolvedLoan`. No reference in `projection.ts`. Engine uses deal-level `baseRateFloorPct` (from `defaults.ts:21`) for every loan; per-loan EURIBOR floor is ignored.
-- `web/lib/clo/resolver.ts:975` sets `pikAmount: h.pikAmount ?? undefined`. No reference in `projection.ts`. PIK loans (those whose interest accretes to par rather than paying cash) are modeled as cash-paying — the engine's `interestCollected` over-counts.
-- `web/lib/clo/resolver.ts:976` sets `creditWatch: creditWatch || undefined`. Informational only; no model use.
-- `web/lib/clo/types/entities.ts:147` declares `isCovLite: boolean | null` on the raw type. Not propagated to `ResolvedLoan` (`resolver-types.ts:171-204` has no `isCovLite` field). The d4 test at `web/lib/clo/__tests__/d4-switch-simulator-pool-metrics.test.ts:181-187` explicitly TODOs the missing `isCovLite` propagation.
-- `web/lib/clo/types/entities.ts:151` declares `isPik: boolean | null` on the raw type (verified at `access.ts:313, 542`; extracted via `extraction/section-prompts.ts:219`; accepted by Zod at `extraction/schemas.ts:126`). Not propagated to `ResolvedLoan` either — the resolver mapping at `resolver.ts:949-978` writes `pikAmount` but not `isPik`. The d4 TODO comment also names `isPik` alongside `isCovLite` as awaiting propagation. Without `isPik` the engine cannot dispatch PIK accretion logic — it can't distinguish "PIK accrued €X this period" from "loan paid €X cash this period."
+**Source-side gap (SDF path):** SDF Asset_Level CSV does not carry an `Is_PIK` column; only `PIK_Amount` (the period's accrued €). The resolver currently has no path to populate `isPik` for SDF-ingested deals. Two clean options when the fix lands: (a) parser-side derivation in `parse-asset-level.ts` setting `is_pik = pik_amount > 0`, plus a resolver-side fallback `isPik: h.isPik ?? (h.pikAmount != null && h.pikAmount > 0)` for existing DB rows; (b) DB backfill SQL. Option (a) avoids a migration and lets the LLM-PDF path's explicit `isPik` continue to win when present.
 
-**PPM-correct behavior:**
-- **floorRate:** per-loan EURIBOR floor applies to that loan's interest accrual. `loanCoupon = max(loan.floorRate, baseRate) + spread`, not `max(deal.baseRateFloor, baseRate) + spread`. Material in low-rate environments where some loans were issued with 0% floors and others with 0.75% floors.
-- **pikAmount / isPik:** PIK loans accrete interest to par rather than paying cash. Engine should add the PIK accretion to `loan.survivingPar` and NOT to `interestCollected`.
-- **isCovLite:** classification used by buy-list filter and concentration tests; not engine-side per se but a data-pipeline gap.
+**PPM-correct behavior:** when `loan.isPik === true`, accrete `coupon × parBalance × dayFrac` to `loan.survivingPar` and add zero to `interestCollected`. When `loan.isPik === false` (or undefined and `pikAmount == 0`), feed accrual into `interestCollected` as today.
 
-**Quantitative magnitude:**
-- floorRate: zero impact in current >2% EURIBOR environment (no loan's individual floor rate would bind). Bites in low-rate scenarios (any forward path where EURIBOR falls below ~0.75% — relevant in a recession scenario).
-- pikAmount / isPik: scales with the share of PIK loans. Euro XV's PIK share is null in extraction; non-zero on US BSL and stressed-European deals. A 5% PIK share at 8% coupon over-counts interest by ~€1M/quarter on a €493M pool — roughly 25 bps of forward equity IRR.
-- isCovLite: indirect; affects buy-list filtering (KI-23 territory) and forward concentration tests.
+**Quantitative magnitude:** scales with the share of PIK loans. Euro XV currently has 12 holdings reporting positive `pik_amount` (cumulative ~€2.5M), all carrying `isPik: null` on the SDF path — under the strict three-tier blocking rule the projection refuses until the parser-side derivation lands. Non-zero on US BSL and stressed-European deals: a 5% PIK share at 8% coupon over-counts interest by ~€1M/quarter on a €493M pool — roughly 25 bps of forward equity IRR.
 
-**Deferral rationale:** Field-by-field extraction-to-engine plumbing. Each row is independent.
+**Deferral rationale (PR2 of the KI-37 close):** floorRate, isCovLite, creditWatch, and pikAmount were closed in PR1 (per-loan EURIBOR floor dispatch, isCovLite delta-recompute on switch simulator, deletion of unused fields). The remaining isPik / PIK-accretion work is the only cash-flow-mutating change; it ships in its own PR for clean rollback surface.
 
 **Path to close:**
-1. **floorRate:** in `projection.ts` per-loan interest computation (lines 1576, 1578), use `Math.max(loan.floorRate ?? baseRateFloorPct, flooredBaseRate)` for the floating-rate branch instead of `flooredBaseRate` directly.
-2. **pikAmount / isPik:** add `isPik: boolean` to `ResolvedLoan`. In the per-period loan loop, if `loan.isPik`, accrete the period's interest to `loan.survivingPar` instead of `interestCollected`. The cash flow into the waterfall is then correctly reduced.
-3. **isCovLite:** propagate through `entities.ts → resolver-types.ts → ResolvedLoan` so the field is available to the buy-list filter (KI-23) and any concentration test.
+1. **Parser-side derivation:** in `parse-asset-level.ts:185`, set `is_pik = (pik_amount != null && pik_amount > 0)`. Anti-pattern #5: locale-aware magnitude validation on `PIK_Amount` (sign invariant — negative PIK is meaningless).
+2. **Resolver-side fallback:** `isPik: h.isPik ?? (h.pikAmount != null && h.pikAmount > 0)` for existing DB rows.
+3. **Three-tier blocking** (anti-pattern #3):
+   - `pikAmount > 0 AND isPik == null` → block (extraction gap on a position whose source data demonstrably exhibits PIK behavior).
+   - `isPik === false AND pikAmount > 0` → block (data-shape contradiction).
+   - `pikAmount < 0` → block (sign invariant).
+4. **Engine dispatch:** add `isPik?: boolean` to `LoanInput` and `LoanState`; in the per-loan accrual loop (`projection.ts:2215-2230`), use a two-pass pattern — compute every per-loan `periodAccrual` in pass 1 (no mutation of `survivingPar`); apply PIK accretions to `survivingPar` in pass 2; non-PIK accruals fold into `interestCollected` in pass 1.
+5. **applySwitch pctPik delta-recompute:** mirror the pctCovLite delta-recompute pattern from PR1 (sub-fix C). Replace the d4 stale-inherit pin test for `pctPik` with positive-enforcement.
 
-**Test:** No active markers. Each sub-fix gets its own test: synthetic loan with a 1% floor in a 0.5% EURIBOR scenario; synthetic PIK loan asserting accreted balance and zero cash collected; cov-lite filter test (KI-23 / D5).
+**Test:** synthetic 2-loan deal with one PIK / one non-PIK; assert `interestCollected` excludes PIK and `survivingPar[B] = beg + coupon × parB × dayFrac`. Add ordering test: PIK loan that fully defaults at period start accretes one period of coupon onto pre-default beginning par, then survivingPar zeros at the post-default subtraction step. Resolver-side: blocking warns for the three tier conditions above.
 
 ---
 
@@ -859,42 +825,6 @@ No FX rate is ingested. The engine does not consume `currency` anywhere — `web
 **Path to close:** Out of scope until a multi-currency deal is in the pipeline. When that arrives, a separate sprint covers (a) FX rate ingestion, (b) per-loan revaluation, (c) cross-currency hedge legs, (d) currency-bucketed concentration tests.
 
 **Test:** No active marker. Required when a multi-currency deal is onboarded.
-
----
-
-<a id="ki-51"></a>
-### [KI-51] `normalizeComplianceTestType` derives `isPassing` as `actual >= trigger` for all tests, including lower-is-better
-
-**PPM reference:** Compliance tests have two directional families. Higher-is-better: OC ratios, IC ratios, WAS, recovery rates. Lower-is-better: WARF, WAL, concentration limits (Caa, CCC, fixed-rate, cov-lite, single-obligor). Pass condition is `actual ≥ trigger` for the first family and `actual ≤ trigger` for the second.
-
-**Current engine behavior:** `web/lib/clo/ingestion-gate.ts:140-148`:
-
-```
-let isPassing = test.isPassing;
-if (isPassing == null && test.actualValue != null && test.triggerLevel != null) {
-  const passing = test.actualValue >= test.triggerLevel;
-  fixes.push({...});
-  isPassing = passing;
-}
-```
-
-The `actualValue >= triggerLevel` comparison is applied to **every** test where the source did not supply `isPassing`. For a WARF test with actual 3,100 and trigger 3,000 (max allowed), the test FAILS in PPM terms but the gate computes `3100 >= 3000 → true → PASSING`. Same for a Caa concentration test: `8% actual >= 7.5% trigger → PASSING` when the test has FAILED.
-
-This fires only when the source data did not populate `isPassing` (a fallback path). The compliance-test ingest at `clo_compliance_tests` may or may not always populate; needs verification of how often the fallback fires in practice.
-
-**PPM-correct behavior:** Direction depends on `testType`. The function would need to inspect `testType` and apply the appropriate comparison: `OC_PAR`, `IC`, `WAS`, `RECOVERY` → `>=`; `WARF`, `WAL`, `CONCENTRATION` (and any test in `c.testType` that maps to a "lower-is-better" family) → `<=`.
-
-**Quantitative magnitude:** Display-side wrong-direction badges on lower-is-better tests when the source omits `isPassing`. Materiality depends on (a) how often the fallback fires vs source-populated values, and (b) whether downstream consumers (cross-reference UI, partner-facing compliance summary) treat `isPassing` as authoritative or recompute it themselves. Verification needed: grep consumers of the normalized `isPassing` flag, and audit production data for the % of compliance test rows where source `isPassing` is null.
-
-**Deferral rationale:** Tentative until the consumer audit confirms partner-visible impact. The bug is real in the gate function; the question is how loud it is in practice.
-
-**Path to close:**
-1. Add a `lowerIsBetter` set: `{ "WARF", "WAL", "CONCENTRATION", "DIVERSITY_MIN" }` (verify the canonical set against the resolver's testType taxonomy and concentration categories).
-2. Replace the comparison at `ingestion-gate.ts:141` with `const passing = lowerIsBetter.has(testType) ? actual <= trigger : actual >= trigger;`.
-3. Add unit tests for both directions: WARF actual 3100 / trigger 3000 → failing; Caa actual 8% / trigger 7.5% → failing; OC actual 130% / trigger 105% → passing; IC actual 110% / trigger 105% → passing.
-4. Audit downstream consumers of `isPassing` to confirm whether they trust this flag or recompute. Document the answer here.
-
-**Test:** No active marker. After the fix, the directional unit tests above pin both families.
 
 ---
 

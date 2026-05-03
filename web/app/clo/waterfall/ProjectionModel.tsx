@@ -585,21 +585,46 @@ export default function ProjectionModel({
     return ncEnd > currentDate ? ncEnd : currentDate;
   }, [resolved?.dates.nonCallPeriodEnd, resolved?.dates.currentDate]);
 
-  // Effective with-call date used by the engine. Empty user input falls
-  // back to the engine default; an obviously-malformed string (not
-  // YYYY-MM-DD) falls back too rather than blowing up the projection.
-  const withCallDate = useMemo<string | null>(() => {
+  // Validate the user-entered call date against the deal bounds. Invalid
+  // input REFUSES to compute (no silent substitution of the default-date
+  // IRR). The partner sees `—` in the IRR cells plus an inline message
+  // naming the violated invariant — same UX precedent as DATA INCOMPLETE.
+  // Empty input is the canonical "use the engine default" path; malformed
+  // text is treated as empty (a half-typed date should not block the panel).
+  type CallDateValidation =
+    | { kind: "default"; date: string }
+    | { kind: "user"; date: string }
+    | { kind: "invalid"; reason: "past" | "preNcp"; userInput: string };
+  const callDateValidation = useMemo<CallDateValidation | null>(() => {
+    if (!defaultCallDate) return null;
     const trimmed = userCallDate.trim();
-    if (!trimmed) return defaultCallDate;
-    // Loose validation: 10 chars, two dashes, parses to a valid date.
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return defaultCallDate;
-    return trimmed;
-  }, [userCallDate, defaultCallDate]);
+    if (!trimmed) return { kind: "default", date: defaultCallDate };
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      return { kind: "default", date: defaultCallDate };
+    }
+    const ncp = resolved?.dates.nonCallPeriodEnd ?? null;
+    const cur = resolved?.dates.currentDate ?? null;
+    if (cur && trimmed < cur) {
+      return { kind: "invalid", reason: "past", userInput: trimmed };
+    }
+    if (ncp && trimmed < ncp) {
+      return { kind: "invalid", reason: "preNcp", userInput: trimmed };
+    }
+    return { kind: "user", date: trimmed };
+  }, [userCallDate, defaultCallDate, resolved?.dates.nonCallPeriodEnd, resolved?.dates.currentDate]);
+
+  const withCallDate = useMemo<string | null>(() => {
+    if (!callDateValidation || callDateValidation.kind === "invalid") return null;
+    return callDateValidation.date;
+  }, [callDateValidation]);
 
   const withCallBaseInputs = useMemo<ProjectionInputs | null>(() => {
-    if (!noCallBaseInputs || !withCallDate) return null;
-    return applyOptionalRedemptionCall(noCallBaseInputs, withCallDate);
-  }, [noCallBaseInputs, withCallDate]);
+    if (!noCallBaseInputs || !withCallDate || !resolved) return null;
+    return applyOptionalRedemptionCall(noCallBaseInputs, withCallDate, {
+      currentDate: resolved.dates.currentDate,
+      nonCallPeriodEnd: resolved.dates.nonCallPeriodEnd,
+    });
+  }, [noCallBaseInputs, withCallDate, resolved]);
 
   // Fair value @ hurdle — computed under both no-call and with-call so the
   // partner sees both anchor prices (option (d): two columns wherever
@@ -706,7 +731,7 @@ export default function ProjectionModel({
     if (!showSensitivities || !noCallBaseInputs || !equityMetrics || equityMetrics.wipedOut) return null;
     const ord = resolved?.dates.nonCallPeriodEnd ?? null;
     if (!ord) return null;
-    return callSensitivityGrid(noCallBaseInputs, { optionalRedemptionDate: ord });
+    return callSensitivityGrid(noCallBaseInputs, { nonCallPeriodEnd: ord });
   }, [showSensitivities, noCallBaseInputs, equityMetrics, resolved?.dates.nonCallPeriodEnd]);
 
   /**
@@ -1413,28 +1438,54 @@ export default function ProjectionModel({
                     </label>
                     <label style={{ display: "flex", flexDirection: "column", gap: "0.2rem", flex: "1 1 7rem", color: "#fff" }}>
                       <span style={{ fontSize: "0.55rem", color: "rgba(255,255,255,0.7)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                        Call date (YYYY-MM-DD)
+                        Call date
                       </span>
                       <input
-                        type="text"
+                        type="date"
                         value={userCallDate}
                         onChange={(e) => setUserCallDate(e.target.value)}
+                        min={resolved?.dates.nonCallPeriodEnd && resolved.dates.currentDate
+                          ? (resolved.dates.nonCallPeriodEnd > resolved.dates.currentDate
+                              ? resolved.dates.nonCallPeriodEnd
+                              : resolved.dates.currentDate)
+                          : undefined}
                         placeholder={defaultCallDate ?? "YYYY-MM-DD"}
                         style={{
                           fontSize: "0.85rem",
                           padding: "0.3rem 0.45rem",
                           background: "rgba(255,255,255,0.14)",
                           color: "#fff",
-                          border: "1px solid rgba(255,255,255,0.25)",
+                          border: callDateValidation?.kind === "invalid"
+                            ? "1px solid #ff8a8a"
+                            : "1px solid rgba(255,255,255,0.25)",
                           borderRadius: "0.2rem",
                           fontFamily: "inherit",
                           fontVariantNumeric: "tabular-nums",
                           width: "100%",
                           boxSizing: "border-box",
+                          colorScheme: "dark",
                         }}
                       />
                     </label>
                   </div>
+                  {callDateValidation?.kind === "invalid" && (
+                    <div
+                      role="alert"
+                      style={{
+                        fontSize: "0.7rem",
+                        color: "#ffb4b4",
+                        background: "rgba(255, 80, 80, 0.12)",
+                        border: "1px solid rgba(255, 138, 138, 0.4)",
+                        borderRadius: "0.2rem",
+                        padding: "0.35rem 0.5rem",
+                        lineHeight: 1.35,
+                      }}
+                    >
+                      {callDateValidation.reason === "preNcp"
+                        ? `Call date ${callDateValidation.userInput} is before the non-call period end of ${resolved?.dates.nonCallPeriodEnd}. PPM Condition 7.2 prohibits a pre-NCP call.`
+                        : `Call date ${callDateValidation.userInput} is before the projection start date of ${resolved?.dates.currentDate}.`}
+                    </div>
+                  )}
                   {/* IRR values: explicit white color on every text node so
                       browser default styles can't bleed in. */}
                   <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontVariantNumeric: "tabular-nums", color: "#fff" }}>

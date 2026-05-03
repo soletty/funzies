@@ -68,9 +68,14 @@ describe("deriveNoCallBaseInputs", () => {
 });
 
 describe("applyOptionalRedemptionCall", () => {
+  // Bounds matching makeInputs's currentDate default (2026-03-09). NCP=null
+  // skips the pre-NCP gate; tests here exercise the call-overlay shape, not
+  // the gate itself (gate behavior is pinned in non-call-period-enforcement).
+  const BOUNDS = { currentDate: "2026-03-09", nonCallPeriodEnd: null } as const;
+
   it("sets callMode to optionalRedemption + callDate, callPriceMode 'par' at 100%", () => {
     const baseline = deriveNoCallBaseInputs(makeInputs({}));
-    const withCall = applyOptionalRedemptionCall(baseline, "2029-04-15");
+    const withCall = applyOptionalRedemptionCall(baseline, "2029-04-15", BOUNDS);
     expect(withCall.callMode).toBe("optionalRedemption");
     expect(withCall.callDate).toBe("2029-04-15");
     expect(withCall.callPriceMode).toBe("par");
@@ -79,7 +84,7 @@ describe("applyOptionalRedemptionCall", () => {
 
   it("preserves all other fields from the baseline", () => {
     const baseline = deriveNoCallBaseInputs(makeInputs({ cprPct: 11, recoveryPct: 60 }));
-    const withCall = applyOptionalRedemptionCall(baseline, "2029-04-15");
+    const withCall = applyOptionalRedemptionCall(baseline, "2029-04-15", BOUNDS);
     expect(withCall.cprPct).toBe(11);
     expect(withCall.recoveryPct).toBe(60);
   });
@@ -91,7 +96,7 @@ describe("applyOptionalRedemptionCall", () => {
         cprPct: 5,
       }),
     );
-    const withCall = applyOptionalRedemptionCall(baseline, "2028-01-15");
+    const withCall = applyOptionalRedemptionCall(baseline, "2028-01-15", BOUNDS);
     const noCallResult = runProjection(baseline);
     const withCallResult = runProjection(withCall);
     // The two runs should not produce identical IRRs — the call truncates

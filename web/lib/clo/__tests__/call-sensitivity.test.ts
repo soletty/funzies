@@ -2,7 +2,7 @@
  * Call-sensitivity grid — post-v6 plan §5.3.
  *
  * 4 dates × 2 modes = 8 cells (default). Validates:
- *  - default callDates derive from optionalRedemptionDate (annual offsets)
+ *  - default callDates derive from nonCallPeriodEnd (annual offsets)
  *  - explicit callDates override the default
  *  - market-mode missing prices propagate as per-cell errors, not throws
  *  - par mode IRR is computed on every supplied date (no holdings prereq)
@@ -14,14 +14,14 @@ import { addQuarters } from "../projection";
 import { makeInputs, uniformRates } from "./test-helpers";
 
 describe("Call-sensitivity grid (post-v6 plan §5.3)", () => {
-  it("default: 4 dates × 2 modes = 8 cells when optionalRedemptionDate provided", () => {
+  it("default: 4 dates × 2 modes = 8 cells when nonCallPeriodEnd provided", () => {
     const inputs = makeInputs({
       defaultRatesByRating: uniformRates(2),
       cprPct: 5,
     });
     // Pure par-only sweep (skip market) — keeps test off the holdings dependency.
     const cells = callSensitivityGrid(inputs, {
-      optionalRedemptionDate: "2027-04-15",
+      nonCallPeriodEnd: "2027-04-15",
       callPriceModes: ["par"],
     });
     expect(cells).toHaveLength(4);
@@ -36,7 +36,7 @@ describe("Call-sensitivity grid (post-v6 plan §5.3)", () => {
     });
   });
 
-  it("throws if optionalRedemptionDate is null and no explicit callDates supplied", () => {
+  it("throws if nonCallPeriodEnd is null and no explicit callDates supplied", () => {
     const inputs = makeInputs({
       defaultRatesByRating: uniformRates(2),
       cprPct: 5,
@@ -83,7 +83,7 @@ describe("Call-sensitivity grid (post-v6 plan §5.3)", () => {
       cprPct: 5,
     });
     const cells = callSensitivityGrid(inputs, {
-      optionalRedemptionDate: "2027-04-15",
+      nonCallPeriodEnd: "2027-04-15",
     });
     expect(cells).toHaveLength(8);
     const dates = new Set(cells.map((c) => c.callDate));

@@ -673,6 +673,7 @@ export function buildFromResolved(
     postRpReinvestmentPct: userAssumptions.postRpReinvestmentPct,
     callMode: userAssumptions.callMode,
     callDate: userAssumptions.callDate,
+    nonCallPeriodEnd: resolved.dates.nonCallPeriodEnd,
     callPricePct: userAssumptions.callPricePct,
     callPriceMode: userAssumptions.callPriceMode,
     reinvestmentOcTrigger: resolved.reinvestmentOcTrigger,

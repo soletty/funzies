@@ -62,6 +62,16 @@ export interface LoanInput {
    *  market default for floating Euro-denominated paper) and leave
    *  this field unset. */
   dayCountConvention?: DayCountConvention;
+  /** Per-position EURIBOR floor in PERCENT (e.g. 0.5 = 0.5%, NOT 50%).
+   *  Sourced from `clo_holdings.floor_rate` via the SDF Collateral File.
+   *  When undefined, the engine falls back to the deal-level
+   *  `baseRateFloorPct` (preserves byte-identical output on fixtures
+   *  whose loans carry no per-position floor). The floating-rate
+   *  per-loan accrual binds the floor at `max(loan.floorRate ??
+   *  baseRateFloorPct, baseRatePct)` so each loan respects its own
+   *  origination floor. Material in low-rate scenarios; zero impact
+   *  when EURIBOR > all per-position floors. */
+  floorRate?: number;
 }
 
 // C2 — Coarse RatingBucket → Moody's WARF factor. Imported from pool-metrics.ts
@@ -129,6 +139,17 @@ export interface ProjectionInputs {
    *  extension; the extracted RP end is used as-is. */
   reinvestmentPeriodExtension?: string | null;
   callDate: string | null; // optional redemption date — when callMode === "optionalRedemption", projection stops here and liquidates
+  /** Non-Call Period End — PPM Condition 7.2. The earliest date at which
+   *  the manager can call. When set and `callMode === "optionalRedemption"`,
+   *  the engine refuses `callDate < nonCallPeriodEnd` (pre-NCP call is
+   *  economically incoherent — the option doesn't exist). When null/undefined
+   *  the gate is skipped (NCP not known → engine cannot enforce). The
+   *  canonical user path through `buildFromResolved` blocks at the resolver
+   *  layer when NCP is missing on a CLO; this engine field is the backstop
+   *  for hand-constructed inputs. Optional so synthetic test fixtures that
+   *  do not model a call boundary stay terse — they pay no migration cost
+   *  for adding the field, and the gate stays inert on those inputs. */
+  nonCallPeriodEnd?: string | null;
   callPricePct: number; // liquidation price as % of par; only used when callPriceMode === "manual"
   /** Call liquidation price semantics (A3):
    *  - 'par': every position sells at face value (callPricePct ignored).
@@ -991,6 +1012,47 @@ export class MarketPriceMissingError extends Error {
   }
 }
 
+/**
+ * Thrown when an `optionalRedemption` callDate violates a date invariant.
+ *
+ * Two reasons enumerate every refusable case:
+ *  - `"past"` — callDate is strictly before currentDate. "Calling in the
+ *    past" is not a meaningful scenario; the engine would silently floor
+ *    to one quarter and produce an absurd IRR.
+ *  - `"preNcp"` — callDate is strictly before nonCallPeriodEnd. PPM
+ *    Condition 7.2 prohibits a call before the Non-Call Period End; the
+ *    option does not exist.
+ *
+ * The UI and service layers catch this and render a non-dismissible
+ * inline message that names the violated invariant and the specific
+ * dates, so the partner sees why the IRR cells are empty rather than a
+ * silently-substituted number for a different scenario.
+ */
+export class InvalidCallDateError extends Error {
+  readonly kind = "invalid_call_date";
+  readonly reason: "past" | "preNcp";
+  readonly callDate: string;
+  readonly currentDate: string;
+  readonly nonCallPeriodEnd: string | null;
+  constructor(
+    reason: "past" | "preNcp",
+    callDate: string,
+    currentDate: string,
+    nonCallPeriodEnd: string | null,
+  ) {
+    const msg =
+      reason === "past"
+        ? `Call date ${callDate} is before currentDate ${currentDate} — calling in the past is not a meaningful scenario.`
+        : `Call date ${callDate} is before non-call period end ${nonCallPeriodEnd} — PPM Condition 7.2 prohibits a pre-NCP call.`;
+    super(msg);
+    this.name = "InvalidCallDateError";
+    this.reason = reason;
+    this.callDate = callDate;
+    this.currentDate = currentDate;
+    this.nonCallPeriodEnd = nonCallPeriodEnd;
+  }
+}
+
 export function computeCallLiquidation(
   loanStates: Array<{ survivingPar: number; currentPrice?: number | null; isDelayedDraw?: boolean }>,
   callPricePct: number,
@@ -1115,7 +1177,7 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
   const {
     initialPar, wacSpreadBps, baseRatePct, baseRateFloorPct, seniorFeePct, subFeePct,
     taxesBps = 0, issuerProfitAmount = 0, trusteeFeeBps, adminFeeBps = 0, seniorExpensesCapBps, hedgeCostBps, incentiveFeePct, incentiveFeeHurdleIrr,
-    postRpReinvestmentPct, callMode, callDate, callPricePct, callPriceMode, reinvestmentOcTrigger, eventOfDefaultTest,
+    postRpReinvestmentPct, callMode, callDate, nonCallPeriodEnd, callPricePct, callPriceMode, reinvestmentOcTrigger, eventOfDefaultTest,
     stubPeriod, firstPeriodEndDate,
     reinvestmentPeriodExtension,
     tranches, ocTriggers, icTriggers,
@@ -1277,6 +1339,24 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
   // conservative baseline (project to legal final). Either condition false →
   // ignore callDate.
   const callActive = callMode === "optionalRedemption" && callDate != null;
+  // PPM Condition 7.2 enforcement: refuse pre-NCP and past callDates. The
+  // canonical user path through buildFromResolved + applyOptionalRedemptionCall
+  // intercepts upstream and renders a banner; this engine guard is the
+  // backstop for hand-constructed inputs (tests, harnesses, future
+  // programmatic callers). NCP gate skipped when nonCallPeriodEnd is null —
+  // the resolver layer blocks ingestion of CLOs without an extracted NCP, so
+  // null here indicates a synthetic input that has no NCP to enforce against.
+  // Past-date check has no override: calling in the past is never a
+  // meaningful scenario, even under stress.
+  if (callActive && callDate != null) {
+    const ncp = nonCallPeriodEnd ?? null;
+    if (callDate < currentDate) {
+      throw new InvalidCallDateError("past", callDate, currentDate, ncp);
+    }
+    if (ncp != null && callDate < ncp) {
+      throw new InvalidCallDateError("preNcp", callDate, currentDate, ncp);
+    }
+  }
   const callQuarters = callActive && callDate
     ? useStub
       ? 1 + Math.max(0, quartersBetween(stubAnchor, callDate))
@@ -1350,6 +1430,11 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
      *  reinvestment loans created mid-projection — those use Actual/360 by
      *  market default for floating Euro paper. */
     dayCountConvention?: DayCountConvention;
+    /** Per-position EURIBOR floor in PERCENT. Carried from `LoanInput`
+     *  (in turn from `clo_holdings.floor_rate`). Undefined for synthetic
+     *  reinvestment loans — those fall back to the deal-level
+     *  `baseRateFloorPct`. */
+    floorRate?: number;
   }
 
   const loanStates: LoanState[] = loans.map((l) => ({
@@ -1375,6 +1460,7 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     defaultedParPending: 0,
     defaultEvents: [],
     dayCountConvention: l.dayCountConvention,
+    floorRate: l.floorRate,
   }));
 
   // Remove never_draw DDTLs (drawQuarter <= 0) — they never fund and shouldn't appear in the portfolio
@@ -2156,7 +2242,15 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
         if (loan.isFixedRate) {
           interestCollected += loanBegPar * (loan.fixedCouponPct ?? 0) / 100 * loanDayFrac;
         } else {
-          interestCollected += loanBegPar * (flooredBaseRate + loan.spreadBps / 100) / 100 * loanDayFrac;
+          // Per-position EURIBOR floor. Falls back to the deal-level
+          // `baseRateFloorPct` when the loan carries no per-position floor.
+          // Material in stress paths where EURIBOR drops below the per-loan
+          // origination floor: a 0.5% floor on a position binds when EURIBOR
+          // falls to 0.3%, and the engine accrues at 0.5% + spread instead
+          // of 0.3% + spread. Pre-fix engine ignored per-loan floors and
+          // applied the deal-level floor uniformly.
+          const loanFlooredBase = Math.max(loan.floorRate ?? baseRateFloorPct, baseRatePct);
+          interestCollected += loanBegPar * (loanFlooredBase + loan.spreadBps / 100) / 100 * loanDayFrac;
         }
       }
       // Q1: initial principal cash earns interest at money market rate (~ESTR) for the quarter.
