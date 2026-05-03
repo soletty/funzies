@@ -113,10 +113,10 @@ function mergeTrancheSnapshots(
   // Use the same normalizeClassName the runner uses to match snapshots to
   // clo_tranches rows. Previously the local `norm` collapsed only whitespace
   // and "class" prefix, so "Subordinated Notes" and "Subordinated Notes due
-  // 2032" were treated as distinct — but downstream the runner's
-  // normalizeClassName collapses both to "SUBORDINATED", producing TWO
-  // snapshot inserts pointing to the SAME tranche_id. Use the authoritative
-  // normalizer here so merging matches downstream lookup.
+  // 2032" were treated as distinct — but downstream the runner's canonical
+  // normalizer collapses both to "sub", producing TWO snapshot inserts
+  // pointing to the SAME tranche_id. Use the authoritative normalizer here
+  // so merging matches downstream lookup.
   const byName = new Map<string, TrancheSnapshot>();
 
   for (const ts of compliance) {

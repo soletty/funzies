@@ -50,7 +50,8 @@ function makeSimpleInputs(overrides: Partial<ProjectionInputs> = {}): Projection
     defaultRatesByRating: uniformRates(2),
     cprPct: CLO_DEFAULTS.cprPct,
     recoveryPct: CLO_DEFAULTS.recoveryPct,
-    recoveryLagMonths: CLO_DEFAULTS.recoveryLagMonths,
+
+    ratingAgencies: ["moodys", "sp", "fitch"],    recoveryLagMonths: CLO_DEFAULTS.recoveryLagMonths,
     reinvestmentSpreadBps: CLO_DEFAULTS.reinvestmentSpreadBps,
     reinvestmentTenorQuarters: CLO_DEFAULTS.reinvestmentTenorYears * 4,
     reinvestmentRating: null,
@@ -119,7 +120,8 @@ function makeMultiTrancheInputs(overrides: Partial<ProjectionInputs> = {}): Proj
     defaultRatesByRating: uniformRates(2),
     cprPct: 0,
     recoveryPct: CLO_DEFAULTS.recoveryPct,
-    recoveryLagMonths: CLO_DEFAULTS.recoveryLagMonths,
+
+    ratingAgencies: ["moodys", "sp", "fitch"],    recoveryLagMonths: CLO_DEFAULTS.recoveryLagMonths,
     reinvestmentSpreadBps: CLO_DEFAULTS.reinvestmentSpreadBps,
     reinvestmentTenorQuarters: CLO_DEFAULTS.reinvestmentTenorYears * 4,
     reinvestmentRating: null,
@@ -146,7 +148,8 @@ describe("1. Partial Cure Precision", () => {
       defaultRatesByRating: uniformRates(0),
       cprPct: 0,
       recoveryPct: 0,
-      // Manually set initial par so OC barely fails for B trigger
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      // Manually set initial par so OC barely fails for B trigger
       // B denom = A + B = 90M. OC = par/denom*100. At 100M par: 100/90*100 = 111.1% → passes 110.
       // Reduce initial par to 98.5M: 98.5/90*100 = 109.44% → fails 110.
       initialPar: 98_500_000,
@@ -182,7 +185,8 @@ describe("1. Partial Cure Precision", () => {
       defaultRatesByRating: uniformRates(0),
       cprPct: 0,
       recoveryPct: 0,
-      initialPar: 98_500_000,
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      initialPar: 98_500_000,
       loans: [{ parBalance: 98_500_000, maturityDate: addQuarters("2026-01-15", 32), ratingBucket: "B", spreadBps: 400 }],
       ocTriggers: [{ className: "J", triggerLevel: 110, rank: 2 }],
       icTriggers: [],
@@ -213,7 +217,8 @@ describe("1. Partial Cure Precision", () => {
       defaultRatesByRating: uniformRates(0),
       cprPct: 0,
       recoveryPct: 0,
-      baseRatePct: 2.0, // lower base rate to tighten IC
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      baseRatePct: 2.0, // lower base rate to tighten IC
       // IC = interestAfterFees / interestDue. With baseRate=2, spread=4 → allInRate=6%
       // Interest = 100M * 6% / 4 = 1.5M
       // A due = 70M * (2+1.4)/100/4 = 595K, B due = 20M * (2+3)/100/4 = 250K
@@ -253,7 +258,8 @@ describe("1. Partial Cure Precision", () => {
       defaultRatesByRating: uniformRates(8),
       cprPct: 0,
       recoveryPct: 0,
-      ocTriggers: [{ className: "J", triggerLevel: 130, rank: 2 }],
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      ocTriggers: [{ className: "J", triggerLevel: 130, rank: 2 }],
       icTriggers: [], // OC only → should buy collateral
     });
 
@@ -262,7 +268,8 @@ describe("1. Partial Cure Precision", () => {
       defaultRatesByRating: uniformRates(8),
       cprPct: 0,
       recoveryPct: 0,
-      ocTriggers: [{ className: "J", triggerLevel: 130, rank: 2 }],
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      ocTriggers: [{ className: "J", triggerLevel: 130, rank: 2 }],
       icTriggers: [{ className: "J", triggerLevel: 999, rank: 2 }], // IC also fails → paydown
     });
 
@@ -294,7 +301,8 @@ describe("2. Multi-Level Cascade Interactions", () => {
       reinvestmentPeriodEnd: "2026-01-01",
       defaultRatesByRating: uniformRates(3),
       recoveryPct: 0,
-      ocTriggers: [
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      ocTriggers: [
         { className: "A", triggerLevel: 125, rank: 1 }, // passes (par >> 55M*1.25)
         { className: "E", triggerLevel: 150, rank: 5 }, // tight trigger → fails
       ],
@@ -329,7 +337,8 @@ describe("2. Multi-Level Cascade Interactions", () => {
       reinvestmentPeriodEnd: "2026-01-01",
       defaultRatesByRating: uniformRates(5),
       recoveryPct: 0,
-      ocTriggers: [
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      ocTriggers: [
         { className: "D", triggerLevel: 999, rank: 4 }, // impossible trigger → full diversion
       ],
       icTriggers: [],
@@ -359,7 +368,8 @@ describe("2. Multi-Level Cascade Interactions", () => {
       reinvestmentPeriodEnd: "2026-01-01",
       defaultRatesByRating: uniformRates(10),
       recoveryPct: 0,
-      ocTriggers: [
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      ocTriggers: [
         { className: "J", triggerLevel: 120, rank: 2 },
         { className: "D", triggerLevel: 115, rank: 4 },
       ],
@@ -370,7 +380,8 @@ describe("2. Multi-Level Cascade Interactions", () => {
       reinvestmentPeriodEnd: "2026-01-01",
       defaultRatesByRating: uniformRates(10),
       recoveryPct: 0,
-      ocTriggers: [
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      ocTriggers: [
         { className: "J", triggerLevel: 120, rank: 2 },
       ],
       icTriggers: [],
@@ -403,7 +414,8 @@ describe("3. Boundary Conditions", () => {
       defaultRatesByRating: uniformRates(15), // high CDR to trigger OC failure
       cprPct: 0,
       recoveryPct: 0,
-      ocTriggers: [{ className: "J", triggerLevel: 140, rank: 2 }],
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      ocTriggers: [{ className: "J", triggerLevel: 140, rank: 2 }],
       icTriggers: [],
     });
 
@@ -436,7 +448,8 @@ describe("3. Boundary Conditions", () => {
       defaultRatesByRating: uniformRates(5),
       cprPct: 0,
       recoveryPct: 0,
-      seniorFeePct: 5.0, // 5% on 100M par = 1.25M/quarter, while interest ~1.875M
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      seniorFeePct: 5.0, // 5% on 100M par = 1.25M/quarter, while interest ~1.875M
       trusteeFeeBps: 200, // 2% = 0.5M/quarter. total fees = 1.75M → barely anything left
       hedgeCostBps: 200, // another 0.5M → fees exceed interest
       ocTriggers: [{ className: "J", triggerLevel: 120, rank: 2 }],
@@ -462,7 +475,8 @@ describe("3. Boundary Conditions", () => {
       defaultRatesByRating: uniformRates(0),
       cprPct: 0,
       recoveryPct: 0,
-      initialPar: 99_000_000,
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      initialPar: 99_000_000,
       loans: [{ parBalance: 99_000_000, maturityDate: addQuarters("2026-01-15", 32), ratingBucket: "B", spreadBps: 400 }],
       ocTriggers: [{ className: "J", triggerLevel: 110, rank: 2 }],
       icTriggers: [],
@@ -487,7 +501,8 @@ describe("3. Boundary Conditions", () => {
       defaultRatesByRating: uniformRates(100), // 100% CDR → all defaults
       cprPct: 0,
       recoveryPct: 0,
-      loans: [{ parBalance: 100_000_000, maturityDate: addQuarters("2026-01-15", 32), ratingBucket: "B", spreadBps: 400 }],
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      loans: [{ parBalance: 100_000_000, maturityDate: addQuarters("2026-01-15", 32), ratingBucket: "B", spreadBps: 400 }],
       ocTriggers: [{ className: "A", triggerLevel: 120, rank: 1 }],
       icTriggers: [],
     });
@@ -513,7 +528,8 @@ describe("3. Boundary Conditions", () => {
       defaultRatesByRating: uniformRates(0),
       cprPct: 0,
       recoveryPct: 0,
-      initialPar: 98_999_100,
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      initialPar: 98_999_100,
       loans: [{ parBalance: 98_999_100, maturityDate: addQuarters("2026-01-15", 32), ratingBucket: "B", spreadBps: 400 }],
       ocTriggers: [{ className: "J", triggerLevel: 110, rank: 2 }],
       icTriggers: [],
@@ -570,7 +586,8 @@ describe("4. Deferred Interest / PIK Interactions", () => {
       defaultRatesByRating: uniformRates(0),
       cprPct: 0,
       recoveryPct: 0,
-      deferredInterestCompounds: true,
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      deferredInterestCompounds: true,
       ocTriggers: [],
       icTriggers: [],
     });
@@ -594,7 +611,8 @@ describe("4. Deferred Interest / PIK Interactions", () => {
       defaultRatesByRating: uniformRates(0),
       cprPct: 0,
       recoveryPct: 0,
-      deferredInterestCompounds: true,
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      deferredInterestCompounds: true,
       ocTriggers: [],
       icTriggers: [],
     });
@@ -604,7 +622,8 @@ describe("4. Deferred Interest / PIK Interactions", () => {
       defaultRatesByRating: uniformRates(0),
       cprPct: 0,
       recoveryPct: 0,
-      deferredInterestCompounds: false,
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      deferredInterestCompounds: false,
       ocTriggers: [],
       icTriggers: [],
     });
@@ -638,7 +657,8 @@ describe("4. Deferred Interest / PIK Interactions", () => {
       defaultRatesByRating: uniformRates(20),
       cprPct: 0,
       recoveryPct: 0,
-      deferredInterestCompounds: false, // non-compounding so we can track deferred separately
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      deferredInterestCompounds: false, // non-compounding so we can track deferred separately
       tranches: [
         // Synthetic "K" rank-3 deferrable tranche to exercise PIK accumulation
         // + cure-paydown-targets-deferred mechanics. D1 protects the top two
@@ -675,7 +695,8 @@ describe("4. Deferred Interest / PIK Interactions", () => {
       defaultRatesByRating: uniformRates(0),
       cprPct: 50, // heavy prepayments → lots of principal to pay down tranches
       recoveryPct: 0,
-      tranches: [
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      tranches: [
         { className: "A", currentBalance: 5_000_000, spreadBps: 140, seniorityRank: 1, isFloating: true, isIncomeNote: false, isDeferrable: false },
         { className: "J", currentBalance: 5_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: false },
         { className: "Sub", currentBalance: 90_000_000, spreadBps: 0, seniorityRank: 3, isFloating: false, isIncomeNote: true, isDeferrable: false },
@@ -714,7 +735,8 @@ describe("5. Class X / Amortising Edge Cases", () => {
       defaultRatesByRating: uniformRates(0),
       cprPct: 0,
       recoveryPct: 0,
-      seniorFeePct: 3.0, // high fees to create shortfall
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      seniorFeePct: 3.0, // high fees to create shortfall
       trusteeFeeBps: 100,
       hedgeCostBps: 50,
       tranches: [
@@ -759,7 +781,8 @@ describe("5. Class X / Amortising Edge Cases", () => {
       defaultRatesByRating: uniformRates(0),
       cprPct: 0,
       recoveryPct: 0,
-      tranches: [
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      tranches: [
         {
           className: "X", currentBalance: 5_000_000, spreadBps: 60,
           seniorityRank: 0, isFloating: true, isIncomeNote: false, isDeferrable: false,
@@ -793,7 +816,8 @@ describe("5. Class X / Amortising Edge Cases", () => {
       defaultRatesByRating: uniformRates(0),
       cprPct: 0,
       recoveryPct: 0,
-      tranches: [
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      tranches: [
         {
           className: "X", currentBalance: 2_000_000, spreadBps: 60,
           seniorityRank: 0, isFloating: true, isIncomeNote: false, isDeferrable: false,
@@ -833,7 +857,8 @@ describe("6. Fee Waterfall Edge Cases", () => {
       defaultRatesByRating: uniformRates(0),
       cprPct: 0,
       recoveryPct: 0,
-      incentiveFeePct: 20,
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      incentiveFeePct: 20,
       incentiveFeeHurdleIrr: 0.99, // 99% hurdle → impossible
       ocTriggers: [],
       icTriggers: [],
@@ -857,7 +882,8 @@ describe("6. Fee Waterfall Edge Cases", () => {
       defaultRatesByRating: uniformRates(0),
       cprPct: 10,
       recoveryPct: 0,
-      incentiveFeePct: 20,
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      incentiveFeePct: 20,
       incentiveFeeHurdleIrr: 0.05, // 5% hurdle — achievable
       ocTriggers: [],
       icTriggers: [],
@@ -883,7 +909,8 @@ describe("6. Fee Waterfall Edge Cases", () => {
       defaultRatesByRating: uniformRates(0),
       cprPct: 0,
       recoveryPct: 0,
-      seniorFeePct: 10.0, // 10% = 2.5M/quarter
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      seniorFeePct: 10.0, // 10% = 2.5M/quarter
       trusteeFeeBps: 500, // 5% = 1.25M/quarter
       hedgeCostBps: 500, // 5% = 1.25M/quarter
       // Total fees = 5M/quarter. Interest = 100M * 7.5% / 4 = 1.875M. Fees >> interest.
@@ -906,7 +933,8 @@ describe("6. Fee Waterfall Edge Cases", () => {
       defaultRatesByRating: uniformRates(0),
       cprPct: 0,
       recoveryPct: 0,
-      subFeePct: 0.5,
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      subFeePct: 0.5,
       incentiveFeePct: 20,
       incentiveFeeHurdleIrr: 0.01,
       ocTriggers: [],
@@ -935,7 +963,8 @@ describe("7. Recovery & Default Timing", () => {
       defaultRatesByRating: uniformRates(10),
       cprPct: 0,
       recoveryPct: 60,
-      recoveryLagMonths: 12, // 4 quarters
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      recoveryLagMonths: 12, // 4 quarters
       ocTriggers: [],
       icTriggers: [],
     });
@@ -962,7 +991,8 @@ describe("7. Recovery & Default Timing", () => {
       defaultRatesByRating: uniformRates(20),
       cprPct: 0,
       recoveryPct: 60,
-      recoveryLagMonths: 24, // 8 quarters — way beyond maturity
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      recoveryLagMonths: 24, // 8 quarters — way beyond maturity
       ocTriggers: [],
       icTriggers: [],
     });
@@ -989,7 +1019,8 @@ describe("7. Recovery & Default Timing", () => {
       defaultRatesByRating: uniformRates(100),
       cprPct: 0,
       recoveryPct: 70,
-      recoveryLagMonths: 3, // 1 quarter
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      recoveryLagMonths: 3, // 1 quarter
       ocTriggers: [],
       icTriggers: [],
     });
@@ -1018,7 +1049,8 @@ describe("7. Recovery & Default Timing", () => {
       defaultRatesByRating: uniformRates(30), // high CDR
       cprPct: 0,
       recoveryPct: 50,
-      recoveryLagMonths: 3,
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      recoveryLagMonths: 3,
       ocTriggers: [{ className: "J", triggerLevel: 150, rank: 2 }], // OC fails → cure buys collateral
       icTriggers: [],
     });
@@ -1052,7 +1084,8 @@ describe("8. Principal Waterfall / Preliminary Paydown", () => {
       defaultRatesByRating: uniformRates(0),
       cprPct: 0,
       recoveryPct: 0,
-      maturityDate: addQuarters("2026-01-15", 4),
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      maturityDate: addQuarters("2026-01-15", 4),
       // Single loan that matures in Q4, at par = 100M
       loans: [{ parBalance: 100_000_000, maturityDate: addQuarters("2026-01-15", 4), ratingBucket: "B", spreadBps: 400 }],
       // Total debt only 90M (A=70M + B=20M), par = 100M
@@ -1085,7 +1118,8 @@ describe("8. Principal Waterfall / Preliminary Paydown", () => {
       defaultRatesByRating: uniformRates(0),
       cprPct: 0,
       recoveryPct: 0,
-      callMode: "optionalRedemption",
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      callMode: "optionalRedemption",
       callDate: addQuarters("2026-01-15", 4),
       callPricePct: 100,
       callPriceMode: "par",
@@ -1099,7 +1133,8 @@ describe("8. Principal Waterfall / Preliminary Paydown", () => {
       defaultRatesByRating: uniformRates(0),
       cprPct: 0,
       recoveryPct: 0,
-      callMode: "optionalRedemption",
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      callMode: "optionalRedemption",
       callDate: addQuarters("2026-01-15", 4),
       callPricePct: 95,
       callPriceMode: "manual",
@@ -1129,7 +1164,8 @@ describe("8. Principal Waterfall / Preliminary Paydown", () => {
       defaultRatesByRating: uniformRates(0),
       cprPct: 0,
       recoveryPct: 0,
-      callMode: "optionalRedemption",
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      callMode: "optionalRedemption",
       callDate: addQuarters("2026-01-15", 4),
       callPricePct: 100,
       callPriceMode: "par",
@@ -1143,7 +1179,8 @@ describe("8. Principal Waterfall / Preliminary Paydown", () => {
       defaultRatesByRating: uniformRates(0),
       cprPct: 0,
       recoveryPct: 0,
-      callMode: "optionalRedemption",
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      callMode: "optionalRedemption",
       callDate: addQuarters("2026-01-15", 4),
       callPricePct: 95,
       callPriceMode: "manual",
@@ -1175,7 +1212,8 @@ describe("8. Principal Waterfall / Preliminary Paydown", () => {
       defaultRatesByRating: uniformRates(0),
       cprPct: 20, // prepayments generate principal → gets reinvested during RP
       recoveryPct: 0,
-      callMode: "optionalRedemption",
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      callMode: "optionalRedemption",
       callDate: addQuarters(currentDate, callQ),
       callPricePct: 100,
       callPriceMode: "par",
@@ -1205,7 +1243,8 @@ describe("8. Principal Waterfall / Preliminary Paydown", () => {
       defaultRatesByRating: uniformRates(0),
       cprPct: 20, // prepayments generate principal proceeds
       recoveryPct: 0,
-      ocTriggers: [],
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      ocTriggers: [],
       icTriggers: [],
     });
 
@@ -1215,7 +1254,8 @@ describe("8. Principal Waterfall / Preliminary Paydown", () => {
       defaultRatesByRating: uniformRates(0),
       cprPct: 20,
       recoveryPct: 0,
-      ocTriggers: [],
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      ocTriggers: [],
       icTriggers: [],
     });
 
@@ -1248,7 +1288,8 @@ describe("8. Principal Waterfall / Preliminary Paydown", () => {
       defaultRatesByRating: uniformRates(0),
       cprPct: 20, // generates principal proceeds
       recoveryPct: 0,
-      // Tight OC trigger that would fail if pre-paydown balances were used
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      // Tight OC trigger that would fail if pre-paydown balances were used
       ocTriggers: [{ className: "J", triggerLevel: 110, rank: 2 }],
       icTriggers: [],
     });
@@ -1277,7 +1318,8 @@ describe("8. Principal Waterfall / Preliminary Paydown", () => {
       defaultRatesByRating: uniformRates(0),
       cprPct: 0,
       recoveryPct: 0,
-      maturityDate: addQuarters("2026-01-15", 8),
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      maturityDate: addQuarters("2026-01-15", 8),
       loans: [
         { parBalance: 50_000_000, maturityDate: addQuarters("2026-01-15", 4), ratingBucket: "B", spreadBps: 400 },
         { parBalance: 50_000_000, maturityDate: addQuarters("2026-01-15", 8), ratingBucket: "B", spreadBps: 400 },
@@ -1310,7 +1352,8 @@ describe("8. Principal Waterfall / Preliminary Paydown", () => {
       defaultRatesByRating: uniformRates(0),
       cprPct: 0,
       recoveryPct: 0,
-      deferredInterestCompounds: false,
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      deferredInterestCompounds: false,
       tranches: [
         { className: "A", currentBalance: 10_000_000, spreadBps: 140, seniorityRank: 1, isFloating: true,  isIncomeNote: false, isDeferrable: false },
         { className: "B", currentBalance:  5_000_000, spreadBps: 175, seniorityRank: 2, isFloating: true,  isIncomeNote: false, isDeferrable: false },
@@ -1360,7 +1403,8 @@ describe("Structural Invariants", () => {
       defaultRatesByRating: uniformRates(5),
       cprPct: 10,
       recoveryPct: 50,
-      recoveryLagMonths: 6,
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      recoveryLagMonths: 6,
       seniorFeePct: 0.15,
       subFeePct: 0.35,
       trusteeFeeBps: 3,
@@ -1384,7 +1428,8 @@ describe("Structural Invariants", () => {
       defaultRatesByRating: uniformRates(15),
       cprPct: 30,
       recoveryPct: 70,
-      recoveryLagMonths: 3,
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      recoveryLagMonths: 3,
     });
 
     const result = runProjection(inputs);
@@ -1404,7 +1449,8 @@ describe("Structural Invariants", () => {
       defaultRatesByRating: uniformRates(0),
       cprPct: 10,
       recoveryPct: 0,
-      tranches: [
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      tranches: [
         { className: "A", currentBalance: 70_000_000, spreadBps: 140, seniorityRank: 1, isFloating: true, isIncomeNote: false, isDeferrable: false },
         { className: "J", currentBalance: 20_000_000, spreadBps: 300, seniorityRank: 2, isFloating: true, isIncomeNote: false, isDeferrable: false }, // NOT deferrable
         { className: "Sub", currentBalance: 10_000_000, spreadBps: 0, seniorityRank: 3, isFloating: false, isIncomeNote: true, isDeferrable: false },
@@ -1428,7 +1474,8 @@ describe("Structural Invariants", () => {
       defaultRatesByRating: uniformRates(2),
       cprPct: 15,
       recoveryPct: 60,
-      recoveryLagMonths: 12,
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      recoveryLagMonths: 12,
     });
 
     const result = runProjection(inputs);
@@ -1446,7 +1493,8 @@ describe("Structural Invariants", () => {
       defaultRatesByRating: uniformRates(3),
       cprPct: 0,
       recoveryPct: 0,
-    });
+
+    ratingAgencies: ["moodys", "sp", "fitch"],    });
 
     const result = runProjection(inputs);
 
@@ -1479,7 +1527,8 @@ describe("PeriodResult.principalProceeds", () => {
       defaultRatesByRating: uniformRates(2),
       cprPct: 10,
       recoveryPct: 60,
-      recoveryLagMonths: 6,
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      recoveryLagMonths: 6,
     }));
 
     for (const p of result.periods) {

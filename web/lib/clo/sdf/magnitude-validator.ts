@@ -35,10 +35,18 @@ const BOUNDS: Record<string, Bound> = {
   },
   // Market value as percent of par. Real range 0–110 (distressed loans, recent
   // origination at small premium). 200 catches an absolute-vs-percent shape
-  // confusion (a €1M MV recorded as "1000000" instead of "98.5").
+  // confusion (a €1M MV recorded as "1000000" instead of "98.5"). `min: 1`
+  // catches the fraction-shape regression (a source emitting `0.5` to mean
+  // "50% of par" — would silently pass through as "0.5% of par" without the
+  // floor). The percent-canonical assumption is verified on Euro XV (every
+  // holding ≥ 31% of par) and consistent with KI-44 audit findings on
+  // `Market_Value`. Holdings priced below 1% of par are deep-distress
+  // outliers; rejecting them surfaces the ambiguity loudly at the parser
+  // boundary rather than silently re-interpreting at the consumer.
   market_value: {
+    min: 1,
     max: 200,
-    description: "market value as percent of par (typical 0-110)",
+    description: "market value as percent of par (typical 0-110, percent-canonical)",
   },
   // Coupon / all-in / index rate as percent. Real range 1–15% (EURIBOR-driven
   // floating). 50 catches a 100× locale mis-parse (e.g. "3,25" parsed as 325).

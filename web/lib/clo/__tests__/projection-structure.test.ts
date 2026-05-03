@@ -90,7 +90,8 @@ function makeFullDealInputs(overrides: Partial<ProjectionInputs> = {}): Projecti
     defaultRatesByRating: { ...DEFAULT_RATES_BY_RATING },
     cprPct: CLO_DEFAULTS.cprPct,
     recoveryPct: CLO_DEFAULTS.recoveryPct,
-    recoveryLagMonths: CLO_DEFAULTS.recoveryLagMonths,
+
+    ratingAgencies: ["moodys", "sp", "fitch"],    recoveryLagMonths: CLO_DEFAULTS.recoveryLagMonths,
     reinvestmentSpreadBps: CLO_DEFAULTS.reinvestmentSpreadBps,
     reinvestmentTenorQuarters: CLO_DEFAULTS.reinvestmentTenorYears * 4,
     reinvestmentRating: null,
@@ -623,7 +624,8 @@ describe("Fee waterfall order", () => {
       defaultRatesByRating: zeroCdrs(),
       cprPct: 0,
       recoveryPct: CLO_DEFAULTS.recoveryPct,
-      recoveryLagMonths: CLO_DEFAULTS.recoveryLagMonths,
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      recoveryLagMonths: CLO_DEFAULTS.recoveryLagMonths,
       reinvestmentSpreadBps: CLO_DEFAULTS.reinvestmentSpreadBps,
       reinvestmentTenorQuarters: CLO_DEFAULTS.reinvestmentTenorYears * 4,
       reinvestmentRating: null,

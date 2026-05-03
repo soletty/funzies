@@ -402,23 +402,4 @@ async function callAnthropicChunkedWithLimit(
   };
 }
 
-const CLASS_NAME_ALIASES: Record<string, string> = {
-  SUB: "SUBORDINATED",
-  SUBORD: "SUBORDINATED",
-  "SUB-NOTES": "SUBORDINATED",
-  "SUBORDINATED-NOTES": "SUBORDINATED",
-  EQ: "EQUITY",
-  "EQUITY-NOTES": "EQUITY",
-  MEZZ: "MEZZANINE",
-  "INCOME-NOTES": "INCOME-NOTE",
-  INCOME: "INCOME-NOTE",
-  RESIDUAL: "INCOME-NOTE",
-};
-
-export function normalizeClassName(name: string): string {
-  const stripped = name
-    .replace(/^class(es)?\s+/i, "")
-    .replace(/[\s-]+/g, "-")
-    .toUpperCase();
-  return CLASS_NAME_ALIASES[stripped] ?? stripped;
-}
+export { normalizeClassName } from "./normalize-class-name";

@@ -113,7 +113,7 @@ export async function persistComplianceSections(
   //
   // Class-name normalization: worker's syncPpmToRelationalTables inserts rows with
   // the original `class_name` ("Class A") but looks them up via
-  // `normalizeClassName(x) === normalizeClassName(y)` ("A" === "A"). Mapper output
+  // `normalizeClassName(x) === normalizeClassName(y)` ("a" === "a"). Mapper output
   // preserves "Class A" / "Subordinated" verbatim. To avoid duplicating tranches
   // when PPM already ran, we match on normalized form and only INSERT with the
   // original name if nothing matched. Mirrors worker:639-653 exactly.

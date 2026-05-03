@@ -51,13 +51,16 @@ function trimOrNull(value: string | undefined): string | null {
   return trimmed === "" ? null : trimmed;
 }
 
-function normalizeClassName(trancheName: string): string {
+// Produces the persisted clo_tranches.class_name display label
+// ("Class A-1", "Subordinated Notes"). NOT a comparison/lookup key —
+// for that, use normalizeClassName from web/lib/clo/normalize-class-name.ts.
+// sdf/ingest.ts queries clo_tranches via literal-string match on this
+// shape, so its output must stay stable across refactors.
+function formatTrancheClassName(trancheName: string): string {
   if (trancheName.includes("Subordinated")) return "Subordinated Notes";
 
-  // Strip "Class " prefix, grab the letter+number portion
   const withoutClass = trancheName.replace(/^Class\s+/i, "");
 
-  // Handle "B 1", "B 2" — letter space digit (before the general regex which stops at the space)
   const spaceMatch = withoutClass.match(/^([A-Z])\s+(\d)/i);
   if (spaceMatch) return `Class ${spaceMatch[1]}-${spaceMatch[2]}`;
 
@@ -66,7 +69,6 @@ function normalizeClassName(trancheName: string): string {
 
   let portion = match[1];
 
-  // Normalize "B1" → "B-1"
   portion = portion.replace(/^([A-Z])(\d)$/i, "$1-$2");
 
   return `Class ${portion}`;
@@ -112,7 +114,7 @@ export function parseNotes(csvText: string): SdfParseResult<SdfNoteRow> {
     const amountNative = parseNumeric(raw.Amount_Native);
 
     return {
-      class_name: normalizeClassName(rawTrancheName),
+      class_name: formatTrancheClassName(rawTrancheName),
       raw_tranche_name: rawTrancheName,
 
       tranche_type: trimOrNull(raw.Tranche_Type),

@@ -69,7 +69,8 @@ function makeStressInputs(seniorFeePct: number, overrides: Partial<ProjectionInp
     defaultRatesByRating: {},
     cprPct: 0,
     recoveryPct: CLO_DEFAULTS.recoveryPct,
-    recoveryLagMonths: CLO_DEFAULTS.recoveryLagMonths,
+
+    ratingAgencies: ["moodys", "sp", "fitch"],    recoveryLagMonths: CLO_DEFAULTS.recoveryLagMonths,
     reinvestmentSpreadBps: CLO_DEFAULTS.reinvestmentSpreadBps,
     reinvestmentTenorQuarters: CLO_DEFAULTS.reinvestmentTenorYears * 4,
     reinvestmentRating: null,

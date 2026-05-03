@@ -1,4 +1,7 @@
 import { parseCsvRow, parseNumeric } from "../sdf/csv-utils";
+import { normalizeClassName } from "../normalize-class-name";
+
+export { normalizeClassName };
 
 /**
  * Parser for the Intex "Past Cashflows" xlsx, exported as CSV.
@@ -194,29 +197,6 @@ function readTrancheBlock(
     accumPrincipalWritedown: parseNumeric(cells[start + OFF_ACCUM_PRINC_WRITEDOWN]),
     rateResetIndex:          floating ? parseNumeric(cells[start + OFF_RATE_RESET]) : null,
   };
-}
-
-/** Normalize a class name for fuzzy matching across data sources. Mirrors
- *  the resolver's `normClass` and the ingest path's prior local helper —
- *  exported here so the parser, validator, and ingest can all agree on
- *  what "Class A-1" / "A-1" / "Class A-1 Notes" mean.
- *
- *  Sub-tranche aliasing: any of "Subordinated Notes" / "Sub Notes" /
- *  "Sub Loan Notes" / "Equity" / "Income Note(s)" / bare "Sub" all
- *  collapse to "sub". Discovery and lookup paths agree by construction. */
-export function normalizeClassName(s: string): string {
-  const lower = s.toLowerCase().trim();
-  if (
-    lower.includes("subordinated") ||
-    /^sub(\s|$)/.test(lower) ||
-    lower.includes("equity") ||
-    lower.includes("income note")
-  ) {
-    return "sub";
-  }
-  const stripped = lower.replace(/^class\s+/, "").replace(/[-\s]+notes?$/, "").trim();
-  const match = stripped.match(/^([a-z](?:[-\s]?[0-9]+)?)\b/);
-  return match ? match[1].replace(/\s+/g, "-") : stripped;
 }
 
 /** Heuristic: does this cell text look like a tranche-name header (vs a

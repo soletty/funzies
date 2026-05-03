@@ -38,7 +38,8 @@ function makeSimpleInputs(overrides: Partial<ProjectionInputs> = {}): Projection
     defaultRatesByRating: uniformRates(2),
     cprPct: 5,
     recoveryPct: 60,
-    recoveryLagMonths: 6,
+
+    ratingAgencies: ["moodys", "sp", "fitch"],    recoveryLagMonths: 6,
     reinvestmentSpreadBps: 400,
     reinvestmentTenorQuarters: CLO_DEFAULTS.reinvestmentTenorYears * 4,
     reinvestmentRating: null,

@@ -69,7 +69,8 @@ function makeSplitBInputs(overrides: Partial<ProjectionInputs> = {}): Projection
     defaultRatesByRating: { ...DEFAULT_RATES_BY_RATING },
     cprPct: CLO_DEFAULTS.cprPct,
     recoveryPct: CLO_DEFAULTS.recoveryPct,
-    recoveryLagMonths: CLO_DEFAULTS.recoveryLagMonths,
+
+    ratingAgencies: ["moodys", "sp", "fitch"],    recoveryLagMonths: CLO_DEFAULTS.recoveryLagMonths,
     reinvestmentSpreadBps: CLO_DEFAULTS.reinvestmentSpreadBps,
     reinvestmentTenorQuarters: CLO_DEFAULTS.reinvestmentTenorYears * 4,
     reinvestmentRating: null,
@@ -220,6 +221,7 @@ describe("engine pari-passu absorption — principal waterfall", () => {
       loans,
       defaultRatesByRating: uniformRates(20),
       cprPct: 0, recoveryPct: 0, recoveryLagMonths: 6,
+      ratingAgencies: ["moodys", "sp", "fitch"],
       reinvestmentSpreadBps: 0, reinvestmentTenorQuarters: 8,
       reinvestmentRating: null, cccBucketLimitPct: 100, cccMarketValuePct: 100,
       deferredInterestCompounds: true, useLegacyBucketHazard: true,
@@ -293,6 +295,7 @@ describe("engine cure paydown — Class X exclusion", () => {
       loans,
       defaultRatesByRating: uniformRates(15),
       cprPct: 0, recoveryPct: 0, recoveryLagMonths: 6,
+      ratingAgencies: ["moodys", "sp", "fitch"],
       reinvestmentSpreadBps: 0, reinvestmentTenorQuarters: 8,
       reinvestmentRating: null, cccBucketLimitPct: 100, cccMarketValuePct: 100,
       deferredInterestCompounds: true, useLegacyBucketHazard: true,
@@ -364,6 +367,7 @@ describe("engine Step G — X amort fold-in atomicity on split senior", () => {
       loans,
       defaultRatesByRating: uniformRates(0), // no defaults so plenty of interest
       cprPct: 0, recoveryPct: 0, recoveryLagMonths: 6,
+      ratingAgencies: ["moodys", "sp", "fitch"],
       reinvestmentSpreadBps: 0, reinvestmentTenorQuarters: 8,
       reinvestmentRating: null, cccBucketLimitPct: 100, cccMarketValuePct: 100,
       deferredInterestCompounds: true, useLegacyBucketHazard: true,
@@ -399,7 +403,8 @@ describe("engine pari-passu absorption — diversion-gate behavior", () => {
       defaultRatesByRating: uniformRates(15),
       cprPct: 0,
       recoveryPct: 0,
-      ocTriggers: [
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      ocTriggers: [
         // Tight Class B trigger — 130% should fail with 15% CDR
         { className: "J-1", triggerLevel: 130.0, rank: 2 },
       ],

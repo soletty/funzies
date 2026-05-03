@@ -143,6 +143,32 @@ export interface ResolvedDealData {
   /** Whether the deal is rated by Fitch. Same predicate role as `isMoodysRated`
    *  for Fitch-tagged compliance triggers. */
   isFitchRated: boolean;
+  /** Whether the deal is rated by S&P. Same predicate role as `isMoodysRated`.
+   *  False on European CLOs whose Rating Agencies set is {Moody's, Fitch};
+   *  true on US CLOs whose indenture defines S&P as a Rating Agency. */
+  isSpRated: boolean;
+  /** Deal's Rating Agencies set per the indenture. Derived strictly from
+   *  tranche capital-structure rating columns (each agency present iff
+   *  any tranche carries a non-empty rating value for that agency). NOT
+   *  derived from `isMoodysRated` / `isSpRated` / `isFitchRated` — those
+   *  are PERMISSIVE booleans that OR in compliance-test-name evidence
+   *  for the silent-skip C1 blocking gate; this set is STRICT (capital-
+   *  structure-only) because the OC numerator's per-agency dispatch must
+   *  not use compliance-test-name evidence as a stand-in for actual
+   *  tranche ratings. The two derivations diverge only on extraction-gap
+   *  shapes; resolver emits a non-blocking `error` warning when the strict
+   *  set has < 2 agencies on a deal that has any tranche-level agency
+   *  rating data populated.
+   *
+   *  Consumed at the per-position recovery-rate dispatch in
+   *  `recovery-rate.ts:resolveAgencyRecovery` to filter agency rates that
+   *  are not the deal's rating-agency rates (a holding can be rated by
+   *  S&P even on a Fitch+Moody's deal — the S&P rate is irrelevant to
+   *  the OC numerator's Adjusted CPA paragraph (e) construction, which
+   *  references "Fitch Collateral Value" and "Moody's Collateral Value"
+   *  only — see Ares European XV PPM, oc.txt lines 7120-7124, 8765-8777,
+   *  9420-9434, 368-369). */
+  ratingAgencies: ("moodys" | "sp" | "fitch")[];
   impliedOcAdjustment: number; // derived residual between trustee's Adjusted CPA and identified components
   quartersSinceReport: number; // quarters between compliance report date and projection start (adjusts pre-existing default recovery timing)
   ddtlUnfundedPar: number; // total DDTL commitment par (for dynamic OC deduction in projection)

@@ -99,7 +99,8 @@ function buildPartialDefaultInputs(): ProjectionInputs {
     defaultRatesByRating,
     cprPct: 0, // no prepayments — keep state clean
     recoveryPct: 50,
-    // Long recovery lag — defaulted par sits in `defaultedParPending` for
+
+    ratingAgencies: ["moodys", "sp", "fitch"],    // Long recovery lag — defaulted par sits in `defaultedParPending` for
     // ~8 quarters before the recovery event arrives. Plenty of periods with
     // the partial-default state for the assertion to target.
     recoveryLagMonths: 24,

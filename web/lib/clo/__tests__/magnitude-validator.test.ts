@@ -61,6 +61,25 @@ describe("validateMagnitude", () => {
       expect(validateMagnitude("market_value", 200.01)).toBeNull();
       expect(warnSpy).toHaveBeenCalledTimes(1);
     });
+
+    it("rejects fraction-shape value (0.5) — catches the silent re-interpretation regression", () => {
+      // A source emitting `0.5` to mean "50% of par" would silently propagate
+      // as "0.5% of par" without the lower bound. Reject loudly at the
+      // parser boundary; consumer sees `null` and decides explicitly.
+      expect(validateMagnitude("market_value", 0.5)).toBeNull();
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+      expect(warnSpy.mock.calls[0][0]).toMatch(/market_value=0\.5 below/);
+    });
+
+    it("passes the lower boundary value (exactly 1%)", () => {
+      expect(validateMagnitude("market_value", 1)).toBe(1);
+      expect(warnSpy).not.toHaveBeenCalled();
+    });
+
+    it("rejects just below the lower boundary", () => {
+      expect(validateMagnitude("market_value", 0.99)).toBeNull();
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe("rate_pct", () => {

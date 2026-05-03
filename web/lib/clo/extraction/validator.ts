@@ -285,7 +285,6 @@ export function validateExtraction(
 
 // ─── Cap Structure Cross-Validation (PPM vs Compliance Report) ───
 
-/** Normalize class name for matching: "Class A-1" → "A1", "Sub Notes" → "SUBNOTES" */
 function normalizeCapClassName(name: string): string {
   return normalizeClassName(name);
 }
@@ -317,15 +316,10 @@ export function validateCapStructure(
   }
 
   // 1. Check tranche count mismatch
-  // Filter out equity/sub notes from PPM count since compliance reports sometimes omit them
-  const ppmRatedTranches = ppmCapStructure.filter((e) => {
-    const norm = normalizeCapClassName(e.class);
-    return !norm.includes("SUB") && !norm.includes("EQUITY") && !norm.includes("INCOME");
-  });
-  const reportTranches = trancheSnapshots.filter((s) => {
-    const norm = normalizeCapClassName(s.className);
-    return !norm.includes("SUB") && !norm.includes("EQUITY") && !norm.includes("INCOME");
-  });
+  // Filter out equity/sub notes from PPM count since compliance reports sometimes omit them.
+  // Canonical normalizer collapses Subordinated/Sub/Equity/Income-Note all to "sub".
+  const ppmRatedTranches = ppmCapStructure.filter((e) => normalizeCapClassName(e.class) !== "sub");
+  const reportTranches = trancheSnapshots.filter((s) => normalizeCapClassName(s.className) !== "sub");
 
   if (ppmRatedTranches.length !== reportTranches.length) {
     checks.push({

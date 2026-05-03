@@ -16,9 +16,9 @@ describe("normalizeSectionResults — paymentHistory", () => {
     };
     const { paymentHistory } = normalizeSectionResults(sections as never, reportPeriodId, dealId);
     expect(paymentHistory).toHaveLength(2);
-    expect(paymentHistory.find(r => r.className === "A")).toBeDefined();
-    // "Sub" is aliased to "SUBORDINATED" by normalizeClassName
-    expect(paymentHistory.find(r => r.className === "SUBORDINATED")).toBeDefined();
+    expect(paymentHistory.find(r => r.className === "a")).toBeDefined();
+    // "Sub" collapses to "sub" via canonical normalizer
+    expect(paymentHistory.find(r => r.className === "sub")).toBeDefined();
   });
 
   it("normalizes className so 'A' and 'Class A' dedupe to the same key", () => {
@@ -33,7 +33,7 @@ describe("normalizeSectionResults — paymentHistory", () => {
     const { paymentHistory } = normalizeSectionResults(sections as never, reportPeriodId, dealId);
     // Both map to the same normalized className; second is deduped by (className, paymentDate)
     expect(paymentHistory).toHaveLength(1);
-    expect(paymentHistory[0].className).toBe("A");
+    expect(paymentHistory[0].className).toBe("a");
   });
 
   it("deduplicates by (className, paymentDate)", () => {

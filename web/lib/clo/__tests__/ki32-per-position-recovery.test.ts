@@ -82,6 +82,7 @@ function buildKi32Inputs(): ProjectionInputs {
     defaultRatesByRating,
     cprPct: 0,
     recoveryPct: 50, // Global fallback. Differs from both per-loan rates so
+    ratingAgencies: ["moodys", "sp", "fitch"],
                     // the per-loan dispatch is observable from the totals.
     recoveryLagMonths: 0, // Recover same period — easier to read events.
     reinvestmentSpreadBps: CLO_DEFAULTS.reinvestmentSpreadBps,
@@ -170,16 +171,53 @@ describe("per-position agency recovery rate at forward-default site", () => {
     expect(middle.recoveryAmount / middle.defaultedPar).toBeCloseTo(0.50, 2);
   });
 
+  it("forward-default site honors ratingAgencies subset (S&P-lowest dropped when subset = [moodys, fitch])", () => {
+    // Discriminating wiring test for the engine forward-default site.
+    // The helper-level unit test in `recovery-rate.test.ts` pins that
+    // `resolveAgencyRecovery` filters by subset; this asserts that the
+    // engine passes `ratingAgencies` (not a hardcoded literal) into the
+    // helper. If the call site in projection.ts is rewritten to omit
+    // the subset arg or to pass `["moodys", "sp", "fitch"]` literal,
+    // the helper-level unit tests still pass — the bug is silent.
+    // This test pins the wiring.
+    //
+    // Setup: loan 0 with Moody's=40, S&P=10, Fitch=60. Subset =
+    // ["moodys", "fitch"] (Euro-shape). Helper should drop S&P → min(40,
+    // 60)=40 → recoveryAmount/defaultedPar = 0.40. With S&P included
+    // (the broken-wiring shape), the answer would be 0.10.
+    const inputs = buildKi32Inputs();
+    inputs.ratingAgencies = ["moodys", "fitch"];
+    inputs.loans[0] = {
+      ...inputs.loans[0],
+      recoveryRateMoodys: 40,
+      recoveryRateSp: 10,
+      recoveryRateFitch: 60,
+    };
+    inputs.loans[1] = {
+      ...inputs.loans[1],
+      recoveryRateMoodys: 90, // park well above so sort is index-stable
+      recoveryRateSp: undefined,
+      recoveryRateFitch: undefined,
+    };
+    const result = runProjection(inputs);
+    const events = [...result.periods[0].loanDefaultEvents].sort(
+      (a, b) => a.recoveryAmount - b.recoveryAmount,
+    );
+    const subsetFiltered = events[0];
+    expect(subsetFiltered.recoveryAmount / subsetFiltered.defaultedPar).toBeCloseTo(0.40, 2);
+  });
+
   it("call site passes all three agency rates — Moody's-lowest scenario picks Moody's value end-to-end", () => {
     // Closes a coverage gap between the helper's unit test (which pins
-    // `Math.min` over whatever's passed) and the call-site behavior
-    // (which is what the open agency-subset question is about). A loan
-    // with three distinct rates whose lowest is Moody's tells us that
-    // the call site (LoanState construction in projection.ts) passes
-    // Moody's into the helper. If a future PR drops Moody's at that
-    // call site (say, to address per-deal-PPM language about "Lesser
-    // of Fitch and S&P"), this assertion fails — the recoveryAmount
-    // would land at min(50, 60) = 50%, not 20%.
+    // `Math.min` over whatever's passed) and the call-site behavior. A
+    // loan with three distinct rates whose lowest is Moody's tells us
+    // that the call site (LoanState construction in projection.ts)
+    // passes Moody's into the helper. If a future PR were to drop
+    // Moody's at the call site, this assertion would fail — the
+    // recoveryAmount would land at min(50, 60) = 50%, not 20%. The
+    // Adjusted CPA paragraph (e) per-deal Rating Agencies subset filter
+    // sits ON TOP of this; the engine input here defaults `ratingAgencies`
+    // to all three so this test continues to pin the call-site arity.
     const inputs = buildKi32Inputs();
     inputs.loans[0] = {
       ...inputs.loans[0],

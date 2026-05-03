@@ -294,13 +294,12 @@ describe("B1 — computeEventOfDefaultTest (pure helper)", () => {
     // Identity 2: aggregate recoveries per period = Σ(earlier events whose
     // scheduledRecoveryQuarter matches) × event.recoveryAmount.
     //
-    // Pre-KI-32 the expected value was Σ(defaultedPar) × global recoveryPct/100.
-    // KI-32 closure made recovery rates per-loan (agency-derived) so the
-    // aggregate must be Σ event.recoveryAmount — events carry their own
-    // already-multiplied cash. On a fixture whose loans carry no agency rates
-    // (Euro XV's loans don't pre-compute agency rates into the LoanInput
-    // path used here) the per-event rate falls back to the global recoveryPct,
-    // so this scenario is still meaningful as a Tier 2 cross-path check.
+    // Recovery rates are per-loan (agency-derived); events carry their own
+    // already-multiplied cash, so the aggregate must be Σ event.recoveryAmount.
+    // On a fixture whose loans carry no agency rates (Euro XV's loans don't
+    // pre-compute agency rates into the LoanInput path used here) the per-
+    // event rate falls back to the global recoveryPct, so this scenario is
+    // still meaningful as a Tier 2 cross-path check.
     //
     // (Period index in result.periods is 0-based; q=0 corresponds to internal
     // quarter 1, so scheduledRecoveryQuarter=Q corresponds to result.periods[Q-1].)

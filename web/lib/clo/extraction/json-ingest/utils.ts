@@ -77,10 +77,9 @@ export function parseFlexibleDate(s: string | null | undefined): string | null {
 }
 
 // NOTE: do NOT define a normalizeClassName here. The project already exports one
-// from web/lib/clo/api.ts (returns "A", "B-1", "SUBORDINATED"). That is the form
-// the worker's syncPpmToRelationalTables uses for lookups. Any mapper or persist
-// helper that needs to match tranches MUST import it from api.ts — not reinvent
-// a second normalisation convention.
+// from web/lib/clo/normalize-class-name.ts (returns "a", "b-1", "sub" — sub-collapse
+// canonical, re-exported via api.ts). Any mapper or persist helper that needs to
+// match tranches MUST import it — not reinvent a second normalisation convention.
 
 // "LX28443T7" → "LX28443T7" (pass-through)
 // "XS3134529562" → null (not an LXID)

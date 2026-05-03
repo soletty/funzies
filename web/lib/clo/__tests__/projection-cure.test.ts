@@ -216,7 +216,8 @@ function makeRealisticInputs(overrides: Partial<ProjectionInputs> = {}): Project
     defaultRatesByRating: { ...DEFAULT_RATES_BY_RATING },
     cprPct: CLO_DEFAULTS.cprPct,
     recoveryPct: CLO_DEFAULTS.recoveryPct,
-    recoveryLagMonths: CLO_DEFAULTS.recoveryLagMonths,
+
+    ratingAgencies: ["moodys", "sp", "fitch"],    recoveryLagMonths: CLO_DEFAULTS.recoveryLagMonths,
     reinvestmentSpreadBps: CLO_DEFAULTS.reinvestmentSpreadBps,
     reinvestmentTenorQuarters: CLO_DEFAULTS.reinvestmentTenorYears * 4,
     reinvestmentRating: null,
@@ -242,7 +243,8 @@ describe("OC partial cure outside RP", () => {
       defaultRatesByRating: uniformRates(10),
       cprPct: 0,
       recoveryPct: 0,
-      ocTriggers: [
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      ocTriggers: [
         { className: "A",   triggerLevel: 129.0, rank: 1 },
         { className: "J-1", triggerLevel: 120.0, rank: 2 },
         { className: "C",   triggerLevel: 114.0, rank: 3 },
@@ -273,7 +275,8 @@ describe("OC partial cure outside RP", () => {
       defaultRatesByRating: uniformRates(0),
       cprPct: 0,
       recoveryPct: 0,
-      icTriggers: [],
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      icTriggers: [],
       ocTriggers: [{ className: "F", triggerLevel: 109.0, rank: 6 }],
     });
     // Failure case: 10% CDR, trigger 109% → OC fails (actual ~108.97%), small cure applied
@@ -282,7 +285,8 @@ describe("OC partial cure outside RP", () => {
       defaultRatesByRating: uniformRates(10),
       cprPct: 0,
       recoveryPct: 0,
-      icTriggers: [],
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      icTriggers: [],
       ocTriggers: [{ className: "F", triggerLevel: 109.0, rank: 6 }],
     });
 
@@ -305,7 +309,8 @@ describe("OC full diversion (uncurable)", () => {
       defaultRatesByRating: uniformRates(100),
       cprPct: 0,
       recoveryPct: 0,
-      icTriggers: [],
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      icTriggers: [],
       // Very tight trigger that can never be satisfied with tiny interest income
       ocTriggers: [{ className: "A", triggerLevel: 500.0, rank: 1 }],
     });
@@ -327,7 +332,8 @@ describe("OC full diversion (uncurable)", () => {
       defaultRatesByRating: uniformRates(100),
       cprPct: 0,
       recoveryPct: 0,
-      icTriggers: [],
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      icTriggers: [],
       ocTriggers: [
         // Trigger at rank 1 (A) that can't be cured — all interest consumed
         { className: "A", triggerLevel: 500.0, rank: 1 },
@@ -359,7 +365,8 @@ describe("OC cure during RP buys collateral", () => {
       defaultRatesByRating: uniformRates(20), // aggressive CDR
       cprPct: 0,
       recoveryPct: 0,
-      icTriggers: [],
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      icTriggers: [],
       // Trigger F OC failure with high CDR
       ocTriggers: [
         { className: "A",   triggerLevel: 129.0, rank: 1 },
@@ -401,7 +408,8 @@ describe("OC cure during RP buys collateral", () => {
       defaultRatesByRating: uniformRates(15),
       cprPct: 0,
       recoveryPct: 0,
-      icTriggers: [],
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      icTriggers: [],
       ocTriggers: [
         { className: "F", triggerLevel: 103.0, rank: 6 },
       ],
@@ -413,7 +421,8 @@ describe("OC cure during RP buys collateral", () => {
       defaultRatesByRating: uniformRates(0),
       cprPct: 0,
       recoveryPct: 0,
-      icTriggers: [],
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      icTriggers: [],
       ocTriggers: [
         { className: "F", triggerLevel: 103.0, rank: 6 },
       ],
@@ -452,7 +461,8 @@ describe("IC partial cure", () => {
       defaultRatesByRating: uniformRates(0),   // no defaults — OC stays healthy
       cprPct: 0,
       recoveryPct: 0,
-      ocTriggers: [],  // disable OC tests so only IC fires
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      ocTriggers: [],  // disable OC tests so only IC fires
       icTriggers: [
         // Very tight IC trigger: require 200% coverage (income must be 2× interest due)
         // This will almost certainly fail given low base rate
@@ -495,7 +505,8 @@ describe("IC partial cure", () => {
       defaultRatesByRating: uniformRates(0),
       cprPct: 0,
       recoveryPct: 0,
-      ocTriggers: [],
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      ocTriggers: [],
       icTriggers: [
         // Moderately tight — will fail but cure shouldn't consume all interest
         { className: "F", triggerLevel: 150.0, rank: 6 },
@@ -534,7 +545,8 @@ describe("OC + IC fail simultaneously", () => {
       defaultRatesByRating: uniformRates(25), // high CDR → OC also fails
       cprPct: 0,
       recoveryPct: 0,
-      ocTriggers: [
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      ocTriggers: [
         { className: "F", triggerLevel: 200.0, rank: 6 }, // very high → OC fails
       ],
       icTriggers: [
@@ -562,7 +574,8 @@ describe("OC + IC fail simultaneously", () => {
         defaultRatesByRating: uniformRates(25),
         cprPct: 0,
         recoveryPct: 0,
-        ocTriggers: [],
+
+    ratingAgencies: ["moodys", "sp", "fitch"],        ocTriggers: [],
         icTriggers: [],
       });
       const noTriggerResult = runProjection(noTriggerInputs);
@@ -589,7 +602,8 @@ describe("OC + IC fail simultaneously", () => {
       defaultRatesByRating: uniformRates(30),
       cprPct: 0,
       recoveryPct: 0,
-      ocTriggers: [{ className: "F", triggerLevel: 200.0, rank: 6 }],
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      ocTriggers: [{ className: "F", triggerLevel: 200.0, rank: 6 }],
       icTriggers: [],
     });
 
@@ -600,7 +614,8 @@ describe("OC + IC fail simultaneously", () => {
       defaultRatesByRating: uniformRates(0),
       cprPct: 0,
       recoveryPct: 0,
-      ocTriggers: [],
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      ocTriggers: [],
       icTriggers: [{ className: "F", triggerLevel: 300.0, rank: 6 }],
     });
 
@@ -611,7 +626,8 @@ describe("OC + IC fail simultaneously", () => {
       defaultRatesByRating: uniformRates(30),
       cprPct: 0,
       recoveryPct: 0,
-      ocTriggers: [{ className: "F", triggerLevel: 200.0, rank: 6 }],
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      ocTriggers: [{ className: "F", triggerLevel: 200.0, rank: 6 }],
       icTriggers: [{ className: "F", triggerLevel: 300.0, rank: 6 }],
     });
 
@@ -638,7 +654,8 @@ describe("Multiple OC tests cascade (E + F both fail)", () => {
       defaultRatesByRating: uniformRates(15),
       cprPct: 0,
       recoveryPct: 0,
-      icTriggers: [],
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      icTriggers: [],
       ocTriggers: [
         { className: "E", triggerLevel: 200.0, rank: 5 },
         { className: "F", triggerLevel: 200.0, rank: 6 },
@@ -666,7 +683,8 @@ describe("Multiple OC tests cascade (E + F both fail)", () => {
       defaultRatesByRating: uniformRates(15),
       cprPct: 0,
       recoveryPct: 0,
-      icTriggers: [],
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      icTriggers: [],
       ocTriggers: [
         { className: "E", triggerLevel: 200.0, rank: 5 },
         { className: "F", triggerLevel: 200.0, rank: 6 },
@@ -678,7 +696,8 @@ describe("Multiple OC tests cascade (E + F both fail)", () => {
       defaultRatesByRating: uniformRates(15),
       cprPct: 0,
       recoveryPct: 0,
-      icTriggers: [],
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      icTriggers: [],
       ocTriggers: [
         { className: "F", triggerLevel: 200.0, rank: 6 },
       ],
@@ -699,7 +718,8 @@ describe("Multiple OC tests cascade (E + F both fail)", () => {
       defaultRatesByRating: uniformRates(15),
       cprPct: 0,
       recoveryPct: 0,
-      icTriggers: [],
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      icTriggers: [],
     });
 
     const result = runProjection(inputs);
@@ -722,7 +742,8 @@ describe("Split-tranche diversion (B-1 and B-2 at same seniorityRank)", () => {
       defaultRatesByRating: uniformRates(20),
       cprPct: 0,
       recoveryPct: 0,
-      icTriggers: [],
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      icTriggers: [],
       // Only trigger at B-1 rank (rank 2) so diversion fires after B-2 is paid
       ocTriggers: [
         { className: "J-1", triggerLevel: 200.0, rank: 2 },
@@ -763,7 +784,8 @@ describe("Split-tranche diversion (B-1 and B-2 at same seniorityRank)", () => {
       defaultRatesByRating: uniformRates(20),
       cprPct: 0,
       recoveryPct: 0,
-      icTriggers: [],
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      icTriggers: [],
       ocTriggers: [{ className: "J-1", triggerLevel: 200.0, rank: 2 }],
     });
 
@@ -799,7 +821,8 @@ describe("OC cure exactly at boundary", () => {
       defaultRatesByRating: uniformRates(0),
       cprPct: 0,
       recoveryPct: 0,
-      icTriggers: [],
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      icTriggers: [],
       ocTriggers: [
         { className: "F", triggerLevel: 111.0, rank: 6 },
       ],
@@ -828,7 +851,8 @@ describe("OC cure exactly at boundary", () => {
       defaultRatesByRating: uniformRates(0),
       cprPct: 0,
       recoveryPct: 0,
-      icTriggers: [],
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      icTriggers: [],
       ocTriggers: [
         { className: "F", triggerLevel: 112.0, rank: 6 },
       ],
@@ -860,7 +884,8 @@ describe("OC cure exactly at boundary", () => {
       defaultRatesByRating: uniformRates(0),
       cprPct: 0,
       recoveryPct: 0,
-      icTriggers: [],
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      icTriggers: [],
       // Triggers at realistic levels for a fresh deal
       ocTriggers: [
         { className: "A",   triggerLevel: 108.0, rank: 1 },
@@ -927,7 +952,8 @@ describe("Cure mechanics structural invariants", () => {
       defaultRatesByRating: uniformRates(15),
       cprPct: 0,
       recoveryPct: 0,
-      icTriggers: [],
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      icTriggers: [],
       ocTriggers: [{ className: "F", triggerLevel: 200.0, rank: 6 }],
     });
     const baselineInputs = makeRealisticInputs({
@@ -935,7 +961,8 @@ describe("Cure mechanics structural invariants", () => {
       defaultRatesByRating: uniformRates(15),
       cprPct: 0,
       recoveryPct: 0,
-      ocTriggers: [],
+
+    ratingAgencies: ["moodys", "sp", "fitch"],      ocTriggers: [],
       icTriggers: [],
     });
 

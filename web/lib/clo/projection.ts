@@ -273,6 +273,16 @@ export interface ProjectionInputs {
   cprPct: number;
   recoveryPct: number;
   recoveryLagMonths: number;
+  /** Deal's Rating Agencies set per the indenture (e.g. `["moodys", "fitch"]`
+   *  for Ares European XV, oc.txt:368-369). Consumed at LoanState construction
+   *  to filter per-position agency recovery rates: a holding rated by an
+   *  agency that is not the deal's Rating Agency does NOT contribute to the
+   *  per-loan recovery rate (the agency's RR is irrelevant to this indenture's
+   *  Adjusted CPA paragraph (e) per `oc.txt:7120-7124`). Optional with
+   *  `["moodys", "sp", "fitch"]` fallback for hand-constructed test fixtures
+   *  that don't model the agency-subset distinction; production callers via
+   *  `buildFromResolved` always pass the resolved set explicitly. */
+  ratingAgencies?: ("moodys" | "sp" | "fitch")[];
   reinvestmentSpreadBps: number;
   reinvestmentTenorQuarters: number;
   reinvestmentRating: string | null; // null = use portfolio modal
@@ -1281,6 +1291,7 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     tranches, ocTriggers, icTriggers,
     reinvestmentPeriodEnd, maturityDate, currentDate,
     loans, defaultRatesByRating, cdrMultiplierPathFn, cprPct, recoveryPct, recoveryLagMonths,
+    ratingAgencies,
     reinvestmentSpreadBps, reinvestmentTenorQuarters, reinvestmentRating: reinvestmentRatingOverride,
     cccBucketLimitPct, cccMarketValuePct, deferredInterestCompounds,
     initialPrincipalCash = 0,
@@ -1555,6 +1566,30 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     pikSpreadBps?: number;
   }
 
+  // Per-deal Rating Agencies subset is required. Production callers via
+  // `buildFromResolved` always populate from `resolved.ratingAgencies` (strict
+  // capital-structure-only derivation). Hand-constructed test fixtures must
+  // set the field explicitly via `makeInputs` (which defaults to all three
+  // agencies) or per-test override. A widening fallback default here would
+  // silently re-introduce all-three-agencies behavior at the forward-default
+  // site for any hand-constructed inputs that omit the field — exactly the
+  // "don't overfit to a single deal" silent shape this filter exists to close.
+  // Empty array carries the same silent-fallback shape as `undefined`: an empty
+  // subset makes `resolveAgencyRecovery` return `undefined`, which causes the
+  // forward-default site to silently fall back to the global `recoveryPct`.
+  // The resolver emits a blocking warning on the empty-set case so production
+  // callers catch it via IncompleteDataError; this throw is the backstop for
+  // hand-constructed test fixtures that bypass `buildFromResolved`.
+  if (!ratingAgencies || ratingAgencies.length === 0) {
+    throw new Error(
+      `ProjectionInputs.ratingAgencies missing or empty. Production callers must construct ` +
+        `inputs via buildFromResolved (which populates from resolved.ratingAgencies); ` +
+        `test fixtures must pass the field explicitly. The OC numerator's per-agency ` +
+        `recovery dispatch and the forward-default site both filter against this ` +
+        `subset; an empty or missing value cannot be silently widened to all agencies.`,
+    );
+  }
+
   const loanStates: LoanState[] = loans.map((l) => ({
     survivingPar: l.parBalance,
     // Don't clamp to totalQuarters — loans with maturity beyond the call/maturity date
@@ -1579,7 +1614,15 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     defaultEvents: [],
     dayCountConvention: l.dayCountConvention,
     floorRate: l.floorRate,
-    recoveryRateAgency: resolveAgencyRecovery([l.recoveryRateMoodys, l.recoveryRateSp, l.recoveryRateFitch]),
+    recoveryRateAgency: resolveAgencyRecovery(
+      { moodys: l.recoveryRateMoodys, sp: l.recoveryRateSp, fitch: l.recoveryRateFitch },
+      ratingAgencies,
+      // No mvFloor at the forward-default site: at default-time the trustee-
+      // reported `currentPrice` is a stale pre-default snapshot, not informative
+      // about post-default workout recovery. The PPM's `min(MV, RR)` per-agency
+      // construction governs the T=0 OC numerator (Adjusted CPA paragraph (e),
+      // oc.txt:7120-7124), not the modeled cash recovery upon a forward default.
+    ),
     pikSpreadBps: l.pikSpreadBps,
   }));
 

@@ -9,6 +9,7 @@ import { computeTopNObligorsPct } from "./pool-metrics";
 import { assignDenseSeniorityRanks, classOrderBucket } from "./seniority-rank";
 import { canonicalizeDayCount, type DayCountConvention } from "./day-count-canonicalize";
 import { resolveAgencyRecovery } from "./recovery-rate";
+import { normalizeClassName as normClass } from "./normalize-class-name";
 
 /** Defensive sentinel stripper for rating strings already in the DB. The SDF
  *  parser now filters these at ingest (see trimRating), but pre-fix rows can
@@ -58,22 +59,6 @@ function normalizeConcName(name: string): string {
     .replace(/^\s*\([a-z0-9]+\)(?:\([iv]+\))?\s*/i, "") // strip lettered prefix
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
-}
-
-function normClass(s: string): string {
-  const lower = String(s ?? "").toLowerCase().trim();
-  if (!lower) return "";
-  // Subordinated / equity / income-note variants all collapse to "sub"
-  if (lower.includes("subordinated") || lower.startsWith("sub ") || lower === "sub"
-      || lower.includes("equity") || lower.includes("income note") || lower.includes("income-note")) {
-    return "sub";
-  }
-  // Strip "class " prefix and trailing "-notes"/"notes" suffix
-  const stripped = lower.replace(/^class(es)?\s+/i, "").replace(/[-\s]+notes?$/i, "").trim();
-  // Take only the first class-letter token (e.g. "a", "b-1", "b2") —
-  // collapses "A" and "A Senior Secured FRN due 2032" to the same key.
-  const match = stripped.match(/^([a-z](?:[-\s]?[0-9]+)?)\b/);
-  return match ? match[1].replace(/\s+/g, "-") : stripped;
 }
 
 /**
@@ -163,6 +148,27 @@ function isIcTest(t: { testType?: string | null; testName?: string | null }): bo
   if (t.testType === "IC") return true;
   const name = (t.testName ?? "").toLowerCase();
   return name.includes("interest coverage") || (name.includes("ic") && name.includes("ratio"));
+}
+
+/**
+ * S&P-tagged compliance test name detection. Two regex constants and a
+ * combined predicate live at module scope (parallel to the inline
+ * `/moody/i` and `/fitch/i` patterns used at the boolean-derivation site)
+ * so the cross-reference exclusion is visible and the convention is one
+ * source of truth.
+ *
+ * Detection: `\bs&p\b` or "standard & poor" anywhere in the test name.
+ * Exclusion: cross-reference phrasings like "from S&P", "derived from
+ * S&P", "based on S&P", "equivalent to S&P", "mapped to S&P [Scale]" —
+ * these are Moody's/Fitch tests that REFERENCE S&P as input or
+ * comparison anchor, not S&P-tagged tests themselves. Without exclusion,
+ * `isSpRated` false-positives on a Fitch+Moody's deal whose Moody's
+ * compliance test is "Moody's Rating derived from S&P".
+ */
+const SP_TAG_PATTERN = /\bs&p\b|standard\s*&\s*poor/i;
+const SP_CROSS_REF_PATTERN = /(?:from|based\s+on|equivalent\s+to|mapped\s+to|derived\s+from|converted\s+to|relative\s+to|vs\.?|versus)\s+s&p\b/i;
+function isSpTaggedTestName(name: string): boolean {
+  return SP_TAG_PATTERN.test(name) && !SP_CROSS_REF_PATTERN.test(name);
 }
 
 /**
@@ -1490,6 +1496,72 @@ export function resolveWaterfallInputs(
     });
   });
 
+  // --- Rating Agencies set ---
+  // Strictly derived from tranche capital-structure rating columns. The deal's
+  // Rating Agencies set per the indenture (Ares European XV: "Fitch and Moody's,
+  // each a Rating Agency", oc.txt:368-369). Distinct from the silent-skip
+  // booleans `isMoodysRated` / `isFitchRated` / `isSpRated` derived later in
+  // this resolver, which OR in compliance-test-name evidence — that fallback
+  // is permissive (catches extraction gaps on tranche columns), but for the
+  // OC numerator's per-agency recovery dispatch we want the strict set: only
+  // agencies whose tranche rating columns confirm the indenture's
+  // Rating Agencies. The two diverge only on extraction-gap shapes; the
+  // safety-net warning below catches that case.
+  const ratingAgencies: ("moodys" | "sp" | "fitch")[] = [];
+  const cs = constraints.capitalStructure ?? [];
+  if (cs.some((e) => e.rating?.moodys != null && e.rating.moodys.trim() !== "")) ratingAgencies.push("moodys");
+  if (cs.some((e) => e.rating?.sp != null && e.rating.sp.trim() !== "")) ratingAgencies.push("sp");
+  if (cs.some((e) => e.rating?.fitch != null && e.rating.fitch.trim() !== "")) ratingAgencies.push("fitch");
+
+  // Sub-fix A safety net: tranche capital structure has any agency rating
+  // data populated, but the derived ratingAgencies set has fewer than 2
+  // agencies. Failure shapes this catches: SDF extraction dropped one
+  // column it should have populated, or tranche structure didn't transcribe
+  // rating sub-fields. Per CLAUDE.md anti-pattern #3 the resolver flags
+  // computational-input gaps loudly; non-blocking because a genuinely
+  // single-agency-rated deal is uncommon-but-legitimate, and the helper
+  // already handles a single-agency subset gracefully.
+  const anyTrancheRatingDataPresent = cs.some(
+    (e) =>
+      (e.rating?.moodys != null && e.rating.moodys.trim() !== "") ||
+      (e.rating?.sp != null && e.rating.sp.trim() !== "") ||
+      (e.rating?.fitch != null && e.rating.fitch.trim() !== ""),
+  );
+  if (ratingAgencies.length === 0) {
+    // Empty-set is the silent-fallback shape the engine guard cannot catch:
+    // capital structure absent or no rating columns populated → empty subset
+    // → `resolveAgencyRecovery` returns undefined → forward-default site
+    // silently falls back to the global `recoveryPct`. Per anti-pattern #3
+    // the resolver flags computational gaps loudly. Blocking because every
+    // CLO indenture names ≥ 1 Rating Agency by definition; an empty derived
+    // set means extraction failed and the OC numerator cannot be computed.
+    warnings.push({
+      field: "ratingAgencies",
+      message:
+        `Derived Rating Agencies set is empty. Every CLO indenture names ≥ 1 Rating ` +
+        `Agency; an empty derived set means tranche capital-structure rating columns ` +
+        `(moodys / sp / fitch) failed extraction or are not present. The Adjusted CPA ` +
+        `paragraph (e) recovery-rate min and the forward-default site both depend on ` +
+        `this set; running with an empty subset would silently fall back to the global ` +
+        `recoveryPct on every loan. Verify SDF Notes ratings columns and PPM ` +
+        `capital-structure rating fields on this deal.`,
+      severity: "error", blocking: true,
+    });
+  } else if (anyTrancheRatingDataPresent && ratingAgencies.length < 2) {
+    warnings.push({
+      field: "ratingAgencies",
+      message:
+        `Derived Rating Agencies set [${ratingAgencies.join(", ")}] has fewer ` +
+        `than 2 agencies on a deal whose tranche capital structure carries agency rating data. ` +
+        `A genuinely single-agency-rated deal is uncommon for European CLOs; this likely ` +
+        `indicates an extraction gap on one rating column. The Adjusted CPA paragraph (e) ` +
+        `recovery-rate min applies over the deal's Rating Agencies subset only — a missing ` +
+        `agency narrows that min and biases the OC numerator. Verify SDF Notes ratings columns ` +
+        `and PPM capital-structure rating fields on this deal.`,
+      severity: "error", blocking: false,
+    });
+  }
+
   // --- Pre-existing Defaults ---
   // Defaulted holdings are excluded from the loan list (no interest income).
   // For each holding: use market price recovery if available, track unpriced par
@@ -1501,34 +1573,124 @@ export function resolveWaterfallInputs(
   for (const h of defaultedHoldings) {
     const par = holdingPar(h);
     if (h.currentPrice != null && h.currentPrice > 0) {
-      // currentPrice in percentage format (e.g. 31.29 = 31.29% of par).
-      // Ambiguity: values in (0, 1) could be 0.5% or 50% — we treat as decimal (50%).
-      // True fix requires normalizing at the extraction layer based on source format.
-      preExistingDefaultRecovery += par * (h.currentPrice >= 1 ? h.currentPrice / 100 : h.currentPrice);
+      // currentPrice is percent-canonical (parser-side `validateMagnitude("market_value", ...)`
+      // floors to 1 — fraction-shape regressions are rejected at the parser boundary).
+      preExistingDefaultRecovery += par * (h.currentPrice / 100);
     } else {
       unpricedDefaultedPar += par;
     }
   }
-  // Agency recovery value for OC numerator — the indenture uses the LESSER of available
-  // agency recovery rates (e.g. "Lesser of Fitch Collateral Value and S&P Collateral Value").
-  // Three-tier hierarchy: agency rate → market price → 0 (engine applies model recoveryPct).
-  // Per-rate normalization happens inside `resolveAgencyRecovery`; the helper is the single
-  // owner of the "lesser of available agency rates" convention shared with the forward-default
-  // site in the projection engine.
+  // OC numerator credit per defaulted holding — Adjusted CPA paragraph (e)
+  // (oc.txt:7120-7124) reads "the lesser of (i) its Fitch Collateral Value
+  // and (ii) its Moody's Collateral Value", with each Collateral Value
+  // (oc.txt:8765-8777, 9420-9434) defined as `min(Market Value, Recovery
+  // Rate) × Principal Balance`. The helper takes the per-agency MV floor
+  // BEFORE the cross-agency min; the agency subset is the deal's Rating
+  // Agencies (oc.txt:368-369). Plus paragraph (e)'s 3-year zero-out on stale
+  // Defaulted Obligations, applied at the holding level.
+  // Parse reportDate up-front. If reportDate is null or unparseable, the
+  // 3-year staleness check cannot fire (no anchor); lenient default applies
+  // (no zero-out). The reportDate-null case is a separate extraction-gate
+  // concern (other resolver blocks handle it); here we just treat it as
+  // "can't evaluate staleness" without surfacing a duplicate warning.
+  const determinationDateObj =
+    reportDate != null ? new Date(reportDate) : null;
+  const determinationMs =
+    determinationDateObj != null && !Number.isNaN(determinationDateObj.getTime())
+      ? determinationDateObj.getTime()
+      : null;
+  const STALE_DEFAULT_THRESHOLD_DAYS = 365 * 3 + 1; // > 3 years; +1 to exclude exactly-3y boundary
   const preExistingDefaultOcValue = defaultedHoldings.reduce((s, h) => {
     const par = holdingPar(h);
-    const agencyRate = resolveAgencyRecovery([h.recoveryRateMoodys, h.recoveryRateSp, h.recoveryRateFitch]);
+
+    // Sub-fix C: 3-year stale-default zero-out per paragraph (e) proviso.
+    // A holding that has been defaulted for > 3 years and continues to be
+    // defaulted contributes 0 to the OC numerator, regardless of agency
+    // rates or market value. Lenient on missing defaultDate (full RR
+    // applies) — see warning below.
+    if (h.defaultDate != null && determinationMs != null) {
+      const defaultDate = new Date(h.defaultDate);
+      if (!Number.isNaN(defaultDate.getTime())) {
+        const daysSinceDefault =
+          (determinationMs - defaultDate.getTime()) / (1000 * 60 * 60 * 24);
+        if (daysSinceDefault > STALE_DEFAULT_THRESHOLD_DAYS) {
+          return s;
+        }
+      }
+    } else if (h.defaultDate == null) {
+      // Per CLAUDE.md anti-pattern #3 — `defaultDate` is computational input
+      // (3-year zero-out predicate). Missing on a defaulted holding is an
+      // extraction gap. Non-blocking: the gap silently passes the holding
+      // through at the lenient (not-stale) side; warning preserves visibility.
+      warnings.push({
+        field: "holdings.defaultDate",
+        message:
+          `Defaulted holding "${(h as { obligorName?: string | null }).obligorName ?? "(unnamed)"}" ` +
+          `has no defaultDate populated. Cannot evaluate Adjusted CPA paragraph (e) 3-year ` +
+          `stale-default zero-out; lenient default applies (full agency/MV credit). Verify SDF ` +
+          `Default_Date column or trustee-report defaulted-asset table.`,
+        severity: "error", blocking: false,
+      });
+    } else {
+      // h.defaultDate != null && determinationMs == null — reportDate is
+      // null/unparseable so the staleness anchor is missing. Lenient default
+      // applies (no zero-out). Warn so the gap is visible; reportDate-null
+      // typically blocks elsewhere on fully-ingested periods, but on Intex-
+      // only historical periods (where the account-balances gate doesn't
+      // fire) this is the only surface.
+      warnings.push({
+        field: "holdings.staleness.reportDate",
+        message:
+          `Defaulted holding "${(h as { obligorName?: string | null }).obligorName ?? "(unnamed)"}" ` +
+          `has defaultDate=${h.defaultDate} but reportDate is null/unparseable — cannot evaluate ` +
+          `Adjusted CPA paragraph (e) 3-year stale-default zero-out. Lenient default applies ` +
+          `(full agency/MV credit).`,
+        severity: "error", blocking: false,
+      });
+    }
+
+    // Sub-fix B: per-agency MV floor via helper opt. Sub-fix A: agency subset
+    // applied inside helper (rates outside the deal's Rating Agencies set
+    // are dropped). Returns undefined when no subset-relevant rate exists;
+    // we then fall through to the all-signals-missing branch.
+    const agencyRate = resolveAgencyRecovery(
+      {
+        moodys: h.recoveryRateMoodys,
+        sp: h.recoveryRateSp,
+        fitch: h.recoveryRateFitch,
+      },
+      ratingAgencies,
+      h.currentPrice != null && h.currentPrice > 0
+        ? { mvFloor: h.currentPrice }
+        : undefined,
+    );
     if (agencyRate != null) {
       return s + par * agencyRate;
     }
-    // No agency rates — fall back to market price (currentPrice is the recovered
-    // value at T=0 because the position is already defaulted; this tier does NOT
-    // apply at the forward-default site where currentPrice is a stale pre-default
-    // snapshot — see projection.ts default block).
+
+    // No subset-relevant agency rates AND no MV — Moody's CV paragraph (b)
+    // (oc.txt:9420-9434) falls through to MV in this case. We've already
+    // exhausted agency rates above; if we got here, MV is the only signal.
     if (h.currentPrice != null && h.currentPrice > 0) {
-      return s + par * (h.currentPrice >= 1 ? h.currentPrice / 100 : h.currentPrice);
+      return s + par * (h.currentPrice / 100);
     }
-    // No data — return 0 so engine uses model recoveryPct
+
+    // No agency rates AND no market value — total data gap on a defaulted
+    // holding. Per CLAUDE.md anti-pattern #3 a computational-input gap of
+    // this severity is loud; non-blocking because the engine already
+    // tolerates "0 OC credit" gracefully (the position is just absent from
+    // the OC numerator), but the partner needs to know the model is silent
+    // on a non-trivial position.
+    warnings.push({
+      field: "holdings.recoveryAndMV",
+      message:
+        `Defaulted holding "${(h as { obligorName?: string | null }).obligorName ?? "(unnamed)"}" ` +
+        `(par=${par.toFixed(0)}) has neither agency recovery rates within the deal's Rating ` +
+        `Agencies subset [${ratingAgencies.join(", ") || "(empty)"}] nor a market value. The OC ` +
+        `numerator will not credit this position. Verify SDF Recovery_Rate columns or trustee-` +
+        `report Market_Value column on this holding.`,
+      severity: "error", blocking: false,
+    });
     return s;
   }, 0);
 
@@ -1856,6 +2018,47 @@ export function resolveWaterfallInputs(
     ) ||
     qualityTests.some((q) => /fitch/i.test(q.testName)) ||
     concentrationTests.some((c) => /fitch/i.test(c.testName));
+  // S&P rating-agency detection. Module-scope `isSpTaggedTestName` excludes
+  // cross-reference patterns (e.g. "Moody's Rating derived from S&P"); see
+  // helper docstring. False on European CLOs (Euro XV is Fitch+Moody's per
+  // oc.txt:368-369); true on US CLOs whose indenture names S&P as a
+  // Rating Agency.
+  const isSpRated =
+    (constraints.capitalStructure ?? []).some(
+      (e) => e.rating?.sp != null && e.rating.sp.trim() !== "",
+    ) ||
+    qualityTests.some((q) => isSpTaggedTestName(q.testName)) ||
+    concentrationTests.some((c) => isSpTaggedTestName(c.testName));
+
+  // Permissive-vs-strict asymmetry guard. The strict `ratingAgencies` set
+  // (cap-structure-only, line ~1510) drives the OC numerator's per-agency
+  // recovery dispatch. The permissive `isXRated` booleans (above) OR in
+  // compliance-test-name evidence so the C1 gate doesn't false-skip on
+  // tranche-column extraction gaps. The two diverge precisely on the deal
+  // shape: cap-structure rating column for X is missing, but a compliance
+  // test row references X. On such a deal the OC numerator silently drops
+  // X's recovery rates from the per-agency min — wrong number, no signal.
+  // Block here so the gap surfaces loudly; the user fixes extraction or
+  // confirms the compliance-test detection was a false positive.
+  const asymmetricAgencies: string[] = [];
+  if (isMoodysRated && !ratingAgencies.includes("moodys")) asymmetricAgencies.push("moodys");
+  if (isFitchRated && !ratingAgencies.includes("fitch")) asymmetricAgencies.push("fitch");
+  if (isSpRated && !ratingAgencies.includes("sp")) asymmetricAgencies.push("sp");
+  if (asymmetricAgencies.length > 0) {
+    warnings.push({
+      field: "ratingAgencies.asymmetry",
+      message:
+        `Rating Agencies asymmetry: compliance-test evidence flags the deal as rated by ` +
+        `[${asymmetricAgencies.join(", ")}] but tranche capital-structure rating columns ` +
+        `did not surface those agencies. The OC numerator's per-agency recovery dispatch ` +
+        `(Adjusted CPA paragraph (e)) uses the strict cap-structure-derived set and would ` +
+        `silently drop the missing agency's recovery rates. Either (a) extraction missed ` +
+        `the tranche rating column — fix and re-ingest — or (b) the compliance-test name ` +
+        `match was a cross-reference and the corresponding isXRated detection is a false ` +
+        `positive — tighten the helper. Refusing to project until disambiguated.`,
+      severity: "error", blocking: true,
+    });
+  }
 
   // C1 — silent-skip blocking gate for compliance triggers. Per PPM Section 8
   // (Collateral Quality Tests, PDF p. 287) the Moody's WARF Test, Moody's
@@ -1916,6 +2119,33 @@ export function resolveWaterfallInputs(
           "Fitch-rated deal but Fitch CCC Obligations concentration trigger not found in " +
           "concentrationTests. C1 cannot enforce Fitch CCC concentration without it. Verify trustee " +
           "report exposes test row '(o) Fitch - CCC Obligations' (or equivalent).",
+        severity: "error", blocking: true,
+      });
+    }
+  }
+  // S&P-rated → require at least one S&P-tagged compliance trigger.
+  // The Moody's/Fitch branches above enforce per-trigger presence by canonical
+  // type (`moodys_max_warf`, `min_was`, `moodys_caa_concentration`,
+  // `fitch_ccc_concentration`). S&P-canonical types are not yet enumerated in
+  // `ComplianceTestType` (no US CLO PPM in scope to triangulate canonical
+  // names). Until they land, the gate enforces the weaker invariant: an
+  // S&P-rated deal MUST surface ≥1 S&P-tagged compliance test (by name); zero
+  // S&P-tagged triggers on an S&P-rated deal is an extraction failure.
+  // TODO: when a US CLO PPM enters scope, add `sp_*` canonical types and
+  // per-trigger blocking branches matching the Moody's/Fitch shape above.
+  if (isSpRated) {
+    const hasAnySpTagged =
+      qualityTests.some((q) => isSpTaggedTestName(q.testName)) ||
+      concentrationTests.some((c) => isSpTaggedTestName(c.testName));
+    if (!hasAnySpTagged) {
+      warnings.push({
+        field: "spComplianceTests",
+        message:
+          "S&P-rated deal but no S&P-tagged compliance triggers found in qualityTests or " +
+          "concentrationTests (zero test names match the S&P-tagged pattern after cross-reference " +
+          "exclusion). C1 cannot enforce S&P-specific compliance gates without them. Verify " +
+          "trustee report exposes S&P-tagged test rows (e.g. 'S&P Recovery Rate Test', " +
+          "'S&P CCC Concentration', 'S&P CDO Monitor').",
         severity: "error", blocking: true,
       });
     }
@@ -2220,7 +2450,7 @@ export function resolveWaterfallInputs(
   }
 
   return {
-    resolved: { tranches, poolSummary, ocTriggers, icTriggers, qualityTests, concentrationTests, reinvestmentOcTrigger, eventOfDefaultTest, dates, fees, loans, metadata, principalAccountCash, interestAccountCash, interestSmoothingBalance, supplementalReserveBalance, expenseReserveBalance, preExistingDefaultedPar, preExistingDefaultRecovery, unpricedDefaultedPar, preExistingDefaultOcValue, discountObligationHaircut, longDatedObligationHaircut, cccBucketLimitPct, cccMarketValuePct, targetParAmount, referenceWeightedAverageFixedCoupon, isMoodysRated, isFitchRated, impliedOcAdjustment, quartersSinceReport, ddtlUnfundedPar, deferredInterestCompounds, interestNonPaymentGracePeriods, baseRateFloorPct, currency },
+    resolved: { tranches, poolSummary, ocTriggers, icTriggers, qualityTests, concentrationTests, reinvestmentOcTrigger, eventOfDefaultTest, dates, fees, loans, metadata, principalAccountCash, interestAccountCash, interestSmoothingBalance, supplementalReserveBalance, expenseReserveBalance, preExistingDefaultedPar, preExistingDefaultRecovery, unpricedDefaultedPar, preExistingDefaultOcValue, discountObligationHaircut, longDatedObligationHaircut, cccBucketLimitPct, cccMarketValuePct, targetParAmount, referenceWeightedAverageFixedCoupon, isMoodysRated, isFitchRated, isSpRated, ratingAgencies, impliedOcAdjustment, quartersSinceReport, ddtlUnfundedPar, deferredInterestCompounds, interestNonPaymentGracePeriods, baseRateFloorPct, currency },
     warnings,
   };
 }

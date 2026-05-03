@@ -42,6 +42,11 @@ export function makeInputs(overrides: Partial<ProjectionInputs> = {}): Projectio
     cprPct: CLO_DEFAULTS.cprPct,
     recoveryPct: CLO_DEFAULTS.recoveryPct,
     recoveryLagMonths: CLO_DEFAULTS.recoveryLagMonths,
+    // Default to all three agencies for legacy synthetic fixtures. Production
+    // path via `buildFromResolved` populates this from `resolved.ratingAgencies`
+    // (strict: capital-structure-only). Tests that exercise per-deal subset
+    // filtering pass an explicit narrower set via overrides.
+    ratingAgencies: ["moodys", "sp", "fitch"],
     reinvestmentSpreadBps: CLO_DEFAULTS.reinvestmentSpreadBps,
     reinvestmentTenorQuarters: CLO_DEFAULTS.reinvestmentTenorYears * 4,
     reinvestmentRating: null,

@@ -5,6 +5,7 @@ import {
   parseDate,
   trimRating,
 } from "./csv-utils";
+import { validateMagnitude } from "./magnitude-validator";
 import type { SdfParseResult } from "./types";
 
 export interface SdfAssetLevelRow {
@@ -232,8 +233,10 @@ export function parseAssetLevel(
     average_life: parseNumeric(raw.Average_Life),
     guarantor: trimOrNull(raw.Guarantor),
 
-    // Price
-    current_price: parseNumeric(raw.Mark_Price),
+    // Price — percent-canonical (0..200 with 1% floor). Validator catches
+    // fraction-shape regressions and absolute-vs-percent confusions at the
+    // parser boundary; resolver/engine consumers trust the percent shape.
+    current_price: validateMagnitude("market_value", parseNumeric(raw.Mark_Price)),
 
     // Identifiers
     facility_id: trimOrNull(raw.Facility_ID),
