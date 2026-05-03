@@ -251,11 +251,13 @@ describe("D4 — pctCovLite delta-recompute", () => {
     expect(coverageWarn!.blocking).toBe(false);
   });
 
-  // pctPik delta-recompute mirrors the pctCovLite logic. Same gating:
-  // both swap legs need a known isPik for the recompute to fire.
-  it("pctPik delta-recompute fires when both legs have known isPik", () => {
+  // pctPik delta-recompute keys on `pikSpreadBps > 0` ("actively accreting
+  // PIK"), not on the structural `isPik` boolean. KI-62 sub-fix A. Same
+  // gating shape as pctCovLite: both swap legs need a known pikSpreadBps
+  // for the recompute to fire.
+  it("pctPik delta-recompute fires when both legs have known pikSpreadBps", () => {
     const sellNonPikIdx = fixture.resolved.loans.findIndex(
-      (l) => l.isPik === undefined && l.parBalance > 500_000 && !l.isDelayedDraw,
+      (l) => l.pikSpreadBps === undefined && l.parBalance > 500_000 && !l.isDelayedDraw,
     );
     expect(sellNonPikIdx).toBeGreaterThan(-1);
     const sellLoan = fixture.resolved.loans[sellNonPikIdx];
@@ -266,16 +268,15 @@ describe("D4 — pctCovLite delta-recompute", () => {
       spreadBps: sellLoan.spreadBps,
       obligorName: "PIK Replacement",
       warfFactor: sellLoan.warfFactor,
-      isPik: true,
+      pikSpreadBps: 100,  // actively accreting at 1%
     };
-    // Sell leg needs explicit isPik=false for the delta-recompute to
-    // fire (undefined isPik blocks the recompute the same way undefined
-    // isCovLite does). Mirror the resolver's "explicit-false propagates"
-    // behavior by overriding the sell loan's isPik on this synthetic call.
-    const sellWithIsPik = { ...sellLoan, isPik: false };
+    // Sell leg needs an explicit pikSpreadBps for the delta-recompute to
+    // fire (undefined blocks the recompute, same as undefined isCovLite).
+    // Use 0 to represent "extraction succeeded, no PIK".
+    const sellWithKnownPik = { ...sellLoan, pikSpreadBps: 0 };
     const swappedResolved = {
       ...fixture.resolved,
-      loans: fixture.resolved.loans.map((l, i) => i === sellNonPikIdx ? sellWithIsPik : l),
+      loans: fixture.resolved.loans.map((l, i) => i === sellNonPikIdx ? sellWithKnownPik : l),
     };
     const warnings: import("@/lib/clo/resolver-types").ResolutionWarning[] = [];
     const result = applySwitch(
@@ -285,9 +286,8 @@ describe("D4 — pctCovLite delta-recompute", () => {
       warnings,
     );
 
-    // Delta: sell is non-PIK (removed=0); buy is PIK (added=sellLoan.par).
-    // Expected pctPik = (basePar + sellLoan.par) / switchedSumLoans × 100
-    // (with basePar = (basePctPik/100) × baseTotalPar; null base → null).
+    // Delta: sell is non-PIK (pikSpreadBps=0 → removed=0); buy is actively-
+    // accreting PIK (pikSpreadBps=100 → added=sellLoan.par).
     const switchedSumLoans = result.switchedResolved.loans.reduce((s, l) => s + l.parBalance, 0);
     if (fixture.resolved.poolSummary.pctPik != null) {
       const basePikPar = (fixture.resolved.poolSummary.pctPik / 100) * fixture.resolved.poolSummary.totalPar;
@@ -301,7 +301,7 @@ describe("D4 — pctCovLite delta-recompute", () => {
     }
   });
 
-  it("pctPik inherits base + emits coverage warning when buy leg has unknown isPik", () => {
+  it("pctPik inherits base + emits coverage warning when buy leg has unknown pikSpreadBps", () => {
     const sellLoan = fixture.resolved.loans[sellIdx];
     const buyLoan: ResolvedLoan = {
       parBalance: sellLoan.parBalance,
@@ -310,7 +310,7 @@ describe("D4 — pctCovLite delta-recompute", () => {
       spreadBps: sellLoan.spreadBps,
       obligorName: "Unknown PIK",
       warfFactor: sellLoan.warfFactor,
-      // isPik deliberately omitted
+      // pikSpreadBps deliberately omitted
     };
     const warnings: import("@/lib/clo/resolver-types").ResolutionWarning[] = [];
     const result = applySwitch(

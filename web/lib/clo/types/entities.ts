@@ -244,6 +244,7 @@ export interface CloHolding {
 
   // Structural
   pikAmount: number | null;
+  pikSpreadBps: number | null;
   creditSpreadAdj: number | null;
   affiliateId: string | null;
   guarantor: string | null;

@@ -381,15 +381,21 @@ export interface ResolvedLoan {
    *  coverage warning, avoiding silent inflation OR deflation of the
    *  partner-visible share. */
   isCovLite?: boolean;
-  /** PIK ("payment-in-kind") classification. Sourced from
-   *  `clo_holdings.is_pik` when explicitly set (LLM-PDF extraction path),
-   *  else derived from `pikAmount > 0` (SDF Asset_Level path: parser-side
-   *  derivation in `parse-asset-level.ts`, with a resolver-side fallback
-   *  for existing DB rows). Consumed by the switch-simulator's `pctPik`
-   *  delta-recompute (`switch-simulator.ts:155`). Engine-side PIK
-   *  accretion is NOT dispatched today — see KI-62 for the gap and the
-   *  correct split-margin model. */
+  /** "Structurally PIK" classification — `pikAmount > 0` (cumulative
+   *  historical PIK present) OR explicit override via the LLM-PDF
+   *  extraction path. Observability/audit signal; does NOT drive engine
+   *  PIK accretion. Forward dispatch is keyed on `pikSpreadBps`. */
   isPik?: boolean;
+  /** Live forward PIK rate in basis points. Sourced from SDF
+   *  `Current_Facility_Spread_PIK` via `clo_holdings.pik_spread_bps`
+   *  (per-annum decimal × 10000 at the parser boundary). When > 0, the
+   *  engine accretes `par × pikSpreadBps/10000 × dayFrac` to surviving
+   *  par each period (additive on top of the cash leg — does NOT
+   *  subtract from the existing `all_in_rate` / `fixedCouponPct` cash
+   *  accrual). Zero / undefined → no PIK accretion. Consumed by the
+   *  switch-simulator's `pctPik` recompute as the "actively accreting
+   *  PIK" signal (KI-62 sub-fix A). */
+  pikSpreadBps?: number;
 }
 
 export type WarningSeverity = "info" | "warn" | "error";

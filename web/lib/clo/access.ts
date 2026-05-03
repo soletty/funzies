@@ -384,6 +384,7 @@ function rowToHolding(row: Record<string, unknown>): CloHolding {
     kbraRecoveryRate: num(row.kbra_recovery_rate),
     kbraIndustry: (row.kbra_industry as string) ?? null,
     pikAmount: num(row.pik_amount),
+    pikSpreadBps: num(row.pik_spread_bps),
     creditSpreadAdj: num(row.credit_spread_adj),
     affiliateId: (row.affiliate_id as string) ?? null,
     guarantor: (row.guarantor as string) ?? null,

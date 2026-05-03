@@ -82,6 +82,14 @@ export interface LoanInput {
   recoveryRateMoodys?: number;
   recoveryRateSp?: number;
   recoveryRateFitch?: number;
+  /** Live forward PIK rate in basis points (KI-62 sub-fix A). Sourced
+   *  from SDF `Current_Facility_Spread_PIK` via `ResolvedLoan.pikSpreadBps`.
+   *  When > 0, the engine accretes `par × pikSpreadBps/10000 × dayFrac`
+   *  to surviving par each period (additive on top of the cash leg —
+   *  does NOT subtract from the existing `all_in_rate` / `fixedCouponPct`
+   *  cash accrual). Zero / undefined → no PIK accretion (cash-paying or
+   *  toggle-off PIK loan). */
+  pikSpreadBps?: number;
 }
 
 // C2 — Coarse RatingBucket → Moody's WARF factor. Imported from pool-metrics.ts
@@ -1539,6 +1547,12 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
      *  leave this unset — see the inline comment at the default site
      *  for the original-vs-reinvested asymmetry. */
     recoveryRateAgency?: number;
+    /** Live forward PIK rate in basis points (KI-62 sub-fix A). Carried
+     *  from `LoanInput.pikSpreadBps`. When > 0, the per-loan accrual
+     *  loop additively accretes `par × pikSpreadBps/10000 × dayFrac` to
+     *  `survivingPar` on top of the cash interest path. Synthetic
+     *  reinvestment loans leave this undefined (default cash-paying). */
+    pikSpreadBps?: number;
   }
 
   const loanStates: LoanState[] = loans.map((l) => ({
@@ -1566,6 +1580,7 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     dayCountConvention: l.dayCountConvention,
     floorRate: l.floorRate,
     recoveryRateAgency: resolveAgencyRecovery([l.recoveryRateMoodys, l.recoveryRateSp, l.recoveryRateFitch]),
+    pikSpreadBps: l.pikSpreadBps,
   }));
 
   // Remove never_draw DDTLs (drawQuarter <= 0) — they never fund and shouldn't appear in the portfolio
@@ -2478,19 +2493,34 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
       : recoveryPipeline.filter((r) => r.quarter === q).reduce((s, r) => s + r.amount, 0);
 
     // ── 6. Interest collection ─────────────────────────────────
-    // PIK loans are NOT dispatched here — `loan.isPik` is propagated to
-    // `ResolvedLoan` and consumed by the switch-simulator's `pctPik`
-    // delta-recompute, but engine-side PIK accretion is intentionally
-    // NOT modeled. A binary `isPik: boolean` cannot represent the real
-    // shape of a PIK loan (cash leg + PIK leg with separate margins);
-    // the previous attempt at engine dispatch produced two silent
-    // wrong-number failure modes on Euro XV: (a) zero accretion on
-    // fixed-rate PIK loans with `fixedCouponPct=0` (Tele Columbus),
-    // and (b) full-coupon over-routing on split-coupon PIK loans
-    // (Financiere Labeyrie). See the active KI on PIK rate modeling
-    // for the correct path-to-close. Until then, PIK loans accrue cash
-    // interest at their cash-coupon rate (which is wrong by the PIK
-    // leg's amount but at least documented and stable).
+    // Cash leg per position. The cash interest path uses the existing
+    // `all_in_rate` / `fixedCouponPct` from the loan, which (verified
+    // against trustee transactions on Financiere) represents the cash
+    // leg only — the PIK leg is additive and dispatched separately
+    // below.
+    //
+    // PIK accretion (KI-62 sub-fix A): when `loan.pikSpreadBps > 0`,
+    // additionally accretes `loanBegPar × (pikSpreadBps/10000) ×
+    // dayFrac` to `loan.survivingPar`. ADDITIVE — never subtracts from
+    // cash leg, never re-routes the existing accrual.
+    //
+    // Conventions pinned by synthetic tests in
+    // `__tests__/asset-pik-accretion.test.ts`:
+    //   - PIK accrues on PRE-default pre-maturity par (`loanBegPar`,
+    //     captured at line ~2324 before steps 2–4 mutate
+    //     `loan.survivingPar`). Matches the cash interest convention.
+    //   - PIK adds to POST-default surviving par. A 50% partial default
+    //     this period leaves the surviving 50% with the full period's
+    //     PIK accretion accreted onto it. (Mirrors the cash leg, which
+    //     accrues on pre-default par regardless of mid-period default.)
+    //   - At maturity (q === loan.maturityQuarter), PIK accretion is
+    //     SKIPPED — the loan is being redeemed; the principal payout
+    //     captures the loan's pre-maturity par via step 2's
+    //     `totalMaturities += loan.survivingPar` (run before the PIK
+    //     loop). Skipping avoids zombie PIK on a zeroed surviving par
+    //     and matches "PIK stops at redemption" trustee convention.
+    //     Economic delta: one period of PIK once at end-of-life
+    //     (~€12K once on Financiere at maturity Jul 2029).
     const flooredBaseRate = Math.max(baseRateFloorPct, baseRatePct);
     let interestCollected: number;
     if (hasLoans) {
@@ -2518,6 +2548,12 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
           // applied the deal-level floor uniformly.
           const loanFlooredBase = Math.max(loan.floorRate ?? baseRateFloorPct, baseRatePct);
           interestCollected += loanBegPar * (loanFlooredBase + loan.spreadBps / 100) / 100 * loanDayFrac;
+        }
+        // Additive PIK accretion (KI-62 sub-fix A). Skip at maturity per
+        // the convention above.
+        if (loan.pikSpreadBps != null && loan.pikSpreadBps > 0 && q !== loan.maturityQuarter) {
+          const pikAccretion = loanBegPar * (loan.pikSpreadBps / 10000) * loanDayFrac;
+          loan.survivingPar += pikAccretion;
         }
       }
       // Q1: initial principal cash earns interest at money market rate (~ESTR) for the quarter.

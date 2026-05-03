@@ -61,6 +61,14 @@ export interface SdfAssetLevelRow {
    *  per-period accrued amount IS the structural signal). Null when
    *  pik_amount is null/zero AND no other source provides the flag. */
   is_pik: boolean | null;
+  /** Live forward PIK rate in basis points. Sourced from SDF column
+   *  `Current_Facility_Spread_PIK` (per-annum decimal, multiplied by
+   *  10000 at the parser boundary per anti-pattern #5). Drives the
+   *  engine's per-loan PIK accretion in the additive model (KI-62
+   *  sub-fix A); zero when the PIK toggle is currently off (e.g.
+   *  Tele Columbus, where pik_amount > 0 captures historical PIK
+   *  already absorbed into par but pik_spread_bps = 0). */
+  pik_spread_bps: number | null;
   credit_spread_adj: number | null;
   is_current_pay: boolean | null;
   is_defaulted: boolean | null;
@@ -186,20 +194,29 @@ export function parseAssetLevel(
     kbra_rating: trimRating(raw.Portfolio_Issue_Derived_Rating_KBRA),
     kbra_recovery_rate: parseNumeric(raw.Recovery_Rate_KBRA),
 
-    // Structural — pik_amount derives is_pik (no explicit Is_PIK column
-    // in the Asset_Level CSV; per-period accrued amount IS the structural
-    // signal). Anti-pattern #5: a non-zero pik_amount means the loan
-    // accreted PIK in this period; the boolean is consumed downstream by
-    // the resolver's three-tier blocking ladder and the switch-simulator's
-    // `pctPik` delta-recompute. Engine-side PIK accretion is NOT dispatched
-    // (binary boolean is structurally insufficient — see KI-62). The LLM-
-    // PDF extraction path can override with an explicit isPik (handled at
-    // the resolver via `h.isPik ?? (pikAmount > 0)`).
-    ...(((): { pik_amount: number | null; is_pik: boolean | null } => {
+    // Structural — `pik_amount` is the cumulative historical PIK already
+    // absorbed into par (denormalized facility-level total per CSV row).
+    // Used as the "structurally PIK" signal for the resolver three-tier
+    // ladder and as observability; does NOT drive forward engine accretion.
+    //
+    // `pik_spread_bps` is the LIVE forward PIK rate (KI-62 sub-fix A).
+    // SDF column `Current_Facility_Spread_PIK` is a per-annum decimal
+    // (e.g. 0.01 = 1.0%); converted to bps to match the existing
+    // `spread_bps` shape on the same table. Magnitude validation (>15% =
+    // 1500 bps) lives at the resolver boundary, not here — parser stays
+    // mechanical per the source-data layer's responsibility.
+    //
+    // Anti-pattern #5 (boundaries assert sign and scale): the parser
+    // multiplies the SDF decimal by 10000 once at this boundary; every
+    // downstream consumer reads bps and never the source decimal.
+    ...(((): { pik_amount: number | null; is_pik: boolean | null; pik_spread_bps: number | null } => {
       const pikAmount = parseNumeric(raw.PIK_Amount);
+      const pikSpreadDecimal = parseNumeric(raw.Current_Facility_Spread_PIK);
+      const pikSpreadBps = pikSpreadDecimal != null ? Math.round(pikSpreadDecimal * 10000) : null;
       return {
         pik_amount: pikAmount,
         is_pik: pikAmount != null && pikAmount > 0 ? true : null,
+        pik_spread_bps: pikSpreadBps,
       };
     })()),
     credit_spread_adj: parseNumeric(raw.Credit_Spread_Adj),

@@ -436,6 +436,7 @@ const ENRICHMENT_COLUMNS = [
   "kbra_recovery_rate",
   "pik_amount",
   "is_pik",
+  "pik_spread_bps",
   "credit_spread_adj",
   "is_current_pay",
   "is_defaulted",

@@ -1348,25 +1348,62 @@ export function resolveWaterfallInputs(
       });
     }
 
-    // PIK classification. Three-tier blocking rule (anti-pattern #3):
-    //   (1) `isPik === true` (explicit) OR (`isPik == null AND pikAmount > 0`)
-    //       → treat as PIK. The fallback derivation matches the parser-side
-    //       derivation in `parse-asset-level.ts`; resolver-side fallback
-    //       handles existing DB rows that predate the parser change.
-    //   (2) `isPik === false AND pikAmount > 0` → block (data-shape
-    //       contradiction: explicit-false claim contradicts the source's
-    //       reported per-period PIK accrual).
-    //   (3) `pikAmount < 0` → block (sign invariant — negative PIK is
-    //       structurally meaningless).
-    // The boolean is consumed by the switch-simulator's `pctPik` delta-
-    // recompute (`switch-simulator.ts:155`); engine-side PIK accretion is
-    // NOT dispatched today (binary boolean is structurally insufficient —
-    // see KI-62 for the correct split-margin model).
+    // PIK classification + forward rate (anti-pattern #3, anti-pattern #5).
+    //
+    // `isPik` (boolean, observability/audit): "structurally PIK" — pikAmount
+    //   > 0 OR explicit override. Used by the switch-simulator's pctPik
+    //   recompute (semantic: actively accreting PIK; see pikSpreadBps below).
+    //
+    // `pikSpreadBps` (number, engine dispatch): live forward PIK rate in
+    //   basis points (KI-62 sub-fix A). Engine accretes
+    //   `par × pikSpreadBps/10000 × dayFrac` to surviving par per period
+    //   when > 0; additive on top of the cash leg. Zero means PIK toggle is
+    //   currently off (Tele Columbus shape — historical PIK in pikAmount,
+    //   no forward accretion).
+    //
+    // Blocking ladder:
+    //   (a) `pikAmount < 0`               → block (sign invariant)
+    //   (b) `pikSpreadBps < 0`            → block (sign invariant)
+    //   (c) `pikSpreadBps > 1500`         → block (implausible — distressed
+    //                                        Euro CLO PIK margins top ~10-12%;
+    //                                        15% is the hard ceiling for
+    //                                        locale-mis-parse hardening)
+    //   (d) `isPik === false AND pikAmount > 0`
+    //                                     → block (data-shape contradiction)
+    //   (e) `pikAmount > 0 AND pikSpreadBps == null`
+    //                                     → block (extraction gap on a
+    //                                        position whose source data
+    //                                        demonstrates PIK structure)
+    //
+    // Cases (a–e) failing → no derived flags. Otherwise:
+    //   - `isPik === true` (explicit) OR `isPik == null AND pikAmount > 0`
+    //       → derivedIsPik = true
+    //   - `isPik === false` (explicit, with pikAmount in {null, 0})
+    //       → derivedIsPik = false
+    //   - else                            → undefined
+    //
+    // pikSpreadBps propagates 1:1 (zero passes through; only > 0 drives
+    // engine accretion).
     let derivedIsPik: boolean | undefined;
+    let derivedPikSpreadBps: number | undefined;
     if (h.pikAmount != null && h.pikAmount < 0) {
       warnings.push({
         field: "pikAmount",
         message: `Holding "${h.obligorName ?? "unknown"}": pikAmount=${h.pikAmount} is negative. PIK accruals are non-negative by construction; a negative value indicates a parser failure or upstream sign-convention error. Refuse and verify the pik_amount ingestion.`,
+        severity: "error",
+        blocking: true,
+      });
+    } else if (h.pikSpreadBps != null && h.pikSpreadBps < 0) {
+      warnings.push({
+        field: "pikSpreadBps",
+        message: `Holding "${h.obligorName ?? "unknown"}": pikSpreadBps=${h.pikSpreadBps} is negative. PIK margin is non-negative by construction; a negative value indicates a parser failure or sign-convention error. Refuse and verify the Current_Facility_Spread_PIK ingestion.`,
+        severity: "error",
+        blocking: true,
+      });
+    } else if (h.pikSpreadBps != null && h.pikSpreadBps > 1500) {
+      warnings.push({
+        field: "pikSpreadBps",
+        message: `Holding "${h.obligorName ?? "unknown"}": pikSpreadBps=${h.pikSpreadBps} (=${(h.pikSpreadBps / 100).toFixed(2)}%) exceeds the 15% (1500 bps) implausibility ceiling. Distressed Euro CLO PIK margins top ~10-12%; values above 15% indicate a locale mis-parse (decimal/thousands confusion) or unit error. Refuse and reconcile upstream.`,
         severity: "error",
         blocking: true,
       });
@@ -1377,17 +1414,32 @@ export function resolveWaterfallInputs(
         severity: "error",
         blocking: true,
       });
-    } else if (h.isPik === true) {
-      derivedIsPik = true;
-    } else if (h.isPik == null && (h.pikAmount ?? 0) > 0) {
-      // Parser-side derivation should already have set is_pik=true on this
-      // row; fallback covers DB rows ingested before the parser change.
-      derivedIsPik = true;
-    } else if (h.isPik === false) {
-      derivedIsPik = false;
+    } else if ((h.pikAmount ?? 0) > 0 && h.pikSpreadBps == null) {
+      warnings.push({
+        field: "pikSpreadBps",
+        message: `Holding "${h.obligorName ?? "unknown"}": pikAmount=${h.pikAmount} > 0 but pikSpreadBps is missing. The source data demonstrates PIK structure (cumulative PIK already accreted); the engine cannot dispatch forward PIK accretion without the live rate (Current_Facility_Spread_PIK). Refuse and verify the Asset_Level CSV extraction.`,
+        severity: "error",
+        blocking: true,
+      });
+    } else {
+      // Derive isPik (observability)
+      if (h.isPik === true) {
+        derivedIsPik = true;
+      } else if (h.isPik == null && (h.pikAmount ?? 0) > 0) {
+        // Parser-side derivation should already have set is_pik=true on
+        // this row; fallback covers DB rows ingested before the parser
+        // change.
+        derivedIsPik = true;
+      } else if (h.isPik === false) {
+        derivedIsPik = false;
+      }
+      // Propagate pikSpreadBps (engine dispatch). Zero passes through and
+      // is the explicit "PIK toggle off" signal — the engine guards on
+      // > 0 before accreting.
+      if (h.pikSpreadBps != null) {
+        derivedPikSpreadBps = h.pikSpreadBps;
+      }
     }
-    // h.isPik == null AND pikAmount in {null, 0} → leave undefined
-    // (no PIK behavior demonstrated; default-to-cash is safe).
 
     return stripNulls({
       parBalance: holdingPar(h),
@@ -1424,6 +1476,7 @@ export function resolveWaterfallInputs(
       floorRate: h.floorRate ?? undefined,
       isCovLite: h.isCovLite ?? undefined,
       isPik: derivedIsPik,
+      pikSpreadBps: derivedPikSpreadBps,
       warfFactor,
       // Floating WAS denominator excludes Non-Euro Obligations per PPM
       // Condition 1 (PDF p. 302). Sourced from holding's `currency` (post-

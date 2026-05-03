@@ -1,24 +1,32 @@
 /**
- * Resolver-level coverage of `isPik` propagation + the three-tier
- * blocking rule for PIK-bearing positions.
+ * Resolver-level coverage of PIK classification + propagation
+ * (KI-62 sub-fix A — additive forward PIK rate).
  *
- * Three-tier rule (anti-pattern #3 — silent fallbacks on extraction
- * failures are bugs, not defaults):
- *   (1) `isPik === true` (explicit) OR `isPik == null AND pikAmount > 0`
- *       → ResolvedLoan.isPik = true. Consumed by the switch-simulator's
- *       `pctPik` delta-recompute. Engine-side PIK accretion is NOT
- *       dispatched (binary boolean is structurally insufficient — see
- *       the active KI on PIK rate modeling).
- *   (2) `isPik === false AND pikAmount > 0` → blocking error (data-shape
- *       contradiction).
- *   (3) `pikAmount < 0` → blocking error (sign invariant).
- *   default: `isPik === false` (explicit) OR `isPik == null AND
- *   pikAmount in {null, 0}` → ResolvedLoan.isPik undefined or false; no
- *   warning (no PIK behavior demonstrated; default cash-paying is safe).
+ * Two propagated fields, distinct semantics:
+ *   - `isPik` (boolean, observability): "structurally PIK" — pikAmount > 0
+ *     OR explicit override. Used by the switch-simulator's pctPik
+ *     recompute as the "actively accreting PIK" signal (note: in the
+ *     post-KI-62 simulator, `pctPik` is keyed on `pikSpreadBps > 0`, not
+ *     on `isPik`).
+ *   - `pikSpreadBps` (number, engine dispatch): live forward PIK rate in
+ *     basis points (sourced from SDF `Current_Facility_Spread_PIK`).
+ *     Engine accretes `par × pikSpreadBps/10000 × dayFrac` to surviving
+ *     par each period when > 0.
  *
- * The resolver-side derivation matches the parser-side derivation in
- * `parse-asset-level.ts` so existing DB rows ingested before the parser
- * change still surface as PIK in downstream consumers.
+ * Blocking ladder (anti-pattern #3):
+ *   (a) pikAmount < 0                          → block (sign)
+ *   (b) pikSpreadBps < 0                       → block (sign)
+ *   (c) pikSpreadBps > 1500 (=15%)             → block (implausibility)
+ *   (d) isPik=false AND pikAmount > 0          → block (contradiction)
+ *   (e) pikAmount > 0 AND pikSpreadBps == null → block (extraction gap)
+ *
+ * Successful propagation:
+ *   - pikAmount > 0 + pikSpreadBps == 0  → isPik=true,  pikSpreadBps=0
+ *     (Tele Columbus shape: structurally PIK, toggle currently off)
+ *   - pikAmount > 0 + pikSpreadBps > 0   → isPik=true,  pikSpreadBps=N
+ *     (Financiere shape: structurally PIK, actively accreting)
+ *   - pikAmount in {null,0} + pikSpreadBps unset → isPik=undefined,
+ *     pikSpreadBps=undefined (cash-paying, default).
  */
 
 import { describe, it, expect } from "vitest";
@@ -118,6 +126,7 @@ function makeHolding(overrides: Partial<CloHolding>): CloHolding {
     kbraRecoveryRate: null,
     kbraIndustry: null,
     pikAmount: null,
+    pikSpreadBps: null,
     creditSpreadAdj: null,
     affiliateId: null,
     guarantor: null,
@@ -153,7 +162,7 @@ const minimalPool: Partial<CloPoolSummary> = {
   numberOfObligors: 1,
 };
 
-describe("resolver — isPik propagation + three-tier blocking", () => {
+describe("resolver — PIK propagation (isPik + pikSpreadBps) + blocking ladder", () => {
   it("explicit isPik=true propagates to ResolvedLoan", () => {
     const holdings = [makeHolding({ obligorName: "Acme", isPik: true })];
     const { resolved, warnings } = resolveWaterfallInputs(
@@ -166,11 +175,11 @@ describe("resolver — isPik propagation + three-tier blocking", () => {
     const loan = resolved.loans.find(l => l.obligorName === "Acme");
     expect(loan).toBeDefined();
     expect(loan!.isPik).toBe(true);
-    expect(warnings.filter(w => w.field === "isPik" || w.field === "pikAmount")).toHaveLength(0);
+    expect(warnings.filter(w => w.field === "isPik" || w.field === "pikAmount" || w.field === "pikSpreadBps")).toHaveLength(0);
   });
 
-  it("isPik=null + pikAmount>0 → derives isPik=true (resolver fallback for SDF DB rows)", () => {
-    const holdings = [makeHolding({ obligorName: "Acme", isPik: null, pikAmount: 28101.56 })];
+  it("Financiere shape: pikAmount>0 + pikSpreadBps=100 → isPik=true, pikSpreadBps=100", () => {
+    const holdings = [makeHolding({ obligorName: "Acme", isPik: null, pikAmount: 28101.56, pikSpreadBps: 100 })];
     const { resolved, warnings } = resolveWaterfallInputs(
       baseConstraints as unknown as ExtractedConstraints,
       { poolSummary: minimalPool as CloPoolSummary, complianceTests: [], concentrations: [] },
@@ -181,8 +190,43 @@ describe("resolver — isPik propagation + three-tier blocking", () => {
     const loan = resolved.loans.find(l => l.obligorName === "Acme");
     expect(loan).toBeDefined();
     expect(loan!.isPik).toBe(true);
-    // Derivation is silent (no warning) — matches the parser-side derivation.
-    expect(warnings.filter(w => w.field === "isPik" || w.field === "pikAmount")).toHaveLength(0);
+    expect(loan!.pikSpreadBps).toBe(100);
+    // Silent derivation — no warnings.
+    expect(warnings.filter(w => w.field === "isPik" || w.field === "pikAmount" || w.field === "pikSpreadBps")).toHaveLength(0);
+  });
+
+  it("Tele Columbus shape: pikAmount>0 + pikSpreadBps=0 → isPik=true, pikSpreadBps=0 (toggle off)", () => {
+    const holdings = [makeHolding({ obligorName: "Acme", isPik: null, pikAmount: 581032.34, pikSpreadBps: 0 })];
+    const { resolved, warnings } = resolveWaterfallInputs(
+      baseConstraints as unknown as ExtractedConstraints,
+      { poolSummary: minimalPool as CloPoolSummary, complianceTests: [], concentrations: [] },
+      [],
+      [],
+      holdings,
+    );
+    const loan = resolved.loans.find(l => l.obligorName === "Acme");
+    expect(loan).toBeDefined();
+    expect(loan!.isPik).toBe(true);
+    expect(loan!.pikSpreadBps).toBe(0);
+    // Extraction succeeded (pikSpreadBps=0); no block, no warning.
+    expect(warnings.filter(w => w.field === "isPik" || w.field === "pikAmount" || w.field === "pikSpreadBps")).toHaveLength(0);
+  });
+
+  it("isPik=null + pikAmount>0 + pikSpreadBps=null → blocking error (extraction gap)", () => {
+    const holdings = [makeHolding({ obligorName: "Acme", isPik: null, pikAmount: 28101.56 })];
+    const { warnings } = resolveWaterfallInputs(
+      baseConstraints as unknown as ExtractedConstraints,
+      { poolSummary: minimalPool as CloPoolSummary, complianceTests: [], concentrations: [] },
+      [],
+      [],
+      holdings,
+    );
+    const blocking = warnings.filter(
+      w => w.field === "pikSpreadBps" && w.blocking && w.message.includes("Acme"),
+    );
+    expect(blocking).toHaveLength(1);
+    expect(blocking[0].severity).toBe("error");
+    expect(blocking[0].message).toContain("missing");
   });
 
   it("isPik=null + pikAmount=0 → leaves isPik undefined (default cash-paying)", () => {
@@ -197,7 +241,8 @@ describe("resolver — isPik propagation + three-tier blocking", () => {
     const loan = resolved.loans.find(l => l.obligorName === "Acme");
     expect(loan).toBeDefined();
     expect(loan!.isPik).toBeUndefined();
-    expect(warnings.filter(w => w.field === "isPik" || w.field === "pikAmount")).toHaveLength(0);
+    expect(loan!.pikSpreadBps).toBeUndefined();
+    expect(warnings.filter(w => w.field === "isPik" || w.field === "pikAmount" || w.field === "pikSpreadBps")).toHaveLength(0);
   });
 
   it("explicit isPik=false propagates to ResolvedLoan as false", () => {
@@ -212,7 +257,7 @@ describe("resolver — isPik propagation + three-tier blocking", () => {
     const loan = resolved.loans.find(l => l.obligorName === "Acme");
     expect(loan).toBeDefined();
     expect(loan!.isPik).toBe(false);
-    expect(warnings.filter(w => w.field === "isPik" || w.field === "pikAmount")).toHaveLength(0);
+    expect(warnings.filter(w => w.field === "isPik" || w.field === "pikAmount" || w.field === "pikSpreadBps")).toHaveLength(0);
   });
 
   it("isPik=false + pikAmount>0 → blocking error (data-shape contradiction)", () => {
@@ -247,5 +292,39 @@ describe("resolver — isPik propagation + three-tier blocking", () => {
     expect(blocking).toHaveLength(1);
     expect(blocking[0].severity).toBe("error");
     expect(blocking[0].message).toContain("negative");
+  });
+
+  it("pikSpreadBps<0 → blocking error (sign invariant)", () => {
+    const holdings = [makeHolding({ obligorName: "Acme", pikSpreadBps: -50 })];
+    const { warnings } = resolveWaterfallInputs(
+      baseConstraints as unknown as ExtractedConstraints,
+      { poolSummary: minimalPool as CloPoolSummary, complianceTests: [], concentrations: [] },
+      [],
+      [],
+      holdings,
+    );
+    const blocking = warnings.filter(
+      w => w.field === "pikSpreadBps" && w.blocking && w.message.includes("Acme"),
+    );
+    expect(blocking).toHaveLength(1);
+    expect(blocking[0].severity).toBe("error");
+    expect(blocking[0].message).toContain("negative");
+  });
+
+  it("pikSpreadBps>1500 → blocking error (implausibility ceiling)", () => {
+    const holdings = [makeHolding({ obligorName: "Acme", pikSpreadBps: 1600 })];
+    const { warnings } = resolveWaterfallInputs(
+      baseConstraints as unknown as ExtractedConstraints,
+      { poolSummary: minimalPool as CloPoolSummary, complianceTests: [], concentrations: [] },
+      [],
+      [],
+      holdings,
+    );
+    const blocking = warnings.filter(
+      w => w.field === "pikSpreadBps" && w.blocking && w.message.includes("Acme"),
+    );
+    expect(blocking).toHaveLength(1);
+    expect(blocking[0].severity).toBe("error");
+    expect(blocking[0].message).toContain("15%");
   });
 });

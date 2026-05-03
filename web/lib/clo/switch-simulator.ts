@@ -115,28 +115,34 @@ export function applySwitch(
   // pctCovLite / pctPik delta-recompute. The deal-level values from
   // poolSummary already carry their own coverage (sourced from the
   // concentrations table or pool-summary directly). We adjust them for the
-  // swap ONLY when both swap legs carry the relevant boolean — otherwise
+  // swap ONLY when both swap legs carry the relevant flag — otherwise
   // the post-swap share is ambiguous and we inherit the base value with
   // an explicit coverage warning. This avoids both the silent-inflation
   // failure mode (mapping null → false would deflate the share when
   // per-loan coverage is incomplete) and the silent-deflation failure
   // mode (an unconditional recompute from per-loan flags overwrites the
   // resolver's deal-level signal with a possibly-incomplete pool view).
+  //
+  // For pctPik the driver is `pikSpreadBps > 0` ("actively accreting PIK"),
+  // not `isPik` ("structurally PIK"). Tele Columbus shape (toggle currently
+  // off — pikAmount > 0 historical, pikSpreadBps = 0) does NOT count toward
+  // pctPik because the metric describes current-period income dynamics,
+  // not structural exposure to a re-enabled PIK toggle. KI-62 sub-fix A.
   function deltaRecompute(
     field: "pctCovLite" | "pctPik",
-    flagName: "isCovLite" | "isPik",
+    flagFor: (loan: ResolvedLoan) => boolean | undefined,
   ): number | null {
     const baseValue = resolved.poolSummary[field];
-    const sellFlag = flagName === "isCovLite" ? sellLoan.isCovLite : sellLoan.isPik;
-    const buyFlag = flagName === "isCovLite" ? buyLoan.isCovLite : buyLoan.isPik;
+    const sellFlag = flagFor(sellLoan);
+    const buyFlag = flagFor(buyLoan);
     if (baseValue == null || sellFlag == null || buyFlag == null) {
       if (warnings != null) {
         warnings.push({
           field: `switched_${field}`,
           message:
-            `applySwitch: cannot delta-recompute ${field} — at least one swap leg has unknown ${flagName} ` +
-            `(sell="${sellLoan.obligorName ?? "?"}".${flagName}=${sellFlag}, ` +
-            `buy="${buyLoan.obligorName ?? "?"}".${flagName}=${buyFlag}). ` +
+            `applySwitch: cannot delta-recompute ${field} — at least one swap leg has unknown ${field} flag ` +
+            `(sell="${sellLoan.obligorName ?? "?"}"=${sellFlag}, ` +
+            `buy="${buyLoan.obligorName ?? "?"}"=${buyFlag}). ` +
             `Inheriting the base-pool ${field} (${baseValue}); the partner-visible ` +
             `share does not reflect the swap.`,
           severity: "warn",
@@ -151,8 +157,11 @@ export function applySwitch(
     const newPar = basePar - removed + added;
     return switchedTotalPar > 0 ? (newPar / switchedTotalPar) * 100 : 0;
   }
-  const switchedPctCovLite = deltaRecompute("pctCovLite", "isCovLite");
-  const switchedPctPik = deltaRecompute("pctPik", "isPik");
+  const switchedPctCovLite = deltaRecompute("pctCovLite", (l) => l.isCovLite);
+  const switchedPctPik = deltaRecompute(
+    "pctPik",
+    (l) => (l.pikSpreadBps == null ? undefined : l.pikSpreadBps > 0),
+  );
 
   const switchedResolved: ResolvedDealData = {
     ...resolved,
