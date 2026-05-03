@@ -197,6 +197,27 @@ describe("parseCollateralFile — bond par_balance fallback (Commitment vs Princ
     expect(result.rows[0].par_balance).toBeCloseTo(2131336.41);
   });
 
+  it("compound Security_Type1 (e.g., 'Senior Secured Bond'): isBond regex matches → routes through Commitment", () => {
+    // Anti-pattern #1 cross-trustee guard. The DDTL detection pattern
+    // in the same file uses a regex (`/delayed.{0,5}draw/i`) precisely
+    // because Security_Type1 values vary by trustee — compound shapes
+    // like "Senior Secured Bond", "HY Bond", "PIK Bond" all need to
+    // match the bond branch. Strict equality on "bond" would fall
+    // through to Principal_Balance and silently drop accreted PIK.
+    const compoundBond = withFields(ROW_1, [
+      [PFB_INDEX, "0.000"],
+      [PFB_INDEX + 1, "0.000"],
+      [COMMITMENT_INDEX, "1232412.93"],
+      [COMMITMENT_INDEX + 1, "1232412.93"],
+      [PRINCIPAL_BALANCE_INDEX, "1000000.000"],
+      [PRINCIPAL_BALANCE_INDEX + 1, "1000000.000"],
+      [SECURITY_TYPE_INDEX, "Senior Secured Bond"], // compound variant
+    ]);
+    const result = parseCollateralFile(makeCsv(compoundBond));
+    // Live face captured — accreted PIK preserved on the compound type.
+    expect(result.rows[0].par_balance).toBeCloseTo(1232412.93);
+  });
+
   it("loan with PFB=0 (undrawn revolver / fully-undrawn DDTL): par_balance does NOT follow Commitment — anti-pattern #1 cross-deal guard", () => {
     // The PFB-zero shape on a Loan row means "genuinely zero drawn par"
     // (undrawn revolver, fully-unfunded DDTL), not "use Commitment as live

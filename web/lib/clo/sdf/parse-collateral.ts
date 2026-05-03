@@ -145,11 +145,17 @@ export function parseCollateralFile(
     // Commitment carries semantic live-face information; for Loans the
     // PFB == 0 case means "genuinely zero drawn par," and Principal_Balance
     // (which tracks drawn principal for loans) is the right fallback.
+    //
+    // Word-boundary regex (not strict equality) for cross-trustee
+    // robustness — mirrors the DDTL detection pattern below. SDF data
+    // varies by trustee: some emit `Security_Type1 = "Bond"`, others
+    // may emit compound variants (e.g. "Senior Secured Bond", "HY Bond").
+    // `\bbond\b` matches all of those without false-positiving on "Loan"
+    // or "Delayed Draw Loan."
     const principalBalance = parseNumeric(raw.Principal_Balance);
     const fundedBalance = parseNumeric(raw.Principal_Funded_Balance);
     const commitment = parseNumeric(raw.Commitment);
-    const isBond =
-      (raw.Security_Type1 ?? "").trim().toLowerCase() === "bond";
+    const isBond = /\bbond\b/i.test(raw.Security_Type1 ?? "");
     const parBalance = validateMagnitude(
       "par_balance",
       fundedBalance != null && fundedBalance > 0
