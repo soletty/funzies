@@ -1,13 +1,10 @@
 /**
- * Resolver-level coverage of PIK classification + propagation
- * (KI-62 sub-fix A — additive forward PIK rate).
+ * Resolver-level coverage of PIK classification + propagation.
  *
  * Two propagated fields, distinct semantics:
  *   - `isPik` (boolean, observability): "structurally PIK" — pikAmount > 0
- *     OR explicit override. Used by the switch-simulator's pctPik
- *     recompute as the "actively accreting PIK" signal (note: in the
- *     post-KI-62 simulator, `pctPik` is keyed on `pikSpreadBps > 0`, not
- *     on `isPik`).
+ *     OR explicit override. Note: the simulator's `pctPik` is keyed on
+ *     `pikSpreadBps > 0` (actively accreting), not on `isPik`.
  *   - `pikSpreadBps` (number, engine dispatch): live forward PIK rate in
  *     basis points (sourced from SDF `Current_Facility_Spread_PIK`).
  *     Engine accretes `par × pikSpreadBps/10000 × dayFrac` to surviving

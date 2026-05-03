@@ -1,5 +1,5 @@
 /**
- * Asset-side additive PIK accretion (KI-62 sub-fix A).
+ * Asset-side additive PIK accretion.
  *
  * Invariants pinned here (synthetic — does NOT exercise the live Euro XV
  * fixture; the cash-flow magnitude on Euro XV's single PIK-active position
@@ -29,7 +29,7 @@ const PERIOD_START = "2026-03-09";
 const PERIOD_END = "2026-06-09";
 const FRAC_360 = dayCountFraction("actual_360", PERIOD_START, PERIOD_END);
 
-describe("asset-side additive PIK accretion (KI-62 sub-fix A)", () => {
+describe("asset-side additive PIK accretion", () => {
   it("split-margin baseline: cash leg unchanged + par grows by PIK rate × par × dayFrac", () => {
     // Synthetic Financiere shape: floating loan with 7.127% all-in cash + 1%
     // additive PIK accretion. Verify the engine accretes the PIK additively.
@@ -93,10 +93,9 @@ describe("asset-side additive PIK accretion (KI-62 sub-fix A)", () => {
     expect(parDelta).toBeCloseTo(0, -2);
   });
 
-  it("cash-only loan (no pikSpreadBps): same behavior as before KI-62", () => {
+  it("cash-only loan (no pikSpreadBps): par does not grow", () => {
     // Regression guard: a loan without any pikSpreadBps field should
-    // behave identically to the pre-KI-62 engine. No PIK accretion path
-    // taken; par doesn't grow.
+    // not exercise the PIK accretion path; par doesn't grow.
     const cashOnly: LoanInput = {
       parBalance: 50_000_000,
       maturityDate: addQuarters(PERIOD_START, 20),
@@ -156,8 +155,8 @@ describe("asset-side additive PIK accretion (KI-62 sub-fix A)", () => {
   });
 
   it("default ordering: PIK loan partial-default — PIK accretes on pre-default par, lands on surviving par", () => {
-    // Engine convention pin (KI-62 sub-fix A): cash interest and PIK
-    // accretion both use `loanBeginningPar` (captured pre-step-2). PIK
+    // Engine convention pin: cash interest and PIK accretion both use
+    // `loanBeginningPar` (captured pre-step-2). PIK
     // additively lands on the post-default surviving par. A 50%-defaulting
     // loan accrues full-period PIK on the pre-default 100M, with the
     // accretion adding to the surviving 50M. Result: ending surviving par

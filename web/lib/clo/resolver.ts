@@ -1355,7 +1355,7 @@ export function resolveWaterfallInputs(
     //   recompute (semantic: actively accreting PIK; see pikSpreadBps below).
     //
     // `pikSpreadBps` (number, engine dispatch): live forward PIK rate in
-    //   basis points (KI-62 sub-fix A). Engine accretes
+    //   basis points. Engine accretes
     //   `par × pikSpreadBps/10000 × dayFrac` to surviving par per period
     //   when > 0; additive on top of the cash leg. Zero means PIK toggle is
     //   currently off (Tele Columbus shape — historical PIK in pikAmount,

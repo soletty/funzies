@@ -127,7 +127,7 @@ export function applySwitch(
   // not `isPik` ("structurally PIK"). Tele Columbus shape (toggle currently
   // off — pikAmount > 0 historical, pikSpreadBps = 0) does NOT count toward
   // pctPik because the metric describes current-period income dynamics,
-  // not structural exposure to a re-enabled PIK toggle. KI-62 sub-fix A.
+  // not structural exposure to a re-enabled PIK toggle.
   function deltaRecompute(
     field: "pctCovLite" | "pctPik",
     flagFor: (loan: ResolvedLoan) => boolean | undefined,

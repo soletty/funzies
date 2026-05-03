@@ -82,7 +82,7 @@ export interface LoanInput {
   recoveryRateMoodys?: number;
   recoveryRateSp?: number;
   recoveryRateFitch?: number;
-  /** Live forward PIK rate in basis points (KI-62 sub-fix A). Sourced
+  /** Live forward PIK rate in basis points. Sourced
    *  from SDF `Current_Facility_Spread_PIK` via `ResolvedLoan.pikSpreadBps`.
    *  When > 0, the engine accretes `par × pikSpreadBps/10000 × dayFrac`
    *  to surviving par each period (additive on top of the cash leg —
@@ -1547,7 +1547,7 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
      *  leave this unset — see the inline comment at the default site
      *  for the original-vs-reinvested asymmetry. */
     recoveryRateAgency?: number;
-    /** Live forward PIK rate in basis points (KI-62 sub-fix A). Carried
+    /** Live forward PIK rate in basis points. Carried
      *  from `LoanInput.pikSpreadBps`. When > 0, the per-loan accrual
      *  loop additively accretes `par × pikSpreadBps/10000 × dayFrac` to
      *  `survivingPar` on top of the cash interest path. Synthetic
@@ -2499,7 +2499,7 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     // leg only — the PIK leg is additive and dispatched separately
     // below.
     //
-    // PIK accretion (KI-62 sub-fix A): when `loan.pikSpreadBps > 0`,
+    // PIK accretion: when `loan.pikSpreadBps > 0`,
     // additionally accretes `loanBegPar × (pikSpreadBps/10000) ×
     // dayFrac` to `loan.survivingPar`. ADDITIVE — never subtracts from
     // cash leg, never re-routes the existing accrual.
@@ -2549,8 +2549,7 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
           const loanFlooredBase = Math.max(loan.floorRate ?? baseRateFloorPct, baseRatePct);
           interestCollected += loanBegPar * (loanFlooredBase + loan.spreadBps / 100) / 100 * loanDayFrac;
         }
-        // Additive PIK accretion (KI-62 sub-fix A). Skip at maturity per
-        // the convention above.
+        // Additive PIK accretion. Skip at maturity per the convention above.
         if (loan.pikSpreadBps != null && loan.pikSpreadBps > 0 && q !== loan.maturityQuarter) {
           const pikAccretion = loanBegPar * (loan.pikSpreadBps / 10000) * loanDayFrac;
           loan.survivingPar += pikAccretion;

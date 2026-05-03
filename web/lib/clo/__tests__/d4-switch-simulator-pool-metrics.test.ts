@@ -252,9 +252,9 @@ describe("D4 — pctCovLite delta-recompute", () => {
   });
 
   // pctPik delta-recompute keys on `pikSpreadBps > 0` ("actively accreting
-  // PIK"), not on the structural `isPik` boolean. KI-62 sub-fix A. Same
-  // gating shape as pctCovLite: both swap legs need a known pikSpreadBps
-  // for the recompute to fire.
+  // PIK"), not on the structural `isPik` boolean. Same gating shape as
+  // pctCovLite: both swap legs need a known pikSpreadBps for the recompute
+  // to fire.
   it("pctPik delta-recompute fires when both legs have known pikSpreadBps", () => {
     const sellNonPikIdx = fixture.resolved.loans.findIndex(
       (l) => l.pikSpreadBps === undefined && l.parBalance > 500_000 && !l.isDelayedDraw,

@@ -394,7 +394,7 @@ export interface ResolvedLoan {
    *  subtract from the existing `all_in_rate` / `fixedCouponPct` cash
    *  accrual). Zero / undefined → no PIK accretion. Consumed by the
    *  switch-simulator's `pctPik` recompute as the "actively accreting
-   *  PIK" signal (KI-62 sub-fix A). */
+   *  PIK" signal. */
   pikSpreadBps?: number;
 }
 

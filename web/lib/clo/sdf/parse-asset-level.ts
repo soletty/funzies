@@ -64,8 +64,8 @@ export interface SdfAssetLevelRow {
   /** Live forward PIK rate in basis points. Sourced from SDF column
    *  `Current_Facility_Spread_PIK` (per-annum decimal, multiplied by
    *  10000 at the parser boundary per anti-pattern #5). Drives the
-   *  engine's per-loan PIK accretion in the additive model (KI-62
-   *  sub-fix A); zero when the PIK toggle is currently off (e.g.
+   *  engine's per-loan PIK accretion in the additive model; zero
+   *  when the PIK toggle is currently off (e.g.
    *  Tele Columbus, where pik_amount > 0 captures historical PIK
    *  already absorbed into par but pik_spread_bps = 0). */
   pik_spread_bps: number | null;
@@ -199,7 +199,7 @@ export function parseAssetLevel(
     // Used as the "structurally PIK" signal for the resolver three-tier
     // ladder and as observability; does NOT drive forward engine accretion.
     //
-    // `pik_spread_bps` is the LIVE forward PIK rate (KI-62 sub-fix A).
+    // `pik_spread_bps` is the LIVE forward PIK rate.
     // SDF column `Current_Facility_Spread_PIK` is a per-annum decimal
     // (e.g. 0.01 = 1.0%); converted to bps to match the existing
     // `spread_bps` shape on the same table. Magnitude validation (>15% =
