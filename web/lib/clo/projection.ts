@@ -17,6 +17,7 @@ import {
   type SeniorExpenseBreakdown,
 } from "./senior-expense-breakdown";
 import type { DayCountConvention } from "./day-count-canonicalize";
+import { resolveAgencyRecovery } from "./recovery-rate";
 
 export interface LoanInput {
   parBalance: number;
@@ -72,6 +73,15 @@ export interface LoanInput {
    *  origination floor. Material in low-rate scenarios; zero impact
    *  when EURIBOR > all per-position floors. */
   floorRate?: number;
+  /** Per-position agency recovery rates. Carried through `ResolvedLoan` to
+   *  the engine; resolved at LoanState construction via
+   *  `resolveAgencyRecovery` (single owner of the "lesser of available
+   *  agency rates" convention shared with the resolver's T=0 site). When
+   *  all three are undefined, the engine falls back to the global
+   *  `recoveryPct` for the loan's forward-default recovery. */
+  recoveryRateMoodys?: number;
+  recoveryRateSp?: number;
+  recoveryRateFitch?: number;
 }
 
 // C2 — Coarse RatingBucket → Moody's WARF factor. Imported from pool-metrics.ts
@@ -546,17 +556,23 @@ export interface PeriodResult {
    *  Flipped by an EoD breach in a prior period (or at T=0); irreversible. */
   isAccelerated: boolean;
   /** B1 Tier 2 — per-loan default events that fired in this period. Each
-   *  entry is `(loanIndex, defaultedPar, scheduledRecoveryQuarter)`. The
-   *  existing aggregate `defaults` field is the sum of these entries'
-   *  `defaultedPar`, and `scheduledRecoveryQuarter` MUST match the
-   *  recoveryPipeline schedule for the same period — the test suite asserts
-   *  this identity directly so the dual-accounting paths (per-loan
-   *  `defaultEvents` vs aggregate `recoveryPipeline`) cannot silently
-   *  diverge. Empty array on zero-default periods. */
+   *  entry is `(loanIndex, defaultedPar, scheduledRecoveryQuarter,
+   *  recoveryAmount)`. The aggregate `defaults` field is the sum of these
+   *  entries' `defaultedPar`; `period.recoveries` over the projection
+   *  matches Σ(events scheduled at q) × event.recoveryAmount. Per-event
+   *  `recoveryAmount` carries the per-loan agency recovery rate when
+   *  available, else the global `recoveryPct` fallback.
+   *  The test suite asserts both identities directly so the dual-
+   *  accounting paths (per-loan `defaultEvents` vs aggregate
+   *  `recoveryPipeline`) cannot silently diverge. Empty array on
+   *  zero-default periods AND on the no-loan-data fallback path
+   *  (aggregate-only `recoveries` emission; cross-path identity is
+   *  structurally inapplicable there). */
   loanDefaultEvents: Array<{
     loanIndex: number;
     defaultedPar: number;
     scheduledRecoveryQuarter: number;
+    recoveryAmount: number;
   }>;
   equityDistribution: number;
   defaultsByRating: Record<string, number>;
@@ -1435,6 +1451,14 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
      *  reinvestment loans — those fall back to the deal-level
      *  `baseRateFloorPct`. */
     floorRate?: number;
+    /** Per-position recovery rate as a fraction (0..1), resolved from the
+     *  loan's agency recovery rates via `resolveAgencyRecovery` at
+     *  LoanState construction. Consumed at the forward-default firing
+     *  site to compute per-loan recovered cash; falls back to the global
+     *  `recoveryPct / 100` when undefined. Synthetic reinvestment loans
+     *  leave this unset — see the inline comment at the default site
+     *  for the original-vs-reinvested asymmetry. */
+    recoveryRateAgency?: number;
   }
 
   const loanStates: LoanState[] = loans.map((l) => ({
@@ -1461,6 +1485,7 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     defaultEvents: [],
     dayCountConvention: l.dayCountConvention,
     floorRate: l.floorRate,
+    recoveryRateAgency: resolveAgencyRecovery([l.recoveryRateMoodys, l.recoveryRateSp, l.recoveryRateFitch]),
   }));
 
   // Remove never_draw DDTLs (drawQuarter <= 0) — they never fund and shouldn't appear in the portfolio
@@ -2161,22 +2186,38 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
         if (loanDefaults > 0) {
           defaultsByRating[loan.ratingBucket] = (defaultsByRating[loan.ratingBucket] ?? 0) + loanDefaults;
           const scheduledRecoveryQuarter = q + recoveryLagQ;
+          // Per-position recovery rate from agency-supplied rates when
+          // available, else fall back to the global model `recoveryPct`.
+          // Asymmetry vs T=0: at the resolver's pre-existing-defaulted reduction
+          // a third tier (currentPrice as recovered value) sits between agency
+          // rates and 0; that tier does NOT apply here because at forward-
+          // default-time `currentPrice` is a stale snapshot of a pre-default
+          // performing loan, not a recovery proxy.
+          // Reinvested-loan asymmetry: synthetic loans created at the four
+          // reinvestment-synthesis sites carry no `recoveryRateAgency` and so
+          // recover at the global rate. Closing this asymmetry requires a
+          // per-deal-PPM bucket→recovery mapping (CLAUDE.md anti-pattern #1
+          // "don't overfit to a single deal" forbids hardcoding a market-
+          // standard table); filed as a follow-up KI rather than landed here.
+          const rate = loan.recoveryRateAgency ?? (recoveryPct / 100);
+          const recoveredCash = loanDefaults * rate;
           // B1 Tier 2: track per-position defaulted par + scheduled recovery.
           loan.defaultedParPending += loanDefaults;
           loan.defaultEvents.push({ quarter: scheduledRecoveryQuarter, defaultedPar: loanDefaults });
-          // Emit per-loan event to PeriodResult so tests can cross-verify the
-          // aggregate `recoveryPipeline` path uses the same per-loan schedule.
+          // Per-event push to recoveryPipeline (replaces the prior aggregate
+          // push). One default → one event → one pipeline entry, with NO inner
+          // gate on recoveredCash > 0 — Tier 1 identity (Σ defaultedPar ===
+          // period.defaults) requires every default present even when its
+          // recovery is zero. Sum-of-zeros is harmless at the consumer.
+          recoveryPipeline.push({ quarter: scheduledRecoveryQuarter, amount: recoveredCash });
           loanDefaultEventsThisPeriod.push({
             loanIndex: idx,
             defaultedPar: loanDefaults,
             scheduledRecoveryQuarter,
+            recoveryAmount: recoveredCash,
           });
         }
       }
-    }
-
-    if (totalDefaults > 0 && recoveryPct > 0) {
-      recoveryPipeline.push({ quarter: q + recoveryLagQ, amount: totalDefaults * (recoveryPct / 100) });
     }
 
     // ── 4. Per-loan prepayments ─────────────────────────────────────
@@ -2214,6 +2255,11 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
       currentPar -= prepayments;
 
       if (defaults > 0 && recoveryPct > 0) {
+        // No-loan-data fallback: aggregate-only emission. Does NOT push to
+        // `loanDefaultEventsThisPeriod` because there are no per-loan events
+        // to emit — the cross-path identity (`Σ event.recoveryAmount ===
+        // period.recoveries`) is structurally inapplicable on this path, not
+        // just untested. The B1 Tier 2 test gates on `hasLoans` accordingly.
         recoveryPipeline.push({ quarter: q + recoveryLagQ, amount: defaults * (recoveryPct / 100) });
       }
     }

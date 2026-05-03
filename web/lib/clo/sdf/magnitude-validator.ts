@@ -46,6 +46,15 @@ const BOUNDS: Record<string, Bound> = {
     max: 50,
     description: "coupon / index / all-in rate as percent (typical 1-15)",
   },
+  // Per-position agency recovery rate as percent. Real range 0–100 (typical
+  // CLO loans 25-70). Distinct bound from `rate_pct` because recovery is
+  // half the natural ceiling of an interest rate. 100 is the hard cap;
+  // values above signal absolute-vs-percent shape confusion or a parser
+  // failure on "Recovery_Rate" columns expressed in basis points.
+  recovery_rate_pct: {
+    max: 100,
+    description: "agency recovery rate as percent (typical 25-70, max 100)",
+  },
 };
 
 export function validateMagnitude(

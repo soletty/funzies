@@ -322,6 +322,15 @@ export interface ResolvedLoan {
   // Market data
   currentPrice?: number;
   marketValue?: number;
+  // Per-position agency recovery rates (from `clo_holdings.recovery_rate_*`).
+  // Consumed by the engine's forward-default site via `resolveAgencyRecovery`
+  // — the same helper used at the resolver's pre-existing-defaulted reduction
+  // — so per-position recovery applies whether the loan defaulted before or
+  // during the projection. Undefined when the SDF row carried no agency
+  // rate; the engine then falls back to the global `recoveryPct`.
+  recoveryRateMoodys?: number;
+  recoveryRateSp?: number;
+  recoveryRateFitch?: number;
   // Structural
   lienType?: string;
   isDefaulted?: boolean;

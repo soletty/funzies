@@ -8,6 +8,7 @@ import { CLO_DEFAULTS } from "./defaults";
 import { computeTopNObligorsPct } from "./pool-metrics";
 import { assignDenseSeniorityRanks, classOrderBucket } from "./seniority-rank";
 import { canonicalizeDayCount, type DayCountConvention } from "./day-count-canonicalize";
+import { resolveAgencyRecovery } from "./recovery-rate";
 
 /** Defensive sentinel stripper for rating strings already in the DB. The SDF
  *  parser now filters these at ingest (see trimRating), but pre-fix rows can
@@ -1409,6 +1410,13 @@ export function resolveWaterfallInputs(
       // Market data
       currentPrice: h.currentPrice ?? undefined,
       marketValue: h.marketValue ?? undefined,
+      // Per-position agency recovery rates — propagate raw (unnormalized) so
+      // the engine's forward-default site can call the same `resolveAgencyRecovery`
+      // helper used at the T=0 site. Centralizing the convention in one helper
+      // is the KI-21 anti-drift template; see `recovery-rate.ts`.
+      recoveryRateMoodys: h.recoveryRateMoodys ?? undefined,
+      recoveryRateSp: h.recoveryRateSp ?? undefined,
+      recoveryRateFitch: h.recoveryRateFitch ?? undefined,
       // Structural
       lienType: h.lienType ?? undefined,
       isDefaulted: h.isDefaulted ?? undefined,
@@ -1450,16 +1458,20 @@ export function resolveWaterfallInputs(
   }
   // Agency recovery value for OC numerator — the indenture uses the LESSER of available
   // agency recovery rates (e.g. "Lesser of Fitch Collateral Value and S&P Collateral Value").
+  // Three-tier hierarchy: agency rate → market price → 0 (engine applies model recoveryPct).
+  // Per-rate normalization happens inside `resolveAgencyRecovery`; the helper is the single
+  // owner of the "lesser of available agency rates" convention shared with the forward-default
+  // site in the projection engine.
   const preExistingDefaultOcValue = defaultedHoldings.reduce((s, h) => {
     const par = holdingPar(h);
-    const rates = [h.recoveryRateMoodys, h.recoveryRateSp, h.recoveryRateFitch]
-      .filter((r): r is number => r != null && r > 0);
-    if (rates.length > 0) {
-      const minRate = Math.min(...rates);
-      // Agency rates in percentage format (e.g. 28.5 = 28.5%)
-      return s + par * (minRate >= 1 ? minRate / 100 : minRate);
+    const agencyRate = resolveAgencyRecovery([h.recoveryRateMoodys, h.recoveryRateSp, h.recoveryRateFitch]);
+    if (agencyRate != null) {
+      return s + par * agencyRate;
     }
-    // No agency rates — fall back to market price
+    // No agency rates — fall back to market price (currentPrice is the recovered
+    // value at T=0 because the position is already defaulted; this tier does NOT
+    // apply at the forward-default site where currentPrice is a stale pre-default
+    // snapshot — see projection.ts default block).
     if (h.currentPrice != null && h.currentPrice > 0) {
       return s + par * (h.currentPrice >= 1 ? h.currentPrice / 100 : h.currentPrice);
     }

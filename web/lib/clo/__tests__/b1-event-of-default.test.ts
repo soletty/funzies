@@ -291,8 +291,17 @@ describe("B1 — computeEventOfDefaultTest (pure helper)", () => {
       }
     }
 
-    // Identity 2: aggregate recoveries per period = Σ(earlier events with
-    // matching scheduledRecoveryQuarter) × recoveryPct/100.
+    // Identity 2: aggregate recoveries per period = Σ(earlier events whose
+    // scheduledRecoveryQuarter matches) × event.recoveryAmount.
+    //
+    // Pre-KI-32 the expected value was Σ(defaultedPar) × global recoveryPct/100.
+    // KI-32 closure made recovery rates per-loan (agency-derived) so the
+    // aggregate must be Σ event.recoveryAmount — events carry their own
+    // already-multiplied cash. On a fixture whose loans carry no agency rates
+    // (Euro XV's loans don't pre-compute agency rates into the LoanInput
+    // path used here) the per-event rate falls back to the global recoveryPct,
+    // so this scenario is still meaningful as a Tier 2 cross-path check.
+    //
     // (Period index in result.periods is 0-based; q=0 corresponds to internal
     // quarter 1, so scheduledRecoveryQuarter=Q corresponds to result.periods[Q-1].)
     //
@@ -301,13 +310,19 @@ describe("B1 — computeEventOfDefaultTest (pure helper)", () => {
     // not just events scheduled FOR that quarter. The expected calc on
     // Q=N folds in every event whose scheduledRecoveryQuarter falls past
     // the projection horizon, mirroring the engine's sweep.
+    //
+    // Identity is gated on hasLoans: the no-loan-data fallback path emits
+    // aggregate-only recoveries with zero `loanDefaultEvents`, making the
+    // per-event sum structurally inapplicable there. This fixture is loan-
+    // bearing (Euro XV), so the gate is satisfied.
+    const hasLoans = result.periods.some(p => p.loanDefaultEvents.length > 0);
+    expect(hasLoans).toBe(true); // sanity: identity is meaningful on this fixture
     const lastQ = result.periods.length;
     for (let Q = 1; Q <= lastQ; Q++) {
-      const expectedRecoveryPar = result.periods
+      const expectedRecoveryCash = result.periods
         .flatMap((p) => p.loanDefaultEvents)
         .filter((e) => Q === lastQ ? e.scheduledRecoveryQuarter >= Q : e.scheduledRecoveryQuarter === Q)
-        .reduce((s, e) => s + e.defaultedPar, 0);
-      const expectedRecoveryCash = expectedRecoveryPar * (recoveryPct / 100);
+        .reduce((s, e) => s + e.recoveryAmount, 0);
       const actualRecoveryCash = result.periods[Q - 1].recoveries;
       expect(actualRecoveryCash).toBeCloseTo(expectedRecoveryCash, 2);
     }

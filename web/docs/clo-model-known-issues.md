@@ -41,11 +41,11 @@ Categorized so a partner reading cold can separate "what's still wrong" from "wh
 - [KI-26 — Reserve account opening balances dropped (Interest, Smoothing, Supplemental, Expense)](#ki-26)
 - [KI-29 — Discount / long-dated obligation haircuts are static snapshots, not recomputed forward](#ki-29)
 - [KI-31 — Hedge cost bps never extracted; engine emits zero on every hedged deal](#ki-31)
-- [KI-32 — Per-position agency recovery rates ignored for forward defaults (used only for pre-existing defaulted positions)](#ki-32)
 - [KI-36 — Per-tranche `payment_frequency` extracted but not consumed (uniform quarterly cadence)](#ki-36)
 - [KI-38 — FX / multi-currency unmodeled; `native_currency` parsed and discarded](#ki-38)
 - [KI-56 — N1 harness step-G sharing: `classA_interest` bucket compares against trustee[g] which on a Class X-bearing deal includes Class X amort](#ki-56)
 - [KI-60 — Three independent `normalizeClassName` implementations with divergent output shapes (sibling pattern to KI-21)](#ki-60)
+- [KI-63 — `resolveAgencyRecovery` minimizes over all three agencies; Euro XV PPM at the T=0 reduction site reads "Lesser of Fitch and S&P", a 2-agency convention (TENTATIVE)](#ki-63)
 
 ### Deferred — intentionally not modeled, magnitude known
 - [KI-02 — Step (D) Expense Reserve top-up](#ki-02)
@@ -657,33 +657,6 @@ Verified live on Euro XV: N1 harness diagnostic table shows `hedgePaymentPaid | 
 
 ---
 
-<a id="ki-32"></a>
-### [KI-32] Per-position agency recovery rates ignored for forward defaults (used only for pre-existing defaulted positions)
-
-**PPM reference:** Loan-level recovery is per-Moody's / S&P / Fitch agency assignments. Condition 10(a)(iv) Adjusted CPA uses the LESSER of available agency recovery rates for haircut computation on defaulted positions.
-
-**Current engine behavior:** Verified per-position recovery extraction:
-- `web/lib/clo/sdf/parse-collateral.ts:45-47, 195-197` extracts `recovery_rate_moodys`, `recovery_rate_sp`, and `recovery_rate_fitch` from the SDF.
-- `web/lib/clo/resolver.ts:1004` reads them at the pre-existing-defaulted-holdings reduction: `const rates = [h.recoveryRateMoodys, h.recoveryRateSp, h.recoveryRateFitch].filter(...)` then takes `Math.min(...rates)`.
-
-Agency recovery rates flow correctly into the OC numerator credit for *positions already defaulted at T=0*. They are NOT used for forward defaults during projection. The per-period default block at `projection.ts:1518-1519` (and the no-loan-data fallback path at lines 1546-1551) applies a single global `recoveryPct` (15% scalar default, or whatever the user assumed). Reinvested loans inherit the same global. A B-rated forward default and a CCC-rated forward default recover at the same rate.
-
-**PPM-correct behavior:** Forward-default recovery should be per-position — for each loan, compute its expected recovery from its own agency-specific recovery rates (or fall back to the model `recoveryPct` only if no agency rate is available). The data is already extracted; only the consumption is missing.
-
-**Quantitative magnitude:** Zero in a no-default scenario (Euro XV Q1 base case has 0 forward defaults). Material in stress scenarios. For a stress with 5% per-year CDR over 5 years on a €493M pool, the difference between (a) flat 60% recovery and (b) per-position recovery weighted to the rating distribution can be 5-10pp of pool recovery, translating to 50-100 bps of forward equity IRR.
-
-**Deferral rationale:** Forward modeling currently treats default-and-recovery as an aggregate-pool mechanic with scalar recovery, calibrated to "60% European CLO standard" or user-supplied. Per-position recovery requires loan-state to carry per-loan recovery rates and the default-handling block at `projection.ts:1518-1519` to apply them. The data already exists at the SDF-extraction layer — this is purely a propagation-and-consumption gap, not a new modeling axis.
-
-**Path to close:**
-1. Add `recoveryRateMoodys`, `recoveryRateSp`, `recoveryRateFitch` to `ResolvedLoan` (`resolver-types.ts:171-204`) — copy from the holding extraction analogous to the existing pricing fields.
-2. In `projection.ts:1518-1519` and the no-loan-data fallback (lines 1546-1551), compute per-loan recovery as `Math.min(...availableAgencyRates)` (matching the pre-existing-defaulted convention) before reducing to the recoveryPipeline. Fall back to global `recoveryPct` only when no agency rate is present.
-3. Apply the same per-position recovery to reinvested-loan synthesis (`projection.ts:1631-1635, 2273`): the synthesized loan should carry the rating-bucket-implied recovery from the model's rating-bucket → recovery mapping (or a per-bucket constant if no mapping exists).
-4. Re-baseline any stress-scenario test outputs that depend on aggregate recovery.
-
-**Test:** No active marker. When the fix lands, add a synthetic-stress test asserting that two loans defaulting in the same period with different rating-implied recoveries produce different recovery pipeline contributions (current engine: identical contributions; correct engine: differentiated).
-
----
-
 <a id="ki-33"></a>
 ### [KI-33] Reinvestment loan synthesis assumes par-purchase (€1 diverted = €1 par)
 
@@ -917,6 +890,41 @@ The PIK rate must be derivable forward from a single anchor (since `pikAmount` i
 7. Three-tier blocking ladder in resolver stays as-is (it's correct at the propagation layer); only the engine consumption changes.
 
 **Test:** No active failing marker; the gap is documented in `web/lib/clo/__tests__/resolver-pik-propagation.test.ts`'s docstring (which asserts that PIK propagation flows to `ResolvedLoan.isPik` and is consumed by the switch-simulator, but explicitly does NOT assert engine PIK accretion — that's the gap KI-62 captures). When the fix lands, the synthetic split-margin test from step 5 above pins the new correctness invariant; the docstring updates to remove the "engine does NOT dispatch" carve-out.
+
+---
+
+<a id="ki-63"></a>
+### [KI-63] `resolveAgencyRecovery` minimizes over all three agencies; Euro XV PPM at the T=0 reduction site reads "Lesser of Fitch and S&P" (TENTATIVE)
+
+**TENTATIVE: filed mid-task during KI-32 closure (2026-05-03) to satisfy the CLAUDE.md "candidate KI mid-task" rule. Disposition requires reading the Ares European XV PPM Conditions on Adjusted CPA and per-position recovery valuation, plus enough cross-deal sampling to know whether the convention varies per indenture.**
+
+**PPM reference:** Ares European XV PPM Condition 1 / Condition 10(a)(iv) — Adjusted Collateral Principal Amount construction. The pre-existing-defaulted reduction at `web/lib/clo/resolver.ts:1453` carries the inline comment "Lesser of Fitch Collateral Value and S&P Collateral Value" — a 2-agency convention. The current implementation passes all three agency rates (Moody's + S&P + Fitch) into `resolveAgencyRecovery`, taking the minimum across all three. Whether the comment is verbatim PPM language or a paraphrase, and whether the "Lesser of Fitch and S&P" applies only at T=0 vs both T=0 and forward defaults, has not been verified against the source PDF.
+
+**Current engine behavior:** Two consumers share `web/lib/clo/recovery-rate.ts:resolveAgencyRecovery`:
+- `web/lib/clo/resolver.ts:1453` — pre-existing-defaulted holdings reduction. Passes `[h.recoveryRateMoodys, h.recoveryRateSp, h.recoveryRateFitch]`.
+- `web/lib/clo/projection.ts` LoanState construction (line ~1473) — forward-default site. Same three-rate input from `ResolvedLoan`.
+
+Both call sites pass three rates, so the minimum is taken across whatever subset is non-null. On Euro XV today, the three SDF columns (`Moodys_Recovery_Rate`, `SP_Recovery_Rate`, `Fitch_Recovery_Rate`) are all populated for most defaulted holdings, so all three contribute to the min. Moody's recovery rates run lower than the other two on average (more conservative methodology), so the 3-agency min systematically pulls the recovery value below the 2-agency lesser-of-Fitch-and-S&P.
+
+**PPM-correct behavior:** Open question — the inline comment at `resolver.ts:1453` reads the PPM as 2-agency, but cross-deal sampling has not been done. Either:
+- (A) Convention is per-indenture: each PPM specifies its own agency subset. The fix is per-deal extraction of the agency list.
+- (B) Convention is universal European-CLO market practice (e.g., always 2-agency, always lesser-of-Fitch-and-S&P): one extraction once, applied across all deals.
+- (C) Convention is per-position-class: senior secured loans use one rule, mezzanine another.
+
+Until this is resolved, **the engine ships the 3-agency convention at both call sites for consistency** — closing the parallel-implementation drift exposed during KI-32 closure took priority over getting the agency-subset right. Both sites are wrong in the same way; neither silently differs from the other.
+
+**Quantitative magnitude:** Tentative. On Euro XV today, the magnitude is bounded by the gap between Moody's recovery and `min(S&P, Fitch)` across defaulted holdings — typically ~10pp on senior secured loans (Moody's ~50% vs S&P/Fitch ~60-70% for the same position). On a €1M defaulted loan, that's €100k of OC-numerator understatement at T=0. Forward-default magnitude is the same shape applied to projected defaults; scales with the stress scenario.
+
+**Deferral rationale:** Filed mid-PR per CLAUDE.md candidate-KI discipline. The 3-agency-min behavior was inherited from the pre-KI-32 site and would be wrong at scale (different deals, different PPM language). Resolution requires reading the Ares European XV PPM and ideally one or two non-Ares deals to triangulate whether the convention is per-deal or universal. Distinct from KI-32 (the consumption path) — this is the agency-selection rule sitting upstream of the helper.
+
+**Path to close:**
+1. Read Ares European XV PPM Condition 1 (Defaulted Obligation, Collateral Value) and Condition 10(a)(iv) (Adjusted CPA) verbatim. Confirm whether the indenture's "Collateral Value" definition involves 2 or 3 agencies, and whether the convention differs between T=0 OC-numerator and forward-default recovery contexts.
+2. If per-deal: add `recoveryAgencySubset?: ("moodys" | "sp" | "fitch")[]` (or similar) to `ResolvedDealData`, populate from PPM extraction, and have both call sites filter the 3-agency input through the subset before calling `resolveAgencyRecovery`.
+3. If universal: amend `resolveAgencyRecovery` callers (or add a wrapper) that drops Moody's from the input array. The helper itself remains generic.
+4. Re-baseline `preExistingDefaultOcValue` on Euro XV against the trustee's reported Adjusted CPA after the fix to confirm the new convention narrows trustee-engine drift, not widens it.
+5. Add a deal-level test that asserts the agency subset is loaded into both consumers (resolver T=0 + LoanState construction), preventing future drift between sites.
+
+**Test:** `web/lib/clo/__tests__/recovery-rate.test.ts` `KI-63 [tentative] currently dispatches over all three agencies` pins the current 3-agency-min behavior on a synthetic input where the 3-agency answer (Moody's lowest) differs from the 2-agency-Fitch+S&P answer. Pre-close: assertion is the 3-agency min. Post-close: flip to the 2-agency answer (or whatever the per-deal extraction returns) AND remove this entry per closure doctrine.
 
 ---
 
