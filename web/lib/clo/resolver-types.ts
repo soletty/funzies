@@ -327,9 +327,6 @@ export interface ResolvedLoan {
   isDefaulted?: boolean;
   defaultDate?: string;
   floorRate?: number;
-  pikAmount?: number;
-  // Consolidated credit watch — true if ANY agency has negative watch
-  creditWatch?: boolean;
   // Moody's WARF factor for this position (1=Aaa, 10000=Ca/C). Multiply by
   // parBalance and divide by pool par to get the position's WARF contribution.
   warfFactor?: number;
@@ -355,6 +352,14 @@ export interface ResolvedLoan {
    *  unrecognized, or when the column is null on a fixed-rate position
    *  (no market default exists). */
   dayCountConvention?: DayCountConvention;
+  /** Cov-lite classification (from `clo_holdings.is_cov_lite`). Used by
+   *  the switch simulator's delta-style `pctCovLite` recompute. The
+   *  delta-recompute fires only when both swap legs carry a known
+   *  isCovLite — when either leg is null/undefined, the simulator
+   *  inherits the deal-level pctCovLite from the resolver and emits a
+   *  coverage warning, avoiding silent inflation OR deflation of the
+   *  partner-visible share. */
+  isCovLite?: boolean;
 }
 
 export type WarningSeverity = "info" | "warn" | "error";

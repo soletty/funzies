@@ -173,15 +173,87 @@ describe("D4 — top10ObligorsPct recomputed on switch", () => {
   });
 });
 
-// TODO(future "isCovLite on ResolvedLoan"): DELETE this describe block when
-// `pctCovLite`, `pctPik`, etc. become recomputable on the switched pool
-// (i.e. ResolvedLoan gains per-loan `isCovLite` / `isPik` flags and
-// applySwitch starts recomputing these fields instead of inheriting stale
-// from base). This test pins the CURRENT stale-inherit contract; when the
-// correct fix ships, it will fail — don't flip it, delete it and add a
-// positive-enforcement assertion that the recompute happened.
-describe("D4 — non-recomputed fields inherit from base (documented gap)", () => {
-  it("pctCovLite stays at base value on switched pool", () => {
+// pctCovLite delta-recompute: applySwitch adjusts the base pctCovLite for
+// the swap when both legs carry a known isCovLite, otherwise inherits +
+// emits a coverage warning. The cases below pin both branches.
+describe("D4 — pctCovLite delta-recompute", () => {
+  it("delta-recompute fires when both legs have known isCovLite", () => {
+    // Find a non-cov-lite sell candidate.
+    const sellNonCovLiteIdx = fixture.resolved.loans.findIndex(
+      (l) => l.isCovLite === false && l.parBalance > 500_000 && !l.isDelayedDraw,
+    );
+    expect(sellNonCovLiteIdx).toBeGreaterThan(-1);
+    const sellLoan = fixture.resolved.loans[sellNonCovLiteIdx];
+    // Buy a cov-lite replacement of the same par.
+    const buyLoan: ResolvedLoan = {
+      parBalance: sellLoan.parBalance,
+      maturityDate: sellLoan.maturityDate,
+      ratingBucket: "B",
+      spreadBps: sellLoan.spreadBps,
+      obligorName: "Cov-Lite Replacement",
+      warfFactor: sellLoan.warfFactor,
+      isCovLite: true,
+    };
+    const warnings: import("@/lib/clo/resolver-types").ResolutionWarning[] = [];
+    const result = applySwitch(
+      fixture.resolved,
+      { sellLoanIndex: sellNonCovLiteIdx, sellParAmount: sellLoan.parBalance, buyLoan, sellPrice: 100, buyPrice: 100 },
+      assumptions,
+      warnings,
+    );
+
+    // The engine computes the delta using sum-of-loans as the denominator
+    // (not poolSummary.totalPar, which can include unfunded DDTLs / pre-
+    // existing defaults). Compute the same denominator here for an
+    // engine-vs-engine assertion.
+    const switchedSumLoans = result.switchedResolved.loans.reduce((s, l) => s + l.parBalance, 0);
+    // sell is non-cov-lite (removed=0); buy is cov-lite (added=sellLoan.par).
+    const baseCovLitePar = (fixture.resolved.poolSummary.pctCovLite! / 100) * fixture.resolved.poolSummary.totalPar;
+    const expectedNewPar = baseCovLitePar + sellLoan.parBalance;
+    const expectedPct = (expectedNewPar / switchedSumLoans) * 100;
+
+    expect(result.switchedResolved.poolSummary.pctCovLite).toBeCloseTo(expectedPct, 4);
+    // Switched value should be HIGHER than base (added cov-lite par).
+    expect(result.switchedResolved.poolSummary.pctCovLite!).toBeGreaterThan(
+      fixture.resolved.poolSummary.pctCovLite!,
+    );
+    // No coverage warning when both legs are known.
+    expect(warnings.filter(w => w.field === "switchedPctCovLite")).toHaveLength(0);
+  });
+
+  it("inherits + emits coverage warning when buy leg has unknown isCovLite", () => {
+    const sellLoan = fixture.resolved.loans[sellIdx];
+    const buyLoan: ResolvedLoan = {
+      parBalance: sellLoan.parBalance,
+      maturityDate: sellLoan.maturityDate,
+      ratingBucket: "B",
+      spreadBps: sellLoan.spreadBps,
+      obligorName: "Unknown Cov-Lite",
+      warfFactor: sellLoan.warfFactor,
+      // isCovLite deliberately omitted — partner-supplied buy loan with no flag
+    };
+    const warnings: import("@/lib/clo/resolver-types").ResolutionWarning[] = [];
+    const result = applySwitch(
+      fixture.resolved,
+      { sellLoanIndex: sellIdx, sellParAmount: sellLoan.parBalance, buyLoan, sellPrice: 100, buyPrice: 100 },
+      assumptions,
+      warnings,
+    );
+
+    // Inherits base value when delta-recompute can't fire.
+    expect(result.switchedResolved.poolSummary.pctCovLite).toBe(
+      fixture.resolved.poolSummary.pctCovLite,
+    );
+    // Coverage warning emitted.
+    const coverageWarn = warnings.find(w => w.field === "switchedPctCovLite");
+    expect(coverageWarn).toBeDefined();
+    expect(coverageWarn!.severity).toBe("warn");
+    expect(coverageWarn!.blocking).toBe(false);
+  });
+
+  // pctPik recompute lands when isPik propagation ships separately. Pin
+  // the current stale-inherit contract until then to catch silent drift.
+  it("pctPik stays at base value on switched pool (pending isPik propagation)", () => {
     const sellLoan = fixture.resolved.loans[sellIdx];
     const buyLoan: ResolvedLoan = {
       parBalance: sellLoan.parBalance,
@@ -195,13 +267,6 @@ describe("D4 — non-recomputed fields inherit from base (documented gap)", () =
       fixture.resolved,
       { sellLoanIndex: sellIdx, sellParAmount: sellLoan.parBalance, buyLoan, sellPrice: 100, buyPrice: 100 },
       assumptions,
-    );
-    // pctCovLite is among the fields we CAN'T recompute — inherited from base.
-    // This is the documented methodology gap; test pins the current behavior so
-    // a future expansion to recompute from isCovLite doesn't silently change
-    // the contract without a test update.
-    expect(result.switchedResolved.poolSummary.pctCovLite).toBe(
-      fixture.resolved.poolSummary.pctCovLite,
     );
     expect(result.switchedResolved.poolSummary.pctPik).toBe(
       fixture.resolved.poolSummary.pctPik,

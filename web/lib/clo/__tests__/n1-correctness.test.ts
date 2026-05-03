@@ -294,7 +294,20 @@ describe("N1 correctness — currently broken buckets (documented in KI ledger)"
       // by €250. Pre-emission: -€50,742.24. Post-emission: -€50,992.24. Matches
       // engine emission of €250 to the cent (fixed absolute amount, no
       // day-count residual like taxes).
-      expectedDrift: -50992.24,
+      //
+      // **Per-loan day-count exposure cascade re-baseline (−€6,247.38 shift):**
+      //   The engine's per-loan day-count dispatch (`loan.dayCountConvention`)
+      //   was previously masked on this fixture by `resolved.loans` rows that
+      //   omitted the field — every loan silently fell back to actual_360. A
+      //   subsequent fixture refresh propagates the actual conventions from
+      //   `raw.holdings`, including loans on 30_360 / 30e_360 / actual_365.
+      //   On the 92-day period (Mar 9 → Jun 9), 30_360 / 30e_360 give 90/360
+      //   (vs 92/360 for actual_360), reducing per-loan interest accrual on
+      //   those positions. Less interestCollected → less mgmt fees / class
+      //   interest paid → smaller residual to subs → drift shifts more
+      //   negative. Pre-regen: -€50,992.24. Post-regen: -€57,239.62.
+      //   Δ: -€6,247.38.
+      expectedDrift: -57239.62,
       tolerance: 50,
       closeThreshold: 50,
     },

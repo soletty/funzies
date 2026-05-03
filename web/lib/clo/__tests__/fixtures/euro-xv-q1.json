@@ -907,8 +907,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 4904371.58,
@@ -925,8 +927,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 4097998.17,
@@ -941,8 +945,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 3200000,
@@ -959,8 +965,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 3181472.84,
@@ -977,8 +985,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 3142857,
@@ -993,8 +1003,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 3140000,
@@ -1011,8 +1023,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 3024968.07,
@@ -1029,8 +1043,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 3016860.94,
@@ -1047,8 +1063,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 28101.56,
-        "warfFactor": 4770
+        "isCovLite": false,
+        "warfFactor": 4770,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 3000000,
@@ -1065,8 +1083,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 940
+        "isCovLite": false,
+        "warfFactor": 940,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 3000000,
@@ -1083,8 +1103,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 1766
+        "isCovLite": false,
+        "warfFactor": 1766,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 3000000,
@@ -1101,8 +1123,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 3000000,
@@ -1119,8 +1143,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 4770
+        "isCovLite": false,
+        "warfFactor": 4770,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 3000000,
@@ -1137,8 +1163,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 3000000,
@@ -1153,8 +1181,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 3000000,
@@ -1171,8 +1201,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 3000000,
@@ -1189,8 +1221,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 3000000,
@@ -1207,8 +1241,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 3000000,
@@ -1225,8 +1261,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 3000000,
@@ -1243,8 +1281,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 3000000,
@@ -1261,8 +1301,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 3000000,
@@ -1279,8 +1321,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 2911765,
@@ -1297,8 +1341,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 2853451.46,
@@ -1315,8 +1361,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 2766417,
@@ -1333,8 +1381,10 @@
         "currentPrice": 86.874151,
         "marketValue": 86.874,
         "isDefaulted": false,
-        "pikAmount": 0,
-        "warfFactor": 4770
+        "isCovLite": false,
+        "warfFactor": 4770,
+        "currency": "EUR",
+        "dayCountConvention": "30e_360"
       },
       {
         "parBalance": 2700000,
@@ -1351,8 +1401,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 2606665,
@@ -1366,8 +1418,10 @@
         "marketValue": 41.4,
         "lienType": "First Lien",
         "isDefaulted": false,
-        "pikAmount": 0,
-        "warfFactor": 6500
+        "isCovLite": false,
+        "warfFactor": 6500,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 2600000,
@@ -1384,8 +1438,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 2594594.59,
@@ -1402,8 +1458,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 2571429,
@@ -1420,8 +1478,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 2493887,
@@ -1438,8 +1498,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 2487805,
@@ -1456,8 +1518,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 2450000,
@@ -1474,8 +1538,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 2337500,
@@ -1492,8 +1558,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 2250000,
@@ -1510,8 +1578,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 2250000,
@@ -1528,8 +1598,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2220
+        "isCovLite": false,
+        "warfFactor": 2220,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 2208374.52,
@@ -1546,8 +1618,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 2207624.59,
@@ -1564,8 +1638,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 2193877.55,
@@ -1582,8 +1658,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 2187500,
@@ -1600,8 +1678,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2220
+        "isCovLite": false,
+        "warfFactor": 2220,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 2169492,
@@ -1618,8 +1698,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 2156250,
@@ -1636,8 +1718,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 2141447,
@@ -1654,8 +1738,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2220
+        "isCovLite": false,
+        "warfFactor": 2220,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 2135944.8,
@@ -1672,8 +1758,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 2131336.41,
@@ -1690,8 +1778,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 2092430.21,
@@ -1708,8 +1798,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 2070671.73,
@@ -1726,8 +1818,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 2055000,
@@ -1742,8 +1836,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 1766
+        "isCovLite": false,
+        "warfFactor": 1766,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 2019690.02,
@@ -1760,8 +1856,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 2011240.62,
@@ -1778,8 +1876,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 28101.56,
-        "warfFactor": 4770
+        "isCovLite": false,
+        "warfFactor": 4770,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 2000000,
@@ -1794,8 +1894,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 2000000,
@@ -1812,8 +1914,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 2000000,
@@ -1830,8 +1934,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 2000000,
@@ -1848,8 +1954,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 2000000,
@@ -1866,8 +1974,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2220
+        "isCovLite": false,
+        "warfFactor": 2220,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 2000000,
@@ -1884,8 +1994,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2220
+        "isCovLite": false,
+        "warfFactor": 2220,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 2000000,
@@ -1902,8 +2014,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": true,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 2000000,
@@ -1920,8 +2034,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 2000000,
@@ -1938,8 +2054,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 2000000,
@@ -1956,8 +2074,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 2000000,
@@ -1974,8 +2094,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 2000000,
@@ -1988,7 +2110,9 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0
+        "isCovLite": false,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 2000000,
@@ -2005,8 +2129,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 2000000,
@@ -2023,8 +2149,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 2000000,
@@ -2041,8 +2169,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 2000000,
@@ -2059,8 +2189,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 2000000,
@@ -2077,8 +2209,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 2000000,
@@ -2091,7 +2225,9 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0
+        "isCovLite": false,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 2000000,
@@ -2104,7 +2240,9 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0
+        "isCovLite": false,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 2000000,
@@ -2121,8 +2259,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 1350
+        "isCovLite": false,
+        "warfFactor": 1350,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 2000000,
@@ -2139,8 +2279,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 2000000,
@@ -2157,8 +2299,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2220
+        "isCovLite": false,
+        "warfFactor": 2220,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 2000000,
@@ -2175,8 +2319,10 @@
         "currentPrice": 94.371747,
         "marketValue": 94.372,
         "isDefaulted": false,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "30e_360"
       },
       {
         "parBalance": 2000000,
@@ -2193,8 +2339,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2220
+        "isCovLite": false,
+        "warfFactor": 2220,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 2000000,
@@ -2211,8 +2359,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 2000000,
@@ -2229,8 +2379,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 2000000,
@@ -2247,8 +2399,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 2000000,
@@ -2265,8 +2419,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 2000000,
@@ -2283,8 +2439,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 940
+        "isCovLite": false,
+        "warfFactor": 940,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 2000000,
@@ -2301,8 +2459,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2220
+        "isCovLite": false,
+        "warfFactor": 2220,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 2000000,
@@ -2319,8 +2479,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2220
+        "isCovLite": false,
+        "warfFactor": 2220,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 2000000,
@@ -2337,8 +2499,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 2000000,
@@ -2355,8 +2519,10 @@
         "currentPrice": 98.2532,
         "marketValue": 97.976,
         "isDefaulted": false,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "30e_360"
       },
       {
         "parBalance": 2000000,
@@ -2373,8 +2539,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 2000000,
@@ -2391,8 +2559,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 2000000,
@@ -2407,8 +2577,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 2000000,
@@ -2425,8 +2597,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 2000000,
@@ -2443,8 +2617,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 2000000,
@@ -2461,8 +2637,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 2000000,
@@ -2479,8 +2657,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 2000000,
@@ -2497,8 +2677,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 2000000,
@@ -2515,8 +2697,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1980000,
@@ -2531,8 +2715,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": true,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1980000,
@@ -2547,8 +2733,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1958762.88,
@@ -2565,8 +2753,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 4770
+        "isCovLite": false,
+        "warfFactor": 4770,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1932000,
@@ -2579,7 +2769,9 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0
+        "isCovLite": false,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1930541.57,
@@ -2596,8 +2788,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1930126.41,
@@ -2612,8 +2806,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1925000,
@@ -2628,8 +2824,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1901571.43,
@@ -2646,8 +2844,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1879879.88,
@@ -2664,8 +2864,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2220
+        "isCovLite": false,
+        "warfFactor": 2220,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1869497.04,
@@ -2682,8 +2884,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1852941,
@@ -2700,8 +2904,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1846155,
@@ -2718,8 +2924,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1834862,
@@ -2736,8 +2944,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0.5,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1818181.82,
@@ -2754,8 +2964,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1801990.57,
@@ -2772,8 +2984,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1800000,
@@ -2790,8 +3004,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1793432.84,
@@ -2808,8 +3024,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1766480.45,
@@ -2826,8 +3044,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1750000,
@@ -2844,8 +3064,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 1350
+        "isCovLite": false,
+        "warfFactor": 1350,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1742160,
@@ -2862,8 +3084,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1727891.16,
@@ -2880,8 +3104,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1725490,
@@ -2898,8 +3124,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2220
+        "isCovLite": false,
+        "warfFactor": 2220,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1715666,
@@ -2916,8 +3144,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1709677,
@@ -2934,8 +3164,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1707816.6,
@@ -2952,8 +3184,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1700000,
@@ -2970,8 +3204,10 @@
         "currentPrice": 85.031616,
         "marketValue": 85.032,
         "isDefaulted": false,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "30e_360"
       },
       {
         "parBalance": 1692571,
@@ -2988,8 +3224,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2220
+        "isCovLite": false,
+        "warfFactor": 2220,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1680000,
@@ -3006,8 +3244,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1675000,
@@ -3024,8 +3264,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1666667,
@@ -3042,8 +3284,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1666667,
@@ -3060,8 +3304,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1666667,
@@ -3078,8 +3324,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 1766
+        "isCovLite": false,
+        "warfFactor": 1766,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1666666.67,
@@ -3096,8 +3344,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 4770
+        "isCovLite": false,
+        "warfFactor": 4770,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1636364,
@@ -3114,8 +3364,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1625000,
@@ -3132,8 +3384,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1594495.57,
@@ -3146,7 +3400,9 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0
+        "isCovLite": false,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1587350,
@@ -3163,8 +3419,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1583333.34,
@@ -3181,8 +3439,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1575492,
@@ -3199,8 +3459,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1557692,
@@ -3213,7 +3475,9 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0
+        "isCovLite": false,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1531532,
@@ -3230,8 +3494,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1501000,
@@ -3248,8 +3514,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1500000,
@@ -3266,8 +3534,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1500000,
@@ -3284,8 +3554,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1500000,
@@ -3302,8 +3574,10 @@
         "currentPrice": 95.857633,
         "marketValue": 95.858,
         "isDefaulted": false,
-        "pikAmount": 0,
-        "warfFactor": 1766
+        "isCovLite": false,
+        "warfFactor": 1766,
+        "currency": "EUR",
+        "dayCountConvention": "30e_360"
       },
       {
         "parBalance": 1500000,
@@ -3320,8 +3594,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1496658.38,
@@ -3338,8 +3614,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 4770
+        "isCovLite": false,
+        "warfFactor": 4770,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1485704.27,
@@ -3356,8 +3634,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1468922.36,
@@ -3374,8 +3654,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1462500,
@@ -3392,8 +3674,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2220
+        "isCovLite": false,
+        "warfFactor": 2220,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1459696.31,
@@ -3410,8 +3694,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1459696.31,
@@ -3428,8 +3714,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1446390,
@@ -3446,8 +3734,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2220
+        "isCovLite": false,
+        "warfFactor": 2220,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1424000,
@@ -3464,8 +3754,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1411765,
@@ -3482,8 +3774,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2220
+        "isCovLite": false,
+        "warfFactor": 2220,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1403746.48,
@@ -3500,8 +3794,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1400826.45,
@@ -3514,7 +3810,9 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0
+        "isCovLite": false,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1392000,
@@ -3531,8 +3829,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1362375.41,
@@ -3549,8 +3849,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1345454.55,
@@ -3563,7 +3865,9 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0
+        "isCovLite": false,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1340034,
@@ -3580,8 +3884,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1330000,
@@ -3598,8 +3904,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1300000,
@@ -3616,8 +3924,10 @@
         "currentPrice": 99.2533,
         "marketValue": 99.253,
         "isDefaulted": false,
-        "pikAmount": 0,
-        "warfFactor": 2220
+        "isCovLite": false,
+        "warfFactor": 2220,
+        "currency": "EUR",
+        "dayCountConvention": "30e_360"
       },
       {
         "parBalance": 1291271,
@@ -3634,8 +3944,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1264295.73,
@@ -3652,8 +3964,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1250000,
@@ -3670,8 +3984,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1209302,
@@ -3688,8 +4004,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2220
+        "isCovLite": false,
+        "warfFactor": 2220,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1204724.41,
@@ -3706,8 +4024,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2220
+        "isCovLite": false,
+        "warfFactor": 2220,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1184849,
@@ -3724,8 +4044,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1174000,
@@ -3742,8 +4064,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1170732,
@@ -3760,8 +4084,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2220
+        "isCovLite": false,
+        "warfFactor": 2220,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1168392.11,
@@ -3778,8 +4104,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1166667,
@@ -3796,8 +4124,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2220
+        "isCovLite": false,
+        "warfFactor": 2220,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1139555.79,
@@ -3814,8 +4144,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1135629.66,
@@ -3832,8 +4164,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1101890.41,
@@ -3850,8 +4184,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1100000,
@@ -3868,8 +4204,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1098428.57,
@@ -3886,8 +4224,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1083333,
@@ -3904,8 +4244,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1075268.82,
@@ -3922,8 +4264,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1075000,
@@ -3938,8 +4282,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1060000,
@@ -3955,8 +4301,10 @@
         "marketValue": 100.481,
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2220
+        "isCovLite": false,
+        "warfFactor": 2220,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1059000,
@@ -3972,8 +4320,10 @@
         "marketValue": 95.329,
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_365"
       },
       {
         "parBalance": 1057416,
@@ -3986,7 +4336,9 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0
+        "isCovLite": false,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1052632,
@@ -3999,7 +4351,9 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0
+        "isCovLite": false,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1033000,
@@ -4016,8 +4370,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1016163.79,
@@ -4034,8 +4390,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1000000,
@@ -4052,8 +4410,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1000000,
@@ -4070,8 +4430,10 @@
         "currentPrice": 69.805474,
         "marketValue": 69.812,
         "isDefaulted": false,
-        "pikAmount": 0,
-        "warfFactor": 6500
+        "isCovLite": false,
+        "warfFactor": 6500,
+        "currency": "EUR",
+        "dayCountConvention": "30_360"
       },
       {
         "parBalance": 1000000,
@@ -4088,8 +4450,10 @@
         "currentPrice": 69.805474,
         "marketValue": 69.812,
         "isDefaulted": false,
-        "pikAmount": 0,
-        "warfFactor": 6500
+        "isCovLite": false,
+        "warfFactor": 6500,
+        "currency": "EUR",
+        "dayCountConvention": "30_360"
       },
       {
         "parBalance": 1000000,
@@ -4105,8 +4469,10 @@
         "marketValue": 98.935,
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_365"
       },
       {
         "parBalance": 1000000,
@@ -4123,8 +4489,10 @@
         "currentPrice": 69.805474,
         "marketValue": 69.812,
         "isDefaulted": false,
-        "pikAmount": 0,
-        "warfFactor": 6500
+        "isCovLite": false,
+        "warfFactor": 6500,
+        "currency": "EUR",
+        "dayCountConvention": "30_360"
       },
       {
         "parBalance": 1000000,
@@ -4141,8 +4509,10 @@
         "currentPrice": 69.805474,
         "marketValue": 69.805,
         "isDefaulted": false,
-        "pikAmount": 0,
-        "warfFactor": 6500
+        "isCovLite": false,
+        "warfFactor": 6500,
+        "currency": "EUR",
+        "dayCountConvention": "30_360"
       },
       {
         "parBalance": 1000000,
@@ -4159,8 +4529,10 @@
         "currentPrice": 58.5,
         "marketValue": 58.5,
         "isDefaulted": false,
-        "pikAmount": 581032.34,
-        "warfFactor": 6500
+        "isCovLite": false,
+        "warfFactor": 6500,
+        "currency": "EUR",
+        "dayCountConvention": "30e_360"
       },
       {
         "parBalance": 1000000,
@@ -4177,8 +4549,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1000000,
@@ -4194,8 +4568,10 @@
         "marketValue": 96.464,
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_365"
       },
       {
         "parBalance": 1000000,
@@ -4208,7 +4584,9 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0
+        "isCovLite": false,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1000000,
@@ -4225,8 +4603,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 4770
+        "isCovLite": false,
+        "warfFactor": 4770,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1000000,
@@ -4243,8 +4623,10 @@
         "currentPrice": 98.495794,
         "marketValue": 98.496,
         "isDefaulted": false,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "30e_360"
       },
       {
         "parBalance": 1000000,
@@ -4261,8 +4643,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1000000,
@@ -4279,8 +4663,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1000000,
@@ -4297,8 +4683,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1000000,
@@ -4315,8 +4703,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1000000,
@@ -4333,8 +4723,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1000000,
@@ -4351,8 +4743,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1000000,
@@ -4369,8 +4763,10 @@
         "currentPrice": 98.201298,
         "marketValue": 98.201,
         "isDefaulted": false,
-        "pikAmount": 0,
-        "warfFactor": 2220
+        "isCovLite": false,
+        "warfFactor": 2220,
+        "currency": "EUR",
+        "dayCountConvention": "30e_360"
       },
       {
         "parBalance": 1000000,
@@ -4387,8 +4783,10 @@
         "currentPrice": 98.201298,
         "marketValue": 98.201,
         "isDefaulted": false,
-        "pikAmount": 0,
-        "warfFactor": 2220
+        "isCovLite": false,
+        "warfFactor": 2220,
+        "currency": "EUR",
+        "dayCountConvention": "30e_360"
       },
       {
         "parBalance": 1000000,
@@ -4405,8 +4803,10 @@
         "currentPrice": 99.2533,
         "marketValue": 99.253,
         "isDefaulted": false,
-        "pikAmount": 0,
-        "warfFactor": 2220
+        "isCovLite": false,
+        "warfFactor": 2220,
+        "currency": "EUR",
+        "dayCountConvention": "30e_360"
       },
       {
         "parBalance": 1000000,
@@ -4423,8 +4823,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1000000,
@@ -4437,7 +4839,9 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0
+        "isCovLite": false,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1000000,
@@ -4454,8 +4858,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1000000,
@@ -4472,8 +4878,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1000000,
@@ -4490,8 +4898,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1000000,
@@ -4508,8 +4918,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1000000,
@@ -4526,8 +4938,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1000000,
@@ -4544,8 +4958,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2220
+        "isCovLite": false,
+        "warfFactor": 2220,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1000000,
@@ -4562,8 +4978,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 1350
+        "isCovLite": false,
+        "warfFactor": 1350,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1000000,
@@ -4580,8 +4998,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 4770
+        "isCovLite": false,
+        "warfFactor": 4770,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1000000,
@@ -4598,8 +5018,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1000000,
@@ -4616,8 +5038,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2220
+        "isCovLite": false,
+        "warfFactor": 2220,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1000000,
@@ -4634,8 +5058,10 @@
         "currentPrice": 89.570902,
         "marketValue": 89.571,
         "isDefaulted": false,
-        "pikAmount": 0,
-        "warfFactor": 2220
+        "isCovLite": false,
+        "warfFactor": 2220,
+        "currency": "EUR",
+        "dayCountConvention": "30e_360"
       },
       {
         "parBalance": 1000000,
@@ -4652,8 +5078,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1000000,
@@ -4670,8 +5098,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1000000,
@@ -4688,8 +5118,10 @@
         "currentPrice": 89.570902,
         "marketValue": 89.571,
         "isDefaulted": false,
-        "pikAmount": 0,
-        "warfFactor": 2220
+        "isCovLite": false,
+        "warfFactor": 2220,
+        "currency": "EUR",
+        "dayCountConvention": "30e_360"
       },
       {
         "parBalance": 1000000,
@@ -4706,8 +5138,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1000000,
@@ -4724,8 +5158,10 @@
         "currentPrice": 89.570902,
         "marketValue": 89.571,
         "isDefaulted": false,
-        "pikAmount": 0,
-        "warfFactor": 2220
+        "isCovLite": false,
+        "warfFactor": 2220,
+        "currency": "EUR",
+        "dayCountConvention": "30e_360"
       },
       {
         "parBalance": 1000000,
@@ -4742,8 +5178,10 @@
         "currentPrice": 88.32738,
         "marketValue": 88.327,
         "isDefaulted": false,
-        "pikAmount": 0,
-        "warfFactor": 2220
+        "isCovLite": false,
+        "warfFactor": 2220,
+        "currency": "EUR",
+        "dayCountConvention": "30e_360"
       },
       {
         "parBalance": 1000000,
@@ -4760,8 +5198,10 @@
         "currentPrice": 88.32738,
         "marketValue": 88.327,
         "isDefaulted": false,
-        "pikAmount": 0,
-        "warfFactor": 2220
+        "isCovLite": false,
+        "warfFactor": 2220,
+        "currency": "EUR",
+        "dayCountConvention": "30e_360"
       },
       {
         "parBalance": 1000000,
@@ -4778,8 +5218,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1000000,
@@ -4796,8 +5238,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1000000,
@@ -4814,8 +5258,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1000000,
@@ -4832,8 +5278,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1000000,
@@ -4850,8 +5298,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1000000,
@@ -4868,8 +5318,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2220
+        "isCovLite": false,
+        "warfFactor": 2220,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1000000,
@@ -4886,8 +5338,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1000000,
@@ -4904,8 +5358,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1000000,
@@ -4922,8 +5378,10 @@
         "currentPrice": 98.2532,
         "marketValue": 98.253,
         "isDefaulted": false,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "30e_360"
       },
       {
         "parBalance": 1000000,
@@ -4940,8 +5398,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1000000,
@@ -4958,8 +5418,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1000000,
@@ -4976,8 +5438,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1000000,
@@ -4994,8 +5458,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2220
+        "isCovLite": false,
+        "warfFactor": 2220,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1000000,
@@ -5012,8 +5478,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1000000,
@@ -5029,8 +5497,10 @@
         "marketValue": 87.932,
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_365"
       },
       {
         "parBalance": 1000000,
@@ -5047,8 +5517,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 940
+        "isCovLite": false,
+        "warfFactor": 940,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1000000,
@@ -5065,8 +5537,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 940
+        "isCovLite": false,
+        "warfFactor": 940,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1000000,
@@ -5083,8 +5557,10 @@
         "currentPrice": 85.031616,
         "marketValue": 85.032,
         "isDefaulted": false,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "30e_360"
       },
       {
         "parBalance": 1000000,
@@ -5101,8 +5577,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1000000,
@@ -5119,8 +5597,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1000000,
@@ -5137,8 +5617,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1000000,
@@ -5155,8 +5637,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1000000,
@@ -5172,8 +5656,10 @@
         "marketValue": 100.249,
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1000000,
@@ -5190,8 +5676,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 4770
+        "isCovLite": false,
+        "warfFactor": 4770,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1000000,
@@ -5208,8 +5696,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2220
+        "isCovLite": false,
+        "warfFactor": 2220,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1000000,
@@ -5226,8 +5716,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1000000,
@@ -5244,8 +5736,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1000000,
@@ -5262,8 +5756,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1000000,
@@ -5280,8 +5776,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1000000,
@@ -5298,8 +5796,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1000000,
@@ -5315,8 +5815,10 @@
         "marketValue": 97.307,
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 996500,
@@ -5333,8 +5835,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 990000,
@@ -5350,8 +5854,10 @@
         "marketValue": 99.622,
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2220
+        "isCovLite": false,
+        "warfFactor": 2220,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 987537.51,
@@ -5368,8 +5874,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 980309.98,
@@ -5386,8 +5894,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 971897.85,
@@ -5404,8 +5914,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 969967.9,
@@ -5422,8 +5934,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 942408.38,
@@ -5440,8 +5954,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 900000,
@@ -5458,8 +5974,10 @@
         "currentPrice": 96.690277,
         "marketValue": 96.69,
         "isDefaulted": false,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "30e_360"
       },
       {
         "parBalance": 900000,
@@ -5475,8 +5993,10 @@
         "marketValue": 99.647,
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_365"
       },
       {
         "parBalance": 898109.59,
@@ -5493,8 +6013,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 896716.42,
@@ -5511,8 +6033,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 893000,
@@ -5529,8 +6053,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 876613.53,
@@ -5547,8 +6073,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 864864.86,
@@ -5565,8 +6093,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 863013.7,
@@ -5583,8 +6113,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 862000,
@@ -5600,8 +6132,10 @@
         "marketValue": 87.932,
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_365"
       },
       {
         "parBalance": 861431.87,
@@ -5618,8 +6152,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 861431.87,
@@ -5636,8 +6172,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 861431.87,
@@ -5654,8 +6192,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 847570.26,
@@ -5670,8 +6210,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 843750,
@@ -5688,8 +6230,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 838248.49,
@@ -5706,8 +6250,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 822580.65,
@@ -5724,8 +6270,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 817874.15,
@@ -5742,8 +6290,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 788239.15,
@@ -5760,8 +6310,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 759000,
@@ -5778,8 +6330,10 @@
         "currentPrice": 99.2533,
         "marketValue": 99.253,
         "isDefaulted": false,
-        "pikAmount": 0,
-        "warfFactor": 2220
+        "isCovLite": false,
+        "warfFactor": 2220,
+        "currency": "EUR",
+        "dayCountConvention": "30e_360"
       },
       {
         "parBalance": 750000,
@@ -5795,8 +6349,10 @@
         "marketValue": 93.462,
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_365"
       },
       {
         "parBalance": 748329.19,
@@ -5813,8 +6369,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 4770
+        "isCovLite": false,
+        "warfFactor": 4770,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 735294,
@@ -5831,8 +6389,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 734518.97,
@@ -5849,8 +6409,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 732000,
@@ -5867,8 +6429,10 @@
         "currentPrice": 98.2532,
         "marketValue": 97.976,
         "isDefaulted": false,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "30e_360"
       },
       {
         "parBalance": 704954.95,
@@ -5885,8 +6449,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2220
+        "isCovLite": false,
+        "warfFactor": 2220,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 693815.06,
@@ -5903,8 +6469,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 670859.37,
@@ -5921,8 +6489,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 666666.67,
@@ -5937,8 +6507,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 657634.36,
@@ -5955,8 +6527,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 645805,
@@ -5973,8 +6547,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 643000,
@@ -5991,8 +6567,10 @@
         "currentPrice": 58.5,
         "marketValue": 58.5,
         "isDefaulted": false,
-        "pikAmount": 581032.34,
-        "warfFactor": 6500
+        "isCovLite": false,
+        "warfFactor": 6500,
+        "currency": "EUR",
+        "dayCountConvention": "30e_360"
       },
       {
         "parBalance": 624020.41,
@@ -6009,8 +6587,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2220
+        "isCovLite": false,
+        "warfFactor": 2220,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 615384.62,
@@ -6027,8 +6607,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 602041.42,
@@ -6045,8 +6627,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 594104.3,
@@ -6063,8 +6647,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": true,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 590336.08,
@@ -6081,8 +6667,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 584000,
@@ -6098,8 +6686,10 @@
         "marketValue": 93.462,
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_365"
       },
       {
         "parBalance": 571428,
@@ -6116,8 +6706,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 557591.62,
@@ -6134,8 +6726,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 554000,
@@ -6151,8 +6745,10 @@
         "marketValue": 99.637,
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2220
+        "isCovLite": false,
+        "warfFactor": 2220,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 553395,
@@ -6169,8 +6765,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 551000,
@@ -6186,8 +6784,10 @@
         "marketValue": 97.125,
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 550945.21,
@@ -6204,8 +6804,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 550000,
@@ -6222,8 +6824,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 540303.69,
@@ -6240,8 +6844,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 540303.69,
@@ -6258,8 +6864,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 517397.55,
@@ -6276,8 +6884,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0.05,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 517180.86,
@@ -6294,8 +6904,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 514957.8,
@@ -6312,8 +6924,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 508921.38,
@@ -6329,8 +6943,10 @@
         "marketValue": 97.5,
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 4770
+        "isCovLite": false,
+        "warfFactor": 4770,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 504404.26,
@@ -6347,8 +6963,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2220
+        "isCovLite": false,
+        "warfFactor": 2220,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 503144.65,
@@ -6365,8 +6983,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 500000,
@@ -6383,8 +7003,10 @@
         "currentPrice": 69.805474,
         "marketValue": 69.805,
         "isDefaulted": false,
-        "pikAmount": 0,
-        "warfFactor": 6500
+        "isCovLite": false,
+        "warfFactor": 6500,
+        "currency": "EUR",
+        "dayCountConvention": "30_360"
       },
       {
         "parBalance": 500000,
@@ -6401,8 +7023,10 @@
         "currentPrice": 101.630931,
         "marketValue": 101.631,
         "isDefaulted": false,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "30e_360"
       },
       {
         "parBalance": 500000,
@@ -6418,8 +7042,10 @@
         "marketValue": 100.249,
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 500000,
@@ -6436,8 +7062,10 @@
         "currentPrice": 101.630931,
         "marketValue": 101.631,
         "isDefaulted": false,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "30e_360"
       },
       {
         "parBalance": 500000,
@@ -6454,8 +7082,10 @@
         "currentPrice": 85.031616,
         "marketValue": 85.032,
         "isDefaulted": false,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "30e_360"
       },
       {
         "parBalance": 500000,
@@ -6472,8 +7102,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 500000,
@@ -6489,8 +7121,10 @@
         "marketValue": 87.932,
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_365"
       },
       {
         "parBalance": 500000,
@@ -6506,8 +7140,10 @@
         "marketValue": 97.125,
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 500000,
@@ -6524,8 +7160,10 @@
         "currentPrice": 98.2532,
         "marketValue": 97.976,
         "isDefaulted": false,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "30e_360"
       },
       {
         "parBalance": 500000,
@@ -6542,8 +7180,10 @@
         "currentPrice": 94.813488,
         "marketValue": 94.813,
         "isDefaulted": false,
-        "pikAmount": 0,
-        "warfFactor": 1350
+        "isCovLite": false,
+        "warfFactor": 1350,
+        "currency": "EUR",
+        "dayCountConvention": "30e_360"
       },
       {
         "parBalance": 500000,
@@ -6559,8 +7199,10 @@
         "marketValue": 100.116,
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_365"
       },
       {
         "parBalance": 500000,
@@ -6577,8 +7219,10 @@
         "currentPrice": 58.5,
         "marketValue": 58.5,
         "isDefaulted": false,
-        "pikAmount": 581032.34,
-        "warfFactor": 6500
+        "isCovLite": false,
+        "warfFactor": 6500,
+        "currency": "EUR",
+        "dayCountConvention": "30e_360"
       },
       {
         "parBalance": 500000,
@@ -6595,8 +7239,10 @@
         "currentPrice": 69.805474,
         "marketValue": 69.812,
         "isDefaulted": false,
-        "pikAmount": 0,
-        "warfFactor": 6500
+        "isCovLite": false,
+        "warfFactor": 6500,
+        "currency": "EUR",
+        "dayCountConvention": "30_360"
       },
       {
         "parBalance": 498833.7,
@@ -6613,8 +7259,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 482819.14,
@@ -6631,8 +7279,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 482602.45,
@@ -6649,8 +7299,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0.05,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 449054.79,
@@ -6667,8 +7319,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 446121.48,
@@ -6685,8 +7339,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 445118.34,
@@ -6703,8 +7359,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 444444.45,
@@ -6721,8 +7379,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 433491.25,
@@ -6739,8 +7399,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 424268.1,
@@ -6756,8 +7418,10 @@
         "marketValue": 100.426,
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 413793.64,
@@ -6774,8 +7438,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 411957.06,
@@ -6792,8 +7458,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 408800,
@@ -6810,8 +7478,10 @@
         "currentPrice": 104.246379,
         "marketValue": 104.246,
         "isDefaulted": false,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_365"
       },
       {
         "parBalance": 400000,
@@ -6828,8 +7498,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 384615.38,
@@ -6846,8 +7518,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 384122.93,
@@ -6864,8 +7538,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 363636.36,
@@ -6882,8 +7558,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 359000,
@@ -6900,8 +7578,10 @@
         "currentPrice": 85.031616,
         "marketValue": 85.032,
         "isDefaulted": false,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "30e_360"
       },
       {
         "parBalance": 357000,
@@ -6918,8 +7598,10 @@
         "currentPrice": 58.5,
         "marketValue": 58.5,
         "isDefaulted": false,
-        "pikAmount": 581032.34,
-        "warfFactor": 6500
+        "isCovLite": false,
+        "warfFactor": 6500,
+        "currency": "EUR",
+        "dayCountConvention": "30e_360"
       },
       {
         "parBalance": 334591.2,
@@ -6936,8 +7618,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 333749.72,
@@ -6954,8 +7638,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2220
+        "isCovLite": false,
+        "warfFactor": 2220,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 333334,
@@ -6972,8 +7658,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 330000,
@@ -6990,8 +7678,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 321493.94,
@@ -7008,8 +7698,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 319497.22,
@@ -7026,8 +7718,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 318527.16,
@@ -7044,8 +7738,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 306184.94,
@@ -7062,8 +7758,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 305353,
@@ -7079,8 +7777,10 @@
         "marketValue": 47.01,
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 8070
+        "isCovLite": false,
+        "warfFactor": 8070,
+        "currency": "EUR",
+        "dayCountConvention": "30e_360"
       },
       {
         "parBalance": 300000,
@@ -7096,8 +7796,10 @@
         "marketValue": 97.125,
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 295275.59,
@@ -7114,8 +7816,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2220
+        "isCovLite": false,
+        "warfFactor": 2220,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 292183.4,
@@ -7132,8 +7836,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 290323,
@@ -7150,8 +7856,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 280000,
@@ -7168,8 +7876,10 @@
         "currentPrice": 101.630931,
         "marketValue": 101.631,
         "isDefaulted": false,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "30e_360"
       },
       {
         "parBalance": 271967.56,
@@ -7186,8 +7896,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 4770
+        "isCovLite": false,
+        "warfFactor": 4770,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 271860.87,
@@ -7204,8 +7916,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 270298.59,
@@ -7222,8 +7936,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 269774.48,
@@ -7240,8 +7956,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2220
+        "isCovLite": false,
+        "warfFactor": 2220,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 268000,
@@ -7258,8 +7976,10 @@
         "currentPrice": 98.2532,
         "marketValue": 97.976,
         "isDefaulted": false,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "30e_360"
       },
       {
         "parBalance": 264706,
@@ -7276,8 +7996,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 250000,
@@ -7294,8 +8016,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 247059,
@@ -7312,8 +8036,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2220
+        "isCovLite": false,
+        "warfFactor": 2220,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 241000,
@@ -7330,8 +8056,10 @@
         "currentPrice": 99.2533,
         "marketValue": 99.253,
         "isDefaulted": false,
-        "pikAmount": 0,
-        "warfFactor": 2220
+        "isCovLite": false,
+        "warfFactor": 2220,
+        "currency": "EUR",
+        "dayCountConvention": "30e_360"
       },
       {
         "parBalance": 236327.59,
@@ -7348,8 +8076,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2220
+        "isCovLite": false,
+        "warfFactor": 2220,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 233519.55,
@@ -7366,8 +8096,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 231486.09,
@@ -7384,8 +8116,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 216352.15,
@@ -7402,8 +8136,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 206567.16,
@@ -7420,8 +8156,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 198416.56,
@@ -7438,8 +8176,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 192673.42,
@@ -7456,8 +8196,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 184823.52,
@@ -7474,8 +8216,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 183078.72,
@@ -7492,8 +8236,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 172811.06,
@@ -7510,8 +8256,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 167237.51,
@@ -7528,8 +8276,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 162264.15,
@@ -7546,8 +8296,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 151550.5,
@@ -7564,8 +8316,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 143343.2,
@@ -7582,8 +8336,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 143000,
@@ -7599,8 +8355,10 @@
         "marketValue": 100.18,
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 141000,
@@ -7617,8 +8375,10 @@
         "currentPrice": 85.031616,
         "marketValue": 85.032,
         "isDefaulted": false,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "30e_360"
       },
       {
         "parBalance": 138568.13,
@@ -7635,8 +8395,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 138568.13,
@@ -7653,8 +8415,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 138568.13,
@@ -7671,8 +8435,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 136986.3,
@@ -7689,8 +8455,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 135983.78,
@@ -7707,8 +8475,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 4770
+        "isCovLite": false,
+        "warfFactor": 4770,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 126396.94,
@@ -7725,8 +8495,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2220
+        "isCovLite": false,
+        "warfFactor": 2220,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 121762.71,
@@ -7743,8 +8515,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2220
+        "isCovLite": false,
+        "warfFactor": 2220,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 116759.82,
@@ -7761,8 +8535,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 111697.9,
@@ -7779,8 +8555,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2220
+        "isCovLite": false,
+        "warfFactor": 2220,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 103283.58,
@@ -7797,8 +8575,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 100000,
@@ -7815,8 +8595,10 @@
         "currentPrice": 96.690277,
         "marketValue": 96.69,
         "isDefaulted": false,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "30e_360"
       },
       {
         "parBalance": 96996.68,
@@ -7833,8 +8615,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 96774.19,
@@ -7851,8 +8635,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 95047.26,
@@ -7869,8 +8655,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 89396.63,
@@ -7887,8 +8675,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2220
+        "isCovLite": false,
+        "warfFactor": 2220,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 80645.16,
@@ -7905,8 +8695,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 65123.3,
@@ -7923,8 +8715,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2220
+        "isCovLite": false,
+        "warfFactor": 2220,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 64007.49,
@@ -7941,8 +8735,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 59740.26,
@@ -7959,8 +8755,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2220
+        "isCovLite": false,
+        "warfFactor": 2220,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 47812.7,
@@ -7977,8 +8775,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2220
+        "isCovLite": false,
+        "warfFactor": 2220,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 43808.61,
@@ -7995,8 +8795,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 41195.66,
@@ -8013,8 +8815,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 36423.23,
@@ -8031,8 +8835,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2220
+        "isCovLite": false,
+        "warfFactor": 2220,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 31949.69,
@@ -8049,8 +8855,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 27451.51,
@@ -8067,8 +8875,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 25952.83,
@@ -8085,8 +8895,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 23830.53,
@@ -8103,8 +8915,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 19480.52,
@@ -8121,8 +8935,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2220
+        "isCovLite": false,
+        "warfFactor": 2220,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 16048.15,
@@ -8139,8 +8955,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 3490
+        "isCovLite": false,
+        "warfFactor": 3490,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 11675.97,
@@ -8157,8 +8975,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 3681.51,
@@ -8175,8 +8995,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 2475.03,
@@ -8193,8 +9015,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       },
       {
         "parBalance": 1840.9,
@@ -8211,8 +9035,10 @@
         "lienType": "First Lien",
         "isDefaulted": false,
         "floorRate": 0,
-        "pikAmount": 0,
-        "warfFactor": 2720
+        "isCovLite": false,
+        "warfFactor": 2720,
+        "currency": "EUR",
+        "dayCountConvention": "actual_360"
       }
     ],
     "metadata": {
