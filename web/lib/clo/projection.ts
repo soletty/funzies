@@ -72,13 +72,6 @@ export interface LoanInput {
    *  origination floor. Material in low-rate scenarios; zero impact
    *  when EURIBOR > all per-position floors. */
   floorRate?: number;
-  /** PIK ("payment-in-kind") classification. When true, the period's
-   *  computed coupon accretes to `survivingPar` rather than feeding
-   *  `interestCollected`. Sourced from `ResolvedLoan.isPik` (in turn
-   *  from the parser-side `pik_amount > 0` derivation or the LLM-PDF
-   *  explicit flag). Synthetic reinvestment loans created mid-projection
-   *  leave this field undefined → treated as non-PIK by default. */
-  isPik?: boolean;
 }
 
 // C2 — Coarse RatingBucket → Moody's WARF factor. Imported from pool-metrics.ts
@@ -1442,11 +1435,6 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
      *  reinvestment loans — those fall back to the deal-level
      *  `baseRateFloorPct`. */
     floorRate?: number;
-    /** PIK classification carried from `LoanInput`. When true, each
-     *  period's computed accrual feeds `survivingPar` instead of
-     *  `interestCollected`. Synthetic reinvestment loans leave this
-     *  undefined (default cash-paying). */
-    isPik?: boolean;
   }
 
   const loanStates: LoanState[] = loans.map((l) => ({
@@ -1473,7 +1461,6 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     defaultEvents: [],
     dayCountConvention: l.dayCountConvention,
     floorRate: l.floorRate,
-    isPik: l.isPik,
   }));
 
   // Remove never_draw DDTLs (drawQuarter <= 0) — they never fund and shouldn't appear in the portfolio
@@ -2237,19 +2224,21 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
       : recoveryPipeline.filter((r) => r.quarter === q).reduce((s, r) => s + r.amount, 0);
 
     // ── 6. Interest collection ─────────────────────────────────
-    // Two-pass PIK accretion: pass 1 computes every per-loan accrual (no
-    // mutation of `survivingPar`); pass 2 applies PIK accretions to
-    // `survivingPar`. Auditability: the cash-vs-PIK dispatch is the only
-    // PIK-conditional logic in pass 1; pass 2 does nothing else. Per-loan
-    // ordering invariant pinned by the synthetic test: a PIK loan that
-    // fully defaults at period start accretes one period of coupon onto
-    // PRE-default beginning par (loanBeginningPar[i] is captured before
-    // step 4's default subtraction), then survivingPar zeros at the
-    // post-default subtraction step. PIK accretes onto the post-default
-    // survivingPar so a fully-defaulted PIK loan ends with 0 + accrual.
+    // PIK loans are NOT dispatched here — `loan.isPik` is propagated to
+    // `ResolvedLoan` and consumed by the switch-simulator's `pctPik`
+    // delta-recompute, but engine-side PIK accretion is intentionally
+    // NOT modeled. A binary `isPik: boolean` cannot represent the real
+    // shape of a PIK loan (cash leg + PIK leg with separate margins);
+    // the previous attempt at engine dispatch produced two silent
+    // wrong-number failure modes on Euro XV: (a) zero accretion on
+    // fixed-rate PIK loans with `fixedCouponPct=0` (Tele Columbus),
+    // and (b) full-coupon over-routing on split-coupon PIK loans
+    // (Financiere Labeyrie). See the active KI on PIK rate modeling
+    // for the correct path-to-close. Until then, PIK loans accrue cash
+    // interest at their cash-coupon rate (which is wrong by the PIK
+    // leg's amount but at least documented and stable).
     const flooredBaseRate = Math.max(baseRateFloorPct, baseRatePct);
     let interestCollected: number;
-    const pikAccretions: number[] = new Array(loanStates.length).fill(0);
     if (hasLoans) {
       interestCollected = 0;
       for (let i = 0; i < loanStates.length; i++) {
@@ -2263,9 +2252,8 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
         const loanDayFrac = loan.dayCountConvention != null
           ? dayFracByConvention[loan.dayCountConvention]
           : dayFracActual;
-        let periodAccrual: number;
         if (loan.isFixedRate) {
-          periodAccrual = loanBegPar * (loan.fixedCouponPct ?? 0) / 100 * loanDayFrac;
+          interestCollected += loanBegPar * (loan.fixedCouponPct ?? 0) / 100 * loanDayFrac;
         } else {
           // Per-position EURIBOR floor. Falls back to the deal-level
           // `baseRateFloorPct` when the loan carries no per-position floor.
@@ -2275,20 +2263,7 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
           // of 0.3% + spread. Pre-fix engine ignored per-loan floors and
           // applied the deal-level floor uniformly.
           const loanFlooredBase = Math.max(loan.floorRate ?? baseRateFloorPct, baseRatePct);
-          periodAccrual = loanBegPar * (loanFlooredBase + loan.spreadBps / 100) / 100 * loanDayFrac;
-        }
-        if (loan.isPik) {
-          pikAccretions[i] = periodAccrual;
-        } else {
-          interestCollected += periodAccrual;
-        }
-      }
-      // Pass 2: apply PIK accretions to survivingPar. Separated from pass 1
-      // so an audit can observe period accruals without mutation tangle;
-      // also keeps interestCollected accumulation on a single conditional.
-      for (let i = 0; i < loanStates.length; i++) {
-        if (pikAccretions[i] > 0) {
-          loanStates[i].survivingPar += pikAccretions[i];
+          interestCollected += loanBegPar * (loanFlooredBase + loan.spreadBps / 100) / 100 * loanDayFrac;
         }
       }
       // Q1: initial principal cash earns interest at money market rate (~ESTR) for the quarter.

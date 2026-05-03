@@ -5,7 +5,10 @@
  * Three-tier rule (anti-pattern #3 — silent fallbacks on extraction
  * failures are bugs, not defaults):
  *   (1) `isPik === true` (explicit) OR `isPik == null AND pikAmount > 0`
- *       → ResolvedLoan.isPik = true. Engine dispatches PIK accretion.
+ *       → ResolvedLoan.isPik = true. Consumed by the switch-simulator's
+ *       `pctPik` delta-recompute. Engine-side PIK accretion is NOT
+ *       dispatched (binary boolean is structurally insufficient — see
+ *       the active KI on PIK rate modeling).
  *   (2) `isPik === false AND pikAmount > 0` → blocking error (data-shape
  *       contradiction).
  *   (3) `pikAmount < 0` → blocking error (sign invariant).
@@ -15,7 +18,7 @@
  *
  * The resolver-side derivation matches the parser-side derivation in
  * `parse-asset-level.ts` so existing DB rows ingested before the parser
- * change still surface as PIK in the engine.
+ * change still surface as PIK in downstream consumers.
  */
 
 import { describe, it, expect } from "vitest";

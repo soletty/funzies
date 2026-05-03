@@ -364,9 +364,10 @@ export interface ResolvedLoan {
    *  `clo_holdings.is_pik` when explicitly set (LLM-PDF extraction path),
    *  else derived from `pikAmount > 0` (SDF Asset_Level path: parser-side
    *  derivation in `parse-asset-level.ts`, with a resolver-side fallback
-   *  for existing DB rows). When true, the engine accretes the period's
-   *  coupon to `survivingPar` and adds zero to `interestCollected`; when
-   *  false/undefined, the coupon flows as cash interest as today. */
+   *  for existing DB rows). Consumed by the switch-simulator's `pctPik`
+   *  delta-recompute (`switch-simulator.ts:155`). Engine-side PIK
+   *  accretion is NOT dispatched today — see KI-62 for the gap and the
+   *  correct split-margin model. */
   isPik?: boolean;
 }
 

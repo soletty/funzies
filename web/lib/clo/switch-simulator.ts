@@ -127,8 +127,8 @@ export function applySwitch(
     flagName: "isCovLite" | "isPik",
   ): number | null {
     const baseValue = resolved.poolSummary[field];
-    const sellFlag = (sellLoan as Record<string, unknown>)[flagName];
-    const buyFlag = (buyLoan as Record<string, unknown>)[flagName];
+    const sellFlag = flagName === "isCovLite" ? sellLoan.isCovLite : sellLoan.isPik;
+    const buyFlag = flagName === "isCovLite" ? buyLoan.isCovLite : buyLoan.isPik;
     if (baseValue == null || sellFlag == null || buyFlag == null) {
       if (warnings != null) {
         warnings.push({

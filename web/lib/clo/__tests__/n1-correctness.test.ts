@@ -307,17 +307,7 @@ describe("N1 correctness — currently broken buckets (documented in KI ledger)"
       //   interest paid → smaller residual to subs → drift shifts more
       //   negative. Pre-regen: -€50,992.24. Post-regen: -€57,239.62.
       //   Δ: -€6,247.38.
-      //
-      // **PIK accretion cascade re-baseline (−€89,172.82 shift):**
-      //   The engine's per-loan PIK dispatch (`loan.isPik === true`)
-      //   accretes the period's coupon to `survivingPar` instead of feeding
-      //   `interestCollected`. Euro XV has 6 PIK-bearing positions (parser-
-      //   side derivation `is_pik = pik_amount > 0` in parse-asset-level.ts).
-      //   On the 91-day Q1 window, PIK accretion re-routes roughly
-      //   €100K-€2.5M of cash interest to par growth across these 6 loans.
-      //   Less interestCollected → less mgmt fees → less residual to subs.
-      //   Pre-PIK: -€57,239.62. Post-PIK: -€146,412.44. Δ: -€89,172.82.
-      expectedDrift: -146412.44,
+      expectedDrift: -57239.62,
       tolerance: 100,
       closeThreshold: 100,
     },

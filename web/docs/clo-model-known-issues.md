@@ -33,6 +33,7 @@ Categorized so a partner reading cold can separate "what's still wrong" from "wh
 - [KI-24 — E1 citation propagation coverage is partial (8 deferred paths)](#ki-24)
 - [KI-33 — Reinvestment loan synthesis assumes par-purchase (€1 diverted = €1 par)](#ki-33)
 - [KI-35 — Partial DDTL draw silently discards the un-drawn commitment](#ki-35)
+- [KI-62 — PIK loans modeled as binary cash/PIK; real shape is split-margin (cash leg + PIK leg)](#ki-62)
 
 ### Latent — currently inactive on Euro XV; emerges on portability or stress
 *Distinct from "Deferred" (those are intentional design choices about mechanics that exist in the indenture but the model elects not to simulate). "Latent" entries are unmodeled or hardcoded paths whose current Euro XV magnitude happens to be zero, but which will produce wrong numbers the moment a deal hits the triggering condition (different deal structure, different PPM, non-zero balance, FX exposure, etc.). Treat each as a real bug whose materiality is data-dependent, not a deliberate scope decision.*
@@ -873,6 +874,49 @@ So **no current cross-normalizer site exists**, but the architectural shape is f
 7. Flip the marker test from asserting `.not.toBe(...)` (current divergence) to asserting `.toBe(...)` (consolidated convergence) — or delete the test and replace with a focused unit test of the canonical normalizer's behavior.
 
 **Test:** `web/lib/clo/__tests__/normalize-classname-divergence.test.ts` — `KI-60: triple normalizeClassName divergence (locks current bug)`. Two assertions: `intexNormalize("Class A-1") !== apiNormalize("Class A-1")` and `intexNormalize("Sub Notes") !== apiNormalize("Sub Notes")`. Plain `it()` (structural divergence, not a numeric drift). When the consolidation lands, the `.not.toBe` flips to `.toBe` (or the test is deleted). If the consolidation deletes one of the imports, the test file becomes uncompilable — same closure signal at the type level.
+
+---
+
+<a id="ki-62"></a>
+### [KI-62] PIK loans modeled as binary cash/PIK; real shape is split-margin (cash leg + PIK leg with separate rates)
+
+**PPM reference:** PIK loans (Tele Columbus, Financiere Labeyrie, etc.) carry a coupon split into a cash-pay portion (paid as interest each period) and a PIK portion (capitalized to par each period). The split is per-position and per-loan-document; the SDF reports the PIK portion's per-period euro accrual via the `PIK_Amount` column.
+
+**Current engine behavior:** `web/lib/clo/projection.ts:2227-2270` — the engine has a single per-loan rate (`fixedCouponPct` for fixed loans or `baseRate + spreadBps/100` for floaters). All accrual flows to `interestCollected` regardless of structural PIK status. The resolver derives `ResolvedLoan.isPik: boolean` (three-tier rule in `resolver.ts:1349-1416`: `isPik=true` if explicit OR `pikAmount > 0`; blocks on contradictions and negative pikAmount; default false / undefined). The `isPik` flag IS consumed downstream — the switch-simulator uses it for `pctPik` delta-recompute (`switch-simulator.ts:155`) — but the projection engine itself does NOT dispatch on it. `LoanInput` and `LoanState` no longer carry the field; the engine docstring at `projection.ts:2227-2240` documents this gap.
+
+**Why no engine dispatch yet:** A previous attempt (commit fc07cbf, since reverted) added a binary `isPik` engine dispatch — when true, route the period's full computed accrual to `survivingPar` instead of `interestCollected`. Independent review surfaced two silent wrong-number failure modes that are structural to the binary model:
+
+1. **Tele Columbus AG (4 facilities, fixed-rate 1st-lien PIK notes due 2029):** Source data has `fixedCouponPct=0`, `allInRate=0`, `pikAmount=€581,032.34` per row. The full coupon is PIK (the "10.0 PIK" in the facility name). With binary dispatch, engine accrues €0 to par (because totalRate=0 → 0 × par × dayFrac = 0). Source reality: ~€581K/period accreted to par. Binary dispatch UNDER-counts par growth on full-PIK loans whose total computed rate is zero.
+
+2. **Financiere Labeyrie Fine Foods (2 rows, floating-rate split PIK):** Source data has `spreadBps=500`, `allInRate=7.127%`, `pikAmount=€28,101.56` per row over a 91-day accrual period (`accrualBeginDate=2026-03-31`, `accrualEndDate=2026-06-30`). Implied PIK leg rate ≈ 28101.56 / (3,016,860.94 × 91/360) ≈ 3.69% annualized. Cash leg = totalRate − PIK = 7.127 − 3.69 = ~3.44% annualized. With binary dispatch, engine routes the FULL coupon (~€54K/row at 7.127%) to par, INSTEAD OF only the €28K PIK portion. Binary dispatch OVER-counts par growth and ZEROES cash interest on split-PIK loans.
+
+Both shapes appear in Euro XV today; both are silent wrong numbers under the binary model. The current (post-revert) state preserves the ORIGINAL bug — engine routes the FULL coupon to cash on Financiere (over-counts cash interest by €28K/row); engine accretes €0 to par on Tele Columbus (under-counts par growth by €581K/row). Reverting trades one set of wrong directions for another; neither is correct.
+
+**PPM-correct behavior:** Per-loan separate cash and PIK rates. Each period:
+- `cashAccrual = par × cashRatePct × dayFrac → interestCollected`
+- `pikAccretion = par × pikRatePct × dayFrac → survivingPar`
+- `totalRate = cashRatePct + pikRatePct` (the existing `spreadBps`/`fixedCouponPct` fields represent the total)
+
+The PIK rate must be derivable forward from a single anchor (since `pikAmount` is a one-period observation; later periods' par balance changes with each accretion).
+
+**Quantitative magnitude:** Pinned at the resolver layer via `__tests__/resolver-pik-propagation.test.ts` (which asserts `isPik` propagation but NOT engine dispatch). The wrong-number magnitude is approximately:
+- **Financiere Labeyrie (2 rows):** engine over-counts cash interest by ~€28,101.56 × 2 = €56,203/period and under-counts par growth by the same. On a 4-quarter projection, ~€224K of mis-routed flow.
+- **Tele Columbus AG (4 rows):** engine under-counts par growth by ~€581,032 × 4 = €2.32M/period (assuming pikAmount is per-period) OR by a smaller amount if pikAmount is cumulative-since-issue (the 232% implied per-period rate suggests this is cumulative for bond rows where `accrualBeginDate`/`accrualEndDate` are null).
+
+**Data-semantics ambiguity that blocks a confident fix:** The `PIK_Amount` SDF column appears to carry inconsistent semantics: per-period accrual on loans where `accrualBeginDate`/`accrualEndDate` are populated (Financiere); cumulative-since-issue on bonds where those fields are null (Tele Columbus, where the per-period interpretation gives 232% annualized — implausible against the facility name "10.0 PIK"). A correct fix needs the SDF spec verified to confirm which rows use which interpretation. Without that, any blanket rate derivation produces correct numbers on Financiere and either implausible (per-period) or zero (no day-fraction available) accretion on Tele Columbus.
+
+**Deferral rationale:** Open. Live wrong-number on Euro XV. Filed for the next sprint pending resolution of the data-semantics ambiguity above (likely requires reading the SDF spec or comparing pikAmount magnitudes across multiple deals to disambiguate per-period vs cumulative).
+
+**Path to close:**
+1. Verify SDF `PIK_Amount` column semantics: per-accrual-period vs cumulative-since-issue. Likely requires the SDF spec PDF or cross-deal pattern analysis (rows where `accrualBeginDate`/`accrualEndDate` populated vs rows where they're null).
+2. At parser/resolver layer (`web/lib/clo/sdf/parse-asset-level.ts` and `web/lib/clo/resolver.ts`): derive a stable `pikRatePct` per loan based on the verified semantics. For per-period rows: `pikRatePct = pikAmount / (parBalance × dayCountFraction(accrualBegin, accrualEnd))`. For cumulative rows (if confirmed): `pikRatePct = solve(parBalance = parOriginal × (1+pikRatePct)^yearsSinceIssue)` requires `parOriginal` which may not be available — alternative: take the rate from a known facility-level field if exposed in the SDF.
+3. Add `pikRatePct: number | undefined` to `LoanInput`, `LoanState`, `ResolvedLoan` (re-introduce the engine plumbing, this time numerical not boolean).
+4. Engine (`projection.ts` interest collection step): when `pikRatePct > 0`, compute `pikAccretion = par × pikRatePct × dayFrac`; reduce `cashAccrual` by `pikAccretion` (or compute cash directly from `cashRatePct = totalRate − pikRatePct`, clamped non-negative). Add `pikAccretion` to `survivingPar` BEFORE the post-default subtraction step (so the same per-loan ordering invariant the prior PR claimed but never tested is now actually pinned by a synthetic test).
+5. Add a synthetic test asserting the split-margin behavior: a loan with `parBalance=€100M, totalRate=8%, pikRatePct=3%` produces `cashAccrual = par × 5% × dayFrac` and `pikAccretion = par × 3% × dayFrac`. A second test for the full-PIK case (`totalRate=0, pikRatePct=10%`).
+6. Anchor the n1 cascade re-baseline against trustee data (need pikAmount for both Financiere positions and the Tele Columbus rows tied to specific quarters) to confirm the fix shifts the n1 sub-distribution drift toward zero, not away.
+7. Three-tier blocking ladder in resolver stays as-is (it's correct at the propagation layer); only the engine consumption changes.
+
+**Test:** No active failing marker; the gap is documented in `web/lib/clo/__tests__/resolver-pik-propagation.test.ts`'s docstring (which asserts that PIK propagation flows to `ResolvedLoan.isPik` and is consumed by the switch-simulator, but explicitly does NOT assert engine PIK accretion — that's the gap KI-62 captures). When the fix lands, the synthetic split-margin test from step 5 above pins the new correctness invariant; the docstring updates to remove the "engine does NOT dispatch" carve-out.
 
 ---
 

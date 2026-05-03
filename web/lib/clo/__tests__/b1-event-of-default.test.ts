@@ -300,11 +300,7 @@ describe("B1 — computeEventOfDefaultTest (pure helper)", () => {
     // pending recovery (`recoveryPipeline.filter(r => r.quarter >= q)`),
     // not just events scheduled FOR that quarter. The expected calc on
     // Q=N folds in every event whose scheduledRecoveryQuarter falls past
-    // the projection horizon, mirroring the engine's sweep. Pre-PR2 this
-    // case happened to have zero late-period defaults (the pool decays to
-    // near-zero before period 38 under uniform 15% CDR), but PIK accretion
-    // keeps PIK loans resilient enough to default in late periods, exposing
-    // the real semantic.
+    // the projection horizon, mirroring the engine's sweep.
     const lastQ = result.periods.length;
     for (let Q = 1; Q <= lastQ; Q++) {
       const expectedRecoveryPar = result.periods

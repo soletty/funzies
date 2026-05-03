@@ -1357,8 +1357,10 @@ export function resolveWaterfallInputs(
     //       reported per-period PIK accrual).
     //   (3) `pikAmount < 0` → block (sign invariant — negative PIK is
     //       structurally meaningless).
-    // The engine consumes only the boolean dispatch flag; pikAmount is
-    // strictly observability for a future Q1 audit harness.
+    // The boolean is consumed by the switch-simulator's `pctPik` delta-
+    // recompute (`switch-simulator.ts:155`); engine-side PIK accretion is
+    // NOT dispatched today (binary boolean is structurally insufficient —
+    // see KI-62 for the correct split-margin model).
     let derivedIsPik: boolean | undefined;
     if (h.pikAmount != null && h.pikAmount < 0) {
       warnings.push({
@@ -1370,7 +1372,7 @@ export function resolveWaterfallInputs(
     } else if (h.isPik === false && (h.pikAmount ?? 0) > 0) {
       warnings.push({
         field: "isPik",
-        message: `Holding "${h.obligorName ?? "unknown"}": isPik=false but pikAmount=${h.pikAmount} > 0. The source reports per-period PIK accrual on a position the structural flag claims is non-PIK; one of the two is wrong. Engine cannot dispatch correctly under this contradiction (treating as cash-paying would over-state interestCollected by ${h.pikAmount} this period). Refuse and reconcile upstream.`,
+        message: `Holding "${h.obligorName ?? "unknown"}": isPik=false but pikAmount=${h.pikAmount} > 0. The source reports per-period PIK accrual on a position the structural flag claims is non-PIK; one of the two is wrong. The model cannot represent this contradiction — treating the loan as cash-paying over-states cash interest by ${h.pikAmount} this period; treating it as PIK contradicts the explicit flag. Refuse and reconcile upstream.`,
         severity: "error",
         blocking: true,
       });

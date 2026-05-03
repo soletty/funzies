@@ -115,11 +115,7 @@ describe("A1 — integration: equityEntryPriceCents flows through to engine IRR"
     // is missing) flipped Class C/D/E/F to isDeferrable=true on Euro XV,
     // re-routing junior-interest shortfalls into PIK accrual instead of
     // silent drop. That shifts the engine's interest-allocation under stress
-    // periods and re-baselined the gap to −16.86pp. Subsequent per-loan PIK
-    // accretion (engine dispatches `survivingPar += accrual` on isPik=true
-    // loans instead of feeding `interestCollected`) re-routes ~€600K-€2.5M
-    // of cash interest to par growth on Euro XV's 6 PIK-bearing positions,
-    // smoothing the equity cashflow profile. Re-baseline: −15.16pp.
+    // periods and re-baselined the gap to −16.86pp.
     const inputs95 = buildFromResolved(fixture.resolved, {
       ...DEFAULT_ASSUMPTIONS,
       equityEntryPriceCents: 95,
@@ -134,9 +130,9 @@ describe("A1 — integration: equityEntryPriceCents flows through to engine IRR"
     const gapPp = (result95.equityIrr! - resultDefault.equityIrr!) * 100;
     // Direction: higher cost basis → lower IRR (gap is negative).
     expect(gapPp).toBeLessThan(0);
-    // Magnitude: within ±1pp of the documented −15.16pp anchor. If this moves,
+    // Magnitude: within ±1pp of the documented −16.86pp anchor. If this moves,
     // a material engine change happened — either A1's plumbing or downstream
     // IRR / cashflow logic.
-    expect(gapPp).toBeCloseTo(-15.16, 0);
+    expect(gapPp).toBeCloseTo(-16.86, 0);
   });
 });

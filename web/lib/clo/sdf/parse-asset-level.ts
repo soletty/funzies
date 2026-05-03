@@ -189,10 +189,12 @@ export function parseAssetLevel(
     // Structural — pik_amount derives is_pik (no explicit Is_PIK column
     // in the Asset_Level CSV; per-period accrued amount IS the structural
     // signal). Anti-pattern #5: a non-zero pik_amount means the loan
-    // accreted PIK in this period; the engine needs the boolean flag to
-    // dispatch accretion-vs-cash logic on forward periods. The LLM-PDF
-    // extraction path can override with an explicit isPik (handled at the
-    // resolver via `h.isPik ?? (pikAmount > 0)`).
+    // accreted PIK in this period; the boolean is consumed downstream by
+    // the resolver's three-tier blocking ladder and the switch-simulator's
+    // `pctPik` delta-recompute. Engine-side PIK accretion is NOT dispatched
+    // (binary boolean is structurally insufficient — see KI-62). The LLM-
+    // PDF extraction path can override with an explicit isPik (handled at
+    // the resolver via `h.isPik ?? (pikAmount > 0)`).
     ...(((): { pik_amount: number | null; is_pik: boolean | null } => {
       const pikAmount = parseNumeric(raw.PIK_Amount);
       return {
