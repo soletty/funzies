@@ -127,22 +127,34 @@ export function parseCollateralFile(
     // and already includes any cumulative PIK accretion (Financiere row:
     // PFB = original_face + facility-level pikAmount slice share).
     //
-    // Bond path (PFB = 0 by SDF convention): live face is in `Commitment`,
-    // while `Principal_Balance` carries only the original face. On PIK
-    // toggle-off bonds (Tele Columbus shape: 4 slices summing PB=2,500,000
-    // vs Commitment=3,081,032.34, Asset_Level pikAmount=581,032.34 = the
-    // diff to the cent), falling back to Principal_Balance silently drops
-    // the cumulative PIK that has already accreted into par-of-record.
-    // For non-PIK bonds, Commitment == Principal_Balance, so the fallback
-    // is value-equivalent.
+    // Bond path (Security_Type1 == "Bond", PFB = 0 by SDF convention): live
+    // face is in `Commitment`, while `Principal_Balance` carries only the
+    // original face. On PIK toggle-off bonds (Tele Columbus shape: 4 slices
+    // summing PB=2,500,000 vs Commitment=3,081,032.34, Asset_Level
+    // pikAmount=581,032.34 = the diff to the cent), falling back to
+    // Principal_Balance silently drops the cumulative PIK that has already
+    // accreted into par-of-record. For non-PIK bonds, Commitment ==
+    // Principal_Balance, so the route is value-equivalent.
+    //
+    // The `isBond` gate is load-bearing: a Loan row with PFB = 0 (undrawn
+    // revolver / fully-undrawn DDTL) ALSO has Commitment = full undrawn
+    // capacity; routing that through the Commitment branch would set
+    // par_balance = full notional, over-counting the OC numerator by the
+    // entire undrawn amount. Bond is the only asset type for which the
+    // SDF emits PFB = 0 by convention (no funding concept) AND for which
+    // Commitment carries semantic live-face information; for Loans the
+    // PFB == 0 case means "genuinely zero drawn par," and Principal_Balance
+    // (which tracks drawn principal for loans) is the right fallback.
     const principalBalance = parseNumeric(raw.Principal_Balance);
     const fundedBalance = parseNumeric(raw.Principal_Funded_Balance);
     const commitment = parseNumeric(raw.Commitment);
+    const isBond =
+      (raw.Security_Type1 ?? "").trim().toLowerCase() === "bond";
     const parBalance = validateMagnitude(
       "par_balance",
       fundedBalance != null && fundedBalance > 0
         ? fundedBalance
-        : commitment != null && commitment > 0
+        : isBond && commitment != null && commitment > 0
           ? commitment
           : principalBalance,
     );

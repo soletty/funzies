@@ -197,6 +197,33 @@ describe("parseCollateralFile — bond par_balance fallback (Commitment vs Princ
     expect(result.rows[0].par_balance).toBeCloseTo(2131336.41);
   });
 
+  it("loan with PFB=0 (undrawn revolver / fully-undrawn DDTL): par_balance does NOT follow Commitment — anti-pattern #1 cross-deal guard", () => {
+    // The PFB-zero shape on a Loan row means "genuinely zero drawn par"
+    // (undrawn revolver, fully-unfunded DDTL), not "use Commitment as live
+    // face." Routing that through Commitment would set par_balance = full
+    // undrawn capacity, over-counting the OC numerator on any deal whose
+    // SDF carries an undrawn loan facility. Euro XV has zero such rows
+    // today (every PFB=0 row is a Bond), but the convention is portable:
+    // a partially-drawn DDTL on the next deal (or on Euro XV next quarter)
+    // would silently inflate par by the full undrawn amount without this
+    // gate. PIK accretion only applies to bonds, so the Commitment branch
+    // is correctly bond-only.
+    const undrawnLoan = withFields(ROW_1, [
+      [PFB_INDEX, "0.000"],
+      [PFB_INDEX + 1, "0.000"],
+      [COMMITMENT_INDEX, "5000000.000"],
+      [COMMITMENT_INDEX + 1, "5000000.000"],
+      [PRINCIPAL_BALANCE_INDEX, "0.000"],
+      [PRINCIPAL_BALANCE_INDEX + 1, "0.000"],
+      [SECURITY_TYPE_INDEX, "Loan"], // explicitly NOT Bond
+    ]);
+    const result = parseCollateralFile(makeCsv(undrawnLoan));
+    // Must NOT route to Commitment (5M) — that would over-count par.
+    expect(result.rows[0].par_balance).not.toBeCloseTo(5_000_000);
+    // Loan path with PFB=0 falls through to Principal_Balance (0 here).
+    expect(result.rows[0].par_balance).toBeCloseTo(0);
+  });
+
   it("graceful fallback when Commitment is also missing: par_balance falls through to Principal_Balance", () => {
     const noCommitmentBond = withFields(ROW_1, [
       [PFB_INDEX, "0.000"],
