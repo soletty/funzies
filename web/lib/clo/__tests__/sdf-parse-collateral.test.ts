@@ -122,3 +122,92 @@ describe("parseCollateralFile", () => {
     expect(result.fileType).toBe("collateral_file");
   });
 });
+
+/**
+ * Bond par_balance fallback: when Principal_Funded_Balance == 0 (the SDF
+ * convention for bonds, which carry no funded/unfunded distinction), the
+ * parser must fall back to `Commitment` (live PIK-accreted face) rather
+ * than `Principal_Balance` (original face). Direct disk verification on
+ * the Euro XV 2026-04-01 SDF: Tele Columbus 4 slices have
+ *   PFB = 0
+ *   Σ Principal_Balance = 2,500,000 (original)
+ *   Σ Commitment        = 3,081,032.34 (live)
+ *   Asset_Level PIK_Amount = 581,032.34 = Commitment − Principal_Balance to the cent
+ * Non-PIK bonds (Allwyn Entertainment, Altice Financing, etc.) all show
+ * PB == Commitment exactly, so the fallback is value-equivalent on the
+ * non-accreting majority.
+ */
+const PFB_INDEX = 3; // 0-based
+const COMMITMENT_INDEX = 5;
+const PRINCIPAL_BALANCE_INDEX = 7;
+const SECURITY_TYPE_INDEX = 14;
+
+function withFields(
+  template: string,
+  patches: Array<[index: number, value: string]>,
+): string {
+  const cols = template.split(",");
+  for (const [idx, val] of patches) cols[idx] = val;
+  return cols.join(",");
+}
+
+describe("parseCollateralFile — bond par_balance fallback (Commitment vs Principal_Balance)", () => {
+  it("PIK toggle-off bond (Tele shape): PFB=0, Commitment > PB → par_balance follows Commitment", () => {
+    const teleSlice1 = withFields(ROW_1, [
+      [PFB_INDEX, "0.000"],
+      [PFB_INDEX + 1, "0.000"],
+      [COMMITMENT_INDEX, "1232412.93"],
+      [COMMITMENT_INDEX + 1, "1232412.93"],
+      [PRINCIPAL_BALANCE_INDEX, "1000000.000"],
+      [PRINCIPAL_BALANCE_INDEX + 1, "1000000.000"],
+      [SECURITY_TYPE_INDEX, "Bond"],
+    ]);
+    const result = parseCollateralFile(makeCsv(teleSlice1));
+    const row = result.rows[0];
+
+    // Live face captures the 232,412.93 of accreted PIK on this slice.
+    expect(row.par_balance).toBeCloseTo(1232412.93);
+    // Pre-fix behavior would have been 1,000,000 (original face). The gap
+    // between the two paths IS the per-slice cumulative PIK accretion.
+    expect(row.par_balance).not.toBeCloseTo(1000000);
+    // principal_balance still surfaces the raw original face for
+    // observability — only par_balance flips to live.
+    expect(row.principal_balance).toBeCloseTo(1000000);
+  });
+
+  it("non-accreting bond (Allwyn shape): PFB=0, Commitment == PB → par_balance equals both (no regression)", () => {
+    const nonPikBond = withFields(ROW_1, [
+      [PFB_INDEX, "0.000"],
+      [PFB_INDEX + 1, "0.000"],
+      [COMMITMENT_INDEX, "500000.000"],
+      [COMMITMENT_INDEX + 1, "500000.000"],
+      [PRINCIPAL_BALANCE_INDEX, "500000.000"],
+      [PRINCIPAL_BALANCE_INDEX + 1, "500000.000"],
+      [SECURITY_TYPE_INDEX, "Bond"],
+    ]);
+    const result = parseCollateralFile(makeCsv(nonPikBond));
+    expect(result.rows[0].par_balance).toBeCloseTo(500000);
+  });
+
+  it("loan path (PFB > 0) is unchanged — Commitment fallback only kicks in when PFB is null/zero", () => {
+    // ROW_1 is a Loan with PFB = Commitment = PB = 2,131,336.41. Verify the
+    // result still matches PFB exactly (i.e. the Commitment branch did not
+    // displace the loan path).
+    const result = parseCollateralFile(makeCsv(ROW_1));
+    expect(result.rows[0].par_balance).toBeCloseTo(2131336.41);
+  });
+
+  it("graceful fallback when Commitment is also missing: par_balance falls through to Principal_Balance", () => {
+    const noCommitmentBond = withFields(ROW_1, [
+      [PFB_INDEX, "0.000"],
+      [PFB_INDEX + 1, "0.000"],
+      [COMMITMENT_INDEX, ""],
+      [COMMITMENT_INDEX + 1, ""],
+      [PRINCIPAL_BALANCE_INDEX, "750000.000"],
+      [PRINCIPAL_BALANCE_INDEX + 1, "750000.000"],
+      [SECURITY_TYPE_INDEX, "Bond"],
+    ]);
+    const result = parseCollateralFile(makeCsv(noCommitmentBond));
+    expect(result.rows[0].par_balance).toBeCloseTo(750000);
+  });
+});

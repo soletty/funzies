@@ -123,18 +123,29 @@ export function parseCollateralFile(
   const dealName = trimOrNull(firstRow?.Deal_Name);
 
   const rows: SdfCollateralRow[] = csvRows.map((raw) => {
-    // Principal_Funded_Balance is the "drawn" balance — relevant for loans with
-    // revolver/DDTL commitments. Bonds carry PFB=0 by CSV convention (no
-    // funding concept); their outstanding par is in Principal_Balance. Fall
-    // back to PB when PFB is absent so bonds don't get silently dropped by
-    // downstream par-based filters.
+    // Loan path (PFB > 0): Principal_Funded_Balance is the live drawn balance
+    // and already includes any cumulative PIK accretion (Financiere row:
+    // PFB = original_face + facility-level pikAmount slice share).
+    //
+    // Bond path (PFB = 0 by SDF convention): live face is in `Commitment`,
+    // while `Principal_Balance` carries only the original face. On PIK
+    // toggle-off bonds (Tele Columbus shape: 4 slices summing PB=2,500,000
+    // vs Commitment=3,081,032.34, Asset_Level pikAmount=581,032.34 = the
+    // diff to the cent), falling back to Principal_Balance silently drops
+    // the cumulative PIK that has already accreted into par-of-record.
+    // For non-PIK bonds, Commitment == Principal_Balance, so the fallback
+    // is value-equivalent.
     const principalBalance = parseNumeric(raw.Principal_Balance);
     const fundedBalance = parseNumeric(raw.Principal_Funded_Balance);
+    const commitment = parseNumeric(raw.Commitment);
     const parBalance = validateMagnitude(
       "par_balance",
-      (fundedBalance != null && fundedBalance > 0) ? fundedBalance : principalBalance,
+      fundedBalance != null && fundedBalance > 0
+        ? fundedBalance
+        : commitment != null && commitment > 0
+          ? commitment
+          : principalBalance,
     );
-    const commitment = parseNumeric(raw.Commitment);
     const grossPurchasePrice = parseNumeric(raw.Gross_Purchase_Price);
     const marketValue = validateMagnitude("market_value", parseNumeric(raw.Market_Value));
     const defaultDate = parseDate(raw.Default_Date, "DD.MM.YYYY");
