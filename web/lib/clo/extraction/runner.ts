@@ -46,7 +46,11 @@ function normalizeComplianceTestRows(rows: Record<string, unknown>[]): Record<st
   }));
   const { tests: normalized, fixes } = normalizeComplianceTestType(camelTests);
   if (fixes.length > 0) {
-    console.log(`[extraction] Normalized ${fixes.length} compliance test fields:`,
+    // `fixes` records actual mutations only — rows whose direction was
+    // ambiguous (isPassing left null) intentionally do not appear here;
+    // those surface to the partner via the resolver's
+    // `complianceTests.ambiguousDirection` warning.
+    console.log(`[extraction] Normalized ${fixes.length} compliance test mutation(s):`,
       fixes.map(f => f.message));
   }
   return rows.map((r, i) => ({

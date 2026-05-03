@@ -1,6 +1,7 @@
 import type { ExtractedConstraints, CloPoolSummary, CloComplianceTest, CloTranche, CloTrancheSnapshot, CloHolding, CloAccountBalance, CloParValueAdjustment } from "./types";
 import type { Citation, ComplianceTestType, ResolvedDealData, ResolvedTranche, ResolvedPool, ResolvedTrigger, ResolvedReinvestmentOcTrigger, ResolvedDates, ResolvedFees, ResolvedLoan, ResolvedComplianceTest, ResolvedEodTest, ResolvedMetadata, ResolutionWarning } from "./resolver-types";
 import { parseSpreadToBps, normalizeWacSpread } from "./ingestion-gate";
+import { isHigherBetter } from "./test-direction";
 import { mapToRatingBucket, moodysWarfFactor } from "./rating-mapping";
 import { isRatingSentinel, parseNumeric, parseDecoratedAmount } from "./sdf/csv-utils";
 import { CLO_DEFAULTS } from "./defaults";
@@ -161,6 +162,28 @@ function isIcTest(t: { testType?: string | null; testName?: string | null }): bo
   if (t.testType === "IC") return true;
   const name = (t.testName ?? "").toLowerCase();
   return name.includes("interest coverage") || (name.includes("ic") && name.includes("ratio"));
+}
+
+/**
+ * Compute cushion polarity from direction. Returns null when direction is
+ * unknown rather than silently defaulting to a (potentially wrong-sign)
+ * formula. Used as a fallback when an upstream `cushion_pct` is null —
+ * legacy DB rows ingested before per-row direction classification carry
+ * null cushions; the lookup below restores the correct sign without
+ * requiring a re-ingest. New ingest writes correct cushions in the SDF
+ * parser so this fallback is dormant on fresh data.
+ */
+function directionalCushion(
+  testType: string | null | undefined,
+  testName: string | null | undefined,
+  actual: number | null,
+  trigger: number | null,
+): number | null {
+  if (actual == null || trigger == null) return null;
+  const dir = isHigherBetter(testType ?? null, testName ?? null);
+  if (dir === true) return actual - trigger;
+  if (dir === false) return trigger - actual;
+  return null;
 }
 
 function dedupTriggers(triggers: { className: string; triggerLevel: number; source: "compliance" | "ppm" }[], warnings: ResolutionWarning[]): { className: string; triggerLevel: number; source: "compliance" | "ppm" }[] {
@@ -1665,7 +1688,7 @@ export function resolveWaterfallInputs(
         testClass: null,
         actualValue: ct.actualValue,
         triggerLevel: ct.triggerLevel,
-        cushion: round4(ct.cushionPct ?? (ct.triggerLevel != null && ct.actualValue != null ? ct.triggerLevel - ct.actualValue : null)),
+        cushion: round4(ct.cushionPct ?? directionalCushion(ct.testType, ct.testName, ct.actualValue, ct.triggerLevel)),
         isPassing: ct.isPassing,
         canonicalType: classifyComplianceTest(ct.testName || bucketName),
       };
@@ -1688,7 +1711,9 @@ export function resolveWaterfallInputs(
       testClass: null,
       actualValue: round4(actualValue),
       triggerLevel,
-      cushion: round4((triggerLevel != null && actualValue != null) ? triggerLevel - actualValue : null),
+      // Concentrations-row path has no testType — pass null so isHigherBetter
+      // falls through to name-pattern + clause-letter dispatch on bucketName.
+      cushion: round4(directionalCushion(null, bucketName, actualValue, triggerLevel)),
       isPassing: typeof c.isPassing === "boolean" ? c.isPassing : null,
       canonicalType: classifyComplianceTest(bucketName),
     };
@@ -1913,19 +1938,29 @@ export function resolveWaterfallInputs(
   }
 
   // (c) Compliance tests with both actualValue AND triggerLevel populated but
-  // isPassing is null. This is the symptom of a quantitative test where the
-  // ingestion gate's direction-aware dispatch (lib/clo/ingestion-gate.ts
-  // normalizeComplianceTestType) could not determine higher-is-better vs
-  // lower-is-better and correctly left isPassing unset rather than silently
-  // defaulting. Display-only metadata under the carve-out: severity warn,
-  // non-blocking — the projection runs unaffected, but the partner-facing
-  // PASS/FAIL badge is unavailable for these rows on `app/clo/page.tsx`,
-  // which the banner attributes to the data gap.
+  // isPassing is null AND direction is genuinely unknown. The partner-
+  // facing PASS/FAIL badge at `app/clo/page.tsx:143-146` reads off this
+  // field directly and hides itself when null, so these rows show up to
+  // the partner without a pass/fail signal. The direction predicate is
+  // load-bearing: `isPassing == null` has multiple non-direction sources
+  // (SDF `parsePassFail` returns null on its "Not Calculated" branch
+  // and on its catch-all for unrecognized Pass_Fail strings — see
+  // `sdf/parse-test-results.ts`); without the predicate, those rows
+  // fire this warning with a misleading "direction could not be
+  // determined" message. The cleaner signal — the SDF parser's
+  // `isActive: false` flag — is not plumbed through to the resolver-
+  // side compliance test type, so we can't distinguish "vendor declined
+  // to compute" from "direction unknown" except by re-running the
+  // classifier here. Display-side gap
+  // only — no engine arithmetic depends on isPassing — so the warning is
+  // severity warn, non-blocking, surfaced via the generic resolution-
+  // warnings panel (`ProjectionModel.tsx:1101`, `ContextEditor.tsx:909`).
   {
     const ambiguousDirection = allComplianceTests.filter(t =>
       t.actualValue != null
       && t.triggerLevel != null
       && t.isPassing == null
+      && isHigherBetter(t.testType, t.testName) === null
     );
     if (ambiguousDirection.length > 0) {
       const names = ambiguousDirection.map(t => t.testName).filter(Boolean).slice(0, 5).join("; ");
@@ -1937,7 +1972,7 @@ export function resolveWaterfallInputs(
     }
   }
 
-  // (c) Join-vocabulary drift guard. The concentration-trigger join relies on
+  // (d) Join-vocabulary drift guard. The concentration-trigger join relies on
   // "(a)"..."(dd)" lettered prefixes in compliance test names. If the SDF ever
   // changes that convention (or we ingest a different trustee's variant),
   // fall loud here rather than silently producing zero matches.

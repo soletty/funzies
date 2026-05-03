@@ -1,5 +1,6 @@
 import type { ExtractedConstraints } from "./types";
 import type { ValidationError, Fix } from "./resolver-types";
+import { isHigherBetter } from "./test-direction";
 
 export function parseSpreadToBps(spreadBps: number | undefined | null, spreadStr: string | undefined | null): number | null {
   if (spreadBps != null && spreadBps > 0) return spreadBps;
@@ -138,14 +139,39 @@ export function normalizeComplianceTestType(
 
     let isPassing = test.isPassing;
     if (isPassing == null && test.actualValue != null && test.triggerLevel != null) {
-      const passing = test.actualValue >= test.triggerLevel;
-      fixes.push({
-        field: `complianceTest.${test.testName}.isPassing`,
-        message: `Computed isPassing=${passing} from actual ${test.actualValue} vs trigger ${test.triggerLevel}`,
-        before: null,
-        after: passing,
-      });
-      isPassing = passing;
+      // Direction-aware dispatch. Higher-is-better tests (OC, IC, WAS,
+      // recovery, diversity, INTEREST_DIVERSION) pass when actual >= trigger;
+      // lower-is-better tests (WARF, WAL, concentration / eligibility
+      // maximums) pass when actual <= trigger. When direction is unknown,
+      // leave isPassing null — the resolver emits a partner-visible warning
+      // for any quantitative test that arrives with both values populated
+      // but no PASS/FAIL signal. Defaulting to >= here would silently
+      // misclassify lower-is-better tests under the same shape as the bug
+      // this branch was originally written to paper over.
+      const direction = isHigherBetter(testType, test.testName);
+      if (direction === true) {
+        const passing = test.actualValue >= test.triggerLevel;
+        fixes.push({
+          field: `complianceTest.${test.testName}.isPassing`,
+          message: `Computed isPassing=${passing} (higher-is-better): actual ${test.actualValue} >= trigger ${test.triggerLevel}`,
+          before: null,
+          after: passing,
+        });
+        isPassing = passing;
+      } else if (direction === false) {
+        const passing = test.actualValue <= test.triggerLevel;
+        fixes.push({
+          field: `complianceTest.${test.testName}.isPassing`,
+          message: `Computed isPassing=${passing} (lower-is-better): actual ${test.actualValue} <= trigger ${test.triggerLevel}`,
+          before: null,
+          after: passing,
+        });
+        isPassing = passing;
+      }
+      // Direction unknown: leave isPassing null. The `fixes` channel records
+      // mutations only — a no-op entry would inflate the runner's "Normalized
+      // N fields" log. The resolver's `complianceTests.ambiguousDirection`
+      // warning is the partner-visible signal for these rows.
     }
 
     return { ...test, testType, isPassing };

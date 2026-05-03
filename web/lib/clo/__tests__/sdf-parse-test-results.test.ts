@@ -192,12 +192,15 @@ describe("parseTestResults", () => {
       expect(row.cushion_pct).toBeCloseTo(10);
     });
 
-    it("(d) → CONCENTRATION, FIXED_RATE (unknown direction → null cushion)", () => {
+    // Concentration / eligibility maximums (every CLAUSE_MAP entry except
+    // (a)/(b)) are lower-is-better: cushion = trigger − actual, positive
+    // when actual is below the limit.
+    it("(d) → CONCENTRATION, FIXED_RATE (concentration max, lower-is-better)", () => {
       const result = parseTestResults(makeCsv(ROW_D));
       const row = result.rows[0];
       expect(row.test_type).toBe("CONCENTRATION");
       expect(row.test_class).toBe("FIXED_RATE");
-      expect(row.cushion_pct).toBeNull();
+      expect(row.cushion_pct).toBeCloseTo(2.58, 2); // 10 − 7.42
     });
 
     it("(f) → CONCENTRATION, COV_LITE", () => {
@@ -205,7 +208,7 @@ describe("parseTestResults", () => {
       const row = result.rows[0];
       expect(row.test_type).toBe("CONCENTRATION");
       expect(row.test_class).toBe("COV_LITE");
-      expect(row.cushion_pct).toBeNull();
+      expect(row.cushion_pct).toBeCloseTo(29.07, 2); // 30 − 0.93
     });
 
     it("(h) → CONCENTRATION, COUNTRY", () => {
@@ -213,7 +216,7 @@ describe("parseTestResults", () => {
       const row = result.rows[0];
       expect(row.test_type).toBe("CONCENTRATION");
       expect(row.test_class).toBe("COUNTRY");
-      expect(row.cushion_pct).toBeNull();
+      expect(row.cushion_pct).toBeCloseTo(5.68, 2); // 10 − 4.32
     });
 
     it("(n) → CONCENTRATION, RATING_CCC_MOODYS", () => {
@@ -221,7 +224,7 @@ describe("parseTestResults", () => {
       const row = result.rows[0];
       expect(row.test_type).toBe("CONCENTRATION");
       expect(row.test_class).toBe("RATING_CCC_MOODYS");
-      expect(row.cushion_pct).toBeNull();
+      expect(row.cushion_pct).toBeCloseTo(0.58, 2); // 7.5 − 6.92
     });
 
     it("(o) → CONCENTRATION, RATING_CCC_FITCH", () => {
@@ -229,7 +232,7 @@ describe("parseTestResults", () => {
       const row = result.rows[0];
       expect(row.test_type).toBe("CONCENTRATION");
       expect(row.test_class).toBe("RATING_CCC_FITCH");
-      expect(row.cushion_pct).toBeNull();
+      expect(row.cushion_pct).toBeCloseTo(1.63, 2); // 7.5 − 5.87
     });
 
     it("(p)(i) → CONCENTRATION, SINGLE_OBLIGOR", () => {
@@ -237,7 +240,7 @@ describe("parseTestResults", () => {
       const row = result.rows[0];
       expect(row.test_type).toBe("CONCENTRATION");
       expect(row.test_class).toBe("SINGLE_OBLIGOR");
-      expect(row.cushion_pct).toBeNull();
+      expect(row.cushion_pct).toBeCloseTo(1.48, 2); // 2.5 − 1.02
     });
 
     it("(s) → CONCENTRATION, TOP_OBLIGORS", () => {
@@ -245,7 +248,7 @@ describe("parseTestResults", () => {
       const row = result.rows[0];
       expect(row.test_type).toBe("CONCENTRATION");
       expect(row.test_class).toBe("TOP_OBLIGORS");
-      expect(row.cushion_pct).toBeNull();
+      expect(row.cushion_pct).toBeCloseTo(6.54, 2); // 16 − 9.46
     });
 
     it("(t)(i) → CONCENTRATION, INDUSTRY", () => {
@@ -253,7 +256,7 @@ describe("parseTestResults", () => {
       const row = result.rows[0];
       expect(row.test_type).toBe("CONCENTRATION");
       expect(row.test_class).toBe("INDUSTRY");
-      expect(row.cushion_pct).toBeNull();
+      expect(row.cushion_pct).toBeCloseTo(6.49, 2); // 17.5 − 11.01
     });
 
     it("(z) → ELIGIBILITY, COUNTERPARTY", () => {
@@ -261,7 +264,7 @@ describe("parseTestResults", () => {
       const row = result.rows[0];
       expect(row.test_type).toBe("ELIGIBILITY");
       expect(row.test_class).toBe("COUNTERPARTY");
-      expect(row.cushion_pct).toBeNull();
+      expect(row.cushion_pct).toBeCloseTo(20, 2); // 20 − 0
     });
   });
 

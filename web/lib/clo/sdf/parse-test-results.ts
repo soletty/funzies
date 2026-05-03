@@ -1,4 +1,6 @@
 import { parseCsvLines, parsePercentage, parseDate, parseNumeric } from "./csv-utils";
+import { isHigherBetter } from "../test-direction";
+import { KNOWN_CLAUSE_LETTERS } from "../clause-letters";
 import type { SdfParseResult } from "./types";
 
 export interface SdfTestResultRow {
@@ -15,7 +17,15 @@ export interface SdfTestResultRow {
   data_source: string;
 }
 
-const CLAUSE_MAP: Record<string, { type: string; testClass: string }> = {
+// PPM clause-letter map for SDF rows. Maps each lettered clause to its
+// (testType, testClass) row-shape values. SDF-vocabulary local —
+// `test-direction.ts` deliberately does not import this. Both modules
+// share the *key inventory* via `clause-letters.ts` (KNOWN_CLAUSE_LETTERS)
+// so a new clause is one edit there; the bijection between this map's
+// keys and that set is asserted by `__tests__/clause-letters.test.ts`.
+// Exported for the clause-letter bijection test only; production callers
+// should classify via `classifyTest` rather than reaching into this map.
+export const CLAUSE_MAP: Record<string, { type: string; testClass: string }> = {
   a: { type: "CONCENTRATION", testClass: "ASSET_TYPE_SR_SECURED" },
   b: { type: "CONCENTRATION", testClass: "ASSET_TYPE_SR_LOANS" },
   c: { type: "CONCENTRATION", testClass: "ASSET_TYPE_UNSECURED" },
@@ -48,8 +58,6 @@ const CLAUSE_MAP: Record<string, { type: string; testClass: string }> = {
   dd: { type: "CONCENTRATION", testClass: "DERIVED_RATING" },
 };
 
-const HIGHER_IS_BETTER_CLAUSES = new Set(["a", "b"]);
-
 function classifyTest(testName: string): { type: string; testClass: string | null } {
   if (testName.includes("Par Value Test")) {
     const classMatch = testName.match(/^Class\s+(.+?)\s+Par Value Test/);
@@ -81,9 +89,9 @@ function classifyTest(testName: string): { type: string; testClass: string | nul
     return { type: "OC_PAR", testClass: "EOD" };
   }
 
-  const clauseMatch = testName.match(/^\(([a-z]{1,2})\)/);
+  const clauseMatch = testName.match(/^\(([a-z]{1,2})\)/i);
   if (clauseMatch) {
-    const clause = clauseMatch[1];
+    const clause = clauseMatch[1].toLowerCase();
     const mapping = CLAUSE_MAP[clause];
     if (mapping) return { type: mapping.type, testClass: mapping.testClass };
   }
@@ -99,20 +107,6 @@ function classifyTest(testName: string): { type: string; testClass: string | nul
   }
 
   return { type: "ELIGIBILITY", testClass: null };
-}
-
-function isHigherBetter(testType: string, testName: string): boolean | null {
-  if (testType === "OC_PAR" || testType === "IC" || testType === "INTEREST_DIVERSION") return true;
-  if (testType === "RECOVERY" || testType === "DIVERSITY" || testType === "WAS") return true;
-  if (testType === "WARF" || testType === "WAL") return false;
-
-  if (testName.includes("Minimum") || testName.includes("Min")) return true;
-  if (testName.includes("Maximum") || testName.includes("Max")) return false;
-
-  const clauseMatch = testName.match(/^\(([a-z]{1,2})\)/);
-  if (clauseMatch && HIGHER_IS_BETTER_CLAUSES.has(clauseMatch[1])) return true;
-
-  return null;
 }
 
 function parsePassFail(value: string): { isPassing: boolean | null; isActive: boolean } {

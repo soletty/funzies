@@ -121,8 +121,9 @@ export function canonicalizeDayCount(
 
   // Unrecognized non-empty string. Per anti-pattern #3 this must block —
   // silent re-interpretation of a string we don't understand is the
-  // canonical failure shape (KI-08-style locale mis-parse, KI-51-style
-  // wrong-direction comparison, etc.).
+  // canonical failure shape (locale-blind numeric parsers turning
+  // "1.500.000,00" into 1.5, gates defaulting wrong-direction comparisons
+  // on lower-is-better tests, etc.).
   return {
     convention: "actual_360",
     warning: `${ctx.field}: unrecognized day_count_convention "${raw}". Either the parser doesn't handle this convention or upstream data is corrupt. Engine refuses to project against an unknown accrual convention; extend canonicalizeDayCount or fix the data.`,
