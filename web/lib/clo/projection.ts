@@ -2146,13 +2146,14 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     //     Resolver gates a non-zero opening balance on a future deal as a
     //     blocking extraction failure (`severity: "error"`) so the engine
     //     refuses to run rather than silently understate the IC numerator.
-    // Two-component cap, same shape as the in-period cap construction below
-    // (line 2820-2823): (a) absolute €/yr floor + (b) bps × pool par, both
-    // pro-rated. T=0 uses the /4 flat quarterly approximation while the
-    // in-period path uses precise dayFracActual; directionally consistent on
-    // stub first periods. Floor term must apply at T=0 too — omitting it
-    // understates the cap by `floorPerYear/4` and falsely drains the expense
-    // reserve into `reserveContributionT0` → Q1 IC numerator.
+    // Two-component cap, same shape as the in-period cap construction below:
+    // (a) absolute €/yr floor + (b) bps × pool par, both pro-rated. T=0 uses
+    // the /4 flat quarterly approximation while the in-period path uses
+    // precise dayFracActual; directionally consistent on stub first periods.
+    // Floor term must apply at T=0 too — omitting it understates the cap by
+    // `floorPerYear/4` and falsely drains the expense reserve into
+    // `reserveContributionT0` → Q1 IC numerator. KI-39/40/41 also apply at
+    // this site (see the in-period cap block for the un-dispatched fields).
     const capAmountFromCapBpsT0 = seniorExpensesCapBps != null
       ? poolPar * (seniorExpensesCapBps / 10000) / 4
         + seniorExpensesCapAbsoluteFloorPerYear / 4
@@ -2826,11 +2827,14 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     // Condition 1 — (a) absolute fixed €/yr floor + (b) bps × CPA. Both
     // pro-rated by dayFracActual. Ares XV: (a) €300K p.a. + (b) 2.5 bps.
     // The OC's component (a) uses 30/360 for ongoing PDs and Actual/360 for
-    // the first PD; engine uses uniform Actual/360 (separate KI tracks the
-    // mixed day-count gap). When `seniorExpensesCapBps` is undefined the
-    // cap is uncapped (legacy synthetic-test behavior); the absolute floor
-    // alone never produces an Infinity cap, so the `null bps → Infinity`
-    // sentinel is preserved.
+    // the first PD; engine uses uniform Actual/360 (KI-41 tracks the mixed
+    // day-count gap). The cap base is `beginningPar` (APB); KI-39 tracks
+    // the CPA-vs-APB divergence — the resolver extracts `capBase: "CPA"`
+    // for Ares XV but the engine doesn't dispatch on it yet. Cap is
+    // un-augmented by the unused 3-period rolling carryforward (KI-40).
+    // When `seniorExpensesCapBps` is undefined the cap is uncapped (legacy
+    // synthetic-test behavior); the absolute floor alone never produces an
+    // Infinity cap, so the `null bps → Infinity` sentinel is preserved.
     const capAmountFromCapBps = seniorExpensesCapBps != null
       ? beginningPar * (seniorExpensesCapBps / 10000) * dayFracActual
         + seniorExpensesCapAbsoluteFloorPerYear * dayFracActual

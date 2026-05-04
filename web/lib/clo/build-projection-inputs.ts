@@ -215,10 +215,19 @@ export interface DefaultsFromResolvedRaw {
  *     ← resolver's PPM extraction (`resolved.fees.*`), else default.
  *     (fee-rate plumbing; the ~€22.35M fee-BASE
  *     discrepancy is KI-12a's harness mismatch, not fixed here).
- *   - `trusteeFeeBps` ← if PPM gave a non-zero extraction use it; else
- *     back-derive from `raw.waterfallSteps` B + C annualized on beginning par.
- *     Partial-close of KI-08 (pre-fill only; Senior Expenses Cap + overflow
- *     at steps Y/Z remains Sprint 3 / C3).
+ *   - `trusteeFeeBps` + `adminFeeBps` ← split-back-derived from
+ *     `raw.waterfallSteps` step B + step C respectively (when each non-zero
+ *     extraction is missing); else PPM extraction. Partial-close of KI-08
+ *     (day-count residuals on the engine-vs-trustee tie remain blocked on
+ *     KI-12a).
+ *   - `seniorExpensesCapBps` / `seniorExpensesCapAbsoluteFloorPerYear` /
+ *     `seniorExpensesCapAllocationWithinCap` /
+ *     `seniorExpensesCapOverflowAllocation` ← `resolved.seniorExpensesCap`
+ *     (PPM Condition 1, OC pp. 150-151 for Ares CLO XV). The
+ *     `ResolvedSeniorExpensesCap.capBase` and `carryforwardPeriods` fields
+ *     are extracted but NOT propagated into `UserAssumptions` — the engine
+ *     does not yet dispatch on them (tracked as KI-39 CPA-vs-APB and KI-40
+ *     3-period carryforward; their closure PRs add the wires).
  *   - `baseRateFloorPct` ← `resolved.baseRateFloorPct` if set.
  *
  * All other assumption fields inherit from `DEFAULT_ASSUMPTIONS`.
@@ -330,6 +339,11 @@ export function defaultsFromResolved(
       resolved.seniorExpensesCap.allocationWithinCap;
     base.seniorExpensesCapOverflowAllocation =
       resolved.seniorExpensesCap.overflowAllocation;
+    // `resolved.seniorExpensesCap.capBase` and `.carryforwardPeriods` are
+    // intentionally NOT propagated — engine doesn't dispatch on them today
+    // (KI-39 CPA-vs-APB and KI-40 3-period carryforward). Reading
+    // `resolved.seniorExpensesCap.capBase === "CPA"` does NOT mean the
+    // engine respects it; the engine uses `beginningPar` (APB) regardless.
   }
 
   return base;
