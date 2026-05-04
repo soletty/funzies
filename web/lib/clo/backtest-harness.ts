@@ -191,7 +191,7 @@ export function runBacktestHarness(
   }
 
   // Map engine emissions to buckets.
-  const engineByBucket = extractEngineBuckets(p1);
+  const engineByBucket = extractEngineBuckets(p1, projectionInputs);
 
   const steps: StepDelta[] = [];
   for (const [bucket, ppmSteps] of Object.entries(ENGINE_BUCKET_TO_PPM) as Array<
@@ -249,32 +249,58 @@ export function runBacktestHarness(
 // Maps `PeriodResult` (trancheInterest[], tranchePrincipal[], stepTrace.*) to
 // the flat `EngineBucket → number` map the harness compares against.
 //
-// Class-name conventions: resolver emits "Class A", "Class B-1", "Class B-2",
-// "Class C", "Class D", "Class E", "Class F", "Subordinated Notes". Class B
-// (step H) aggregates B-1 + B-2 pari passu.
+// Tranche identity is rank-based, NOT className-based — per CLAUDE.md
+// "Don't overfit to a single deal". Non-amortising debt tranches are
+// grouped by unique `seniorityRank` (sorted ascending); pari-passu tranches
+// at the same rank populate the same tier. Tier 0 = senior non-amort
+// (PPM Class A by convention), tier 1 = next (Class B), …, tier 5 = Class F.
+//
+// Cure-step mapping is also rank-based: each PPM cure step (I)/(L)/(O)/(R)/(U)
+// fires when the OC trigger covering that tier's seniority rank fails. The
+// engine emits ocCureDiversions[].rank = the failing trigger's rank, which
+// corresponds to the rank of the lowest-seniority tranche the trigger covers.
 // ============================================================================
 
-function extractEngineBuckets(p: PeriodResult): Partial<Record<EngineBucket, number>> {
+function extractEngineBuckets(
+  p: PeriodResult,
+  inputs: ProjectionInputs,
+): Partial<Record<EngineBucket, number>> {
   const trancheInterestByClass = new Map<string, number>();
   for (const ti of p.trancheInterest) trancheInterestByClass.set(ti.className, ti.paid);
 
-  // OC cure diversions keyed by tranche rank; aggregate per PPM step.
-  // Rank mapping per Euro XV capital structure (ranks from resolver):
-  //   A=1, B-1=2, B-2=3 → A/B OC cure fires at boundary rank 3 → step (I)
-  //   C=4 → step (L); D=5 → (O); E=6 → (R); F=7 → (U)
-  // The engine's `ocCureDiversions[].rank` is the tranche seniorityRank at the
-  // boundary — the diversion that happened when THAT class's OC test tripped.
+  const deferredByClass = p.stepTrace.deferredAccrualByTranche;
+
+  // Build tier groups: non-amortising debt tranches, grouped by unique
+  // seniorityRank, sorted ascending. Pari-passu pairs share a tier.
+  const debtTranches = inputs.tranches
+    .filter((t) => !t.isIncomeNote && !t.isAmortising)
+    .slice()
+    .sort((a, b) => a.seniorityRank - b.seniorityRank);
+  const tierByRank = new Map<number, typeof debtTranches>();
+  for (const t of debtTranches) {
+    const existing = tierByRank.get(t.seniorityRank);
+    if (existing) existing.push(t);
+    else tierByRank.set(t.seniorityRank, [t]);
+  }
+  const tiers = Array.from(tierByRank.values());
+
+  const tierInterest = (i: number): number =>
+    (tiers[i] ?? []).reduce((s, t) => s + (trancheInterestByClass.get(t.className) ?? 0), 0);
+  const tierDeferred = (i: number): number =>
+    (tiers[i] ?? []).reduce((s, t) => s + (deferredByClass[t.className] ?? 0), 0);
+  const tierRanks = (i: number): number[] => (tiers[i] ?? []).map((t) => t.seniorityRank);
+
+  // OC cure diversions keyed by failing trigger rank. The engine sets
+  // ocCureDiversions[].rank = ocTriggers[].rank for the failing trigger.
+  // Map cure to the harness bucket whose tier contains the trigger's rank:
+  // a cure at the rank of tier-0/1 (Class A or B) → step (I), the AB cure;
+  // a cure at the rank of tier-2 (Class C) → step (L); etc.
   const diversionsByRank = new Map<number, number>();
   for (const d of p.stepTrace.ocCureDiversions) {
     diversionsByRank.set(d.rank, (diversionsByRank.get(d.rank) ?? 0) + d.amount);
   }
-  const ocCure_AB = (diversionsByRank.get(1) ?? 0) + (diversionsByRank.get(2) ?? 0) + (diversionsByRank.get(3) ?? 0);
-  const ocCure_C = diversionsByRank.get(4) ?? 0;
-  const ocCure_D = diversionsByRank.get(5) ?? 0;
-  const pvCure_E = diversionsByRank.get(6) ?? 0;
-  const pvCure_F = diversionsByRank.get(7) ?? 0;
-
-  const deferredByClass = p.stepTrace.deferredAccrualByTranche;
+  const cureAtTier = (i: number): number =>
+    tierRanks(i).reduce((s, r) => s + (diversionsByRank.get(r) ?? 0), 0);
 
   return {
     // Taxes: now emitted by the engine when taxesBps is set.
@@ -297,28 +323,31 @@ function extractEngineBuckets(p: PeriodResult): Partial<Record<EngineBucket, num
     subMgmtFeePaid: p.stepTrace.subMgmtFeePaid,
     incentiveFeePaid: p.stepTrace.incentiveFeeFromInterest,
 
-    // PPM step (G): Class A interest + Class X amort paid pari-passu from
-    // interest pool. On Euro XV (no Class X) the second term is 0.
-    stepG_interest: (trancheInterestByClass.get("Class A") ?? 0) + p.stepTrace.classXAmortFromInterest,
-    // Tranche current interest (from trancheInterest[])
-    classB_interest: (trancheInterestByClass.get("Class B-1") ?? 0) + (trancheInterestByClass.get("Class B-2") ?? 0),
-    classC_current: trancheInterestByClass.get("Class C") ?? 0,
-    classD_current: trancheInterestByClass.get("Class D") ?? 0,
-    classE_current: trancheInterestByClass.get("Class E") ?? 0,
-    classF_current: trancheInterestByClass.get("Class F") ?? 0,
+    // Tier-positional class buckets (PPM step convention: tier 0 = Class A,
+    // tier 1 = Class B, …). Each tier sums interest across all pari-passu
+    // tranches at that rank.
+    stepG_interest: tierInterest(0) + p.stepTrace.classXAmortFromInterest,
+    classB_interest: tierInterest(1),
+    classC_current: tierInterest(2),
+    classD_current: tierInterest(3),
+    classE_current: tierInterest(4),
+    classF_current: tierInterest(5),
 
-    // Tranche deferred interest capitalized this period
-    classC_deferred: deferredByClass["Class C"] ?? 0,
-    classD_deferred: deferredByClass["Class D"] ?? 0,
-    classE_deferred: deferredByClass["Class E"] ?? 0,
-    classF_deferred: deferredByClass["Class F"] ?? 0,
+    // Deferred interest capitalized this period (tier-positional).
+    classC_deferred: tierDeferred(2),
+    classD_deferred: tierDeferred(3),
+    classE_deferred: tierDeferred(4),
+    classF_deferred: tierDeferred(5),
 
-    // OC/PV cure diversions by class
-    ocCure_AB,
-    ocCure_C,
-    ocCure_D,
-    pvCure_E,
-    pvCure_F,
+    // OC/PV cure diversions: cure fires at the rank of the failing trigger;
+    // map to harness bucket by which tier's rank(s) the trigger covers.
+    // ocCure_AB sums diversions at tiers 0 + 1 (Class A or Class B trigger
+    // failing — both route to PPM step I).
+    ocCure_AB: cureAtTier(0) + cureAtTier(1),
+    ocCure_C: cureAtTier(2),
+    ocCure_D: cureAtTier(3),
+    pvCure_E: cureAtTier(4),
+    pvCure_F: cureAtTier(5),
 
     // Reinvestment OC diversion (step W)
     reinvOcDiversion: p.stepTrace.reinvOcDiversion,
