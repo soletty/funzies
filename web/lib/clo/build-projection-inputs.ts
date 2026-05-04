@@ -816,6 +816,7 @@ export function buildFromResolved(
     deferredInterestCompounds: userAssumptions.deferredInterestCompounds ?? resolved.deferredInterestCompounds,
     interestNonPaymentGracePeriods: resolved.interestNonPaymentGracePeriods,
     initialPrincipalCash: resolved.principalAccountCash,
+    initialUnusedProceedsCash: resolved.unusedProceedsCash,
     initialInterestAccountCash: resolved.interestAccountCash,
     initialInterestSmoothingBalance: resolved.interestSmoothingBalance,
     initialExpenseReserveBalance: resolved.expenseReserveBalance,

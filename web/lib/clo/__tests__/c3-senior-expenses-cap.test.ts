@@ -140,6 +140,38 @@ describe("C3 — Senior Expenses Cap: stress scenarios with overflow", () => {
 });
 
 describe("Senior Expenses Cap — KI-41 component (a) mixed day-count", () => {
+  it("first PD of deal accrues floor at Actual/360 (PPM proviso (a)(x))", () => {
+    // Greenfield branch: projection starts before/at the deal's first PD.
+    // Override `firstPaymentDate` to a future date so q=1 IS the deal's
+    // first PD; assert the floor accrues at Actual/360, not 30/360.
+    const baseInputs = buildFromResolved(
+      fixture.resolved,
+      defaultsFromResolved(fixture.resolved, fixture.raw),
+    );
+    const inputs = {
+      ...baseInputs,
+      seniorExpensesCapBps: 0.0001,
+      seniorExpensesCapAbsoluteFloorPerYear: 300_000,
+      trusteeFeeBps: 1000,
+      adminFeeBps: 0,
+      seniorExpensesCapComponentADayCount: "30_360_after_first" as const,
+      firstPaymentDate: "2099-01-15", // far-future → q=1 is the deal's first PD
+    };
+    const firstPdRun = runProjection(inputs);
+    // Ongoing branch: pin firstPaymentDate strictly before currentDate so
+    // the engine reaches the 30/360 path. Use 2020-01-15 (well before the
+    // fixture's 2026 currentDate).
+    const ongoingRun = runProjection({ ...inputs, firstPaymentDate: "2020-01-15" });
+    // First-PD branch: floor accrues at Actual/360 = 91/360 = 0.2528.
+    // Ongoing branch: floor accrues at 30/360 = 0.25.
+    // capAmount differs by €300K × (91/360 - 90/360) ≈ €833.
+    const drift =
+      firstPdRun.periods[0].stepTrace.seniorExpensesCapAmount -
+      ongoingRun.periods[0].stepTrace.seniorExpensesCapAmount;
+    expect(drift).toBeGreaterThan(800);
+    expect(drift).toBeLessThan(900);
+  });
+
   it("ongoing PD accrues floor at 30/360, not Actual/360 (€833/quarter drift on €300K p.a.)", () => {
     // Ares XV mid-life: currentDate (2026-...) > firstPaymentDate (2022-...)
     // → q=1 is NOT the deal's first PD → component (a) accrues at 30/360.
@@ -215,24 +247,17 @@ describe("Senior Expenses Cap — KI-39 CPA cap base augments by Principal Accou
 });
 
 describe("Senior Expenses Cap — KI-40 3-period rolling carryforward of unused headroom", () => {
-  it("unused headroom over preceding 3 PDs augments current PD's cap (PPM proviso (ii))", () => {
+  it("buffer accumulates Σ unused headroom over preceding N periods (PPM proviso (ii))", () => {
     const baseAssumptions = defaultsFromResolved(fixture.resolved, fixture.raw);
     const baseInputs = buildFromResolved(fixture.resolved, baseAssumptions);
-    // Tight bps cap + zero floor so periods 1-3 sit well below the stated cap
-    // (saving headroom), period 4 spikes far above cap. Carryforward should
-    // augment period 4's effective cap by Σ unused headroom from periods 1-3.
+    // Constant fees < cap → each period contributes the same unused
+    // headroom. With carryforwardPeriods=3, the buffer accumulates over
+    // periods 1, 2, 3 and saturates at q=4 onward (FIFO trim).
     const stress = {
       ...baseInputs,
       seniorExpensesCapBps: 5,
       seniorExpensesCapAbsoluteFloorPerYear: 0,
-      // Use a constant fee schedule so periods 1-3 each leave the same
-      // unused headroom; period 4's surge is engineered via a `cdrPath` /
-      // assumption change rather than a runtime fee swing — the engine has
-      // no per-period fee swing input. Instead: relax the test to assert
-      // that the carryforward CHANGES the period-4 outcome relative to a
-      // run with carryforwardPeriods = null. Both runs use the same fee
-      // schedule; only the carryforward feature toggles.
-      trusteeFeeBps: 1, // fees ≈ 1 bps requested every period
+      trusteeFeeBps: 1,
       adminFeeBps: 0,
     };
     const withCarryforward = runProjection({
@@ -243,72 +268,71 @@ describe("Senior Expenses Cap — KI-40 3-period rolling carryforward of unused 
       ...stress,
       seniorExpensesCapCarryforwardPeriods: null,
     });
-    // Periods 1-3: same in both (no prior history). Verify equality first.
-    for (let q = 0; q < 3; q++) {
-      const w = withCarryforward.periods[q];
-      const wo = withoutCarryforward.periods[q];
-      expect(w.stepTrace.trusteeFeesPaid).toBeCloseTo(wo.stepTrace.trusteeFeesPaid, 2);
-    }
-    // The carryforward state is observable by lifting fees on a later period
-    // — the cap augments by the trailing buffer. To exercise the buffer
-    // effect mechanically we assert a structural invariant: with 1 bps fees
-    // permanently below 5 bps cap, the buffer accumulates non-zero entries
-    // and the carryforward run's period-4 effective cap is strictly larger
-    // than the no-carryforward run's. A clean read: cappedPaid never differs
-    // (fees < cap in both), but the carryforward run's overflow is zero
-    // even under stress where without-carryforward would overflow. We check
-    // the invariant by stressing fees at q=4 via a synthetic re-run.
-    // Engine doesn't support per-period fee swings as inputs; the structural
-    // assertion suffices: carryforward run's period-4 cap absorbs more than
-    // the no-carryforward run's stated cap when fees jump. Verified
-    // analytically against the engine state — Σ trailing 3 unused headroom
-    // adds ~3× the single-period headroom to period 4's cap.
-    // Sanity: with carryforward + low constant fees, no overflow should fire
-    // through the projection horizon (cap is always slack).
-    for (const p of withCarryforward.periods.slice(0, 8)) {
-      expect(p.stepTrace.trusteeOverflowPaid).toBe(0);
-      expect(p.stepTrace.adminOverflowPaid).toBe(0);
+    // Period 1: buffer empty in both → carryforwardSum = 0.
+    expect(withCarryforward.periods[0].stepTrace.seniorExpensesCapCarryforwardSum).toBe(0);
+    expect(withoutCarryforward.periods[0].stepTrace.seniorExpensesCapCarryforwardSum).toBe(0);
+    // Period 2: buffer holds period-1 unused headroom.
+    expect(withCarryforward.periods[1].stepTrace.seniorExpensesCapCarryforwardSum).toBeGreaterThan(0);
+    expect(withoutCarryforward.periods[1].stepTrace.seniorExpensesCapCarryforwardSum).toBe(0);
+    // The cap amount differs by exactly the carryforward sum.
+    const w2 = withCarryforward.periods[1];
+    const wo2 = withoutCarryforward.periods[1];
+    expect(w2.stepTrace.seniorExpensesCapAmount - wo2.stepTrace.seniorExpensesCapAmount).toBeCloseTo(
+      w2.stepTrace.seniorExpensesCapCarryforwardSum,
+      2,
+    );
+    // Period 4+: buffer holds exactly 3 entries (FIFO trim). The sum drifts
+    // mildly as `beginningPar` evolves (defaults/recoveries), but the cap
+    // amount stays strictly augmented vs the no-carryforward run by exactly
+    // the carryforward sum.
+    for (let q = 3; q < 7; q++) {
+      const wq = withCarryforward.periods[q];
+      const woq = withoutCarryforward.periods[q];
+      expect(wq.stepTrace.seniorExpensesCapCarryforwardSum).toBeGreaterThan(0);
+      expect(
+        wq.stepTrace.seniorExpensesCapAmount - woq.stepTrace.seniorExpensesCapAmount,
+      ).toBeCloseTo(wq.stepTrace.seniorExpensesCapCarryforwardSum, 2);
     }
   });
 
-  it("carryforward augments cap quantitatively under stress: one over-cap period absorbs trailing headroom", () => {
+  it("seed input augments the q=1 cap by Σ seed entries (mid-life projection)", () => {
     const baseAssumptions = defaultsFromResolved(fixture.resolved, fixture.raw);
     const baseInputs = buildFromResolved(fixture.resolved, baseAssumptions);
-    // Construct: tight bps cap (no floor) + fees that are normally well below cap
-    // but engineered to spike via a coverage-trigger reroute would be too
-    // fragile. Instead, assert the carryforward state mechanically by
-    // computing a single-period stress with a known starting buffer.
-    //
-    // For a quantitative assertion we'd need to seed history directly which
-    // the engine doesn't expose. Instead, compare: a constant-fee run with
-    // carryforward vs without — over many periods the cap state diverges,
-    // and stressing fees at any given period the carryforward run has more
-    // headroom and emits less overflow. We use a fee level that's 7 bps
-    // requested vs 5 bps stated cap → 2 bps overflow per period without
-    // carryforward; with 3-period carryforward and the run having
-    // accumulated nothing (all periods over-cap) the buffer is empty and
-    // both runs match. Useful only as a sanity check — full stress with
-    // engineered buffer-then-spike is left for an integration test on a
-    // synthetic 4-period harness.
     const stress = {
       ...baseInputs,
       seniorExpensesCapBps: 5,
       seniorExpensesCapAbsoluteFloorPerYear: 0,
-      trusteeFeeBps: 7,
+      seniorExpensesCapCarryforwardPeriods: 3,
+      trusteeFeeBps: 1,
       adminFeeBps: 0,
     };
-    const w = runProjection({
-      ...stress,
-      seniorExpensesCapCarryforwardPeriods: 3,
-    });
-    const wo = runProjection({
-      ...stress,
-      seniorExpensesCapCarryforwardPeriods: null,
-    });
-    // When fees are above cap every period, no headroom accumulates; the
-    // carryforward run produces identical overflow to the no-carryforward
-    // run (buffer stays zero throughout).
+    const seed = [10_000, 15_000, 20_000];
+    const withSeed = runProjection({ ...stress, seniorExpensesCapCarryforwardSeed: seed });
+    const withoutSeed = runProjection({ ...stress, seniorExpensesCapCarryforwardSeed: undefined });
+    // q=1 cap with seed augments by Σ seed = 45_000.
+    const seedSum = seed.reduce((s, h) => s + h, 0);
+    expect(withSeed.periods[0].stepTrace.seniorExpensesCapCarryforwardSum).toBeCloseTo(seedSum, 2);
+    expect(withoutSeed.periods[0].stepTrace.seniorExpensesCapCarryforwardSum).toBe(0);
+    expect(
+      withSeed.periods[0].stepTrace.seniorExpensesCapAmount -
+        withoutSeed.periods[0].stepTrace.seniorExpensesCapAmount,
+    ).toBeCloseTo(seedSum, 2);
+  });
+
+  it("over-cap fees every period: no headroom accumulates, carryforward inert", () => {
+    const baseAssumptions = defaultsFromResolved(fixture.resolved, fixture.raw);
+    const baseInputs = buildFromResolved(fixture.resolved, baseAssumptions);
+    const stress = {
+      ...baseInputs,
+      seniorExpensesCapBps: 5,
+      seniorExpensesCapAbsoluteFloorPerYear: 0,
+      trusteeFeeBps: 7, // 7 bps requested vs 5 bps cap → 2 bps overflow each period
+      adminFeeBps: 0,
+    };
+    const w = runProjection({ ...stress, seniorExpensesCapCarryforwardPeriods: 3 });
+    const wo = runProjection({ ...stress, seniorExpensesCapCarryforwardPeriods: null });
     for (let q = 0; q < 4; q++) {
+      expect(w.periods[q].stepTrace.seniorExpensesCapCarryforwardSum).toBe(0);
       expect(w.periods[q].stepTrace.trusteeOverflowPaid).toBeCloseTo(
         wo.periods[q].stepTrace.trusteeOverflowPaid,
         0,
@@ -349,6 +373,54 @@ describe("Senior Expenses Cap — KI-42 VAT inclusion gross-up", () => {
     const withVatOverflow = withVat.periods[0].stepTrace.trusteeOverflowPaid;
     expect(withVatOverflow - noVatOverflow).toBeGreaterThan(expectedDelta * 0.95);
     expect(withVatOverflow - noVatOverflow).toBeLessThan(expectedDelta * 1.05);
+  });
+});
+
+describe("Senior Expenses Cap — T=0 dispatch parity with in-period site", () => {
+  it("T=0 capBaseMode='CPA' adds initialPrincipalCash + initialUnusedProceedsCash to base", () => {
+    const baseAssumptions = defaultsFromResolved(fixture.resolved, fixture.raw);
+    const baseInputs = buildFromResolved(fixture.resolved, baseAssumptions);
+    const stress = {
+      ...baseInputs,
+      initialPrincipalCash: 5_000_000,
+      initialUnusedProceedsCash: 3_000_000,
+      seniorExpensesCapBps: 1,
+      seniorExpensesCapAbsoluteFloorPerYear: 0,
+    };
+    const cpa = runProjection({ ...stress, seniorExpensesCapBaseMode: "CPA" as const });
+    const apb = runProjection({ ...stress, seniorExpensesCapBaseMode: "APB" as const });
+    // Delta = (5M + 3M) × 1 bps × 0.25 = €200.
+    const expectedDelta = 8_000_000 * (1 / 10000) * 0.25;
+    expect(
+      cpa.initialState.seniorExpensesCapAmountT0 -
+        apb.initialState.seniorExpensesCapAmountT0,
+    ).toBeCloseTo(expectedDelta, 1);
+  });
+
+  it("T=0 vatIncluded + vatRatePct=20 grosses up cappedRequested by 20%", () => {
+    const baseAssumptions = defaultsFromResolved(fixture.resolved, fixture.raw);
+    const baseInputs = buildFromResolved(fixture.resolved, baseAssumptions);
+    const stress = {
+      ...baseInputs,
+      seniorExpensesCapBps: 3,
+      seniorExpensesCapAbsoluteFloorPerYear: 0,
+      trusteeFeeBps: 5,
+      adminFeeBps: 0,
+    };
+    const noVat = runProjection({
+      ...stress,
+      seniorExpensesCapVatIncluded: false,
+      seniorExpensesCapVatRatePct: null,
+    });
+    const withVat = runProjection({
+      ...stress,
+      seniorExpensesCapVatIncluded: true,
+      seniorExpensesCapVatRatePct: 20,
+    });
+    expect(
+      withVat.initialState.seniorExpensesCapRequestedT0 /
+        noVat.initialState.seniorExpensesCapRequestedT0,
+    ).toBeCloseTo(1.2, 3);
   });
 });
 

@@ -340,6 +340,20 @@ export interface ProjectionInputs {
   cccMarketValuePct: number; // market value assumption for CCC excess haircut (% of par)
   deferredInterestCompounds: boolean; // whether PIK'd interest itself earns interest
   initialPrincipalCash?: number; // uninvested principal in accounts at projection start (flows through waterfall Q1)
+  /** Unused Proceeds Account opening balance at T=0. Per PPM Condition 1
+   *  CPA definition (d), the Balance "standing to the credit of the Principal
+   *  Account and the Unused Proceeds Account" augments the Collateral
+   *  Principal Amount used as the Senior Expenses Cap component (b) base.
+   *  The engine has no flow that mutates this balance across periods, so
+   *  it contributes to CPA at q=1 only; q≥2 is treated as zero. Default 0. */
+  initialUnusedProceedsCash?: number;
+  /** Mid-life carryforward seed: prior unused stated-cap headroom
+   *  from the trustee history, length up to `seniorExpensesCapCarryforwardPeriods`.
+   *  Engine appends this to the carryforward FIFO buffer at projection
+   *  start so a mid-life projection's first periods see the same
+   *  augmentation the trustee report would. Default empty (appropriate
+   *  at deal inception). */
+  seniorExpensesCapCarryforwardSeed?: number[];
   /** Interest Account opening balance at T=0. Per PPM Condition 3(j)(ii)(1)
    *  the Interest Account is fully transferred to the Payment Account on the
    *  Business Day prior to each Payment Date for disbursement under the
@@ -534,6 +548,17 @@ export interface PeriodStepTrace {
   trusteeOverflowPaid: number;
   /** PPM step (Z) — admin-expense overflow. Same mechanics as trustee. */
   adminOverflowPaid: number;
+  /** Senior Expenses Cap effective amount used at this period's cap test
+   *  — bps × cap base + floor + carryforward augmentation (does NOT include
+   *  Expense Reserve drain, which is a separate augmentation mechanism).
+   *  Exposed for marker tests verifying carryforward augmentation and
+   *  CPA-vs-APB cap base dispatch. */
+  seniorExpensesCapAmount: number;
+  /** Σ unused-headroom carried forward from preceding PDs (PPM Condition 1
+   *  proviso (ii)). Zero at period 1 (or when carryforward is disabled).
+   *  Equals the difference between `seniorExpensesCapAmount` and the stated
+   *  bps + floor cap. */
+  seniorExpensesCapCarryforwardSum: number;
   equityFromInterest: number;
   equityFromPrincipal: number;
   /** PPM step (G) — Class X (or other amortising-tranche) scheduled
@@ -754,11 +779,22 @@ export interface ProjectionInitialState {
    *  to the OC numerator (PPM Condition 1(d)). */
   openingAccountBalances: {
     principalAccountCash: number;
+    unusedProceedsCash: number;
     interestAccountCash: number;
     interestSmoothingBalance: number;
     supplementalReserveBalance: number;
     expenseReserveBalance: number;
   };
+  /** T=0 Senior Expenses Cap effective amount used for the IC compositional
+   *  parity test — bps × cap base + floor (per the /4 flat quarterly
+   *  approximation). Reflects CPA-vs-APB dispatch (`seniorExpensesCapBaseMode`)
+   *  and VAT gross-up if applicable. Exposed for marker tests verifying
+   *  T=0 dispatch parity with the in-period site. */
+  seniorExpensesCapAmountT0: number;
+  /** T=0 cap-test capped requested amount (trustee + admin grossed up by
+   *  VAT when applicable). Exposed for marker tests verifying the VAT
+   *  gross-up path at T=0 mirrors the in-period site. */
+  seniorExpensesCapRequestedT0: number;
 }
 
 export interface ProjectionResult {
@@ -1362,11 +1398,13 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     reinvestmentSpreadBps, reinvestmentTenorQuarters, reinvestmentRating: reinvestmentRatingOverride,
     cccBucketLimitPct, cccMarketValuePct, deferredInterestCompounds,
     initialPrincipalCash = 0,
+    initialUnusedProceedsCash = 0,
     initialInterestAccountCash = 0,
     initialInterestSmoothingBalance = 0,
     initialExpenseReserveBalance = 0,
     initialSupplementalReserveBalance = 0,
     supplementalReserveDisposition = "principalCash",
+    seniorExpensesCapCarryforwardSeed,
     preExistingDefaultedPar = 0, preExistingDefaultRecovery = 0, unpricedDefaultedPar = 0, preExistingDefaultOcValue = 0,
     discountObligationHaircut = 0, longDatedObligationHaircut = 0, impliedOcAdjustment = 0, quartersSinceReport = 0,
     ddtlDrawPercent = 100,
@@ -2143,8 +2181,17 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     // absolute value at T=0 as in the forward loop. Deducting at T=0 keeps
     // IC compositional parity aligned with the in-loop path.
     const issuerProfitAmountT0 = issuerProfitAmount;
-    const trusteeFeeAmountT0 = poolPar * (trusteeFeeBps / 10000) / 4;
-    const adminFeeAmountT0 = poolPar * (adminFeeBps / 10000) / 4;
+    // VAT gross-up applied at construction (mirror the in-period site) so
+    // both the cap test AND the IC compositional subtraction below see the
+    // VAT-inclusive amount. Issuer pays gross to the recipient (recipient
+    // gets net, tax authority gets VAT) — `trusteeFeeAmountT0` represents
+    // cash leaving the issuer, which is gross.
+    const vatGrossUpT0Pre =
+      seniorExpensesCapVatIncluded && seniorExpensesCapVatRatePct != null
+        ? 1 + seniorExpensesCapVatRatePct / 100
+        : 1;
+    const trusteeFeeAmountT0 = poolPar * (trusteeFeeBps / 10000) / 4 * vatGrossUpT0Pre;
+    const adminFeeAmountT0 = poolPar * (adminFeeBps / 10000) / 4 * vatGrossUpT0Pre;
     const seniorFeeAmountT0 = poolPar * (seniorFeePct / 100) / 4;
     const hedgeCostAmountT0 = poolPar * (hedgeCostBps / 10000) / 4;
     // PPM Condition 1, "Interest Coverage Amount" definition (paraphrased
@@ -2199,18 +2246,17 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     // 30/360 exactly and ≈ Actual/360 on a 91-day quarter — the
     // approximation is directionally correct under either dispatch, so no
     // explicit branch here. Carryforward is empty at T=0 (no prior periods).
-    // VAT gross-up applied symmetrically with the in-period site.
+    // VAT gross-up applied symmetrically with the in-period site (per-bucket
+    // at construction above; the sum here is already VAT-inclusive).
     const cpaAddendaT0 =
-      seniorExpensesCapBaseMode === "CPA" ? Math.max(0, initialPrincipalCash) : 0;
+      seniorExpensesCapBaseMode === "CPA"
+        ? Math.max(0, initialPrincipalCash) + Math.max(0, initialUnusedProceedsCash)
+        : 0;
     const capAmountFromCapBpsT0 = seniorExpensesCapBps != null
       ? (poolPar + cpaAddendaT0) * (seniorExpensesCapBps / 10000) / 4
         + seniorExpensesCapAbsoluteFloorPerYear / 4
       : Infinity;
-    const vatGrossUpT0 =
-      seniorExpensesCapVatIncluded && seniorExpensesCapVatRatePct != null
-        ? 1 + seniorExpensesCapVatRatePct / 100
-        : 1;
-    const cappedRequestedT0 = (trusteeFeeAmountT0 + adminFeeAmountT0) * vatGrossUpT0;
+    const cappedRequestedT0 = trusteeFeeAmountT0 + adminFeeAmountT0;
     const expenseReserveInflowT0 = Math.min(
       initialExpenseReserveBalance,
       Math.max(0, cappedRequestedT0 - capAmountFromCapBpsT0),
@@ -2282,11 +2328,14 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
       equityWipedOut,
       openingAccountBalances: {
         principalAccountCash: initialPrincipalCash,
+        unusedProceedsCash: initialUnusedProceedsCash,
         interestAccountCash: initialInterestAccountCash,
         interestSmoothingBalance: initialInterestSmoothingBalance,
         supplementalReserveBalance: initialSupplementalReserveBalance,
         expenseReserveBalance: initialExpenseReserveBalance,
       },
+      seniorExpensesCapAmountT0: capAmountFromCapBpsT0,
+      seniorExpensesCapRequestedT0: cappedRequestedT0,
     };
   })();
 
@@ -2344,7 +2393,27 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
   // (Ares XV: 3 pre-FSE; 1 post-FSE — the engine doesn't model the FSE
   // window switch yet, so the static value carries throughout). The next
   // period's cap is augmented by Σ buffer. Inert when the field is null.
-  const capCarryforwardHistory: number[] = [];
+  // Mid-life projection seed: caller threads `seniorExpensesCapCarryforwardSeed`
+  // populated from trustee history. Default empty — appropriate at deal
+  // inception; latent under-count for mid-life projections that lack the
+  // seed input.
+  const capCarryforwardHistory: number[] = seniorExpensesCapCarryforwardSeed
+    ? [...seniorExpensesCapCarryforwardSeed]
+    : [];
+
+  // Prior-Determination-Date Principal Account balance for the CPA cap
+  // base. PPM Condition 1 component (b) bases the bps × CPA cap on CPA "as
+  // at the Determination Date immediately preceding the Payment Date". For
+  // q=1 this is the projection's opening `initialPrincipalCash`; for q≥2
+  // it's the prior period's end-of-period principal account balance, which
+  // can be non-zero when prelim cash exceeds debt available to pay down
+  // (over-collateralised maturity periods, post-RP residuals after tranche
+  // amortisation completes). Unused Proceeds Account balance is added at
+  // q=1 only — the engine has no flow that mutates it across periods, so
+  // q≥2 treats the balance as zero by construction. Floored at zero —
+  // overdrafts do not credit CPA per PPM definition (a balance is the
+  // signed amount; CPA contributions are a credit, not a debit).
+  let priorPeriodEndPrincipalCash = initialPrincipalCash;
   for (let q = 1; q <= totalQuarters; q++) {
     const periodDate = periodEndDate(q);
     const inRP = rpEndDate ? new Date(periodDate) <= rpEndDate : false;
@@ -2921,8 +2990,9 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
         ? dayFrac30
         : dayFracActual;
     const cpaAddenda =
-      q === 1 && seniorExpensesCapBaseMode === "CPA"
-        ? Math.max(0, initialPrincipalCash)
+      seniorExpensesCapBaseMode === "CPA"
+        ? Math.max(0, priorPeriodEndPrincipalCash) +
+          (q === 1 ? Math.max(0, initialUnusedProceedsCash) : 0)
         : 0;
     const carryforwardSum =
       seniorExpensesCapCarryforwardPeriods != null && seniorExpensesCapCarryforwardPeriods > 0
@@ -3271,6 +3341,10 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
           adminFeesPaid: accelResult.seniorExpensesPaid.adminExpenses,
           trusteeOverflowPaid: 0,
           adminOverflowPaid: 0,
+          // Cap is suppressed under acceleration (post-accel POP proviso);
+          // emit zero for both diagnostic fields.
+          seniorExpensesCapAmount: 0,
+          seniorExpensesCapCarryforwardSum: 0,
           seniorMgmtFeePaid: accelResult.seniorExpensesPaid.seniorMgmtFee,
           hedgePaymentPaid: accelResult.seniorExpensesPaid.hedgePayments,
           // Acceleration mode: Post-Acceleration Priority of Payments
@@ -3442,6 +3516,11 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     // Adjusted-CPA semantic forbids reserve cash from crossing,
     // independent of whether any current downstream consumer reads it.
     const suppReserveLeftoverInRemainingPrelim = Math.min(remainingPrelim, suppReserveTerminalRelease);
+    // Carry end-of-period Principal Account balance to next period's
+    // CPA cap base. `remainingPrelim` is the post-paydown residual — the
+    // cash sitting in the Principal Account at the Determination Date
+    // immediately preceding period q+1's Payment Date.
+    priorPeriodEndPrincipalCash = remainingPrelim;
     let ocNumerator = endingPar + remainingPrelim - suppReserveLeftoverInRemainingPrelim
       + pendingRecoveryValue + ocDefaultAdjustment
       - discountObligationHaircut - longDatedObligationHaircut - impliedOcAdjustment - currentDdtlUnfundedPar;
@@ -4091,6 +4170,8 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
         adminFeesPaid: seniorExpensesPaid.adminCapped,     // PPM (C)
         trusteeOverflowPaid,                               // PPM (Y)
         adminOverflowPaid,                                 // PPM (Z)
+        seniorExpensesCapAmount: capAmount,
+        seniorExpensesCapCarryforwardSum: carryforwardSum,
         seniorMgmtFeePaid: seniorExpensesPaid.seniorMgmt,
         hedgePaymentPaid: seniorExpensesPaid.hedge,
         availableForTranches,
