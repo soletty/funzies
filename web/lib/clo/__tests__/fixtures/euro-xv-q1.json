@@ -894,12 +894,14 @@
     "seniorExpensesCap": {
       "bpsPerYear": 2.5,
       "absoluteFloorEurPerYear": 300000,
+      "componentADayCount": "30_360_after_first",
       "capBase": "CPA",
       "capPeriod": "per_payment_date",
       "allocationWithinCap": "sequential_b_first",
       "overflowAllocation": "sequential_y_first",
       "carryforwardPeriods": 3,
       "vatIncluded": true,
+      "vatRatePct": null,
       "citation": {
         "sourcePages": [
           150,
@@ -9704,12 +9706,14 @@
       "seniorExpensesCap": {
         "bpsPerYear": 2.5,
         "absoluteFloorEurPerYear": 300000,
+        "componentADayCount": "30_360_after_first",
         "base": "CPA",
         "period": "per_payment_date",
         "allocationWithinCap": "sequential_b_first",
         "overflowAllocation": "sequential_y_first",
         "carryforwardPeriods": 3,
         "vatIncluded": true,
+        "vatRatePct": null,
         "sourcePages": [
           150,
           151

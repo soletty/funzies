@@ -135,6 +135,31 @@ export interface UserAssumptions {
    *  (each step paid in full from residual before next). Default:
    *  sequential_y_first (PPM-correct). */
   seniorExpensesCapOverflowAllocation: "pro_rata" | "sequential_y_first";
+  /** Day-count for cap component (a) absolute floor. PPM proviso (a):
+   *  Actual/360 on the deal's first PD; 30/360 on every other PD —
+   *  `30_360_after_first`. Some deals use uniform Actual/360. Default
+   *  `actual_360` preserves legacy uniform behavior; Ares XV overrides
+   *  to `30_360_after_first` via resolver. */
+  seniorExpensesCapComponentADayCount: "30_360_after_first" | "actual_360";
+  /** Cap base for component (b) bps × pool. PPM Condition 1 specifies
+   *  Collateral Principal Amount (CPA = Aggregate Principal Balance of
+   *  Collateral Obligations, including defaulted at par, plus Principal
+   *  Account + Unused Proceeds Account balances). `APB` preserves legacy
+   *  engine behavior (uses `beginningPar` only). */
+  seniorExpensesCapBaseMode: "CPA" | "APB";
+  /** Number of preceding Payment Dates whose unused cap headroom carries
+   *  forward into the current PD's cap (PPM proviso (ii)). Ares XV: 3
+   *  pre-FSE, 1 post-FSE. Null = no carryforward (legacy behavior). */
+  seniorExpensesCapCarryforwardPeriods: number | null;
+  /** Whether VAT on capped expenses counts toward the cap (PPM proviso (i)).
+   *  When fee inputs are gross-of-VAT (typical trustee back-derive path)
+   *  the engine path is correct without explicit gross-up; this flag with
+   *  a non-null `seniorExpensesCapVatRatePct` triggers an explicit gross-up
+   *  for hand-set net-of-VAT inputs. */
+  seniorExpensesCapVatIncluded: boolean;
+  /** Applicable VAT rate (%) to gross up `cappedRequested` by when fees
+   *  are quoted net-of-VAT. Null when fees already include VAT. */
+  seniorExpensesCapVatRatePct: number | null;
   incentiveFeePct: number;
   incentiveFeeHurdleIrr: number; // as percentage (e.g. 12 for 12%), converted to decimal internally
   // Equity (sub note) entry price in cents of sub note par. Used for secondary-
@@ -184,6 +209,11 @@ export const DEFAULT_ASSUMPTIONS: UserAssumptions = {
   seniorExpensesCapAbsoluteFloorPerYear: 0,
   seniorExpensesCapAllocationWithinCap: "pro_rata",
   seniorExpensesCapOverflowAllocation: "pro_rata",
+  seniorExpensesCapComponentADayCount: "actual_360",
+  seniorExpensesCapBaseMode: "APB",
+  seniorExpensesCapCarryforwardPeriods: null,
+  seniorExpensesCapVatIncluded: false,
+  seniorExpensesCapVatRatePct: null,
   incentiveFeePct: CLO_DEFAULTS.incentiveFeePct,
   incentiveFeeHurdleIrr: CLO_DEFAULTS.incentiveFeeHurdleIrr,
   equityEntryPriceCents: null,
@@ -222,12 +252,12 @@ export interface DefaultsFromResolvedRaw {
  *     KI-12a).
  *   - `seniorExpensesCapBps` / `seniorExpensesCapAbsoluteFloorPerYear` /
  *     `seniorExpensesCapAllocationWithinCap` /
- *     `seniorExpensesCapOverflowAllocation` ← `resolved.seniorExpensesCap`
- *     (PPM Condition 1, OC pp. 150-151 for Ares CLO XV). The
- *     `ResolvedSeniorExpensesCap.capBase` and `carryforwardPeriods` fields
- *     are extracted but NOT propagated into `UserAssumptions` — the engine
- *     does not yet dispatch on them (tracked as KI-39 CPA-vs-APB and KI-40
- *     3-period carryforward; their closure PRs add the wires).
+ *     `seniorExpensesCapOverflowAllocation` /
+ *     `seniorExpensesCapComponentADayCount` / `seniorExpensesCapBaseMode` /
+ *     `seniorExpensesCapCarryforwardPeriods` /
+ *     `seniorExpensesCapVatIncluded` / `seniorExpensesCapVatRatePct`
+ *     ← `resolved.seniorExpensesCap` (PPM Condition 1, OC pp. 150-151 for
+ *     Ares CLO XV). All seven fields dispatch in the engine cap construction.
  *   - `baseRateFloorPct` ← `resolved.baseRateFloorPct` if set.
  *
  * All other assumption fields inherit from `DEFAULT_ASSUMPTIONS`.
@@ -339,11 +369,13 @@ export function defaultsFromResolved(
       resolved.seniorExpensesCap.allocationWithinCap;
     base.seniorExpensesCapOverflowAllocation =
       resolved.seniorExpensesCap.overflowAllocation;
-    // `resolved.seniorExpensesCap.capBase` and `.carryforwardPeriods` are
-    // intentionally NOT propagated — engine doesn't dispatch on them today
-    // (KI-39 CPA-vs-APB and KI-40 3-period carryforward). Reading
-    // `resolved.seniorExpensesCap.capBase === "CPA"` does NOT mean the
-    // engine respects it; the engine uses `beginningPar` (APB) regardless.
+    base.seniorExpensesCapComponentADayCount =
+      resolved.seniorExpensesCap.componentADayCount;
+    base.seniorExpensesCapBaseMode = resolved.seniorExpensesCap.capBase;
+    base.seniorExpensesCapCarryforwardPeriods =
+      resolved.seniorExpensesCap.carryforwardPeriods;
+    base.seniorExpensesCapVatIncluded = resolved.seniorExpensesCap.vatIncluded;
+    base.seniorExpensesCapVatRatePct = resolved.seniorExpensesCap.vatRatePct;
   }
 
   return base;
@@ -723,6 +755,12 @@ export function buildFromResolved(
     seniorExpensesCapAbsoluteFloorPerYear: userAssumptions.seniorExpensesCapAbsoluteFloorPerYear,
     seniorExpensesCapAllocationWithinCap: userAssumptions.seniorExpensesCapAllocationWithinCap,
     seniorExpensesCapOverflowAllocation: userAssumptions.seniorExpensesCapOverflowAllocation,
+    seniorExpensesCapComponentADayCount: userAssumptions.seniorExpensesCapComponentADayCount,
+    seniorExpensesCapBaseMode: userAssumptions.seniorExpensesCapBaseMode,
+    seniorExpensesCapCarryforwardPeriods: userAssumptions.seniorExpensesCapCarryforwardPeriods,
+    seniorExpensesCapVatIncluded: userAssumptions.seniorExpensesCapVatIncluded,
+    seniorExpensesCapVatRatePct: userAssumptions.seniorExpensesCapVatRatePct,
+    firstPaymentDate: resolved.dates.firstPaymentDate,
     hedgeCostBps: userAssumptions.hedgeCostBps,
     incentiveFeePct: userAssumptions.incentiveFeePct,
     incentiveFeeHurdleIrr: userAssumptions.incentiveFeeHurdleIrr / 100, // convert from % to decimal

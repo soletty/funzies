@@ -91,10 +91,18 @@ export interface ResolvedSeniorExpensesCap {
    *  Applied as: floorComponent = absoluteFloorEurPerYear × dayFrac. Null when
    *  PPM specifies no fixed component. */
   absoluteFloorEurPerYear: number | null;
+  /** Day-count convention for component (a) accrual. Ares XV PPM proviso (a):
+   *  Actual/360 on the deal's first Payment Date; 30/360 on every other PD —
+   *  represented as "30_360_after_first". Some deals apply a uniform
+   *  Actual/360 ("actual_360"). Engine dispatches via the `isFirstPaymentDateOfDeal`
+   *  flag on `ProjectionInputs`. Component (b) always uses Actual/360 per PPM. */
+  componentADayCount: "30_360_after_first" | "actual_360";
   /** Denominator for component (b): "CPA" = Collateral Principal Amount per
-   *  Condition 1; "APB" = Aggregate Principal Balance. Ares XV uses CPA. The
-   *  engine currently uses `beginningPar` (APB) for both — CPA-vs-APB
-   *  divergence is a separate KI. */
+   *  Condition 1 (par balance of Collateral Obligations including Defaulted
+   *  Obligations valued at par, less undrawn DDTL commitments); "APB" =
+   *  Aggregate Principal Balance (deal-specific; some PPMs treat it as the
+   *  same number, others as the simpler par sum). Engine dispatches via
+   *  `ProjectionInputs.seniorExpensesCapBaseMode`. */
   capBase: "CPA" | "APB";
   /** Accrual cadence: "per_payment_date" = cap resets each PD (cap × dayFrac);
    *  "per_annum" = single annual ceiling requiring rolling state. Ares XV is
@@ -115,12 +123,21 @@ export interface ResolvedSeniorExpensesCap {
   overflowAllocation: "pro_rata" | "sequential_y_first";
   /** Number of preceding Payment Dates whose unused cap headroom carries
    *  forward into the current PD's cap (Ares XV: 3, or 1 post-Frequency-
-   *  Switch-Event). Engine doesn't model the carryforward today; tracked
-   *  as a separate KI. Null when PPM specifies no carryforward. */
+   *  Switch-Event). Engine ring-buffers per-period unused headroom and
+   *  augments the next period's cap by Σ buffer. Null when PPM specifies
+   *  no carryforward. */
   carryforwardPeriods: number | null;
-  /** Whether VAT on capped expenses counts toward the cap. Ares XV: true.
-   *  Engine doesn't model VAT today; tracked as a separate KI. */
+  /** Whether VAT on capped expenses counts toward the cap (PPM proviso (i)).
+   *  Ares XV: true. Engine path: when `vatIncluded === true && vatRatePct != null`,
+   *  the engine grosses up `cappedRequested` by the VAT rate before comparing
+   *  to `capAmount`. When trustee/admin fees are back-derived from waterfall
+   *  amounts paid (which already include VAT under BNY/typical trustee
+   *  convention), the gross-up is unnecessary and `vatRatePct` should be null. */
   vatIncluded: boolean;
+  /** Applicable VAT rate (%) on capped expenses. Used only when `vatIncluded`
+   *  is true AND fee inputs are net-of-VAT. Null when fees are already
+   *  gross-of-VAT (typical trustee-back-derive path) or VAT does not apply. */
+  vatRatePct: number | null;
   /** E1 PPM provenance (OC pp. 150-151 for Ares XV). */
   citation?: Citation | null;
 }

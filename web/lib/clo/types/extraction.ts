@@ -194,12 +194,14 @@ export interface ExtractedConstraints {
   seniorExpensesCap?: {
     bpsPerYear: number;
     absoluteFloorEurPerYear: number | null;
+    componentADayCount: "30_360_after_first" | "actual_360";
     base: "CPA" | "APB";
     period: "per_payment_date" | "per_annum";
     allocationWithinCap: "pro_rata" | "sequential_b_first";
     overflowAllocation: "pro_rata" | "sequential_y_first";
     carryforwardPeriods: number | null;
     vatIncluded: boolean;
+    vatRatePct: number | null;
     sourcePages: number[] | null;
     sourceCondition: string | null;
   } | null;

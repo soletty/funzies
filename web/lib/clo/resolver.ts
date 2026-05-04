@@ -681,12 +681,14 @@ function resolveSeniorExpensesCap(
   return {
     bpsPerYear: block.bpsPerYear,
     absoluteFloorEurPerYear: block.absoluteFloorEurPerYear,
+    componentADayCount: block.componentADayCount,
     capBase: block.base,
     capPeriod: block.period,
     allocationWithinCap: block.allocationWithinCap,
     overflowAllocation: block.overflowAllocation,
     carryforwardPeriods: block.carryforwardPeriods,
     vatIncluded: block.vatIncluded,
+    vatRatePct: block.vatRatePct,
     citation:
       block.sourcePages != null || block.sourceCondition != null
         ? { sourcePages: block.sourcePages, sourceCondition: block.sourceCondition }

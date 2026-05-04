@@ -233,12 +233,17 @@ function mapSeniorExpensesCap(ppm: PpmJson): unknown {
   if (bpsPerYear == null) return null;
   const allocation = block.allocation_within_cap;
   const overflow = block.overflow_allocation;
+  const componentADayCount = (block as { component_a_day_count?: unknown })
+    .component_a_day_count;
+  const vatRatePct = (block as { vat_rate_pct?: unknown }).vat_rate_pct;
   return {
     bpsPerYear,
     absoluteFloorEurPerYear:
       typeof block.absolute_floor_eur_per_annum === "number"
         ? block.absolute_floor_eur_per_annum
         : null,
+    componentADayCount:
+      componentADayCount === "actual_360" ? "actual_360" : "30_360_after_first",
     base: block.base === "APB" ? "APB" : "CPA",
     period: block.period === "per_annum" ? "per_annum" : "per_payment_date",
     allocationWithinCap:
@@ -250,6 +255,7 @@ function mapSeniorExpensesCap(ppm: PpmJson): unknown {
         ? block.carryforward_periods
         : null,
     vatIncluded: block.vat_included === true,
+    vatRatePct: typeof vatRatePct === "number" ? vatRatePct : null,
     sourcePages: Array.isArray(block.source_pages)
       ? block.source_pages.filter((p): p is number => typeof p === "number")
       : null,
