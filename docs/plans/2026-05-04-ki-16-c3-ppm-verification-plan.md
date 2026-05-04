@@ -2,7 +2,7 @@
 
 > **For agentic workers:** Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Verify (or correct) three open C3 closure assumptions named in the KI-16 ledger entry plus a fourth surfaced during planning, all against the Ares European CLO XV Offering Circular: (1) the 20 bps default cap value, (2) the `max(2× observed, 20 bps)` heuristic, (3) the pro-rata overflow allocation between PPM steps (Y) and (Z), and (4) the pro-rata B/C allocation **within** the cap (`projection.ts:2841-2843`, separate from Y/Z overflow). Then close the KI-16 ledger entry. KI-08 stays PARTIAL after this — its day-count residual sub-component is independently blocked on KI-12a's data acquisition.
+**Goal:** Verify (or correct) three open C3 closure assumptions named in the KI-16 ledger entry plus a fourth surfaced during planning, all against the Ares European CLO XV Offering Circular: (1) the 20 bps default cap value, (2) the `max(2× observed, 20 bps)` heuristic, (3) the pro-rata overflow allocation between PPM steps (Y) and (Z), and (4) the pro-rata B/C allocation **within** the cap (`projection.ts:2817-2819`, separate from Y/Z overflow). Then close the KI-16 ledger entry. KI-08 stays PARTIAL after this — its day-count residual sub-component is independently blocked on KI-12a's data acquisition.
 
 **Architecture:** Read Ares XV Offering Circular Condition 1 (Senior Expenses Cap definition), Condition 3(c) Interest Priority of Payments (steps B/C and Y/Z language and ordering), and cross-check against `ppm.json`. Pin verbatim quotes + PDF page numbers in a findings doc. For each of the four assumptions, mark VERIFIED / VERIFIED-WITH-AMENDMENT / CONTRADICTED. Ship code amendments only for contradicted/amendment assumptions; re-baseline C3 tests in lockstep; keep N1 bit-identical on Euro XV (whose observed senior expenses sit well below any plausible cap).
 
@@ -18,9 +18,14 @@
 
 **MODIFY (conditional on findings):**
 - `web/lib/clo/build-projection-inputs.ts` — line 165 (`DEFAULT_ASSUMPTIONS.seniorExpensesCapBps: 20`), line 303 (`Math.max(observedRateBps * 2, 20)` heuristic). Static fallback when D3 can't infer; heuristic when D3 can.
-- `web/lib/clo/projection.ts` — lines 3776–3784 (pro-rata overflow allocation block); lines 2814–2819 (cap construction) if the base or period changes.
-- `web/lib/clo/resolver.ts` + `web/lib/clo/resolver-types.ts` — if PPM cap is a fixed extracted value, lift `seniorExpensesCapBps` into `ResolvedFees`/`ResolvedDealData` so the cap rides off the resolver, not a build-time heuristic.
-- `web/lib/clo/__tests__/c3-senior-expenses-cap.test.ts` — re-baseline overflow magnitudes if allocation rule changes (currently asserts pro-rata split: 50 bps requested vs 20 bps cap → 30 bps overflow split between trustee+admin proportionally).
+- `web/lib/clo/projection.ts` — lines 3749-3757 (Y/Z overflow allocation block, assumption 3); lines 2817-2822 (B/C in-cap allocation `cappedRatio` block + bucket-overflow derivation, assumption 4); lines 2790-2795 (cap construction) if the base or period changes (assumption 1).
+- `web/lib/clo/resolver-types.ts` — add new `ResolvedSeniorExpensesCap` interface (modeled on `ResolvedEodTest` at lines 60-66 — Condition-1 structural definition pattern). Add `seniorExpensesCap: ResolvedSeniorExpensesCap | null` field on `ResolvedDealData` (NOT `ResolvedFees` per Q1 decision; cap is structural per Condition 1 definition, not a fee rate; codebase convention is to host structural Condition-1 definitions on `ResolvedDealData` directly — `ResolvedEodTest`, `ResolvedReinvestmentOcTrigger`, `ResolvedDates` follow this pattern).
+- `web/lib/clo/resolver.ts` — add `resolveSeniorExpensesCap(constraints, warnings)` site that reads `constraints.seniorExpensesCap` and emits a blocking warning (`severity: "error", blocking: true`) when null. Per project rule (silent fallbacks on missing computational extraction are bugs).
+- `web/lib/clo/extraction/json-ingest/ppm-mapper.ts` — add `mapSeniorExpensesCap(ppm: PpmJson)` mapper function that reads the new structured block in `ppm.json` and emits `constraints.seniorExpensesCap`. **THIS IS THE THIRD FILE IN THE PLUMBING CHAIN** (`ppm.json` → `ppm-mapper.ts` → `ExtractedConstraints` → `resolver.ts` → `ResolvedDealData`); plan v3 missed this layer.
+- `web/lib/clo/extraction/json-ingest/types.ts` — extend `PpmJson` with the `senior_expenses_cap` block typing.
+- `web/lib/clo/types/extraction.ts` — extend `ExtractedConstraints` with `seniorExpensesCap?: { ... }` field so the resolver consumes a typed shape.
+- `ppm.json` — add the new structured `senior_expenses_cap` block (transcribed from OC pp. 390-397).
+- `web/lib/clo/__tests__/c3-senior-expenses-cap.test.ts` — Test 2 (lines 44-77) **needs split** per Q2=C decision: total-overflow assertion (lines 66-71) stays as positive assertion (invariant under both pro-rata and sequential overflow rules when residual is ample); ratio assertion (lines 73-76) becomes a `failsWithMagnitude` marker (sensitive to assumption 4 in-cap allocation, NOT to assumption 3 overflow allocation — the agent caught this gap in the prior reviewer's analysis). Per project bijection rule, re-baselining the ratio assertion silently would lose the bug-pin record.
 
 **CREATE:**
 - `docs/plans/2026-05-04-ki-16-c3-ppm-verification-findings.md` — verbatim PPM quotes + page numbers + per-assumption verdict (VERIFIED / VERIFIED-WITH-AMENDMENT / CONTRADICTED). Persistent record so a future reviewer can audit the closure.
@@ -67,7 +72,7 @@ This task is a hard gate. No code change lands without verbatim PPM quotes pinne
   - Base: Collateral Principal Amount (CPA) vs Aggregate Principal Balance (APB) vs another defined term. KI-12a established CPA ≠ APB (`beginningPar`); a CPA-based cap would create a parallel fee-base mismatch.
   - Period: per Payment Date (quarterly), per Determination Date, per annum, per fiscal year
   - Scope: trustee fees (B) + admin expenses (C) only, or broader (e.g., includes hedge counterparty replacement payments?)
-  - **B/C allocation rule WITHIN the cap** (separate from Y/Z overflow rule). The engine currently splits the capped portion pro-rata between trustee (B) and admin (C) via `cappedRatio = cappedPaid / cappedRequested` at `projection.ts:2841-2843`. PPM may specify (i) joint cap with pro-rata split (current), (ii) separate caps per bucket, or (iii) sequential-within-cap (B paid up to cap, C from cap remainder). This is a **fourth assumption** beyond the three named in the KI-16 ledger entry; if the PPM contradicts current behavior the amendment also touches this block, and the KI-16 entry text is updated to acknowledge the gap.
+  - **B/C allocation rule WITHIN the cap** (separate from Y/Z overflow rule). The engine currently splits the capped portion pro-rata between trustee (B) and admin (C) via `cappedRatio = cappedPaid / cappedRequested` at `projection.ts:2817-2819`. PPM may specify (i) joint cap with pro-rata split (current), (ii) separate caps per bucket, or (iii) sequential-within-cap (B paid up to cap, C from cap remainder). This is a **fourth assumption** beyond the three named in the KI-16 ledger entry; if the PPM contradicts current behavior the amendment also touches this block, and the KI-16 entry text is updated to acknowledge the gap.
   - Any allowed-additions language (e.g., Expense Reserve Account augmentation per Condition 3(j)(x)(4) — already PPM-grounded in engine at `projection.ts:2807-2817`)
 
 - [ ] **Step 1.2: Locate Condition 3(c) — steps (Y) and (Z) verbatim language**
@@ -107,7 +112,9 @@ This task is a hard gate. No code change lands without verbatim PPM quotes pinne
   - **VERIFIED-WITH-AMENDMENT** → engine intent matches PPM but the implementation has a minor divergence (e.g., right base, wrong rounding). Small fix.
   - **CONTRADICTED** → engine implements a different rule from the PPM. Real fix; re-baseline C3 tests; consider whether a KI-16 marker test should pin the pre-fix magnitude before the amendment lands (per the bijection rule).
 
-- [ ] **Step 1.5: Surface any out-of-scope findings as new KIs**
+- [ ] **Step 1.5: Surface any out-of-scope findings as new KIs (file in this PR per Q3=A)**
+
+  Per project rule (`CLAUDE.md` "If you discover a candidate KI mid-task, file it before continuing") and Q3=A decision: any defect surfaced by the PPM read MUST be filed as a fresh KI entry in THIS PR — even if the entry is tentative and even if the amendment is deferred to a follow-up PR. The ledger entry + marker test ship in this PR; the amendment may wait. The threshold for filing is "wrong number, silent fallback, or hardcoded path that produces correct numbers only on the current data shape" — NOT "verified material correctness leverage."
 
   If the PPM read reveals a defect outside the KI-16 four-assumption scope, file a fresh KI entry rather than expanding KI-16. Likely candidates:
 
@@ -176,16 +183,37 @@ This task only runs if Task 1 found CONTRADICTED verdicts.
 
   Post-fix (sequential): `trusteeOverflowPaid = trusteeOverflowRequested` (full); `adminOverflowPaid = max(0, residual - trusteeOverflowRequested)` (partial). Marker FAILS, then flips to positive assertion of the sequential split.
 
-- [ ] **Step 2.4: (assumption 4 — B/C in-cap allocation) marker**
+- [ ] **Step 2.4: (assumption 4 — B/C in-cap allocation) marker — re-uses existing test 2**
 
-  Like assumption 3, the existing scenarios are residual-ample with respect to the **cap pool** as well — when `cappedRequested ≤ capAmount` (no cap binding) the in-cap allocation rule is invisible because each bucket gets paid in full regardless. To discriminate between the candidate rules (current pro-rata vs. PPM-true separate-caps vs. PPM-true sequential-within-cap), the cap must bind AND the rule must change which bucket is short-paid.
+  **Important refinement from Phase 2 exploration:** the agent identified that Test 2 in `c3-senior-expenses-cap.test.ts` (lines 44-77) is already sensitive to assumption 4 because the `adminOverflowPaid / trusteeOverflowPaid ≈ 4` ratio assertion encodes the pro-rata in-cap split (overflow_ratio = request_ratio under pro-rata; under separate-caps or sequential-within-cap the ratio breaks even when residual is ample). This means the marker work is NOT to write a new scenario — it's to convert test 2's ratio assertion into a `failsWithMagnitude` marker per Q2=C decision.
 
-  Two scenario shapes depending on what the PPM specifies:
+  **Per Q2=C the test split is:**
+  - Lines 66-71 (total-overflow assertion): stays as positive `expect()`. Total overflow is invariant under both pro-rata and sequential rules when residual is ample, AND under both joint-cap and separate-caps when total request matches the test scenario's combined 50 bps. So this assertion holds across all PPM verdicts.
+  - Lines 73-76 (ratio assertion `adminOverflowPaid / trusteeOverflowPaid ≈ 4`): becomes a `failsWithMagnitude` marker pinning the current pro-rata 4:1 ratio. Under PPM-true rule (separate caps or sequential B-first), the ratio shifts — at closure, the marker flips to a positive assertion of the new ratio.
 
-  - **If PPM specifies separate caps per bucket** (e.g., trustee cap = 5 bps, admin cap = 15 bps; total = 20 bps but each bucket bound separately): construct a scenario where one bucket's request exceeds its individual cap while the other is under its cap. Concrete example: trusteeFeeBps=10, adminFeeBps=5, joint cap 20 bps with separate caps trustee=5/admin=15 → under separate-caps trustee paid 5 (capped, overflow 5), admin paid 5 (uncapped). Under current pro-rata of joint-cap-20 the math is different. Marker pins the current pro-rata trusteeFeeAmount / adminFeeAmount magnitudes; flips post-fix.
-  - **If PPM specifies sequential-within-cap (e.g., B paid first up to cap)**: straddle scenario where total request modestly exceeds cap. Concrete example: trusteeFeeBps=15, adminFeeBps=15, cap=20 bps → cappedRequested 30, cap 20. Under current pro-rata: trusteeFeeAmount = 10, adminFeeAmount = 10 (each gets 2/3). Under sequential B-first: trusteeFeeAmount = 15 (full), adminFeeAmount = 5 (cap remainder). Marker pins the 10/10 split; flips to 15/5 post-fix.
+  Marker shape (replacing lines 73-76):
+  ```ts
+  failsWithMagnitude(
+    {
+      ki: "KI-16-bc-within-cap",
+      closesIn: "KI-16 PPM verification",
+      expectedDrift: <(observed pro-rata adminOverflow/trusteeOverflow ratio) - <PPM-correct ratio>>,
+      tolerance: 0.05, // ratio is ~4 today; tolerance 0.05 covers numerical noise
+    },
+    "B/C in-cap allocation: pro-rata ratio diverges from PPM rule",
+    () => {
+      const observed = p1.stepTrace.adminOverflowPaid / p1.stepTrace.trusteeOverflowPaid;
+      const ppmCorrect = <derived from PPM verdict>; // e.g. Infinity if separate-caps gives 0 trustee overflow, or different ratio under sequential B-first
+      return observed - ppmCorrect;
+    },
+  );
+  ```
 
-  The exact shape and magnitudes are decided by Task 1.4's verdict for assumption 4. If verdict is VERIFIED (current pro-rata matches PPM), no marker needed for this assumption.
+  If verdict is VERIFIED (current pro-rata matches PPM), no marker needed — the ratio assertion stays at lines 73-76 unchanged.
+
+  Concrete `expectedDrift` magnitudes (assuming Euro XV-shaped scenario with trustee 10/admin 40/cap 20):
+  - Under separate caps trustee=5/admin=15: trustee overflow ratio inverts. Current ratio is 4 (admin/trustee = 24/6); under separate-caps the ratio could be different (depends on cap split). Pre-fix value 4 is the marker `expectedDrift` against the PPM-correct value.
+  - Under sequential B-first: trustee paid in full to cap (= min(trusteeRequested, cap); since cap=20 and trusteeRequested=10, trustee fully paid at 10, no trustee overflow). admin gets cap remainder 10, admin overflow = 30. Ratio = adminOverflow/trusteeOverflow = 30/0 = ∞. Marker pre-fix value 4, post-fix ∞ (or a large finite sentinel).
 
 - [ ] **Step 2.5: Run marker(s) — verify they document current behavior**
 
@@ -206,8 +234,8 @@ This task only runs if Task 1 found CONTRADICTED verdicts.
 **Files (per finding — only modify rows that contradicted):**
 - `web/lib/clo/build-projection-inputs.ts:165` — `DEFAULT_ASSUMPTIONS.seniorExpensesCapBps`
 - `web/lib/clo/build-projection-inputs.ts:303` — `Math.max(observedRateBps * 2, 20)` heuristic
-- `web/lib/clo/projection.ts:2841-2843` — B/C in-cap allocation (`cappedRatio` block)
-- `web/lib/clo/projection.ts:3776-3784` — Y/Z overflow allocation block
+- `web/lib/clo/projection.ts:2817-2819` — B/C in-cap allocation (`cappedRatio` block)
+- `web/lib/clo/projection.ts:3749-3757` — Y/Z overflow allocation block
 - `web/lib/clo/resolver.ts` + `web/lib/clo/resolver-types.ts` — if cap value is PPM-extracted, lift to `ResolvedFees.seniorExpensesCapBps`
 
 The amendment shape depends on the finding. Four concrete shapes to anticipate:
@@ -220,17 +248,58 @@ The amendment shape depends on the finding. Four concrete shapes to anticipate:
 
   At `build-projection-inputs.ts:298-304`, the `max(2× observed, 20)` heuristic should become `if (resolvedCapBps != null) base.seniorExpensesCapBps = resolvedCapBps;` — the cap value rides off PPM extraction, not observed × multiple. The "Q1 observed × 2" buffer was engineering judgment with no PPM grounding; per project rule (silent fallbacks on extraction failures are bugs), if extraction genuinely fails the resolver should emit a `severity: "error"` blocking warning, not silently accept a heuristic.
 
-  **Resolver-pipeline mechanism (pinned, not under-specified):** verified 2026-05-04 — `seniorExpensesCap` does NOT appear in `resolver.ts`, `resolver-types.ts`, or `ppm.json` today. There is no upstream representation of the cap value. Three options; **option (a) is the path:**
+  **Resolver-pipeline mechanism (pinned, with three-file plumbing chain):** verified 2026-05-04 via codebase exploration — `seniorExpensesCap` does NOT appear in `resolver.ts`, `resolver-types.ts`, `ExtractedConstraints`, `PpmJson`, `ppm-mapper.ts`, or `ppm.json` today. There is no upstream representation of the cap value. The implementation requires touching SIX files in this order:
 
-  - **(a) [chosen] Extend `ppm.json` with a structured `senior_expenses_cap` block.** Manually transcribe Condition 1's definition from the OC at PDF pp. 390-397 into a new `section_1_definitions.senior_expenses_cap` field with `{ value_bps_per_annum: <number>, base: "CPA" | "APB" | …, period: "per_payment_date" | "per_annum" | …, allocation_within_cap: "pro_rata" | "sequential_b_first" | …, overflow_steps: ["Y", "Z"], allocation_y_z: "pro_rata" | "sequential_y_first" | …, source_pages: [390, …] }`. Then extend `resolver.ts` to read `ppm.section_1_definitions.senior_expenses_cap.value_bps_per_annum` into `ResolvedFees.seniorExpensesCapBps` (and the structured fields if the cap is more complex than a simple bps).
-  - (b) Add a structured-PPM ingest pass (out of scope; broader infrastructure)
-  - (c) Hardcode per-deal in resolver (rejected — overfits to Euro XV per project rule)
+  1. **`ppm.json`** — add a new structured block. Per `ppm.json:415` extraction notes ("Condition 1 Index of Defined Terms spans PDF pp. 390-397"), the natural home is a new `section_12_condition1_definitions_selected.senior_expenses_cap` block:
+     ```json
+     "section_12_condition1_definitions_selected": {
+       "source_pages": [390, 391, ...],
+       "source_condition": "OC Condition 1 — Index of Defined Terms",
+       "senior_expenses_cap": {
+         "source_pages": [<exact pages>],
+         "verbatim_quote": "<from OC>",
+         "bps_per_annum": <number>,
+         "base": "CPA" | "APB" | …,
+         "period": "per_payment_date" | "per_annum",
+         "scope": ["trustee_fees_step_B", "administrative_expenses_step_C"],
+         "allocation_within_cap": "pro_rata" | "sequential_b_first" | "separate_caps",
+         "overflow_steps": ["Y", "Z"],
+         "overflow_allocation": "pro_rata" | "sequential_y_first" | …,
+         "absolute_floor_eur": <number | null>
+       }
+     }
+     ```
 
-  Resolver-side test (`web/lib/clo/__tests__/resolver-fees.test.ts` or equivalent) pins the extracted cap value against the Euro XV PPM page number.
+  2. **`web/lib/clo/extraction/json-ingest/types.ts`** — extend `PpmJson` with a typed `section_12_condition1_definitions_selected` field, mirroring the JSON shape exactly.
+
+  3. **`web/lib/clo/extraction/json-ingest/ppm-mapper.ts`** — add a `mapSeniorExpensesCap(ppm: PpmJson): SeniorExpensesCapBlock | null` mapper that reads `ppm.section_12_condition1_definitions_selected?.senior_expenses_cap` and emits a clean shape. Wire it through `mapPpm` so the result lands as `constraints.seniorExpensesCap`.
+
+  4. **`web/lib/clo/types/extraction.ts`** — extend `ExtractedConstraints` with `seniorExpensesCap?: SeniorExpensesCapBlock | null`.
+
+  5. **`web/lib/clo/resolver-types.ts`** — add a new `ResolvedSeniorExpensesCap` interface (Q1=C; modeled on `ResolvedEodTest` at lines 60-66 — same shape pattern as other Condition-1 structural definitions). Add `seniorExpensesCap: ResolvedSeniorExpensesCap | null` field on `ResolvedDealData` (not `ResolvedFees`):
+     ```ts
+     export interface ResolvedSeniorExpensesCap {
+       bpsPerYear: number;
+       base: "CPA" | "APB";
+       period: "per_payment_date" | "per_annum";
+       allocationWithinCap: "pro_rata" | "sequential_b_first" | "separate_caps";
+       overflowAllocation: "pro_rata" | "sequential_y_first" | "sequential_z_first";
+       absoluteFloorEur: number | null;
+       citation?: Citation | null;
+     }
+     ```
+
+  6. **`web/lib/clo/resolver.ts`** — add `resolveSeniorExpensesCap(constraints, warnings)` that reads `constraints.seniorExpensesCap`, returns `ResolvedSeniorExpensesCap | null`, and emits a blocking warning (`severity: "error", blocking: true`) when null. Per project rule (silent fallbacks on missing computational extraction are bugs).
+
+  Then in `defaultsFromResolved`, replace lines 298-304 with: `if (resolved.seniorExpensesCap != null) base.seniorExpensesCapBps = resolved.seniorExpensesCap.bpsPerYear;` (and the structured fields propagate through `ProjectionInputs` if the engine consumes the base/period/allocation rules — which Step 3.4 amendments require).
+
+  **Rejected options:** (b) general structured-PPM ingest pass (out-of-scope infrastructure); (c) hardcode per-deal in resolver (overfits to Euro XV per project rule).
+
+  Resolver-side test (extend `web/lib/clo/__tests__/resolver*.test.ts` patterns) pins the extracted cap value + shape against the Euro XV PPM page number.
 
 - [ ] **Step 3.3 (if assumption 3 is CONTRADICTED — likely sequential): rewrite overflow allocation**
 
-  Current block (`projection.ts:3776-3784`):
+  Current block (`projection.ts:3749-3757`):
   ```ts
   let trusteeOverflowPaid = 0;
   let adminOverflowPaid = 0;
@@ -257,7 +326,7 @@ The amendment shape depends on the finding. Four concrete shapes to anticipate:
 
 - [ ] **Step 3.4 (if assumption 4 is CONTRADICTED): rewrite B/C in-cap allocation**
 
-  Current block (`projection.ts:2841-2843`):
+  Current block (`projection.ts:2817-2819`):
   ```ts
   const cappedRatio = cappedRequested > 0 ? cappedPaid / cappedRequested : 0;
   const trusteeFeeAmount = trusteeFeeRequested * cappedRatio;
@@ -318,23 +387,29 @@ The amendment shape depends on the finding. Four concrete shapes to anticipate:
 - Verify: `web/lib/clo/__tests__/b2-post-acceleration.test.ts` — should remain bit-identical (cap removed under acceleration)
 - Verify: `web/lib/clo/__tests__/d3-defaults-from-resolved.test.ts` — re-baseline only if heuristic was replaced AND a D3 test asserts on `seniorExpensesCapBps` heuristic output
 
-**Invariance claim (verified 2026-05-04):** the existing C3 overflow scenarios (lines 44-122 of `c3-senior-expenses-cap.test.ts`) are **all residual-ample** — under both pro-rata and sequential allocation rules they pay the same totals. Specifically:
+**Invariance claim — per assumption (corrected in v4 from Phase 2 finding):** the existing C3 scenarios are not uniformly invariant; sensitivity splits per assumption:
 
-- Scenario 1 (lines 44-77, 50 bps overflow): asserts `(adminOverflowPaid / trusteeOverflowPaid) ≈ 4` (request-ratio 24:6). Under sequential each is paid in full → 24:6 = 4:1 identical.
-- Scenario 2 (lines 79-97, 1 bps cap): asserts overflow TOTAL only. Identical under both rules when residual ample.
-- Scenario 3 (lines 99-122, 300 bps fees): asserts only `≥ 0` and `≤ requested`. Either rule passes.
+- **Sensitive to assumption 3 (Y/Z overflow)**: NONE of the existing scenarios. All four scenarios (test 2 lines 44-77, test 3 lines 79-97, test 4 lines 99-122, test 5 lines 124-138) are residual-ample with respect to overflow allocation — pro-rata vs sequential Y-first produce the same bucket totals when residual interest fully covers both overflow buckets. The Step 2.3 marker is the ONLY assertion sensitive to assumption 3; it requires a NEW constrained-residual scenario.
+- **Sensitive to assumption 4 (B/C in-cap)**: TEST 2 line 73-76 (the 4:1 ratio assertion). The `adminOverflowPaid / trusteeOverflowPaid ≈ 4` assertion encodes the pro-rata in-cap split because overflow_ratio = request_ratio under pro-rata. Under separate caps or sequential-within-cap, the ratio shifts even when residual is ample. Per Q2=C the ratio assertion converts to a `failsWithMagnitude` marker (Step 2.4 above). Test 2's total assertion (lines 66-71) stays positive — total IS invariant.
+- **Sensitive to assumption 1 (cap value)**: TEST 1 (line 28-41), TEST 2 (lines 44-77 indirectly), TEST 3 (lines 79-97). The cap value sets where overflow fires. If the PPM cap is e.g. 25 bps not 20, test 2's 50 bps requested scenario produces 25 bps overflow not 30 bps. The total-overflow magnitude in test 2 changes — Step 4.1 must verify each scenario's expected magnitude against the new cap value, NOT just check pass.
+- **Sensitive to assumption 2 (heuristic)**: TEST 1 (the Euro XV default-path) — only fires the heuristic when observed > 12.5 bps. Euro XV's observed 5.22 bps means `max(2 × 5.22, 20) = 20` lands on the static fallback. Test 1 passes regardless of the heuristic's correctness on Euro XV. The Step 2.2 synthetic-fixture marker is the only path to discriminate.
 
-Therefore Task 4 is mostly a verification pass, not a re-baseline. Only the markers added in Task 2 (constrained-residual scenarios) are sensitive to the rule change.
+Therefore Task 4 is mostly a verification pass for assumptions 3 (no sensitivity in existing tests) and 4 (test 2 ratio handled by Step 2.4 marker), but NOT for assumption 1 — Step 4.1 must explicitly recompute expected magnitudes against the new cap value where applicable.
 
-- [ ] **Step 4.1: Verify existing C3 overflow scenarios still pass**
+- [ ] **Step 4.1: Verify existing C3 scenarios (per-assumption sensitivity check)**
 
-  After Task 3 amendment (overflow allocation rewrite), run:
+  After Task 3 amendments, run:
   ```bash
   cd web && npm test -- c3-senior-expenses-cap
   ```
-  Expected: existing scenarios 1, 2, 3 all PASS unchanged. Only the Task-2 markers (which Task 3.5 flipped to positive assertions) reflect the new rule.
 
-  If any existing assertion fails: that's a real bug — the amendment leaked into a residual-ample path or unintentionally changed the request → paid relationship. Investigate before continuing.
+  Per the per-assumption invariance breakdown above, expected outcomes:
+
+  - If assumption 1 contradicted (cap value changed): test 2's total-overflow assertion AND test 3's expected-overflow magnitude must be recomputed against the new cap value. Re-baseline both.
+  - If assumption 3 contradicted (sequential Y-first instead of pro-rata): existing scenarios still pass — none of them discriminate between rules. Only the Step 2.3 NEW constrained-residual marker (flipped to positive in Step 3.6) verifies the rule change.
+  - If assumption 4 contradicted (separate caps or sequential B-first): test 2's ratio assertion handled separately by Step 2.4 marker (split via Q2=C). Total assertion at lines 66-71 stays unchanged. Test 1, 3, 4, 5 unchanged.
+
+  If any non-anticipated assertion fails: that's a real bug — the amendment leaked into an invariant path or unintentionally changed the request → paid relationship. Investigate before continuing.
 
 - [ ] **Step 4.2: Run B2 + D3 suites**
 
@@ -412,6 +487,8 @@ Per project closure protocol: delete entry + anchor + index pointer entirely. No
   Run: `cd web && npm test -- disclosure-bijection`
   Expected: PASS (no orphan KI-16 references).
 
+  **Scope note (verified 2026-05-04 via Phase 2 exploration):** the bijection scanner reads only the `SCAN_FILES` list at `disclosure-bijection.test.ts:20-44` — production source files (`projection.ts`, `resolver.ts`, `resolver-types.ts`, `build-projection-inputs.ts`, `pool-metrics.ts`, `day-count-canonicalize.ts`, `recovery-rate.ts`, `ModelAssumptions.tsx`, `CurrencyContext.tsx`, `ppm-step-map.ts`, `CLAUDE.md`). It does NOT scan `__tests__/` or `fails-with-magnitude.ts`. Test-file orphans (e.g., a `ki: "KI-16-..."` field in a `failsWithMagnitude` call left over after closure) are NOT caught by the scanner — they're convention-only enforcement. Step 6.4's grep over `web/lib/clo/` and `web/app/clo/` is the actual mechanical sweep that catches test-file orphans; the scanner is the second line of defense for production-source orphans only.
+
 - [ ] **Step 6.6: Commit closure**
 
   ```bash
@@ -442,6 +519,35 @@ Per project closure protocol: delete entry + anchor + index pointer entirely. No
 
 ---
 
+## Task 7.5 — File "ki58 doesn't exist" tentative KI (separate from KI-16)
+
+**Files:**
+- Modify: `web/docs/clo-model-known-issues.md`
+- Create: `web/lib/clo/__tests__/ki58-blocking-extraction-failures.test.ts` OR file as a tentative gap-flagging KI without the test (per Q3=A "file in this PR, defer amendment if needed")
+
+Per Phase 2 finding: `web/CLAUDE.md` § "Silent fallbacks on extraction failures are bugs, not defaults" claims "the canonical inventory of every site under this rule lives in `web/lib/clo/__tests__/ki58-blocking-extraction-failures.test.ts` (one `it()` block per site)" — but the file does not exist on disk. The CLAUDE.md claim is partner-facing-style documentation drift, exactly the recurring-failure-mode #2 that the disclosure-bijection scanner exists to prevent (extended one layer up to docs).
+
+This is filing-only, not closure. The amendment (creating the test file with one `it()` per blocking site) is out-of-scope for KI-16 and would be a follow-up. Keeping ledger ↔ docs bijection rigorous matters even when the offending claim is in CLAUDE.md.
+
+- [ ] **Step 7.5.1: File new KI entry**
+
+  Add an entry in `web/docs/clo-model-known-issues.md` (in the "Open" section since the test file's absence means the canonical inventory is not enforced today). Suggested ID: next available KI number after the current ledger's max (likely KI-39 or higher; verify by reading the current index). Title: "ki58-blocking-extraction-failures.test.ts referenced in CLAUDE.md but does not exist".
+
+  Body must capture: (a) the exact CLAUDE.md quote claiming the file exists, (b) verification that the file is absent on disk, (c) the implication (no mechanical inventory of blocking sites today; the ledger ↔ test bijection that CLAUDE.md cites is broken at this anchor), (d) path to close (create the file with one `it()` per `blocking: true` warning site in `resolver.ts`).
+
+- [ ] **Step 7.5.2: Tentative status**
+
+  Mark "tentative" pending verification of: (a) whether the original intent was actually to ship this file but it was forgotten, or (b) whether CLAUDE.md was written aspirationally before the file was created. If (b), the CLAUDE.md text is the bug — close by editing CLAUDE.md to remove the claim, no new file needed.
+
+- [ ] **Step 7.5.3: Commit**
+
+  ```bash
+  git add web/docs/clo-model-known-issues.md
+  git commit -m "tentative KI: ki58-blocking-extraction-failures.test.ts referenced in CLAUDE.md but doesn't exist"
+  ```
+
+---
+
 ## Task 8 — Merge
 
 - [ ] **Step 8.1: Re-fetch + rebase**
@@ -468,9 +574,9 @@ Per project closure protocol: delete entry + anchor + index pointer entirely. No
 
 After writing this plan, the following spec-coverage check applies:
 
-- **Spec coverage:** the four KI-16 assumptions each have a verification step (1.1 + 1.2), a marker step (2.1 / 2.2 / 2.3 / 2.4), and an amendment step (3.1 / 3.2 / 3.3 / 3.4). The findings doc (1.4) routes per-assumption verdict to per-assumption fix. Task 6 closes the entry; Task 4 verifies downstream invariance.
+- **Spec coverage:** the four KI-16 assumptions each have a verification step (1.1 + 1.2), a marker step (2.1 / 2.2 / 2.3 / 2.4), and an amendment step (3.1 / 3.2 / 3.3 / 3.4). The findings doc (1.4) routes per-assumption verdict to per-assumption fix. Task 6 closes the entry; Task 4's per-assumption invariance breakdown distinguishes which existing tests are sensitive to which assumption. Task 7.5 separately files a tentative KI for the ki58-test-file-doesn't-exist drift identified during Phase 2 exploration.
 - **Placeholder scan:** the only intentional unknowns are PPM page numbers (XX) — those resolve in Task 1 and are not implementation placeholders.
-- **Type consistency:** if Step 3.1 widens `seniorExpensesCapBps` to a structured type, OR Step 3.4 splits it into per-bucket caps (`trusteeCapBps`, `adminCapBps`), the propagation must hit `ProjectionInputs` (line 124), `DEFAULT_ASSUMPTIONS` (line 165 of build-projection-inputs.ts), `defaultsFromResolved` (`base.seniorExpensesCapBps = …`), the consumer at `projection.ts:2814` AND the in-cap allocation block at `:2841-2843`, and the post-accel branch's omission (cap not consulted under acceleration per the existing proviso). Plan flags this; the implementer must follow the type through.
+- **Type consistency:** the `ResolvedSeniorExpensesCap` interface (Q1=C) propagates through SIX layers in this order: `ppm.json` (JSON shape) → `PpmJson` (`types.ts`) → `ppm-mapper.ts` (mapper function) → `ExtractedConstraints` (`extraction.ts`) → `ResolvedDealData` (`resolver-types.ts`) → `defaultsFromResolved` (`build-projection-inputs.ts`). Then `ProjectionInputs` consumes `seniorExpensesCapBps: number` (single bps value, dervied from the structured ResolvedSeniorExpensesCap.bpsPerYear) at `projection.ts:2790`. If Step 3.4 splits to per-bucket caps, `ProjectionInputs.seniorExpensesCapBps` widens to `{ trusteeBps: number; adminBps: number }` or two siblings (`trusteeCapBps`, `adminCapBps`), and the in-cap allocation block at `projection.ts:2817-2822` rewrites accordingly. The post-accel branch is unaffected (cap not consulted under acceleration per the existing proviso at `projection.ts:2799-2813`). Plan flags this; the implementer must follow the type through.
 
 ---
 
