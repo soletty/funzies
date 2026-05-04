@@ -186,6 +186,23 @@ export interface ExtractedConstraints {
   waterfall?: { interestPriority?: string; principalPriority?: string; postAcceleration?: string };
   // Section 11: Fees
   fees?: FeeEntry[];
+  /** PPM Condition 1 "Senior Expenses Cap" structured definition (KI-16
+   *  closure). Sourced from `ppm.json:section_5_fees_and_hurdle.senior_expenses_cap`
+   *  via `mapFeesAndExpenses`. Resolver consumes via `resolveSeniorExpensesCap`
+   *  and emits `severity: "error", blocking: true` when the deal has fee
+   *  rows (extraction not in greenfield state) and this field is null. */
+  seniorExpensesCap?: {
+    bpsPerYear: number;
+    absoluteFloorEurPerYear: number | null;
+    base: "CPA" | "APB";
+    period: "per_payment_date" | "per_annum";
+    allocationWithinCap: "pro_rata" | "sequential_b_first" | "separate_caps";
+    overflowAllocation: "pro_rata" | "sequential_y_first" | "sequential_z_first";
+    carryforwardPeriods: number | null;
+    vatIncluded: boolean;
+    sourcePages: number[] | null;
+    sourceCondition: string | null;
+  } | null;
   // Section 12: Accounts
   accounts?: { name: string; purpose: string }[];
   // Section 13: Key Parties

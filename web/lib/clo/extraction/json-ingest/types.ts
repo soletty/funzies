@@ -113,6 +113,21 @@ export interface PpmJson {
   section_5_fees_and_hurdle: {
     fees: PpmJsonFeeEntry[];
     incentive_fee_irr_threshold?: { threshold_pct_pa: number; [k: string]: unknown };
+    /** PPM Condition 1 "Senior Expenses Cap" structured definition. KI-16
+     *  closure — sibling of fees because the cap bounds steps (B) + (C). */
+    senior_expenses_cap?: {
+      source_pages?: number[];
+      verbatim_quote?: string;
+      bps_per_annum?: number;
+      absolute_floor_eur_per_annum?: number | null;
+      base?: "CPA" | "APB";
+      period?: "per_payment_date" | "per_annum";
+      allocation_within_cap?: "pro_rata" | "sequential_b_first" | "separate_caps";
+      overflow_allocation?: "pro_rata" | "sequential_y_first" | "sequential_z_first";
+      carryforward_periods?: number | null;
+      vat_included?: boolean;
+      [k: string]: unknown;
+    } | null;
     [k: string]: unknown;
   };
   section_6_waterfall: {

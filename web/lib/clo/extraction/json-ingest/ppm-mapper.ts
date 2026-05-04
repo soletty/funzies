@@ -215,7 +215,53 @@ function mapFeesAndExpenses(ppm: PpmJson): Record<string, unknown> {
         : undefined,
     };
   });
-  return { fees, accounts: [], _feesProvenance: feesProvenance ?? undefined };
+  return {
+    fees,
+    accounts: [],
+    seniorExpensesCap: mapSeniorExpensesCap(ppm),
+    _feesProvenance: feesProvenance ?? undefined,
+  };
+}
+
+/** KI-16 closure — read the Condition 1 Senior Expenses Cap structured
+ *  definition from ppm.json into a typed shape consumed by the resolver. */
+function mapSeniorExpensesCap(ppm: PpmJson): unknown {
+  const block = ppm.section_5_fees_and_hurdle.senior_expenses_cap;
+  if (!block) return null;
+  const bpsPerYear =
+    typeof block.bps_per_annum === "number" ? block.bps_per_annum : null;
+  if (bpsPerYear == null) return null;
+  const allocation = block.allocation_within_cap;
+  const overflow = block.overflow_allocation;
+  return {
+    bpsPerYear,
+    absoluteFloorEurPerYear:
+      typeof block.absolute_floor_eur_per_annum === "number"
+        ? block.absolute_floor_eur_per_annum
+        : null,
+    base: block.base === "APB" ? "APB" : "CPA",
+    period: block.period === "per_annum" ? "per_annum" : "per_payment_date",
+    allocationWithinCap:
+      allocation === "pro_rata" || allocation === "separate_caps"
+        ? allocation
+        : "sequential_b_first",
+    overflowAllocation:
+      overflow === "pro_rata" || overflow === "sequential_z_first"
+        ? overflow
+        : "sequential_y_first",
+    carryforwardPeriods:
+      typeof block.carryforward_periods === "number"
+        ? block.carryforward_periods
+        : null,
+    vatIncluded: block.vat_included === true,
+    sourcePages: Array.isArray(block.source_pages)
+      ? block.source_pages.filter((p): p is number => typeof p === "number")
+      : null,
+    sourceCondition:
+      typeof (block as { source_condition?: unknown }).source_condition === "string"
+        ? ((block as { source_condition?: string }).source_condition ?? null)
+        : null,
+  };
 }
 
 function mapPortfolioConstraints(ppm: PpmJson): Record<string, unknown> {

@@ -154,6 +154,21 @@
       "measurement_basis": "IRR of Subordinated Notes Outstanding on the Principal Amount Outstanding of the Subordinated Notes as of the first day of the Due Period preceding the Payment Date, after giving effect to all payments on such Payment Date",
       "effect_on_meeting": "CM receives 20% of any Interest/Principal Proceeds that would otherwise flow to Sub Noteholders",
       "current_status_as_of_2026_04_15": "Not reached; no incentive fee paid in current period per trustee report"
+    },
+    "senior_expenses_cap": {
+      "source_pages": [150, 151],
+      "verbatim_quote": "\"Senior Expenses Cap\" means, in respect of each Payment Date, the sum of: (a) €300,000 per annum (pro-rated for the Due Period for the related Payment Date on the basis of (x) in respect of the first Payment Date, a 360 day year and the actual number of days elapsed in the related Due Period and (y) in respect of any other Payment Date, a 360 day year comprised of twelve 30-day months); and (b) 0.025 per cent. per annum (pro-rated for the Due Period for the related Payment Date on the basis of (x) in respect of the first Payment Date, a 360 day year and the actual number of days elapsed in the related Due Period and (y) in respect of any other Payment Date, a 360 day year and the actual number of days elapsed in such Due Period) of the Collateral Principal Amount as at the Determination Date immediately preceding the Payment Date, provided however that (i) amounts in respect of any applicable VAT that are payable in respect of expenses expressed to be subject to the Senior Expenses Cap shall count towards the Senior Expenses Cap; and (ii) if the amount of Trustee Fees and Expenses and Administrative Expenses paid on each of the three immediately preceding Payment Dates or, if a Frequency Switch Event has occurred, the immediately preceding Payment Date and in either case, during the related Due Period(s) (including the Due Period relating to the current Payment Date) is less than the stated Senior Expenses Cap, the amount of each such excess (if any) will be added to the Senior Expenses Cap with respect to the then current Payment Date.",
+      "bps_per_annum": 2.5,
+      "absolute_floor_eur_per_annum": 300000,
+      "base": "CPA",
+      "period": "per_payment_date",
+      "allocation_within_cap": "sequential_b_first",
+      "overflow_allocation": "sequential_y_first",
+      "carryforward_periods": 3,
+      "vat_included": true,
+      "covers_steps": ["B", "C"],
+      "overflow_steps": ["Y", "Z"],
+      "ki_16_verification_date": "2026-05-04"
     }
   },
 
