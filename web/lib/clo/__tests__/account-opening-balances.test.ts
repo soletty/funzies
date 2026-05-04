@@ -476,6 +476,7 @@ describe("openingAccountBalances on initialState — canonical T=0 emission", ()
     const result = runProjection({
       ...BASE_INPUTS(),
       initialPrincipalCash: 100,
+      initialUnusedProceedsCash: 600,
       initialInterestAccountCash: 200,
       initialInterestSmoothingBalance: 300,
       initialSupplementalReserveBalance: 400,
@@ -483,7 +484,7 @@ describe("openingAccountBalances on initialState — canonical T=0 emission", ()
     });
     expect(result.initialState.openingAccountBalances).toEqual({
       principalAccountCash: 100,
-      unusedProceedsCash: 0,
+      unusedProceedsCash: 600,
       interestAccountCash: 200,
       interestSmoothingBalance: 300,
       supplementalReserveBalance: 400,

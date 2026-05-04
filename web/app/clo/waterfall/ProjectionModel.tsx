@@ -465,6 +465,18 @@ export default function ProjectionModel({
             resolved?.seniorExpensesCap?.overflowAllocation === "pro_rata"
               ? "pro_rata"
               : "sequential_y_first",
+          seniorExpensesCapComponentADayCount:
+            resolved?.seniorExpensesCap?.componentADayCount === "30_360_after_first"
+              ? "30_360_after_first"
+              : "actual_360",
+          seniorExpensesCapBaseMode:
+            resolved?.seniorExpensesCap?.capBase === "CPA" ? "CPA" : "APB",
+          seniorExpensesCapCarryforwardPeriods:
+            resolved?.seniorExpensesCap?.carryforwardPeriods ?? null,
+          seniorExpensesCapVatIncluded:
+            resolved?.seniorExpensesCap?.vatIncluded ?? false,
+          seniorExpensesCapVatRatePct:
+            resolved?.seniorExpensesCap?.vatRatePct ?? null,
           incentiveFeePct,
           incentiveFeeHurdleIrr,
           ddtlDrawAssumption,
@@ -551,6 +563,18 @@ export default function ProjectionModel({
       resolved?.seniorExpensesCap?.overflowAllocation === "pro_rata"
         ? "pro_rata"
         : "sequential_y_first",
+    seniorExpensesCapComponentADayCount:
+      resolved?.seniorExpensesCap?.componentADayCount === "30_360_after_first"
+        ? "30_360_after_first"
+        : "actual_360",
+    seniorExpensesCapBaseMode:
+      resolved?.seniorExpensesCap?.capBase === "CPA" ? "CPA" : "APB",
+    seniorExpensesCapCarryforwardPeriods:
+      resolved?.seniorExpensesCap?.carryforwardPeriods ?? null,
+    seniorExpensesCapVatIncluded:
+      resolved?.seniorExpensesCap?.vatIncluded ?? false,
+    seniorExpensesCapVatRatePct:
+      resolved?.seniorExpensesCap?.vatRatePct ?? null,
     incentiveFeePct,
     incentiveFeeHurdleIrr,
     ddtlDrawAssumption,

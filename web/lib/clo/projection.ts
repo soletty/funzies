@@ -180,9 +180,13 @@ export interface ProjectionInputs {
   /** PPM Condition 1 first Payment Date of the deal. Used by the cap
    *  construction to decide component (a) day-count under
    *  `seniorExpensesCapComponentADayCount === "30_360_after_first"`:
-   *  if `currentDate <= firstPaymentDate`, the projection's first period is
+   *  if `currentDate < firstPaymentDate`, the projection's first period is
    *  the deal's first PD (Actual/360); otherwise mid-life projection
-   *  (30/360). Null/undefined: engine assumes mid-life. */
+   *  (30/360). Strict less-than because on the boundary
+   *  `currentDate === firstPaymentDate`, q=1 ends at firstPaymentDate + 1Q
+   *  (the deal's SECOND PD), so 30/360 applies. Null/undefined: engine
+   *  assumes mid-life (30/360) — the engine has no anchor to distinguish
+   *  the deal's first PD from any other. */
   firstPaymentDate?: string | null;
   hedgeCostBps: number; // Scheduled hedge payments (PPM Step F), in bps p.a. on collateral par
   incentiveFeePct: number; // % of residual above IRR hurdle (PPM Steps BB/U), e.g. 20
@@ -556,15 +560,21 @@ export interface PeriodStepTrace {
   /** PPM step (Z) — admin-expense overflow. Same mechanics as trustee. */
   adminOverflowPaid: number;
   /** Senior Expenses Cap effective amount used at this period's cap test
-   *  — bps × cap base + floor + carryforward augmentation (does NOT include
-   *  Expense Reserve drain, which is a separate augmentation mechanism).
-   *  Exposed for marker tests verifying carryforward augmentation and
-   *  CPA-vs-APB cap base dispatch. */
+   *  — equals `bps × cap base + floor + carryforward augmentation +
+   *  expense-reserve augmentation`. This is the value passed to
+   *  `Math.min(cappedRequested, capAmount)` at the cap site, so it
+   *  reflects everything that expanded headroom (reserve included).
+   *  Carryforward bookkeeping itself is computed against the STATED cap
+   *  (bps + floor only) so reserve / carryforward augmentations don't
+   *  re-enter next period's headroom — see the `statedCap` local at the
+   *  carryforward-push site. Exposed for marker tests verifying CPA-vs-
+   *  APB cap base dispatch and carryforward accumulation. */
   seniorExpensesCapAmount: number;
   /** Σ unused-headroom carried forward from preceding PDs (PPM Condition 1
    *  proviso (ii)). Zero at period 1 (or when carryforward is disabled).
-   *  Equals the difference between `seniorExpensesCapAmount` and the stated
-   *  bps + floor cap. */
+   *  This is the carryforward sum component of `seniorExpensesCapAmount`;
+   *  it is NOT `seniorExpensesCapAmount − (bps + floor cap)` because the
+   *  emitted cap also includes any expense-reserve augmentation. */
   seniorExpensesCapCarryforwardSum: number;
   equityFromInterest: number;
   equityFromPrincipal: number;
@@ -2997,9 +3007,16 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     // When `seniorExpensesCapBps` is undefined the cap is uncapped (legacy
     // synthetic-test behavior); the absolute floor alone never produces
     // an Infinity cap, so the `null bps → Infinity` sentinel is preserved.
+    // PPM proviso (a)(x) fires on the deal's first PD only. The projection's
+    // q=1 IS the deal's first PD when (a) firstPaymentDate is set and (b)
+    // currentDate is strictly before it — q=1 then runs from currentDate to
+    // currentDate + 1Q ≈ firstPaymentDate, which is the first PD. On
+    // currentDate === firstPaymentDate, q=1's payment date is the SECOND
+    // PD (firstPaymentDate + 1Q), so (a)(y) 30/360 applies. Null
+    // firstPaymentDate → mid-life by convention (engine has no anchor to
+    // distinguish first PD from any other), so 30/360.
     const isFirstPdOfDeal =
-      q === 1 &&
-      (firstPaymentDate == null || currentDate <= firstPaymentDate);
+      q === 1 && firstPaymentDate != null && currentDate < firstPaymentDate;
     const componentADayFrac =
       seniorExpensesCapComponentADayCount === "30_360_after_first" && !isFirstPdOfDeal
         ? dayFrac30

@@ -1929,10 +1929,16 @@ export function resolveWaterfallInputs(
     // account names.
     const isExpense = name.includes("expense") || name.includes("exp res");
     const isPrincipal = name.includes("principal") || name.includes("principle");
-    // "unused proceeds" matches "ARES XV UNUSED PROCEEDS ACT CSH EUR" and
-    // typical Unused Proceeds Account naming. Per PPM Condition 1 CPA
-    // definition (d), this balance augments the Senior Expenses Cap base.
-    const isUnusedProceeds = name.includes("unused proceeds");
+    // Mirror the principal-account convention: prefer the structured
+    // `accountType` tag (set by the SDF parser's `deriveAccountType`),
+    // fall back to substring on the raw name. Substring-only would silently
+    // miss alternate UPA naming on the next deal (anti-pattern #1: overfit
+    // to one deal's account labels). Per PPM Condition 1 CPA definition (d),
+    // the UPA balance augments the Senior Expenses Cap base.
+    const isUnusedProceeds =
+      a.accountType === "UNUSED_PROCEEDS" ||
+      name.includes("unused proceeds") ||
+      name.includes("upa");
     if (isUnusedProceeds) {
       unusedProceedsCash += a.balanceAmount;
     } else if (isSmoothing) {

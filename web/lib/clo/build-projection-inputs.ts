@@ -28,6 +28,7 @@ export const EMPTY_RESOLVED: ResolvedDealData = {
   loans: [],
   metadata: { reportDate: null, dataSource: null, sdfFilesIngested: [], pdfExtracted: [] },
   principalAccountCash: 0,
+  unusedProceedsCash: 0,
   interestAccountCash: 0,
   interestSmoothingBalance: 0,
   supplementalReserveBalance: 0,

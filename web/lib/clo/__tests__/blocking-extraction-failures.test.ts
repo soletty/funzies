@@ -241,6 +241,23 @@ describe("Pattern A (silent fallback to common default)", () => {
     expect(resolved.referenceWeightedAverageFixedCoupon).toBeNull();
     expectGateThrows(resolved, warnings);
   });
+
+  it("seniorExpensesCap (resolver.ts:677) — block missing on a non-greenfield deal → blocking", () => {
+    // PPM Condition 1 Senior Expenses Cap is the cap on steps (B) trustee +
+    // (C) admin. Bps, absolute floor, allocation rules, day-count, base
+    // (CPA vs APB), carryforward periods, and VAT mechanics are all deal-
+    // specific. Falling back to UI/test defaults silently mis-caps fees on
+    // every period of every non-Ares deal. Carve-out: greenfield fixtures
+    // (no `fees` rows extracted) skip the gate so legacy DEFAULT_ASSUMPTIONS
+    // values flow through synthetic test inputs.
+    const raw = loadRaw();
+    raw.constraints.seniorExpensesCap = null;
+    expect((raw.constraints.fees ?? []).length).toBeGreaterThan(0);
+    const { resolved, warnings } = runResolver(raw);
+    const w = warnings.find((w) => w.field === "seniorExpensesCap");
+    expectBlockingError(w, "seniorExpensesCap (non-greenfield deal missing block)");
+    expectGateThrows(resolved, warnings);
+  });
 });
 
 describe("Pattern B (silent acceptance of sentinel value)", () => {

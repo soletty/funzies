@@ -78,6 +78,21 @@ describe("D3 — defaultsFromResolved (Euro XV fixture)", () => {
     expect(d.seniorExpensesCapAbsoluteFloorPerYear).toBe(300000);
     expect(d.seniorExpensesCapAllocationWithinCap).toBe("sequential_b_first");
     expect(d.seniorExpensesCapOverflowAllocation).toBe("sequential_y_first");
+    // Cap mechanics: 30/360 day-count for component (a) post-first-PD,
+    // CPA base, 3-period rolling carryforward, VAT excluded (Ares XV fees
+    // are quoted gross-of-VAT). Each of these is consumed in the engine's
+    // cap construction; a regression dropping any of them at the
+    // resolver-defaults boundary silently flips the engine to legacy
+    // (Actual/360 / APB / no-carryforward / no-VAT) without test signal.
+    expect(d.seniorExpensesCapComponentADayCount).toBe("30_360_after_first");
+    expect(d.seniorExpensesCapBaseMode).toBe("CPA");
+    expect(d.seniorExpensesCapCarryforwardPeriods).toBe(3);
+    // Ares XV fees ARE quoted gross-of-VAT in the PPM (the cap is on the
+    // VAT-inclusive amount). `vatRatePct` stays null because the gross-up
+    // is already baked into the trustee/admin requested values; the
+    // explicit gross-up path activates only when fees are quoted net.
+    expect(d.seniorExpensesCapVatIncluded).toBe(true);
+    expect(d.seniorExpensesCapVatRatePct).toBeNull();
   });
 
   it("preserves every non-pre-fill field from DEFAULT_ASSUMPTIONS", () => {
