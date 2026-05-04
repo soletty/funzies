@@ -30,13 +30,16 @@
 
 ## PPM verification gate (Task 1)
 
-The ledger describes the target behavior in PPM language but does not pin the verification against the Euro XV PPM PDF directly. Per the rule that drove KI-16 (PPM-cross-reference required before claiming KI-08 fully closed), the same gate applies here. Three points must be verified against the PPM before code changes ship:
+The ledger describes the target behavior in PPM language but does not pin the verification against the Euro XV PPM PDF directly. Per the rule that drove KI-16 (PPM-cross-reference required before claiming KI-08 fully closed), the same gate applies here. Four points must be verified against the PPM before code changes ship:
 
 1. **Hurdle definition.** Is the post-accel hurdle the same as normal-mode step (CC) — "annualized IRR on Sub Note cash-flow series since closing" — and does the series include both pre-breach and accel-mode distributions? (Plausible alternative the PPM might specify: a separate accel-mode hurdle, or a hurdle defined only on pre-breach distributions.)
 2. **Fee percentage.** Is the accel-mode fee percentage identical to the normal-mode `incentiveFeePct`? Both come from the same indenture term in most CLO PPMs; some structures specify a different post-accel rate.
 3. **Step ordering.** Is step (V) positioned between sub mgmt fee (Q) and residual to sub holders, matching the executor's current ordering? The executor pays `subMgmtFee → incentiveFee → residualToSub` (lines 1075-1085); if PPM step (V) sits before sub mgmt fee or after residual, the executor's ordering is also wrong and Task 4 expands.
+4. **Multi-period accel: pre-fee or post-fee priors?** Under sustained acceleration, period N+1 sees a `priorEquityCashFlows` accumulator that already includes period N's POST-fee residual (because the engine pushes `equityDistributionAccel = accelResult.residualToSub` at projection.ts:3010, after the fee is taken). This is the same convention as normal-mode step (CC) at line 3815. But it has a subtle property: in regime 3 of `resolveIncentiveFee`, the bisection lands period N's fee exactly at the hurdle, leaving zero IRR margin entering period N+1 — so period N+1's pre-fee test starts from a borderline-cleared IRR. PPM-correct if the indenture defines the test on prior actual (post-fee) distributions. Some indentures define it on pre-fee distributions instead, which would require carrying a parallel pre-fee accumulator. Verify which convention applies before relying on the existing post-fee push.
 
-If any of (1)–(3) diverge from this plan's assumptions, **stop and amend the plan** before writing code. The rest of the tasks below assume the three points verify cleanly.
+If any of (1)–(4) diverge from this plan's assumptions, **stop and amend the plan** before writing code. The rest of the tasks below assume the four points verify cleanly.
+
+> **Note on stale line numbers in the ledger entry:** the KI-15 entry at `web/docs/clo-model-known-issues.md:383` cites `projection.ts:1797` (caller — actual: 2992), `:624` (declaration — actual: 961), `:737` (consumption — actual: 1080), and a phantom `pay(input.incentiveFee)` (actual gate uses both `incentiveFeeActive` AND `incentiveFeePct`). Moot at closure (Task 8 deletes the entry), but the line-number drift makes the cross-reference harder during Task 1. Use this plan's verified line numbers as the source of truth.
 
 ---
 
@@ -81,7 +84,48 @@ git commit -m "KI-15: pin PPM step (V) verification findings before code change"
 
 The marker is a unit-level test against `runPostAccelerationWaterfall` directly. An integration test through `runProjection` is harder to construct cleanly (requires a synthetic deal with significant pre-breach equity distributions then a sudden EoD trip; defaults are coupled to many other invariants). The unit test is sufficient: it pins the executor's incentive-fee math directly, which is the locus of the bug.
 
-- [ ] **Step 1: Write the failing marker test (documents-the-bug)**
+- [ ] **Step 1: Probe `resolveIncentiveFee` against candidate scenarios — pin the exact magnitude before writing the marker**
+
+The marker has to (a) excite the bug — i.e., the prior cashflow series must actually clear the hurdle, so post-fix the executor returns a positive fee distinguishable from the pre-fix zero — and (b) pin the exact post-fix fee so `expectedDrift` matches `failsWithMagnitude`'s tolerance window.
+
+A scenario that LOOKS like it clears the hurdle by hand can fail to clear under the actual IRR math. Concrete example: `[-20M, 2M×8, +4M]` sums to 0, so periodic IRR = 0% (NPV = 0 only at r = 0; single sign change → unique root), annualized = 0%, far below a 12% hurdle — `resolveIncentiveFee` regime 1 returns 0, and the marker would silently pin a non-bug. Probe before writing.
+
+Temporarily add `export` to the `function resolveIncentiveFee` declaration at `projection.ts:3997` (one line: `export function resolveIncentiveFee(...)` instead of `function resolveIncentiveFee(...)`). This is cleaner than copying the function body into a scratch script — eliminates copy drift between probe and engine. Revert before committing the marker.
+
+`/tmp/probe-ki15.ts`:
+```typescript
+import { resolveIncentiveFee } from "@/lib/clo/projection";
+
+// Investment: 20M Sub Note. Class A P+I retires (100M + 1M = 101M); residual
+// after Class A = 105M − 101M = 4M. We want a prior series whose IRR (with
+// 4M residual appended) clears the 12% hurdle.
+const residual = 105_000_000 - 100_000_000 - 1_000_000;  // = 4_000_000
+
+for (const distrib of [2_000_000, 2_500_000, 3_000_000, 3_500_000]) {
+  const prior = [-20_000_000, ...Array(8).fill(distrib)];
+  const fee = resolveIncentiveFee(prior, residual, 20, 0.12, 4);
+  console.log(`distrib ${distrib}: fee = ${fee.toFixed(2)}`);
+}
+```
+
+Run:
+
+```bash
+cd /Users/solal/Documents/GitHub/funzies/web
+npx tsx --tsconfig ./tsconfig.json /tmp/probe-ki15.ts
+```
+
+Independent verification (reviewer's probe): with `distrib = 3_000_000`, expected output is `fee ≈ 800000` (regime 2: full fee = 0.20 × 4M = 800K, because the post-full-fee IRR still clears 12%). With `distrib = 2_000_000`, expected output is `fee = 0` (regime 1: pre-fee IRR = 0% < 12%).
+
+Pick the smallest `distrib` value where `fee > 0` AND the fee equals exactly `residual × incentiveFeePct/100` (regime 2 — clean to assert against). Likely `3_000_000`, but the probe confirms.
+
+- [ ] **Step 2: Revert the temporary export**
+
+In `projection.ts:3997`, restore `function resolveIncentiveFee(...)` (drop the `export`). Verify with `git diff projection.ts` — should show no changes.
+
+- [ ] **Step 3: Write the marker test pinning the bug**
+
+Use the probe's confirmed `distrib` value. The example below assumes `distrib = 3_000_000` and `fee = 800_000` from the probe; if the probe returns different numbers, update the constants accordingly.
 
 Append to `b2-post-acceleration.test.ts`:
 
@@ -98,6 +142,14 @@ describe("KI-15 — accel-mode incentive fee currently hardcoded inactive", () =
    * below hurdle). Current engine emits 0 because `incentiveFeeActive` is
    * hardcoded false and the executor body uses a flat-pct gate that ignores
    * IRR entirely.
+   *
+   * Cashflow design (verified via /tmp/probe-ki15.ts on 2026-05-03):
+   *   prior = [-20M, +3M × 8]; residual = 4M; pct = 20; hurdle = 0.12
+   *   → resolveIncentiveFee returns 800_000 (regime 2 — full flat fee fires
+   *     because pre-fee IRR ≈ 31.6% well above hurdle, and post-full-fee IRR
+   *     still clears).
+   * The 2M × 8 alternative was REJECTED: it sums to 0 against the residual,
+   * giving periodic IRR = 0%, regime 1 returns 0, marker would pin a non-bug.
    */
   const baseTranches = [
     { className: "Class A", currentBalance: 100_000_000, spreadBps: 100, seniorityRank: 1, isFloating: true, isIncomeNote: false, isDeferrable: false, isAmortising: false, amortisationPerPeriod: null, amortStartDate: null },
@@ -109,18 +161,18 @@ describe("KI-15 — accel-mode incentive fee currently hardcoded inactive", () =
   const seniorExpenses = { taxes: 0, issuerProfit: 0, trusteeFees: 0, adminExpenses: 0, seniorMgmtFee: 0, hedgePayments: 0 };
 
   // Pre-breach distribution series that clears a 12% annualized hurdle.
-  // Equity invested: 20M. Quarterly distributions of 2M for 8 quarters →
-  // periodic IRR is well above 3% (12%/4), so cumulative IRR clears.
-  const priorEquityCashFlows = [-20_000_000, ...Array(8).fill(2_000_000)];
+  // Equity invested: 20M; 8 quarters of 3M; residual 4M (appended internally
+  // by resolveIncentiveFee). Periodic IRR ≈ 7.1%, annualized ≈ 31.6%.
+  const priorEquityCashFlows = [-20_000_000, ...Array(8).fill(3_000_000)];
 
   failsWithMagnitude(
     {
       ki: "KI-15",
       closesIn: "Sprint TBD",
-      // Documented current behavior: 0. Expected post-fix: ~600K (20% of
-      // 3M residual after rated P+I retired). Drift = current − correct =
-      // 0 − 600K = -600K (engine UNDER-reports).
-      expectedDrift: -600_000,
+      // Documented current behavior: 0. Expected post-fix: 800K (20% of 4M
+      // post-Class-A residual; regime 2 of resolveIncentiveFee). Drift =
+      // observed − expected_post_fix = 0 − 800K = -800K (engine UNDER-reports).
+      expectedDrift: -800_000,
       tolerance: 50_000,
       closeThreshold: 100_000,
     },
@@ -139,61 +191,23 @@ describe("KI-15 — accel-mode incentive fee currently hardcoded inactive", () =
         incentiveFeeActive: false,
         incentiveFeePct: 20,
       });
-      // Expected post-fix: ~600K (20% of ~3M post-Class-A residual). Pre-fix: 0.
-      // Drift = 0 − 600K = -600K.
       const observedFee = result.incentiveFeePaid;
-      const expectedFee = 600_000;
+      const expectedFee = 800_000;
       return observedFee - expectedFee;
     },
   );
 });
 ```
 
-> **Note on the magnitude:** The exact post-fix fee is whatever `resolveIncentiveFee` returns under regime 2 or 3. A coarse hand-estimate is `0.20 × residual` ≈ €600K on a €3M residual after Class A P+I. Refine in Step 2 by computing the actual `resolveIncentiveFee([...prior, 3_000_000], 3_000_000, 20, 0.12, 4)` value and adjust `expectedDrift`.
-
-- [ ] **Step 2: Refine `expectedDrift` against actual `resolveIncentiveFee` output**
-
-Run a one-shot probe to compute the exact post-fix value (so the marker pins the real magnitude, not a rough estimate):
-
-```bash
-cd /Users/solal/Documents/GitHub/funzies/web
-npx tsx --tsconfig ./tsconfig.json /tmp/probe-ki15.ts
-```
-
-`/tmp/probe-ki15.ts`:
-```typescript
-// Probe: what does resolveIncentiveFee return for the marker's scenario?
-// Note: resolveIncentiveFee is private to projection.ts. Either
-//   (a) temporarily export it for the probe, or
-//   (b) replicate the function body here from projection.ts:3997-4031.
-// Recommend (b) for a one-shot — avoids modifying production code for a
-// scratch script.
-const calculateIrr = (cf: number[], ppy: number = 4): number | null => {
-  // copy from projection.ts:4033-4068
-  // ... (full body)
-};
-const resolveIncentiveFee = (
-  prior: number[], avail: number, pct: number, hurdle: number, ppy: number,
-): number => {
-  // copy from projection.ts:3997-4031
-  // ... (full body)
-};
-const prior = [-20_000_000, ...Array(8).fill(2_000_000)];
-const residualAfterClassA = 105_000_000 - 100_000_000 - 1_000_000; // = 4_000_000
-console.log("computed fee:", resolveIncentiveFee(prior, residualAfterClassA, 20, 0.12, 4));
-```
-
-Update the `expectedDrift` and `expectedFee` constants in the marker test to match the probe's exact output.
-
-- [ ] **Step 3: Run the marker test, verify it passes (documents the bug)**
+- [ ] **Step 4: Run the marker test, verify it passes (documents the bug)**
 
 ```bash
 cd web && npx vitest run lib/clo/__tests__/b2-post-acceleration.test.ts -t "KI-15"
 ```
 
-Expected: PASS. The marker name in the output reads `[KI-15, closes Sprint TBD] executor emits incentive fee under accel when prior IRR clears hurdle — expected drift -600K ± 50K`. The PASS confirms the bug is at the documented magnitude.
+Expected: PASS. The marker name in the output reads `[KI-15, closes Sprint TBD] executor emits incentive fee under accel when prior IRR clears hurdle — expected drift -800K ± 50K`. The PASS confirms the bug is at the documented magnitude.
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
 git add web/lib/clo/__tests__/b2-post-acceleration.test.ts
@@ -238,13 +252,13 @@ to:
   incentiveFeePct: number;
 ```
 
-- [ ] **Step 2: Run typecheck — expect 5 callers to break**
+- [ ] **Step 2: Run typecheck — expect 6 callers to break**
 
 ```bash
 cd web && npx tsc --noEmit
 ```
 
-Expected: 5 type errors — 1 in `projection.ts` itself (caller at line 2992) and 4 in `b2-post-acceleration.test.ts` (lines 85, 115, 141, 168). Do not commit yet — type errors get fixed in Tasks 4-6.
+Expected: 6 type errors — 1 in `projection.ts` itself (caller at line 2992) and 5 in `b2-post-acceleration.test.ts` (the 4 existing tests at lines 85, 115, 141, 168 PLUS the KI-15 bug-pin marker added in Task 2, which uses the old `incentiveFeeActive: false` shape). Do not commit yet — type errors get fixed in Tasks 4-6.
 
 ---
 
@@ -294,13 +308,13 @@ to:
 
 > **Why `pay(fee)` and not `remaining -= fee`:** preserves the existing `pay` helper's invariant that `remaining` never goes negative (line 999-1003). Functionally equivalent here because `fee ≤ remaining * incentiveFeePct/100 < remaining`.
 
-- [ ] **Step 2: Run typecheck — should drop to 4 errors (just the test sites)**
+- [ ] **Step 2: Run typecheck — should drop to 5 errors (just the b2 test sites + caller)**
 
 ```bash
 cd web && npx tsc --noEmit
 ```
 
-Expected: 4 errors in `b2-post-acceleration.test.ts` only. The caller at line 2992 still has the `incentiveFeeActive: false` line — that breaks too (1 error in projection.ts). Total: 5 if the caller is unchanged. Move on; Task 5 fixes it.
+Expected: 5 errors in `b2-post-acceleration.test.ts` (4 existing + KI-15 marker) plus 1 error in `projection.ts` for the caller at line 2992. Total: 6 if the caller is still unchanged. Task 4 (this task) only changes the executor body — it does not introduce or fix any error site by itself. Move on; Task 5 fixes the caller, Task 6 fixes the b2 sites.
 
 ---
 
@@ -338,13 +352,13 @@ to:
         incentiveFeePct,
 ```
 
-- [ ] **Step 2: Run typecheck — caller error gone, 4 test errors remain**
+- [ ] **Step 2: Run typecheck — caller error gone, 5 test errors remain**
 
 ```bash
 cd web && npx tsc --noEmit
 ```
 
-Expected: 4 errors in `b2-post-acceleration.test.ts` only. Move on to Task 6.
+Expected: 5 errors in `b2-post-acceleration.test.ts` only (4 existing tests + KI-15 marker). Move on to Task 6.
 
 ---
 
@@ -360,112 +374,110 @@ The 4 existing tests construct executor inputs directly. They all want the exist
 
 Use (a) — set `incentiveFeeHurdleIrr: 0` everywhere — for clarity. Plus `priorEquityCashFlows: []` (irrelevant when hurdle is 0).
 
-- [ ] **Step 1: Update each of the 4 callers**
+- [ ] **Step 1: Update each of the 4 existing tests' callers**
 
-For each of lines 85, 115, 141, 168, replace:
+All four existing tests use `incentiveFeePct: 0` (verified at lines 86, 116, 142, 169). For each of lines 85, 115, 141, 168, replace:
 
 ```typescript
       incentiveFeeActive: false,
       incentiveFeePct: 0,
 ```
 
-(or `incentiveFeePct: 20` at line 142 — leave whatever was there) with:
+with:
 
 ```typescript
       priorEquityCashFlows: [],
       incentiveFeeHurdleIrr: 0,
-      incentiveFeePct: 0,  // (or 20, preserving original)
+      incentiveFeePct: 0,
 ```
 
-- [ ] **Step 2: Run typecheck — clean**
+- [ ] **Step 2: Replace the KI-15 marker (from Task 2) with the closure assertion**
 
-```bash
-cd web && npx tsc --noEmit
-```
+This is the bijection rule's "flip" moment: the marker that documented the bug pre-fix now becomes the assertion of the fix. Updating it now (before running the suite) avoids the contradiction of "all PASS" while the marker still references a removed field.
 
-Expected: 0 errors.
-
-- [ ] **Step 3: Run the b2 test file — all 4 unit tests + integration tests + KI-15 marker pass**
-
-```bash
-cd web && npx vitest run lib/clo/__tests__/b2-post-acceleration.test.ts
-```
-
-Expected: all tests PASS. The KI-15 marker now runs against the NEW executor body, but its scenario uses `incentiveFeeHurdleIrr: 0`-equivalent inputs (the test passes `incentiveFeeActive: false` which under the new signature... wait, it won't compile).
-
-> **Subtle:** the KI-15 marker test from Task 2 was written under the OLD signature (`incentiveFeeActive: false`). When Task 3 lands, that marker also needs the new signature. Update it in Step 4 below.
-
-- [ ] **Step 4: Update the KI-15 marker test for the new signature, AND flip its assertion**
-
-This is the bijection rule's "flip" moment: the marker that was documenting the bug pre-fix now becomes the assertion of the fix. Replace the entire `describe("KI-15 — ...")` block with a positive assertion:
+Replace the entire `describe("KI-15 — accel-mode incentive fee currently hardcoded inactive", () => { ... })` block from Task 2 with a positive assertion that covers both regime-1 and regime-2 paths through `resolveIncentiveFee`:
 
 ```typescript
 describe("KI-15 — accel-mode incentive fee fires when cumulative Sub Note IRR clears hurdle (CLOSED)", () => {
-  it("executor returns positive incentive fee when prior cashflow IRR clears hurdle", () => {
-    const baseTranches = [
-      { className: "Class A", currentBalance: 100_000_000, spreadBps: 100, seniorityRank: 1, isFloating: true, isIncomeNote: false, isDeferrable: false, isAmortising: false, amortisationPerPeriod: null, amortStartDate: null },
-      { className: "Sub", currentBalance: 20_000_000, spreadBps: 0, seniorityRank: 8, isFloating: false, isIncomeNote: true, isDeferrable: false, isAmortising: false, amortisationPerPeriod: null, amortStartDate: null },
-    ];
-    // 8 quarters of 2M distributions on 20M investment → annualized IRR > 12%.
-    const priorEquityCashFlows = [-20_000_000, ...Array(8).fill(2_000_000)];
+  const baseTranches = [
+    { className: "Class A", currentBalance: 100_000_000, spreadBps: 100, seniorityRank: 1, isFloating: true, isIncomeNote: false, isDeferrable: false, isAmortising: false, amortisationPerPeriod: null, amortStartDate: null },
+    { className: "Sub", currentBalance: 20_000_000, spreadBps: 0, seniorityRank: 8, isFloating: false, isIncomeNote: true, isDeferrable: false, isAmortising: false, amortisationPerPeriod: null, amortStartDate: null },
+  ];
+  const trancheBalances = { "Class A": 100_000_000, "Sub": 20_000_000 };
+  const deferredBalances = { "Class A": 0, "Sub": 0 };
+  const interestDue = { "Class A": 1_000_000, "Sub": 0 };
+  const seniorExpenses = { taxes: 0, issuerProfit: 0, trusteeFees: 0, adminExpenses: 0, seniorMgmtFee: 0, hedgePayments: 0 };
+
+  it("regime 2: full flat fee fires when prior IRR comfortably clears hurdle", () => {
+    // 8 quarters of 3M on 20M invested → annualized IRR ≈ 31.6%, well above
+    // 12% hurdle. Probe (/tmp/probe-ki15.ts on 2026-05-03) confirms regime 2:
+    // full fee = 0.20 × 4M = 800K, post-full-fee IRR still clears.
+    // 2M × 8 was REJECTED — sums to 0 against the 4M residual, IRR = 0% < 12%.
+    const priorEquityCashFlows = [-20_000_000, ...Array(8).fill(3_000_000)];
 
     const result = runPostAccelerationWaterfall({
       totalCash: 105_000_000,
       tranches: baseTranches,
-      trancheBalances: { "Class A": 100_000_000, "Sub": 20_000_000 },
-      deferredBalances: { "Class A": 0, "Sub": 0 },
-      seniorExpenses: { taxes: 0, issuerProfit: 0, trusteeFees: 0, adminExpenses: 0, seniorMgmtFee: 0, hedgePayments: 0 },
-      interestDueByTranche: { "Class A": 1_000_000, "Sub": 0 },
+      trancheBalances: { ...trancheBalances },
+      deferredBalances,
+      seniorExpenses,
+      interestDueByTranche: interestDue,
       subMgmtFee: 0,
       priorEquityCashFlows,
       incentiveFeeHurdleIrr: 0.12,
       incentiveFeePct: 20,
     });
 
-    // Expected: incentive fee fires at ~20% of post-Class-A residual, modulo
-    // bisection if full fee would push IRR below hurdle. Lower bound: > 0.
-    // Upper bound: ≤ 0.20 × residual = 0.20 × 4M = 800K.
-    expect(result.incentiveFeePaid).toBeGreaterThan(0);
-    expect(result.incentiveFeePaid).toBeLessThanOrEqual(800_000);
-    // Sub residual reduced by exactly the fee.
-    expect(result.residualToSub).toBeCloseTo(4_000_000 - result.incentiveFeePaid, 2);
+    // Pin the exact regime-2 value: full fee = availableAmount × pct/100 =
+    // 4M × 0.20 = 800K (no FP drift — multiplication of two exact values).
+    expect(result.incentiveFeePaid).toBeCloseTo(800_000, -1);
+    expect(result.residualToSub).toBeCloseTo(3_200_000, -1);
   });
 
-  it("executor returns zero incentive fee when prior cashflow IRR is below hurdle", () => {
-    // Same shape but with a much higher hurdle (99%) the prior series can't clear.
-    const priorEquityCashFlows = [-20_000_000, ...Array(8).fill(2_000_000)];
+  it("regime 1: zero incentive fee when prior cashflow IRR is below hurdle", () => {
+    // Same scenario, hurdle artificially high (99%) — prior IRR ≈ 31.6%
+    // doesn't clear, regime 1 returns 0.
+    const priorEquityCashFlows = [-20_000_000, ...Array(8).fill(3_000_000)];
+
     const result = runPostAccelerationWaterfall({
       totalCash: 105_000_000,
-      tranches: [
-        { className: "Class A", currentBalance: 100_000_000, spreadBps: 100, seniorityRank: 1, isFloating: true, isIncomeNote: false, isDeferrable: false, isAmortising: false, amortisationPerPeriod: null, amortStartDate: null },
-        { className: "Sub", currentBalance: 20_000_000, spreadBps: 0, seniorityRank: 8, isFloating: false, isIncomeNote: true, isDeferrable: false, isAmortising: false, amortisationPerPeriod: null, amortStartDate: null },
-      ],
-      trancheBalances: { "Class A": 100_000_000, "Sub": 20_000_000 },
-      deferredBalances: { "Class A": 0, "Sub": 0 },
-      seniorExpenses: { taxes: 0, issuerProfit: 0, trusteeFees: 0, adminExpenses: 0, seniorMgmtFee: 0, hedgePayments: 0 },
-      interestDueByTranche: { "Class A": 1_000_000, "Sub": 0 },
+      tranches: baseTranches,
+      trancheBalances: { ...trancheBalances },
+      deferredBalances,
+      seniorExpenses,
+      interestDueByTranche: interestDue,
       subMgmtFee: 0,
       priorEquityCashFlows,
       incentiveFeeHurdleIrr: 0.99,
       incentiveFeePct: 20,
     });
     expect(result.incentiveFeePaid).toBe(0);
-    expect(result.residualToSub).toBeCloseTo(4_000_000, 2);
+    expect(result.residualToSub).toBeCloseTo(4_000_000, -1);
   });
 });
 ```
 
-> **Why two assertions:** one for the IRR-clears-hurdle path (regime 2/3), one for the IRR-below-hurdle path (regime 1). Together they pin the gate's behavior in both directions and lock against a future regression that hardcodes either branch.
+> **Why two assertions:** one for the IRR-clears-hurdle path (regime 2 — full fee fires), one for the IRR-below-hurdle path (regime 1 — fee = 0). Together they pin the gate's behavior in both directions and lock against a future regression that hardcodes either branch. The two scenarios use the SAME `priorEquityCashFlows` and only flip the hurdle — isolates the gate to a single variable.
 
-- [ ] **Step 5: Run the b2 test file — all green**
+> **Regime 3 (bisection) is not directly covered.** A scenario where the full fee would push IRR below hurdle but a partial fee would land exactly at hurdle is constructible but fragile (depends on the bisection's 20-iteration precision). Defer to the normal-mode tests in `projection-edge-cases.test.ts:887-893` and `projection-advanced.test.ts:370-405` which already exercise regime 3 via the same shared `resolveIncentiveFee` helper. The accel and normal paths now route through identical math; regime 3 coverage transfers.
+
+- [ ] **Step 3: Run typecheck — clean**
+
+```bash
+cd web && npx tsc --noEmit
+```
+
+Expected: 0 errors. The KI-15 marker no longer references the removed `incentiveFeeActive` field; all 4 existing tests use the new signature.
+
+- [ ] **Step 4: Run the b2 test file — all green**
 
 ```bash
 cd web && npx vitest run lib/clo/__tests__/b2-post-acceleration.test.ts
 ```
 
-Expected: all tests PASS, including both KI-15 (CLOSED) assertions.
+Expected: all tests PASS, including both KI-15 (CLOSED) assertions and the unchanged 4 unit tests + the integration tests (lines 181-...).
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
 git add web/lib/clo/projection.ts web/lib/clo/__tests__/b2-post-acceleration.test.ts
@@ -517,7 +529,7 @@ Expected: clean.
 grep -rn "KI-15\|ki-15\|ki15" web/lib web/app web/docs/clo-model-known-issues.md 2>/dev/null
 ```
 
-Expected: matches only in (a) the KI-15 ledger entry itself (about to be removed in Task 8), (b) the test names from Task 6 Step 4 ("KI-15 — accel-mode incentive fee fires…"), and possibly (c) historical comments. No live `KI-15` annotation should remain on engine code that asserts current-bug behavior.
+Expected: matches only in (a) the KI-15 ledger entry itself (about to be removed in Task 8), (b) the test names from Task 6 Step 2 ("KI-15 — accel-mode incentive fee fires…"), and possibly (c) historical comments. No live `KI-15` annotation should remain on engine code that asserts current-bug behavior.
 
 - [ ] **Step 5: Commit if any cleanup needed**
 
@@ -619,22 +631,24 @@ git checkout main && git merge --ff-only <feature-branch>
 
 ## Self-review checklist (run before handing off)
 
-- [ ] **Spec coverage:** Tasks 1-10 cover Task 1 (PPM verify), Tasks 2/4 (executor body), Task 3 (input type), Task 5 (caller wiring), Task 6 (test signature update + bijection flip), Task 7 (full-suite verification), Task 8 (ledger closure), Task 9 (final regression check), Task 10 (merge). All ledger Path-to-Close items addressed.
+- [ ] **Spec coverage:** Tasks 1-10 cover Task 1 (PPM verify, four points including multi-period priors convention), Task 2 (probe-pinned bug marker), Tasks 3/4 (input type + executor body), Task 5 (caller wiring), Task 6 (test signature update + bijection flip in single ordered sequence), Task 7 (full-suite verification), Task 8 (ledger closure), Task 9 (final regression check), Task 10 (merge). All ledger Path-to-Close items addressed.
 
-- [ ] **Placeholder scan:** "Sprint TBD" appears once in Task 2 Step 1 — intentional placeholder for the marker's `closesIn` field, replaced by the actual sprint name when the closure PR ships. No other placeholders.
+- [ ] **Placeholder scan:** "Sprint TBD" appears once in Task 2 Step 3 — intentional placeholder for the marker's `closesIn` field, replaced by the actual sprint name when the closure PR ships. No other placeholders.
 
 - [ ] **Type consistency:** `priorEquityCashFlows: number[]` and `incentiveFeeHurdleIrr: number` consistent across Task 3 (declaration), Task 4 (executor body consumption), Task 5 (caller-side production), Task 6 (test inputs).
 
-- [ ] **Magnitude refinement:** Task 2 Step 2 explicitly probes the actual `resolveIncentiveFee` output before pinning `expectedDrift` — protects against the marker being off by a tolerance margin and silently passing under partial fix.
+- [ ] **Magnitude pinned by probe, not by guess:** Task 2 Step 1 mandates running `/tmp/probe-ki15.ts` against the actual `resolveIncentiveFee` (via temporary export) before writing the marker. The bug-pin uses `3M × 8` (verified to clear 12% hurdle, regime 2 fee = 800K), NOT `2M × 8` (which sums to zero against the residual and silently fails to excite the bug). The closure assertion in Task 6 Step 2 uses the same `3M × 8` to ensure pre-fix-pin and post-fix-assertion exercise the same code path.
 
-- [ ] **PPM gate honored:** Task 1 is a hard prerequisite; Tasks 2-10 assume the gate clears. No code change ships against an unverified PPM assumption.
+- [ ] **Step ordering inside Task 6:** marker update (Step 2) precedes typecheck (Step 3) and suite run (Step 4). No "all PASS" claim made while the marker still references a removed interface field.
+
+- [ ] **PPM gate honored:** Task 1 is a hard prerequisite; Tasks 2-10 assume the four-point gate clears. No code change ships against an unverified PPM assumption.
 
 ---
 
 ## Open questions / risks
 
-1. **`priorEquityCashFlows` semantics under the multi-period accel branch.** When acceleration runs across multiple periods (period N is the first accel, period N+1 also accel), the executor at period N+1 sees a `priorEquityCashFlows` that includes the fee paid at period N (because the accel branch pushes `equityDistributionAccel` post-fee at line 3010, and `equityDistributionAccel = accelResult.residualToSub`). That's PPM-correct: the IRR test at each accel period is on the cumulative POST-fee Sub Note distributions. But verify by reading PPM step (V) carefully — some indentures define the IRR test on PRE-fee distributions to avoid the circular dependency. The normal-mode pattern at line 3815 also pushes the post-fee `equityDistribution`, so the convention is consistent.
+1. **`incentiveFeeHurdleIrr` units (verified decimal).** `ProjectionInputs.incentiveFeeHurdleIrr` is decimal (e.g. 0.12 for 12%) per the docstring at `projection.ts:132` and the comparison at `:3764` (`if (incentiveFeeHurdleIrr > 0 && ...)` consistent with decimal — a 12% hurdle stored as `12` would still hit `> 0` but `resolveIncentiveFee` tests against an annualized IRR also in decimal, so the comparison `12 < 0.31` would always fail and the fee would never fire). Plan-side: pass through unchanged at the caller (Task 5).
 
-2. **The `ProjectionInputs.incentiveFeeHurdleIrr` is in PERCENT or DECIMAL form?** Verify before Task 5 wiring. Looking at line 132 docstring: *"annualized IRR hurdle, e.g. 0.12 for 12%"* — decimal. And line 3764 `if (incentiveFeeHurdleIrr > 0 && ...)` — also consistent with decimal (a 12% hurdle stored as 12 would hit `> 0` but `resolveIncentiveFee` would test against an annualized IRR also expressed as decimal, so the comparison would be wildly off). Decimal it is.
+2. **The existing 4 b2 unit tests (Class A absorbs cash first, etc.) should NOT be re-baselined to exercise the NEW gate.** Those tests pin orthogonal mechanics (pari passu, residual-to-sub, shortfall-not-PIKed). Keeping them on `incentiveFeeHurdleIrr: 0` preserves their original assertion shape. The two new assertions in Task 6 Step 2 cover the gate behavior on their own.
 
-3. **Should the existing 4 b2 unit tests (Class A absorbs cash first, etc.) be re-baselined to also exercise the NEW gate?** Probably not — those tests pin orthogonal mechanics (pari passu, residual-to-sub, shortfall-not-PIKed). Keeping them on `incentiveFeeHurdleIrr: 0` preserves their original assertion shape. The two new assertions in Task 6 Step 4 cover the gate behavior on their own.
+3. **Multi-period priors convention.** Surfaced as Task 1 verification point (4); duplicated here for visibility. Each accel-mode period's `priorEquityCashFlows` includes the prior period's POST-fee residual (because `equityDistributionAccel = accelResult.residualToSub` is pushed at `:3010`). Under regime 3 bisection this leaves zero IRR margin entering the next period, so a borderline-hurdle scenario at period N can produce a regime-1-zero at period N+1. PPM-correct if the indenture defines the test on actual prior distributions (the common convention); requires a parallel pre-fee accumulator if the indenture defines it differently. Resolve in Task 1 before relying on the existing post-fee push.
