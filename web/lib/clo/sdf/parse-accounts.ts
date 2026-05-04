@@ -13,8 +13,10 @@ function deriveAccountType(name: string): string {
   const lower = name.toLowerCase();
   // Unused proceeds must be checked before "principal" — the substring
   // "proceeds" appears alongside "principal" on some abbreviated trustee
-  // names ("Princ Proceeds Acct") and we want UPA to win.
-  if (lower.includes("unused proceeds") || lower.includes("upa")) return "UNUSED_PROCEEDS";
+  // names ("Princ Proceeds Acct") and we want UPA to win. Word-boundary
+  // regex on the 3-letter "upa" token avoids false-positives on any
+  // unrelated account name that happens to contain the substring.
+  if (lower.includes("unused proceeds") || /\bupa\b/.test(lower)) return "UNUSED_PROCEEDS";
   if (lower.includes("interest")) return "INTEREST";
   if (lower.includes("princip")) return "PRINCIPAL";
   if (lower.includes("currency")) return "CURRENCY";

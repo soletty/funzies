@@ -139,7 +139,7 @@ describe("C3 — Senior Expenses Cap: stress scenarios with overflow", () => {
   });
 });
 
-describe("Senior Expenses Cap — KI-41 component (a) mixed day-count", () => {
+describe("Senior Expenses Cap — component (a) mixed day-count: Actual/360 first PD, 30/360 ongoing", () => {
   it("first PD of deal accrues floor at Actual/360 (PPM proviso (a)(x))", () => {
     // Greenfield branch: projection starts before/at the deal's first PD.
     // Override `firstPaymentDate` to a future date so q=1 IS the deal's
@@ -271,7 +271,7 @@ describe("Senior Expenses Cap — KI-41 component (a) mixed day-count", () => {
   });
 });
 
-describe("Senior Expenses Cap — KI-39 CPA cap base augments by Principal Account", () => {
+describe("Senior Expenses Cap — CPA cap base augments by Principal Account + Unused Proceeds", () => {
   it("capBaseMode='CPA' grows cap base by initialPrincipalCash; 'APB' uses pool only", () => {
     const baseAssumptions = defaultsFromResolved(fixture.resolved, fixture.raw);
     const baseInputs = buildFromResolved(fixture.resolved, baseAssumptions);
@@ -305,7 +305,7 @@ describe("Senior Expenses Cap — KI-39 CPA cap base augments by Principal Accou
   });
 });
 
-describe("Senior Expenses Cap — KI-40 3-period rolling carryforward of unused headroom", () => {
+describe("Senior Expenses Cap — 3-period rolling carryforward of unused headroom (PPM proviso (ii))", () => {
   it("buffer accumulates Σ unused headroom over preceding N periods (PPM proviso (ii))", () => {
     const baseAssumptions = defaultsFromResolved(fixture.resolved, fixture.raw);
     const baseInputs = buildFromResolved(fixture.resolved, baseAssumptions);
@@ -352,6 +352,26 @@ describe("Senior Expenses Cap — KI-40 3-period rolling carryforward of unused 
         wq.stepTrace.seniorExpensesCapAmount - woq.stepTrace.seniorExpensesCapAmount,
       ).toBeCloseTo(wq.stepTrace.seniorExpensesCapCarryforwardSum, 2);
     }
+    // Pin FIFO trim explicitly: with carryforwardPeriods=3, once the buffer
+    // is full (q≥4), the carryforward sum equals Σ of the trailing 3
+    // per-period headroom contributions. periods[1] (q=2) holds exactly
+    // one entry (q=1's headroom). At periods[5] (q=6) under FIFO, the
+    // buffer holds entries from q=3,q=4,q=5 — three entries, each slightly
+    // smaller than q=1's because `beginningPar` drifts down via defaults/
+    // recoveries (observed ~10% drift across 5 periods on Euro XV).
+    //
+    //   FIFO with 3-slot trim:  ratio ≈ 3 × (drift factor) ≈ 2.7
+    //   Off-by-one (4 entries): ratio ≈ 4 × drift ≈ 3.7
+    //   Off-by-one (2 entries): ratio ≈ 2 × drift ≈ 1.8
+    //   No trim (5 entries):    ratio ≈ 5 × drift ≈ 4.5
+    //
+    // The bounds 2.0–3.5 accept the FIFO=3 case and reject every other
+    // trim depth.
+    const oneEntry = withCarryforward.periods[1].stepTrace.seniorExpensesCapCarryforwardSum;
+    const fullBuffer = withCarryforward.periods[5].stepTrace.seniorExpensesCapCarryforwardSum;
+    const ratio = fullBuffer / oneEntry;
+    expect(ratio).toBeGreaterThan(2.0);
+    expect(ratio).toBeLessThan(3.5);
   });
 
   it("seed input augments the q=1 cap by Σ seed entries (mid-life projection)", () => {
@@ -400,7 +420,7 @@ describe("Senior Expenses Cap — KI-40 3-period rolling carryforward of unused 
   });
 });
 
-describe("Senior Expenses Cap — KI-42 VAT inclusion gross-up", () => {
+describe("Senior Expenses Cap — VAT inclusion gross-up (PPM proviso (i))", () => {
   it("vatIncluded + vatRatePct=20 grosses up cappedRequested by 20%", () => {
     const baseAssumptions = defaultsFromResolved(fixture.resolved, fixture.raw);
     const baseInputs = buildFromResolved(fixture.resolved, baseAssumptions);

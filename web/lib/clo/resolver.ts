@@ -1935,10 +1935,12 @@ export function resolveWaterfallInputs(
     // miss alternate UPA naming on the next deal (anti-pattern #1: overfit
     // to one deal's account labels). Per PPM Condition 1 CPA definition (d),
     // the UPA balance augments the Senior Expenses Cap base.
+    // Word-boundary regex on the 3-letter "upa" token avoids false-
+    // positives on any unrelated name that happens to contain the substring.
     const isUnusedProceeds =
       a.accountType === "UNUSED_PROCEEDS" ||
       name.includes("unused proceeds") ||
-      name.includes("upa");
+      /\bupa\b/.test(name);
     if (isUnusedProceeds) {
       unusedProceedsCash += a.balanceAmount;
     } else if (isSmoothing) {

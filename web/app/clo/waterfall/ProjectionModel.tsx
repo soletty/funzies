@@ -455,28 +455,37 @@ export default function ProjectionModel({
           trusteeFeeBps,
           adminFeeBps,
           seniorExpensesCapBps,
+          // Cap mechanics: pass-through from resolver, fall back to
+          // `DEFAULT_ASSUMPTIONS` (the same neutral defaults
+          // `defaultsFromResolved` produces when extraction is missing).
+          // Earlier ternaries hard-coded `"sequential_b_first"` /
+          // `"sequential_y_first"` as the null-fallback, diverging from the
+          // harness path that calls `defaultsFromResolved` and gets
+          // `"pro_rata"` — silent cap-allocation drift on greenfield deals.
           seniorExpensesCapAbsoluteFloorPerYear:
-            resolved?.seniorExpensesCap?.absoluteFloorEurPerYear ?? 0,
+            resolved?.seniorExpensesCap?.absoluteFloorEurPerYear
+              ?? DEFAULT_ASSUMPTIONS.seniorExpensesCapAbsoluteFloorPerYear,
           seniorExpensesCapAllocationWithinCap:
-            resolved?.seniorExpensesCap?.allocationWithinCap === "pro_rata"
-              ? "pro_rata"
-              : "sequential_b_first",
+            resolved?.seniorExpensesCap?.allocationWithinCap
+              ?? DEFAULT_ASSUMPTIONS.seniorExpensesCapAllocationWithinCap,
           seniorExpensesCapOverflowAllocation:
-            resolved?.seniorExpensesCap?.overflowAllocation === "pro_rata"
-              ? "pro_rata"
-              : "sequential_y_first",
+            resolved?.seniorExpensesCap?.overflowAllocation
+              ?? DEFAULT_ASSUMPTIONS.seniorExpensesCapOverflowAllocation,
           seniorExpensesCapComponentADayCount:
-            resolved?.seniorExpensesCap?.componentADayCount === "30_360_after_first"
-              ? "30_360_after_first"
-              : "actual_360",
+            resolved?.seniorExpensesCap?.componentADayCount
+              ?? DEFAULT_ASSUMPTIONS.seniorExpensesCapComponentADayCount,
           seniorExpensesCapBaseMode:
-            resolved?.seniorExpensesCap?.capBase === "CPA" ? "CPA" : "APB",
+            resolved?.seniorExpensesCap?.capBase
+              ?? DEFAULT_ASSUMPTIONS.seniorExpensesCapBaseMode,
           seniorExpensesCapCarryforwardPeriods:
-            resolved?.seniorExpensesCap?.carryforwardPeriods ?? null,
+            resolved?.seniorExpensesCap?.carryforwardPeriods
+              ?? DEFAULT_ASSUMPTIONS.seniorExpensesCapCarryforwardPeriods,
           seniorExpensesCapVatIncluded:
-            resolved?.seniorExpensesCap?.vatIncluded ?? false,
+            resolved?.seniorExpensesCap?.vatIncluded
+              ?? DEFAULT_ASSUMPTIONS.seniorExpensesCapVatIncluded,
           seniorExpensesCapVatRatePct:
-            resolved?.seniorExpensesCap?.vatRatePct ?? null,
+            resolved?.seniorExpensesCap?.vatRatePct
+              ?? DEFAULT_ASSUMPTIONS.seniorExpensesCapVatRatePct,
           incentiveFeePct,
           incentiveFeeHurdleIrr,
           ddtlDrawAssumption,
@@ -490,6 +499,13 @@ export default function ProjectionModel({
     },
     [
       resolved, resolutionWarnings, incompleteDataErrors,
+      // `resolved?.seniorExpensesCap` and `resolved?.deferredInterestCompounds`
+      // listed explicitly to mirror `userAssumptions`'s dep granularity. If
+      // `resolved` ever becomes reference-stable across a sub-field change,
+      // these guard against a stale `inputs` while `userAssumptions`
+      // correctly rebuilds — the same divergence shape KI principle 6 warns
+      // about.
+      resolved?.seniorExpensesCap, resolved?.deferredInterestCompounds,
       baseRatePct, baseRateFloorPct, defaultRates, overriddenBuckets, cprPct, recoveryPct, recoveryLagMonths,
       reinvestmentSpreadBps, reinvestmentTenorYears, reinvestmentRating, cccBucketLimitPct, cccMarketValuePct,
       seniorFeePct, subFeePct, taxesBps, issuerProfitAmount, trusteeFeeBps, adminFeeBps, seniorExpensesCapBps,
@@ -553,28 +569,31 @@ export default function ProjectionModel({
     trusteeFeeBps,
     adminFeeBps,
     seniorExpensesCapBps,
+    // Cap mechanics — see `inputs` memo above for fallback rationale.
     seniorExpensesCapAbsoluteFloorPerYear:
-      resolved?.seniorExpensesCap?.absoluteFloorEurPerYear ?? 0,
+      resolved?.seniorExpensesCap?.absoluteFloorEurPerYear
+        ?? DEFAULT_ASSUMPTIONS.seniorExpensesCapAbsoluteFloorPerYear,
     seniorExpensesCapAllocationWithinCap:
-      resolved?.seniorExpensesCap?.allocationWithinCap === "pro_rata"
-        ? "pro_rata"
-        : "sequential_b_first",
+      resolved?.seniorExpensesCap?.allocationWithinCap
+        ?? DEFAULT_ASSUMPTIONS.seniorExpensesCapAllocationWithinCap,
     seniorExpensesCapOverflowAllocation:
-      resolved?.seniorExpensesCap?.overflowAllocation === "pro_rata"
-        ? "pro_rata"
-        : "sequential_y_first",
+      resolved?.seniorExpensesCap?.overflowAllocation
+        ?? DEFAULT_ASSUMPTIONS.seniorExpensesCapOverflowAllocation,
     seniorExpensesCapComponentADayCount:
-      resolved?.seniorExpensesCap?.componentADayCount === "30_360_after_first"
-        ? "30_360_after_first"
-        : "actual_360",
+      resolved?.seniorExpensesCap?.componentADayCount
+        ?? DEFAULT_ASSUMPTIONS.seniorExpensesCapComponentADayCount,
     seniorExpensesCapBaseMode:
-      resolved?.seniorExpensesCap?.capBase === "CPA" ? "CPA" : "APB",
+      resolved?.seniorExpensesCap?.capBase
+        ?? DEFAULT_ASSUMPTIONS.seniorExpensesCapBaseMode,
     seniorExpensesCapCarryforwardPeriods:
-      resolved?.seniorExpensesCap?.carryforwardPeriods ?? null,
+      resolved?.seniorExpensesCap?.carryforwardPeriods
+        ?? DEFAULT_ASSUMPTIONS.seniorExpensesCapCarryforwardPeriods,
     seniorExpensesCapVatIncluded:
-      resolved?.seniorExpensesCap?.vatIncluded ?? false,
+      resolved?.seniorExpensesCap?.vatIncluded
+        ?? DEFAULT_ASSUMPTIONS.seniorExpensesCapVatIncluded,
     seniorExpensesCapVatRatePct:
-      resolved?.seniorExpensesCap?.vatRatePct ?? null,
+      resolved?.seniorExpensesCap?.vatRatePct
+        ?? DEFAULT_ASSUMPTIONS.seniorExpensesCapVatRatePct,
     incentiveFeePct,
     incentiveFeeHurdleIrr,
     ddtlDrawAssumption,
