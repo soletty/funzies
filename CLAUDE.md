@@ -434,7 +434,7 @@ deal whose true rate is 0.15% leaves €700K-€800K/year of fake equity
 in the projection. All silent on Euro XV today (extraction succeeds);
 all catastrophic on the next deal where extraction misses. The
 canonical inventory of every site under this rule lives in
-`web/lib/clo/__tests__/ki58-blocking-extraction-failures.test.ts`
+`web/lib/clo/__tests__/blocking-extraction-failures.test.ts`
 (one `it()` block per site) and is independently verifiable via
 `grep "blocking: true" web/lib/clo/resolver.ts` — adding a new
 fallback site means flipping its warning to `blocking: true` and

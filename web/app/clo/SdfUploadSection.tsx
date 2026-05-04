@@ -19,6 +19,7 @@ const SDF_TYPE_LABELS: Record<SdfFileType, string> = {
   accounts: "Accounts",
   transactions: "Transactions",
   accruals: "Accruals",
+  intex_positions: "Intex Positions (per-position ratings)",
 };
 
 export default function SdfUploadSection({ dealId }: { dealId: string }) {

@@ -884,6 +884,43 @@ export async function getTradingSummary(reportPeriodId: string): Promise<CloTrad
   return rows[0] ? rowToTradingSummary(rows[0]) : null;
 }
 
+/** Per-position Intex DealCF rating supplements for the period. Returns a
+ *  Map keyed by identifier (lxid OR isin OR facility_id) — caller looks up
+ *  by trying each in turn. Empty Map when no Intex positions ingested. */
+export async function getIntexPositionsByReportPeriod(
+  reportPeriodId: string,
+): Promise<Map<string, import("./resolve-rating").IntexPositionRow>> {
+  const rows = await query<Record<string, unknown>>(
+    "SELECT * FROM clo_intex_positions WHERE report_period_id = $1",
+    [reportPeriodId],
+  );
+  const map = new Map<string, import("./resolve-rating").IntexPositionRow>();
+  for (const r of rows) {
+    const camel: import("./resolve-rating").IntexPositionRow = {
+      moodyIssueRating: (r.moody_issue_rating as string) ?? null,
+      moodyIssuerRating: (r.moody_issuer_rating as string) ?? null,
+      moodyDerivedDefaultProbRating: (r.moody_derived_default_prob_rating as string) ?? null,
+      moodyIssueRatingDesignation: (r.moody_issue_rating_designation as string) ?? null,
+      spIssueRating: (r.sp_issue_rating as string) ?? null,
+      spIssuerRating: (r.sp_issuer_rating as string) ?? null,
+      spIssueRatingDesignation: (r.sp_issue_rating_designation as string) ?? null,
+      fitchIssueRating: (r.fitch_issue_rating as string) ?? null,
+      fitchIssuerRating: (r.fitch_issuer_rating as string) ?? null,
+      fitchDerivedRating: (r.fitch_derived_rating as string) ?? null,
+      fitchIssueRatingDesignation: (r.fitch_issue_rating_designation as string) ?? null,
+      moodyDerivedRecoveryRate: r.moody_derived_recovery_rate != null ? Number(r.moody_derived_recovery_rate) : null,
+      fitchDerivedRecoveryRate: r.fitch_derived_recovery_rate != null ? Number(r.fitch_derived_recovery_rate) : null,
+      spDerivedRecoveryRate: r.sp_derived_recovery_rate != null ? Number(r.sp_derived_recovery_rate) : null,
+    };
+    // Index by every populated identifier so the resolver can lookup via
+    // any of lxid / isin / facility_id without needing to know the source.
+    for (const key of [r.lxid, r.isin, r.facility_id]) {
+      if (typeof key === "string" && key.trim()) map.set(key.trim(), camel);
+    }
+  }
+  return map;
+}
+
 export async function getProceeds(reportPeriodId: string): Promise<import("./types").CloProceeds[]> {
   const rows = await query<Record<string, unknown>>(
     "SELECT * FROM clo_proceeds WHERE report_period_id = $1",

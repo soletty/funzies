@@ -101,10 +101,14 @@ describe("C2 — T=0 parity with resolver poolSummary", () => {
 
     // pctCccAndBelow: trustee reports max across agencies. Engine implements
     // per-agency Caa/CCC rollups (PPM Condition 1, PDF pp. 127, 138) and
-    // takes the max. ~1.3pp residual drift on Euro XV reflects loans whose
-    // per-agency final ratings are absent from extraction (~6% of positions),
-    // which fall through to the coarse `ratingBucket === "CCC"` fallback.
-    // Tolerance ±2pp absorbs that fixture-data limitation.
+    // takes the max. The rating ladder (resolve-rating.ts) now resolves
+    // Moody's/Fitch via SDF channels → Intex shadow channels → cross-agency
+    // derivation. On Euro XV the ~1.3pp residual drift is closed once the
+    // fixture's `raw.intexPositions` carries the Apollo / Awaze / Mar Bidco
+    // shadow ratings (BNY trustee redacts these as `***`; only Intex
+    // publishes them). Tolerance stays at ±2pp until the fixture is
+    // regenerated with Intex positions; tightening to ±0.1pp is a
+    // mechanical follow-up at that point.
     if (pctCccAndBelow != null) {
       expect(Math.abs(p1.qualityMetrics.pctCccAndBelow - pctCccAndBelow)).toBeLessThan(2);
     }

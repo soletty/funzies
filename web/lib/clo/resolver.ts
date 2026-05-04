@@ -10,6 +10,7 @@ import { assignDenseSeniorityRanks, classOrderBucket } from "./seniority-rank";
 import { canonicalizeDayCount, type DayCountConvention } from "./day-count-canonicalize";
 import { resolveAgencyRecovery } from "./recovery-rate";
 import { normalizeClassName as normClass } from "./normalize-class-name";
+import { resolveMoodysRating, resolveFitchRating, type IntexPositionRow } from "./resolve-rating";
 
 /** Defensive sentinel stripper for rating strings already in the DB. The SDF
  *  parser now filters these at ingest (see trimRating), but pre-fix rows can
@@ -873,6 +874,7 @@ export function resolveWaterfallInputs(
   dealDates?: { maturity?: string | null; reinvestmentPeriodEnd?: string | null; reportDate?: string | null; dealCurrency?: string | null },
   accountBalances?: CloAccountBalance[],
   parValueAdjustments?: CloParValueAdjustment[],
+  intexPositions?: Map<string, IntexPositionRow>,
 ): { resolved: ResolvedDealData; warnings: ResolutionWarning[] } {
   const warnings: ResolutionWarning[] = [];
 
@@ -1241,6 +1243,38 @@ export function resolveWaterfallInputs(
   const activeHoldings = holdings.filter(h => holdingPar(h) > 0 && !h.isDefaulted);
   const nonDdtlHoldings = activeHoldings.filter(h => !h.isDelayedDraw);
 
+  // --- Rating Agencies set (computed pre-loop so the resolveMoodysRating /
+  //     resolveFitchRating helpers can gate cross-agency derivation +
+  //     terminal-fallback rungs on per-deal agency-set membership). The
+  //     empty-set / asymmetry diagnostic warnings are emitted further down. ---
+  const ratingAgencies: ("moodys" | "sp" | "fitch")[] = [];
+  {
+    const cs = constraints.capitalStructure ?? [];
+    if (cs.some((e) => e.rating?.moodys != null && e.rating.moodys.trim() !== "")) ratingAgencies.push("moodys");
+    if (cs.some((e) => e.rating?.sp != null && e.rating.sp.trim() !== "")) ratingAgencies.push("sp");
+    if (cs.some((e) => e.rating?.fitch != null && e.rating.fitch.trim() !== "")) ratingAgencies.push("fitch");
+  }
+
+  // Per-position Intex shadow-rating lookup (lxid → isin → facility_id).
+  // Empty Map when no Intex positions ingested for this period — the helper
+  // falls through to SDF-only resolution. ratingDefinitions (cross-agency
+  // derivation tables + terminal default) is currently NOT extracted from
+  // the PPM; rungs 7–9 of the ladder remain inert until that extractor
+  // ships. Per-position absent ratings emit warn-level diagnostics inside
+  // the loop.
+  const intexLookup = (intexPositions ?? new Map()) as Map<string, IntexPositionRow>;
+  const lookupIntex = (h: CloHolding): IntexPositionRow | undefined =>
+    (h.lxid ? intexLookup.get(h.lxid) : undefined)
+    ?? (h.isin ? intexLookup.get(h.isin) : undefined)
+    ?? (h.facilityId ? intexLookup.get(h.facilityId) : undefined);
+
+  // Collected per-position absent-rating obligors. Aggregated into one
+  // blocking warning per agency after the loop — each absent position would
+  // silently understate the per-agency Caa/CCC concentration denominator
+  // (anti-pattern #3). Active holdings only (defaulted are filtered above).
+  const moodysAbsentObligors: string[] = [];
+  const fitchAbsentObligors: string[] = [];
+
   const loans: ResolvedLoan[] = activeHoldings.map(h => {
     const isFixed = h.isFixedRate === true;
     const isDdtl = h.isDelayedDraw === true;
@@ -1249,10 +1283,29 @@ export function resolveWaterfallInputs(
     const moodys = cleanRating(h.moodysRating);
     const sp = cleanRating(h.spRating);
     const fitch = cleanRating(h.fitchRating);
-    const moodysFinal = cleanRating(h.moodysRatingFinal);
     const spFinal = cleanRating(h.spRatingFinal);
-    const fitchFinal = cleanRating(h.fitchRatingFinal);
     const moodysDp = cleanRating(h.moodysDpRating);
+
+    // Per-position rating ladder (resolve-rating.ts is the single owner of
+    // the PPM "Moody's Rating" / "Fitch Rating" definition). SDF channels →
+    // Intex shadow channels → cross-agency derivation (gated on extraction)
+    // → terminal default (gated on extraction) → absent. Absent positions
+    // on a non-LML, non-defaulted holding silently understate the Caa/CCC
+    // concentration denominator — we collect them post-loop and emit ONE
+    // blocking warning per agency, listing every affected obligor.
+    const intex = lookupIntex(h);
+    const moodysResolution = resolveMoodysRating(h, intex, { ratingAgencies, ratingDefinitions: undefined });
+    const fitchResolution = resolveFitchRating(h, intex, { ratingAgencies, ratingDefinitions: undefined });
+    const moodysFinal = moodysResolution.rating;
+    const fitchFinal = fitchResolution.rating;
+    if (moodysResolution.source === "absent" && ratingAgencies.includes("moodys")) {
+      moodysAbsentObligors.push(h.obligorName ?? h.lxid ?? h.isin ?? h.facilityId ?? "unknown");
+    }
+    if (fitchResolution.source === "absent" && ratingAgencies.includes("fitch")) {
+      fitchAbsentObligors.push(h.obligorName ?? h.lxid ?? h.isin ?? h.facilityId ?? "unknown");
+    }
+    const isCEP = moodysResolution.isCreditEstimateOrPrivate || fitchResolution.isCreditEstimateOrPrivate;
+
     const ratingBucket = mapToRatingBucket(moodys, sp, fitch, cleanRating(h.compositeRating));
 
     let fixedCouponPct: number | undefined;
@@ -1461,10 +1514,16 @@ export function resolveWaterfallInputs(
       moodysRating: moodys ?? undefined,
       spRating: sp ?? undefined,
       fitchRating: fitch ?? undefined,
-      // Derived ratings (sentinel-cleaned)
+      // Derived ratings (resolved via the rating ladder)
       moodysRatingFinal: moodysFinal ?? undefined,
       spRatingFinal: spFinal ?? undefined,
       fitchRatingFinal: fitchFinal ?? undefined,
+      // Lineage tags from the rating ladder. Drive partner-facing
+      // pctMoodysRatingDerivedFromSp + pctOnCreditEstimateOrPrivateRating
+      // pool-metrics outputs and the consumer-side blocking gate.
+      moodysRatingSource: moodysResolution.source,
+      fitchRatingSource: fitchResolution.source,
+      isCreditEstimateOrPrivateRating: isCEP || undefined,
       // Market data
       currentPrice: h.currentPrice ?? undefined,
       marketValue: h.marketValue ?? undefined,
@@ -1472,9 +1531,13 @@ export function resolveWaterfallInputs(
       // the engine's forward-default site can call the same `resolveAgencyRecovery`
       // helper used at the T=0 site. Centralizing the convention in one helper
       // is the KI-21 anti-drift template; see `recovery-rate.ts`.
-      recoveryRateMoodys: h.recoveryRateMoodys ?? undefined,
-      recoveryRateSp: h.recoveryRateSp ?? undefined,
-      recoveryRateFitch: h.recoveryRateFitch ?? undefined,
+      // Intex provides per-agency derived recovery rates as a competing source
+      // when the SDF doesn't carry the column. Fall back per agency rather
+      // than at the helper level so any per-position SDF rate that IS present
+      // wins (single-source-of-truth invariant for agency-rate selection).
+      recoveryRateMoodys: h.recoveryRateMoodys ?? intex?.moodyDerivedRecoveryRate ?? undefined,
+      recoveryRateSp: h.recoveryRateSp ?? intex?.spDerivedRecoveryRate ?? undefined,
+      recoveryRateFitch: h.recoveryRateFitch ?? intex?.fitchDerivedRecoveryRate ?? undefined,
       // Structural
       lienType: h.lienType ?? undefined,
       isDefaulted: h.isDefaulted ?? undefined,
@@ -1496,22 +1559,51 @@ export function resolveWaterfallInputs(
     });
   });
 
-  // --- Rating Agencies set ---
-  // Strictly derived from tranche capital-structure rating columns. The deal's
-  // Rating Agencies set per the indenture (Ares European XV: "Fitch and Moody's,
-  // each a Rating Agency", oc.txt:368-369). Distinct from the silent-skip
-  // booleans `isMoodysRated` / `isFitchRated` / `isSpRated` derived later in
-  // this resolver, which OR in compliance-test-name evidence — that fallback
-  // is permissive (catches extraction gaps on tranche columns), but for the
-  // OC numerator's per-agency recovery dispatch we want the strict set: only
-  // agencies whose tranche rating columns confirm the indenture's
-  // Rating Agencies. The two diverge only on extraction-gap shapes; the
-  // safety-net warning below catches that case.
-  const ratingAgencies: ("moodys" | "sp" | "fitch")[] = [];
+  // Aggregate per-position absent ratings into ONE blocking warning per
+  // agency (anti-pattern #3). Each unresolved position would silently land
+  // in the agency's Caa/CCC concentration denominator with no rating, so
+  // the helper's bucket fallback fires — understating concentration on
+  // every Caa-rated obligor whose SDF channel is empty and Intex isn't
+  // ingested. Refusing to project is the correct partner-facing behavior
+  // ("partner sees nothing < partner sees a plausible-but-wrong number").
+  // The DATA INCOMPLETE banner (selectBlockingWarnings → IncompleteDataError
+  // in build-projection-inputs.ts) lists the affected obligors so the user
+  // knows exactly which positions need Intex coverage.
+  if (moodysAbsentObligors.length > 0) {
+    const sample = moodysAbsentObligors.slice(0, 8).join(", ");
+    const more = moodysAbsentObligors.length > 8 ? ` (+${moodysAbsentObligors.length - 8} more)` : "";
+    warnings.push({
+      field: "moodysRating",
+      message:
+        `${moodysAbsentObligors.length} active position(s) have no Moody's rating in any SDF or Intex channel: ${sample}${more}. ` +
+        `These positions silently fall into the bucket-rating fallback for the per-agency Caa Obligations test, understating the trustee-reported concentration. ` +
+        `Ingest the Intex DealCF positions CSV (Structured Data Files upload) so per-position shadow ratings populate.`,
+      severity: "error",
+      blocking: true,
+    });
+  }
+  if (fitchAbsentObligors.length > 0) {
+    const sample = fitchAbsentObligors.slice(0, 8).join(", ");
+    const more = fitchAbsentObligors.length > 8 ? ` (+${fitchAbsentObligors.length - 8} more)` : "";
+    warnings.push({
+      field: "fitchRating",
+      message:
+        `${fitchAbsentObligors.length} active position(s) have no Fitch rating in any SDF or Intex channel: ${sample}${more}. ` +
+        `These positions silently fall into the bucket-rating fallback for the per-agency Fitch CCC Obligations test, understating the trustee-reported concentration. ` +
+        `Ingest the Intex DealCF positions CSV (Structured Data Files upload) so per-position shadow ratings populate.`,
+      severity: "error",
+      blocking: true,
+    });
+  }
+
+  // --- Rating Agencies safety-net warnings ---
+  // The set itself is computed pre-loop (above) so the rating-ladder helpers
+  // can gate cross-agency derivation. Strict by indenture: derived only from
+  // tranche capital-structure rating columns; distinct from the permissive
+  // `isMoodysRated` / `isFitchRated` / `isSpRated` booleans that OR in
+  // compliance-test-name evidence. The two diverge only on extraction-gap
+  // shapes; the safety-net warnings below catch that case.
   const cs = constraints.capitalStructure ?? [];
-  if (cs.some((e) => e.rating?.moodys != null && e.rating.moodys.trim() !== "")) ratingAgencies.push("moodys");
-  if (cs.some((e) => e.rating?.sp != null && e.rating.sp.trim() !== "")) ratingAgencies.push("sp");
-  if (cs.some((e) => e.rating?.fitch != null && e.rating.fitch.trim() !== "")) ratingAgencies.push("fitch");
 
   // Sub-fix A safety net: tranche capital structure has any agency rating
   // data populated, but the derived ratingAgencies set has fewer than 2

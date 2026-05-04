@@ -5,7 +5,8 @@ export type SdfFileType =
   | "asset_level"
   | "accounts"
   | "transactions"
-  | "accruals";
+  | "accruals"
+  | "intex_positions";
 
 export interface SdfParseResult<T> {
   fileType: SdfFileType;

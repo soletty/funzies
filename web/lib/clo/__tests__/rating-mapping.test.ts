@@ -1,5 +1,13 @@
 import { describe, it, expect } from "vitest";
-import { mapToRatingBucket, DEFAULT_RATES_BY_RATING, RATING_BUCKETS } from "../rating-mapping";
+import {
+  mapToRatingBucket,
+  DEFAULT_RATES_BY_RATING,
+  RATING_BUCKETS,
+  stripRatingSuffixes,
+  moodysWarfFactor,
+  isMoodysCaaOrBelow,
+  isFitchCccOrBelow,
+} from "../rating-mapping";
 
 describe("mapToRatingBucket", () => {
   it("maps Moody's ratings to buckets", () => {
@@ -76,5 +84,69 @@ describe("DEFAULT_RATES_BY_RATING", () => {
       expect(DEFAULT_RATES_BY_RATING[bucket]).toBeDefined();
       expect(typeof DEFAULT_RATES_BY_RATING[bucket]).toBe("number");
     }
+  });
+});
+
+describe("stripRatingSuffixes", () => {
+  it("lowercases and trims", () => {
+    expect(stripRatingSuffixes("  Caa1  ")).toBe("caa1");
+    expect(stripRatingSuffixes("BB+")).toBe("bb+");
+  });
+
+  it("strips trailing parentheticals", () => {
+    expect(stripRatingSuffixes("Ba2 (sf)")).toBe("ba2");
+    expect(stripRatingSuffixes("B1(p)")).toBe("b1");
+    expect(stripRatingSuffixes("BBB- (sf)")).toBe("bbb-");
+  });
+
+  it("strips rating-watch flags", () => {
+    expect(stripRatingSuffixes("Caa1 *-")).toBe("caa1");
+    expect(stripRatingSuffixes("Ba3*+")).toBe("ba3");
+    expect(stripRatingSuffixes("B+ * watch")).toBe("b+");
+  });
+
+  it("strips both parenthetical and watch flag", () => {
+    expect(stripRatingSuffixes("Caa1 (sf) *-")).toBe("caa1");
+  });
+
+  it("returns empty string on empty input", () => {
+    expect(stripRatingSuffixes("")).toBe("");
+    expect(stripRatingSuffixes("  ")).toBe("");
+  });
+});
+
+describe("rating-string consumer consistency post-suffix-strip", () => {
+  // Closes the latent divergence between moodysWarfFactor (which previously
+  // stripped suffixes inline) and tryMap-driven helpers (which previously
+  // did not). Both now route through stripRatingSuffixes; same input must
+  // produce coherent answers across consumers.
+  it("moodysWarfFactor agrees with isMoodysCaaOrBelow on rating-watch suffix", () => {
+    // Pre-fix: moodysWarfFactor("Caa1 *-") = 4770; isMoodysCaaOrBelow("Caa1 *-") = false.
+    // Post-fix: both strip the *- and read "caa1".
+    expect(moodysWarfFactor("Caa1 *-")).toBe(4770);
+    expect(isMoodysCaaOrBelow("Caa1 *-")).toBe(true);
+  });
+
+  it("moodysWarfFactor agrees with isMoodysCaaOrBelow on (sf) suffix", () => {
+    expect(moodysWarfFactor("Caa2 (sf)")).toBe(6500);
+    expect(isMoodysCaaOrBelow("Caa2 (sf)")).toBe(true);
+  });
+
+  it("Fitch CCC predicate handles suffixes consistently", () => {
+    expect(isFitchCccOrBelow("CCC+ *-")).toBe(true);
+    expect(isFitchCccOrBelow("CCC (sf)")).toBe(true);
+  });
+
+  it("non-CCC ratings with suffixes do not flip into CCC bucket", () => {
+    expect(isMoodysCaaOrBelow("B2 *-")).toBe(false);
+    expect(isFitchCccOrBelow("B+ (sf)")).toBe(false);
+  });
+
+  it("mapToRatingBucket handles suffixes (was a latent divergence)", () => {
+    // Pre-fix: mapToRatingBucket("Caa1 *-", null, null, null) returned "NR"
+    // because tryMap didn't strip "*-". Post-fix: returns "CCC".
+    expect(mapToRatingBucket("Caa1 *-", null, null, null)).toBe("CCC");
+    expect(mapToRatingBucket(null, "CCC+ *-", null, null)).toBe("CCC");
+    expect(mapToRatingBucket(null, null, "B+ (sf)", null)).toBe("B");
   });
 });

@@ -55,6 +55,13 @@ export interface LoanInput {
   /** Per-agency Fitch sub-bucket rating (e.g. "CCC+"). Same role as
    *  `moodysRatingFinal`. */
   fitchRatingFinal?: string;
+  /** Lineage tag for the rung that produced `moodysRatingFinal`. Drives
+   *  `qualityMetrics.pctMoodysRatingDerivedFromSp`. */
+  moodysRatingSource?: import("./resolve-rating").MoodysRatingSource;
+  /** True when Intex tags this position's Moody's OR Fitch rating as a
+   *  credit estimate or private letter rating. Drives
+   *  `qualityMetrics.pctOnCreditEstimateOrPrivateRating`. */
+  isCreditEstimateOrPrivateRating?: boolean;
   /** Per-position day-count convention (canonicalized from
    *  `clo_holdings.day_count_convention`). When undefined, the engine
    *  falls back to Actual/360 — preserves byte-identical output on
@@ -1523,6 +1530,8 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     currency?: string;
     moodysRatingFinal?: string;
     fitchRatingFinal?: string;
+    moodysRatingSource?: import("./resolve-rating").MoodysRatingSource;
+    isCreditEstimateOrPrivateRating?: boolean;
     isDelayedDraw?: boolean;
     ddtlSpreadBps?: number;
     drawQuarter?: number;
@@ -1606,6 +1615,8 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     currency: l.currency,
     moodysRatingFinal: l.moodysRatingFinal,
     fitchRatingFinal: l.fitchRatingFinal,
+    moodysRatingSource: l.moodysRatingSource,
+    isCreditEstimateOrPrivateRating: l.isCreditEstimateOrPrivateRating,
     isDelayedDraw: l.isDelayedDraw,
     ddtlSpreadBps: l.ddtlSpreadBps,
     drawQuarter: l.drawQuarter,
@@ -1705,6 +1716,8 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
         currency: l.currency,
         moodysRatingFinal: l.moodysRatingFinal,
         fitchRatingFinal: l.fitchRatingFinal,
+        moodysRatingSource: l.moodysRatingSource,
+        isCreditEstimateOrPrivateRating: l.isCreditEstimateOrPrivateRating,
       });
     }
     const {
@@ -1853,6 +1866,8 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
         currency: l.currency,
         moodysRatingFinal: l.moodysRatingFinal,
         fitchRatingFinal: l.fitchRatingFinal,
+        moodysRatingSource: l.moodysRatingSource,
+        isCreditEstimateOrPrivateRating: l.isCreditEstimateOrPrivateRating,
       });
     }
     return computePoolQualityMetrics(qloans, {
