@@ -3,12 +3,16 @@
  *
  * Single helper that pulls observable assumptions from resolver output + raw
  * trustee data, replacing DEFAULT_ASSUMPTIONS for every consumer that needs
- * pre-filled inputs (production-path harness, ProjectionModel UI). Closes:
+ * pre-filled inputs (production-path harness, ProjectionModel UI, N1 harness
+ * engine-math mode). Covers:
  *   - baseRate pre-fill (full)
  *   - senior/sub mgmt fee pre-fill — partial (rate plumbing; fee-base
  *     discrepancy is KI-12a's territory, not fixed here)
- *   - KI-08 (trusteeFeeBps pre-fill) — partial (Senior Expenses Cap + overflow
- *     at steps Y/Z remains Sprint 3 / C3)
+ *   - trusteeFeeBps + adminFeeBps split-pre-fill (back-derived from Q1
+ *     waterfall steps B + C respectively)
+ *   - Senior Expenses Cap propagation: bpsPerYear, absoluteFloorEurPerYear,
+ *     allocationWithinCap, overflowAllocation flow from
+ *     `resolved.seniorExpensesCap` (PPM Condition 1, OC pp. 150-151).
  */
 
 import { describe, it, expect } from "vitest";

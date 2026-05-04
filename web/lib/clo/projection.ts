@@ -1303,8 +1303,14 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     taxesBps = 0, issuerProfitAmount = 0, trusteeFeeBps, adminFeeBps = 0,
     seniorExpensesCapBps,
     seniorExpensesCapAbsoluteFloorPerYear = 0,
-    seniorExpensesCapAllocationWithinCap = "sequential_b_first",
-    seniorExpensesCapOverflowAllocation = "sequential_y_first",
+    // Neutral defaults match DEFAULT_ASSUMPTIONS in build-projection-inputs.ts.
+    // PPM-correct mechanics (e.g., Ares XV's "sequential_b_first" /
+    // "sequential_y_first") arrive via the resolver path through
+    // `defaultsFromResolved` → `resolved.seniorExpensesCap`; hand-constructed
+    // ProjectionInputs (test factories, legacy fixtures) get the neutral
+    // pro-rata baseline rather than any deal-specific PPM mechanic.
+    seniorExpensesCapAllocationWithinCap = "pro_rata",
+    seniorExpensesCapOverflowAllocation = "pro_rata",
     hedgeCostBps, incentiveFeePct, incentiveFeeHurdleIrr,
     postRpReinvestmentPct, callMode, callDate, nonCallPeriodEnd, callPricePct, callPriceMode, reinvestmentOcTrigger, eventOfDefaultTest,
     stubPeriod, firstPeriodEndDate,

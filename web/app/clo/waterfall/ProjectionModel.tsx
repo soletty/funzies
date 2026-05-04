@@ -488,17 +488,22 @@ export default function ProjectionModel({
   );
 
   // Legit-pinned inputs for HarnessPanel's engine-math mode. Mirrors
-  // n1-correctness.test.ts: DEFAULT_ASSUMPTIONS + observed EURIBOR + PPM fees
-  // from resolved.fees. trusteeFeeBps intentionally NOT pinned (circular).
+  // n1-correctness.test.ts which pins via `defaultsFromResolved(resolved, raw)`.
+  // The PPM-extracted Senior Expenses Cap mechanics (bps, absolute floor,
+  // sequential B-first / Y-first allocation) come through that path; spreading
+  // raw DEFAULT_ASSUMPTIONS would feed the harness with neutral pro-rata + zero
+  // floor — bundling cap-mechanic error into what's supposed to be pure engine
+  // arithmetic drift.
   const engineMathInputs: ProjectionInputs | undefined = useMemo(() => {
     if (!resolved) return undefined;
     if (incompleteDataErrors.length > 0) return undefined;
     const observedBaseRate = trancheSnapshots.find(s => s && s.currentIndexRate != null)?.currentIndexRate;
     if (observedBaseRate == null) return undefined;
+    const base = defaultsFromResolved(resolved, { trancheSnapshots, waterfallSteps });
     return buildFromResolved(
       resolved,
       {
-        ...DEFAULT_ASSUMPTIONS,
+        ...base,
         baseRatePct: observedBaseRate,
         seniorFeePct: resolved.fees.seniorFeePct,
         subFeePct: resolved.fees.subFeePct,
@@ -507,7 +512,7 @@ export default function ProjectionModel({
       },
       resolutionWarnings,
     );
-  }, [resolved, trancheSnapshots, resolutionWarnings, incompleteDataErrors]);
+  }, [resolved, trancheSnapshots, waterfallSteps, resolutionWarnings, incompleteDataErrors]);
 
   const userAssumptions: UserAssumptions = useMemo(() => ({
     baseRatePct,
