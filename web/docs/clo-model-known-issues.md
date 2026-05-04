@@ -23,9 +23,8 @@ Updated per sprint. Entries are closed by deleting the entry, its index pointer,
 Categorized so a partner reading cold can separate "what's still wrong" from "what we decided." Section membership is authoritative; the numerical KI order is historical (sprint-chronological).
 
 ### Open — currently wrong, path to close documented
-- [KI-08 — `trusteeFeesPaid` bundled steps B+C (PARTIAL: pre-fill D3 + cap mechanics C3 shipped; KI-16 PPM verifications remain)](#ki-08) — *day-count residual sub-component blocked on KI-12a data acquisition*
+- [KI-08 — `trusteeFeesPaid` bundled steps B+C (PARTIAL: pre-fill D3 + cap mechanics C3 + KI-16 PPM verifications cleared; day-count residuals remain blocked on KI-12a)](#ki-08)
 - [KI-12a — Senior / sub management fee base discrepancy](#ki-12a) — **BLOCKED ON DATA ACQUISITION** (Q4 2025 historical SDF + trustee-report bundles)
-- [KI-16 — KI-08 closure assumptions pending PPM verification](#ki-16)
 - [KI-18 — pctCccAndBelow per-agency rollup ships; ~1.3pp residual from per-position rating extraction coverage gap](#ki-18)
 - [KI-20 — D2 legacy escape-hatch on 6 test-factory sites](#ki-20)
 - [KI-21 — Parallel implementations of same calculation (PARTIAL — Scope 1+2 closed; Scope 3 accel + T=0 remains)](#ki-21)
@@ -33,6 +32,11 @@ Categorized so a partner reading cold can separate "what's still wrong" from "wh
 - [KI-24 — E1 citation propagation coverage is partial (8 deferred paths)](#ki-24)
 - [KI-33 — Reinvestment loan synthesis assumes par-purchase (€1 diverted = €1 par)](#ki-33)
 - [KI-35 — Partial DDTL draw silently discards the un-drawn commitment](#ki-35)
+- [KI-39 — Senior Expenses Cap base = CPA, engine uses APB (parallel to KI-12a)](#ki-39)
+- [KI-40 — Senior Expenses Cap 3-period rolling carryforward unmodeled](#ki-40)
+- [KI-41 — Senior Expenses Cap component (a) mixed day-count (30/360 + Actual/360) — engine uses uniform Actual/360](#ki-41)
+- [KI-42 — VAT inclusion in Senior Expenses Cap unmodeled](#ki-42)
+- [KI-43 — `ki58-blocking-extraction-failures.test.ts` referenced in `web/CLAUDE.md` but not present in repo](#ki-43)
 
 ### Latent — currently inactive on Euro XV; emerges on portability or stress
 *Distinct from "Deferred" (those are intentional design choices about mechanics that exist in the indenture but the model elects not to simulate). "Latent" entries are unmodeled or hardcoded paths whose current Euro XV magnitude happens to be zero, but which will produce wrong numbers the moment a deal hits the triggering condition (different deal structure, different PPM, non-zero balance, FX exposure, etc.). Treat each as a real bug whose materiality is data-dependent, not a deliberate scope decision.*
@@ -165,21 +169,22 @@ The genuine latent risk this entry tracks: under deferred-interest stress, defer
 ---
 
 <a id="ki-08"></a>
-### [KI-08] `trusteeFeesPaid` bundled steps B+C — **PARTIALLY CLOSED (pre-fill D3 + cap mechanics C3)**
+### [KI-08] `trusteeFeesPaid` bundled steps B+C — **PARTIALLY CLOSED (pre-fill D3 + cap mechanics C3 + KI-16 PPM verifications)**
 
-**Status (2026-04-23, Sprint 3 C3 landed):** Mechanics shipped; three design assumptions remain unverified against the Ares European XV PPM. Tracking the open verifications under [KI-16](#ki-16) so the ledger does not overclaim closure.
+**Status (2026-05-04, KI-16 verifications shipped):** Mechanics shipped + four PPM design assumptions verified against Ares European CLO XV Offering Circular pp. 150-151 (Condition 1 "Senior Expenses Cap") + pp. 159-161 (Pre-Acceleration POP steps B/C/Y/Z). All four assumptions were CONTRADICTED and the engine has been amended to PPM-correct behavior — see findings doc at `docs/plans/2026-05-04-ki-16-c3-ppm-verification-findings.md`. Five additional structural defects surfaced during verification; each filed as its own open KI (KI-39 through KI-42 + the existing KI-08 day-count residual).
 
 **What shipped:**
 
 1. **Pre-fill (D3, Sprint 2)**: `defaultsFromResolved` back-derives `trusteeFeeBps` AND `adminFeeBps` separately from Q1 waterfall steps B + C (Euro XV: 0.0969 bps trustee, 5.147 bps admin, 5.244 combined).
-2. **Cap + overflow (C3, Sprint 3)**: `ProjectionInputs.adminFeeBps` + `ProjectionInputs.seniorExpensesCapBps` added. Engine emits trustee + admin fees jointly capped at `seniorExpensesCapBps` × beginningPar × dayFrac; overflow routes to PPM steps (Y) trustee-overflow and (Z) admin-overflow, paying from residual interest after tranche interest + sub mgmt fee.
+2. **Cap + overflow (C3, Sprint 3)**: `ProjectionInputs.adminFeeBps` + `ProjectionInputs.seniorExpensesCapBps` added. Engine emits trustee + admin fees jointly capped at the per-period cap; overflow routes to PPM steps (Y) trustee-overflow and (Z) admin-overflow, paying from residual interest after tranche interest + sub mgmt fee.
+3. **KI-16 PPM verifications (this PR, 2026-05-04)**:
+   - Cap value structure ({a} €300K/yr fixed + {b} 2.5 bps × CPA per OC pp. 150-151) wired through new `ResolvedSeniorExpensesCap` interface on `ResolvedDealData` + new `ProjectionInputs.seniorExpensesCapAbsoluteFloorPerYear` field. Replaces the unstructured 20-bps-only fallback.
+   - `max(2× observed, 20 bps)` heuristic in `defaultsFromResolved` removed; the cap value now comes from PPM via `resolved.seniorExpensesCap.bpsPerYear` per project rule (silent fallbacks on missing computational extraction are bugs).
+   - B/C in-cap allocation switched from pro-rata to sequential B-first per OC Condition 3(c)(C) ("less any amounts paid pursuant to paragraph (B) above"). Engine block at `projection.ts:2848-2861` dispatches on `seniorExpensesCapAllocationWithinCap`.
+   - Y/Z overflow allocation switched from pro-rata to sequential Y-first per POP convention. Engine block at `projection.ts:3795-3811` dispatches on `seniorExpensesCapOverflowAllocation`.
+   - Resolver emits `severity: "error", blocking: true` when a deal has fee rows but no PPM cap extracted.
 
-**What is NOT verified yet (blocks "FULLY CLOSED" status — tracked in [KI-16](#ki-16)):**
-- **20 bps cap default** when `defaultsFromResolved` cannot infer from observed data: a reasonable heuristic but not cross-referenced against the Ares XV PPM Senior Expenses Cap definition.
-- **2× observed heuristic** for the cap default when Q1 observed is present (`max(2× observed, 20 bps)`): protects against breaching the cap with modest fee growth, but the "2×" multiple is engineering judgment, not a PPM-documented buffer.
-- **Pro-rata overflow allocation** between `trusteeOverflowPaid` and `adminOverflowPaid`: the engine splits overflow proportionally to the requested trustee vs admin shares, but the PPM may specify sequential payout (trustee first, then admin) or a different allocation rule.
-
-**Partner-visible behavior on Euro XV**: observed combined ~5.24 bps well below default cap of 20 bps → no overflow, `trusteeFeesPaid` ties to trustee within €722 (day-count residual from 91/360 engine vs 90/360 trustee). Stress scenarios with observed > cap produce proportional overflow split between trustee and admin buckets. The three assumptions only bite in stress scenarios; Euro XV base case is unaffected.
+**Partner-visible behavior on Euro XV**: observed combined ~5.24 bps well below the PPM cap (~5.43 bps composite at €107K/quarter on €493M beginPar × 91/360 day-count, vs observed €64K/quarter) → no overflow fires, N1 harness bit-identical pre/post the KI-16 amendments. `trusteeFeesPaid` ties to trustee within €722 (day-count residual from 91/360 engine vs 90/360 trustee). Stress scenarios with observed > cap now produce sequential B-first / Y-first per PPM.
 
 **Tests (7 new C3 tests):**
 - `c3-senior-expenses-cap.test.ts` — base case (no overflow), high-fee overflow (50 bps + 20 bps cap → 30 bps overflow), extreme cap (1 bps), overflow-limited-by-residual, backward-compatibility (undefined cap = unbounded).
@@ -192,11 +197,11 @@ The genuine latent risk this entry tracks: under deferred-interest stress, defer
 
 Both markers track the 91/360-vs-90/360 day-count residual exposed by the harness period mismatch (sibling mechanism to the six KI-12b class-interest markers); they re-baseline or remove together when KI-12a lands.
 
-**Blocked on KI-12a data acquisition (added 2026-05-02).** Closure of these two day-count residual markers (the only KI-08 sub-component still moving) waits on KI-12a's harness fix, which itself is blocked on re-ingesting Q4 2025 (or earlier) historical SDF + trustee-report bundles for Euro XV — see [KI-12a's blocker note](#ki-12a). Don't attempt closure work on these markers until that data lands. KI-08's other open work (KI-16 PPM verifications) is independent and unblocked.
+**Blocked on KI-12a data acquisition (added 2026-05-02).** Closure of these two day-count residual markers (the only KI-08 sub-component still moving) waits on KI-12a's harness fix, which itself is blocked on re-ingesting Q4 2025 (or earlier) historical SDF + trustee-report bundles for Euro XV — see [KI-12a's blocker note](#ki-12a). Don't attempt closure work on these markers until that data lands.
 
 **Cascade re-baselines**: KI-13a adjusted by the C3 split preserving aggregate behavior; `stepTrace.trusteeFeesPaid` currently bundles steps (B)+(C)+(Y)+(Z) to preserve the N1 harness bucket semantics. Split-out fields (`adminFeesPaid`, `trusteeOverflowPaid`, `adminOverflowPaid`) are additive diagnostic fields — the harness will be un-aggregated in a follow-up (see task #48).
 
-**Ledger disposition**: remain OPEN (partial) until KI-16 resolves the three PPM verifications. Then move to Closed issues.
+**Ledger disposition**: remain OPEN (partial) until the day-count residual markers close (gated on KI-12a data acquisition). KI-39 through KI-42 cover the structural cap defects surfaced during the KI-16 verification — each is independently open.
 
 ---
 
@@ -385,25 +390,6 @@ The Class A/B/C/D/E/F interest tie-outs currently pass at |drift| < €1 under l
 **Deferral rationale:** Restoring the IRR solver under acceleration requires carrying equity-cash-flow state across the normal → accelerated mode transition and wiring the same `resolveIncentiveFee` circular solver used in normal mode. Not structural; tedious. Low priority relative to the Sprint 2 B1+B2 scope.
 **Path to close:** Add `incentiveFeeActive` computation in the engine's accel branch: call `resolveIncentiveFee` with the current equity-cash-flow series and hurdle, pass the resulting active flag + computed fee to the executor. Carry the equity-cash-flow series across the normal → accelerated mode transition rather than re-initializing.
 **Test:** No active marker — requires a synthetic scenario where pre-breach equity distributions accumulate above the hurdle, then EoD triggers. Not covered by current B2 stress tests (which use low-MV + high-default scenarios that have near-zero pre-breach distributions). When the fix lands, add a test that constructs such a scenario and verifies incentive fee fires correctly under acceleration.
-
----
-
-<a id="ki-16"></a>
-### [KI-16] KI-08 closure assumptions pending PPM verification
-
-**PPM reference:** Condition 10 (Senior Expenses Cap) + steps (Y) / (Z) (post-cap overflow distribution). Ares European XV PPM — sections have not yet been cross-referenced against the C3 implementation.
-
-**What is assumed without PPM confirmation:**
-
-1. **20 bps default cap** when no observed Q1 senior-expense data is present. The engine falls back to 20 bps × beginningPar × dayFrac; this is a market-convention heuristic, not an Ares XV-specific figure. If the PPM specifies a different absolute bps cap, all stress-scenario overflow math is off by the ratio.
-2. **`max(2× observed, 20 bps)` heuristic** when D3 can infer observed fees. The "2×" buffer is engineering judgment to keep the cap from biting in modest fee-growth scenarios; the PPM may specify a different buffer (1.5×, 3×) or no heuristic at all (cap is a hard bps number independent of observed).
-3. **Pro-rata overflow allocation** between trustee and admin overflow buckets (steps Y / Z). The engine splits overflow proportionally to each component's uncapped request. The PPM may specify sequential payout (trustee overflow pays before admin overflow), or a fixed allocation (e.g., admin gets 100% of overflow up to a sub-cap). Under Euro XV base case observed is below cap so this doesn't manifest; under stress it drives whether trustee or admin is under-paid first.
-
-**Quantitative magnitude:** Zero on Euro XV base case (observed < cap → no overflow). Material in stress scenarios: the C3 high-fee overflow test uses 50 bps requested vs 20 bps cap → 30 bps overflow = ~€37K/quarter on beginningPar €493M, and the current pro-rata split routes ~€36K to trustee overflow and ~€1K to admin overflow. If PPM specifies sequential payout trustee-first, the numbers don't change; if sequential admin-first, the split flips.
-
-**Path to close:** Read the Ares European XV PPM sections on Senior Expenses Cap and steps (Y) / (Z). Compare against `projection.ts:2344-2358` overflow logic (the `overflowRatio = overflowPayable / cappedOverflowTotal` block — pro-rata split between `trusteeOverflowPaid` and `adminOverflowPaid`) and `build-projection-inputs.ts:147` (the `seniorExpensesCapBps: 20` static fallback) plus `build-projection-inputs.ts:278` (the `Math.max(observedRateBps * 2, 20)` heuristic when Q1 observed is present). Either (a) confirm the three assumptions are correct and promote KI-08 to FULLY CLOSED, or (b) amend the engine to match PPM and re-run C3 tests.
-
-**Tests:** C3 tests continue to pin the current assumptions. When the PPM read completes, the stress-scenario tests may need their expected overflow values re-calibrated; the base-case Euro XV test is insensitive.
 
 ---
 
@@ -736,3 +722,106 @@ No FX rate is ingested. The engine does not consume `currency` anywhere — `web
 
 ---
 
+
+<a id="ki-39"></a>
+### [KI-39] Senior Expenses Cap base = CPA, engine uses APB (parallel to KI-12a)
+
+**Surfaced:** 2026-05-04 during KI-16 PPM verification.
+
+**PPM reference:** Ares CLO XV OC pp. 150-151 (Condition 1 "Senior Expenses Cap" component (b)): "0.025 per cent. per annum ... **of the Collateral Principal Amount as at the Determination Date immediately preceding the Payment Date**."
+
+**Current engine behavior:** `projection.ts:2790-2795` constructs the cap as `beginningPar * (seniorExpensesCapBps / 10000) * dayFracActual`. `beginningPar` is the engine's APB-style pool snapshot (sum of `loanStates[].survivingPar`). KI-12a established CPA ≠ APB on Euro XV by ~€22.35M; the cap base is subject to the same mismatch.
+
+**PPM-correct behavior:** Cap base should be the prior-period CPA, not current `beginningPar`.
+
+**Quantitative magnitude:** Component (b) drift on Euro XV: 2.5 bps × ~€22.35M × 91/360 ≈ €1.4K per quarter (latent — observed combined ~€64K is below the cap so the discrepancy doesn't fire today). Material under stress when the cap binds.
+
+**Deferral rationale:** Closing requires the same prior-Determination-Date data KI-12a needs. Until that data lands, the engine cannot consume a "prior period CPA" cleanly. `resolved.seniorExpensesCap.capBase` already carries the discriminator ("CPA" on Euro XV) — engine just doesn't dispatch on it yet.
+
+**Path to close:** Wire `resolved.seniorExpensesCap.capBase` through `ProjectionInputs` so the engine dispatches the cap base. When `capBase === "CPA"`, source from a per-period CPA snapshot (NOT `beginningPar`). Close jointly with KI-12a's harness fix.
+
+**Test:** No active marker today (latent — cap doesn't bite on Euro XV). When the fix lands, add a marker on a stress synthetic where the cap binds and the CPA-vs-APB delta is non-zero.
+
+---
+
+<a id="ki-40"></a>
+### [KI-40] Senior Expenses Cap 3-period rolling carryforward unmodeled
+
+**Surfaced:** 2026-05-04 during KI-16 PPM verification.
+
+**PPM reference:** Ares CLO XV OC pp. 150-151 proviso (ii): "if the amount of Trustee Fees and Expenses and Administrative Expenses paid on **each of the three immediately preceding Payment Dates** ... is less than the stated Senior Expenses Cap, the amount of each such excess (if any) **will be added to the Senior Expenses Cap with respect to the then current Payment Date**. ... post-Frequency-Switch-Event the lookback window is the immediately preceding Payment Date."
+
+**Current engine behavior:** No rolling-carryforward state. Each period's cap is computed from current-period inputs only. The Expense Reserve Account augmentation (Condition 3(j)(x)(4), `projection.ts:2793`) is a separate mechanic that carries cash, NOT unused-cap headroom.
+
+**PPM-correct behavior:** Track per-period actual vs stated cap. Each period's effective cap augments by sum of unused headroom across the trailing 3 PDs (or 1 PD post-FSE), bounded by a per-annum guardrail.
+
+**Quantitative magnitude:** Latent on Euro XV today (cap doesn't bite). Material in stress scenarios where one period over-runs the cap but recent periods were under-paid: carryforward absorbs some over-run that would otherwise route to overflow steps Y/Z.
+
+**Deferral rationale:** Multi-period state. Interacts with KI-04 (Frequency Switch Event) — the carryforward window changes from 3 PDs to 1 PD post-FSE.
+
+**Path to close:** Add `expensesCapHeadroomHistory: number[]` (length 3 or 1 post-FSE) to per-period state in `runProjection`. Each period: compute `usedHeadroomThisPeriod = max(0, capAmount - cappedRequested)`, push to history; the next period's `capAmount` augments by `Σ history`. Bound by per-annum guardrail.
+
+**Test:** No active marker. When the fix lands, a 4-period synthetic (under-pay periods 1-3, over-pay period 4) discriminates pre-fix vs post-fix overflow magnitudes.
+
+---
+
+<a id="ki-41"></a>
+### [KI-41] Senior Expenses Cap component (a) mixed day-count — engine uses uniform Actual/360
+
+**Surfaced:** 2026-05-04 during KI-16 PPM verification.
+
+**PPM reference:** Ares CLO XV OC pp. 150-151. Component (a) €300K p.a. is pro-rated using "(x) in respect of the first Payment Date, a 360 day year and the actual number of days elapsed ... and **(y) in respect of any other Payment Date, a 360 day year comprised of twelve 30-day months**" — i.e., 30/360 for ongoing PDs, Actual/360 for the first PD only. Component (b) 2.5 bps × CPA uses Actual/360 for ALL PDs.
+
+**Current engine behavior:** `projection.ts:2811-2818` applies uniform `dayFracActual` (Actual/360) to BOTH components. Correct for component (b) but wrong for component (a) on every Payment Date after the first.
+
+**PPM-correct behavior:** Component (a) should accrue using `dayFrac30360` on ongoing PDs and `dayFracActual` only on the first PD; component (b) keeps `dayFracActual`.
+
+**Quantitative magnitude:** On a 91-day quarter: Actual/360 = 0.2528, 30/360 = 0.25 — drift of 0.0028 × €300K ≈ €833 per quarter on Euro XV. Latent today (cap doesn't bite). Material under stress when cap binds AND the period is non-90-day.
+
+**Deferral rationale:** Sibling mechanism to KI-12b's per-tranche day-count handling. Engine already has `dayCountFraction` helper; extending to absolute-floor component is mechanical but currently zero-leverage on Euro XV.
+
+**Path to close:** Add `componentADayCount: "30_360" | "actual_360"` to `ResolvedSeniorExpensesCap`. Engine cap construction: `floorComponent = absoluteFloorEurPerYear * dayFracForComponentA(period)`. First-PD vs ongoing distinction encoded as a flag on period state.
+
+**Test:** No active marker today. When the fix lands, add a marker on a non-90-day quarter (e.g., 92 days) verifying component (a) accrues at 30/360 = 0.25 not Actual/360 = 0.2556.
+
+---
+
+<a id="ki-42"></a>
+### [KI-42] VAT inclusion in Senior Expenses Cap unmodeled
+
+**Surfaced:** 2026-05-04 during KI-16 PPM verification.
+
+**PPM reference:** Ares CLO XV OC pp. 150-151 proviso (i): "amounts in respect of any applicable VAT that are payable in respect of expenses expressed to be subject to the Senior Expenses Cap **shall count towards the Senior Expenses Cap**."
+
+**Current engine behavior:** No VAT model anywhere in the engine. Trustee + admin fees emitted at bps × CPA × dayFrac amounts; no VAT in the requested-against-cap calculation. `ResolvedSeniorExpensesCap.vatIncluded: boolean` is plumbed (KI-16 closure) but the engine doesn't consume it.
+
+**PPM-correct behavior:** Each period's `cappedRequested` should include applicable VAT on top of trustee+admin fees. The cap is effectively net-of-VAT compared to current behavior.
+
+**Quantitative magnitude:** Zero on Euro XV today (PPM ppm.json fee table notes "VAT Treatment: Varies" for Trustee Fees + Admin Expenses, and Ares-family trustees historically invoice net-of-VAT per recent BNY trustee reports). Material on deals with VAT-bearing trustee/admin invoices (e.g., domestic UK trustees).
+
+**Deferral rationale:** Requires VAT-rate extraction from PPM and a `vatRatePct` field on `ResolvedSeniorExpensesCap` (currently only the `vatIncluded` boolean flag is plumbed).
+
+**Path to close:** Add `vatRatePct: number | null` to `ResolvedSeniorExpensesCap`. Engine: when `vatIncluded === true && vatRatePct != null`, gross up `cappedRequested` by the VAT rate. New `vat_rate_pct` field in ppm.json's senior_expenses_cap block.
+
+**Test:** No active marker. When the fix lands, add a marker on a VAT-bearing synthetic where trustee+admin combined sits at the cap threshold and assert overflow fires post-VAT-gross-up.
+
+---
+
+<a id="ki-43"></a>
+### [KI-43] `ki58-blocking-extraction-failures.test.ts` referenced in `web/CLAUDE.md` but absent from repo
+
+**Surfaced:** 2026-05-04 during KI-16 Phase 2 codebase exploration.
+
+**Reference:** `web/CLAUDE.md` § "Silent fallbacks on extraction failures are bugs, not defaults" claims: "The canonical inventory of every site under this rule lives in `web/lib/clo/__tests__/ki58-blocking-extraction-failures.test.ts` (one `it()` block per site)..."
+
+**Verification (2026-05-04):** `find web/lib/clo/__tests__ -name "ki58-blocking-extraction-failures*"` returns nothing. The CLAUDE.md claim is partner-facing-style documentation drift — recurring-failure-mode #2 ("partner-facing claims mechanically bound to engine state") applied one layer up to docs.
+
+**Current engine behavior:** Blocking-warning sites exist as individual `severity: "error", blocking: true` warnings in `resolver.ts` (verifiable via the grep CLAUDE.md cites). No single test file aggregates them. The "ledger ↔ test bijection" CLAUDE.md cites against this anchor is broken.
+
+**Path to close:** Two options — (a) create the file with one `it()` per `blocking: true` warning site in `resolver.ts` (preferred per CLAUDE.md text); (b) edit `web/CLAUDE.md` to remove the claim if the test was aspirational.
+
+**Tentative status:** Filed as tentative pending decision on (a) vs (b). Filed per project rule (newly-discovered candidate KIs ship with their entry in the same PR as the discovery).
+
+**Test:** No active marker — the entry IS the marker (filing-only). Closure mechanism: either the new test file (option a) or the CLAUDE.md edit (option b).
+
+---
