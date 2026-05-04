@@ -64,10 +64,16 @@ describe("D3 — defaultsFromResolved (Euro XV fixture)", () => {
     expect(d.adminFeeBps).not.toBe(0);
   });
 
-  it("derives seniorExpensesCapBps from Q1 actuals (max(2× observed, 20) bps)", () => {
+  it("propagates seniorExpensesCap from resolved (PPM Condition 1, OC pp. 150-151)", () => {
     const d = defaultsFromResolved(fixture.resolved, fixture.raw);
-    // Euro XV: observed combined ≈ 5.24 bps. 2× = 10.48. max(10.48, 20) = 20.
-    expect(d.seniorExpensesCapBps).toBeCloseTo(20, 5);
+    // Ares CLO XV: bps_per_annum = 2.5, absolute_floor = €300K/yr,
+    // sequential B-first within cap, sequential Y-first overflow. Replaces
+    // the pre-closure `max(2× observed, 20 bps)` heuristic with the actual
+    // PPM-extracted values from `resolved.seniorExpensesCap`.
+    expect(d.seniorExpensesCapBps).toBe(2.5);
+    expect(d.seniorExpensesCapAbsoluteFloorPerYear).toBe(300000);
+    expect(d.seniorExpensesCapAllocationWithinCap).toBe("sequential_b_first");
+    expect(d.seniorExpensesCapOverflowAllocation).toBe("sequential_y_first");
   });
 
   it("preserves every non-pre-fill field from DEFAULT_ASSUMPTIONS", () => {

@@ -2140,8 +2140,16 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     //     Resolver gates a non-zero opening balance on a future deal as a
     //     blocking extraction failure (`severity: "error"`) so the engine
     //     refuses to run rather than silently understate the IC numerator.
+    // Two-component cap, same shape as the in-period cap construction below
+    // (line 2820-2823): (a) absolute €/yr floor + (b) bps × pool par, both
+    // pro-rated. T=0 uses the /4 flat quarterly approximation while the
+    // in-period path uses precise dayFracActual; directionally consistent on
+    // stub first periods. Floor term must apply at T=0 too — omitting it
+    // understates the cap by `floorPerYear/4` and falsely drains the expense
+    // reserve into `reserveContributionT0` → Q1 IC numerator.
     const capAmountFromCapBpsT0 = seniorExpensesCapBps != null
       ? poolPar * (seniorExpensesCapBps / 10000) / 4
+        + seniorExpensesCapAbsoluteFloorPerYear / 4
       : Infinity;
     const cappedRequestedT0 = trusteeFeeAmountT0 + adminFeeAmountT0;
     const expenseReserveInflowT0 = Math.min(

@@ -51,6 +51,10 @@ describe("C3 — Senior Expenses Cap: stress scenarios with overflow", () => {
       trusteeFeeBps: 10,
       adminFeeBps: 40,
       seniorExpensesCapBps: 20,
+      // Isolate the bps-cap mechanic from the absolute floor (Ares XV's
+      // €300K/yr floor lifts the effective cap by ~€75K/quarter, which
+      // would mask the exact 20 bps cap behavior this test asserts).
+      seniorExpensesCapAbsoluteFloorPerYear: 0,
     });
     const result = runProjection(inputs);
     const p1 = result.periods[0];
@@ -91,6 +95,10 @@ describe("C3 — Senior Expenses Cap: stress scenarios with overflow", () => {
     const inputs = buildFromResolved(fixture.resolved, {
       ...defaultsFromResolved(fixture.resolved, fixture.raw),
       seniorExpensesCapBps: 1,
+      // Isolate the bps-cap mechanic from the absolute floor (see prior
+      // test). At 1 bps with €300K/yr floor in play, observed combined
+      // fees would all fit in the floor and produce zero overflow.
+      seniorExpensesCapAbsoluteFloorPerYear: 0,
     });
     const result = runProjection(inputs);
     const p1 = result.periods[0];

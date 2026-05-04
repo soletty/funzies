@@ -196,8 +196,8 @@ export interface ExtractedConstraints {
     absoluteFloorEurPerYear: number | null;
     base: "CPA" | "APB";
     period: "per_payment_date" | "per_annum";
-    allocationWithinCap: "pro_rata" | "sequential_b_first" | "separate_caps";
-    overflowAllocation: "pro_rata" | "sequential_y_first" | "sequential_z_first";
+    allocationWithinCap: "pro_rata" | "sequential_b_first";
+    overflowAllocation: "pro_rata" | "sequential_y_first";
     carryforwardPeriods: number | null;
     vatIncluded: boolean;
     sourcePages: number[] | null;

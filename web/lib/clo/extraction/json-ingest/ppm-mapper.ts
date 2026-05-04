@@ -242,13 +242,9 @@ function mapSeniorExpensesCap(ppm: PpmJson): unknown {
     base: block.base === "APB" ? "APB" : "CPA",
     period: block.period === "per_annum" ? "per_annum" : "per_payment_date",
     allocationWithinCap:
-      allocation === "pro_rata" || allocation === "separate_caps"
-        ? allocation
-        : "sequential_b_first",
+      allocation === "pro_rata" ? "pro_rata" : "sequential_b_first",
     overflowAllocation:
-      overflow === "pro_rata" || overflow === "sequential_z_first"
-        ? overflow
-        : "sequential_y_first",
+      overflow === "pro_rata" ? "pro_rata" : "sequential_y_first",
     carryforwardPeriods:
       typeof block.carryforward_periods === "number"
         ? block.carryforward_periods

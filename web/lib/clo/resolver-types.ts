@@ -102,12 +102,17 @@ export interface ResolvedSeniorExpensesCap {
   capPeriod: "per_payment_date" | "per_annum";
   /** How the cap is allocated between step (B) trustee + step (C) admin when
    *  cappedRequested > capAmount. Ares XV: "sequential_b_first" — clause (C)
-   *  reads "less any amounts paid pursuant to paragraph (B) above". */
-  allocationWithinCap: "pro_rata" | "sequential_b_first" | "separate_caps";
+   *  reads "less any amounts paid pursuant to paragraph (B) above". The
+   *  engine implements only the two variants below; if a future deal's PPM
+   *  specifies "separate_caps" (independent trustee/admin caps), extend the
+   *  engine and this union together rather than silently degrading. */
+  allocationWithinCap: "pro_rata" | "sequential_b_first";
   /** How overflow paid past cap is allocated between step (Y) trustee +
    *  step (Z) admin. Ares XV: sequential per POP convention (each step paid
-   *  in full from residual before next). */
-  overflowAllocation: "pro_rata" | "sequential_y_first" | "sequential_z_first";
+   *  in full from residual before next). The engine implements only the two
+   *  variants below; if a future deal's PPM specifies Z-before-Y, extend
+   *  the engine and this union together rather than silently degrading. */
+  overflowAllocation: "pro_rata" | "sequential_y_first";
   /** Number of preceding Payment Dates whose unused cap headroom carries
    *  forward into the current PD's cap (Ares XV: 3, or 1 post-Frequency-
    *  Switch-Event). Engine doesn't model the carryforward today; tracked

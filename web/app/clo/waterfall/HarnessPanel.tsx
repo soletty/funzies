@@ -43,6 +43,7 @@ const BUCKET_TO_KI: Partial<Record<EngineBucket, { ids: string[]; blurb: string 
   taxes: { ids: ["KI-12a"], blurb: "Issuer taxes (A.i). Residual is 91/360 vs 90/360 harness-period-mismatch — closes fully with KI-12a." },
   // arch-boundary-allow: ui-hardcodes-currency-symbol
   issuerProfit: { ids: [], blurb: "Issuer Profit Amount (A.ii). Fixed €250/period — engine ties to the cent." },
+  // arch-boundary-allow: ui-hardcodes-currency-symbol
   trusteeFeesPaid: { ids: ["KI-08"], blurb: "Trustee fee (B) back-derived from Q1 waterfall. Cap mechanics shipped in C3 with PPM-verified sequential B/C allocation, sequential Y/Z overflow, and €300K + 2.5 bps two-component cap (OC pp. 150-151). Day-count residual closes with KI-12a." },
   adminFeesPaid: { ids: ["KI-08"], blurb: "Admin fee (C), split from trustee post-C3 (sequential B-first per OC clause C). Day-count residual closes with KI-12a." },
   subDistribution: { ids: ["KI-13", "KI-13a"], blurb: "Sub distribution residual — cascade from KI-08/12a/12b. Re-baselined on each upstream closure." },

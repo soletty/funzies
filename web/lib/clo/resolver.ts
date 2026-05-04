@@ -1289,31 +1289,6 @@ export function resolveWaterfallInputs(
   const activeHoldings = holdings.filter(h => holdingPar(h) > 0 && !h.isDefaulted);
   const nonDdtlHoldings = activeHoldings.filter(h => !h.isDelayedDraw);
 
-  // --- Rating Agencies set (computed pre-loop so the resolveMoodysRating /
-  //     resolveFitchRating helpers can gate cross-agency derivation +
-  //     terminal-fallback rungs on per-deal agency-set membership). The
-  //     empty-set / asymmetry diagnostic warnings are emitted further down. ---
-  const ratingAgencies: ("moodys" | "sp" | "fitch")[] = [];
-  {
-    const cs = constraints.capitalStructure ?? [];
-    if (cs.some((e) => e.rating?.moodys != null && e.rating.moodys.trim() !== "")) ratingAgencies.push("moodys");
-    if (cs.some((e) => e.rating?.sp != null && e.rating.sp.trim() !== "")) ratingAgencies.push("sp");
-    if (cs.some((e) => e.rating?.fitch != null && e.rating.fitch.trim() !== "")) ratingAgencies.push("fitch");
-  }
-
-  // Per-position Intex shadow-rating lookup (lxid → isin → facility_id).
-  // Empty Map when no Intex positions ingested for this period — helper
-  // falls through to SDF-only resolution, with rungs 4–6 (Intex) silently
-  // inert. Per-deal `ratingDefinitions` (cross-agency derivation tables +
-  // terminal default) is currently NOT extracted — filed as candidate KI
-  // for the extraction gap. When extracted in a future PR, the resolver
-  // routes them via opts.ratingDefinitions to the helper.
-  const intexLookup = (intexPositions ?? new Map()) as Map<string, import("./resolve-rating").IntexPositionRow>;
-  const lookupIntex = (h: CloHolding): import("./resolve-rating").IntexPositionRow | undefined =>
-    (h.lxid ? intexLookup.get(h.lxid) : undefined)
-    ?? (h.isin ? intexLookup.get(h.isin) : undefined)
-    ?? (h.facilityId ? intexLookup.get(h.facilityId) : undefined);
-
   const loans: ResolvedLoan[] = activeHoldings.map(h => {
     const isFixed = h.isFixedRate === true;
     const isDdtl = h.isDelayedDraw === true;
@@ -1322,39 +1297,10 @@ export function resolveWaterfallInputs(
     const moodys = cleanRating(h.moodysRating);
     const sp = cleanRating(h.spRating);
     const fitch = cleanRating(h.fitchRating);
+    const moodysFinal = cleanRating(h.moodysRatingFinal);
     const spFinal = cleanRating(h.spRatingFinal);
+    const fitchFinal = cleanRating(h.fitchRatingFinal);
     const moodysDp = cleanRating(h.moodysDpRating);
-
-    // Per-position rating ladder (resolve-rating.ts is the single owner of
-    // the PPM "Moody's Rating" / "Fitch Rating" definition). SDF channels
-    // → Intex shadow channels → cross-agency derivation (gated on
-    // extraction) → terminal default (gated on extraction) → absent.
-    const intex = lookupIntex(h);
-    const moodysResolution = resolveMoodysRating(h, intex, { ratingAgencies, ratingDefinitions: undefined });
-    const fitchResolution = resolveFitchRating(h, intex, { ratingAgencies, ratingDefinitions: undefined });
-    const moodysFinal = moodysResolution.rating;
-    const fitchFinal = fitchResolution.rating;
-    // Per-position warn-level warning when ladder returned absent. The
-    // pool-metrics consumer escalates to blocking if any non-LML, non-
-    // defaulted, in-denominator loan resolves absent (anti-pattern #3).
-    if (moodysResolution.source === "absent" && ratingAgencies.includes("moodys")) {
-      warnings.push({
-        field: "moodysRating",
-        message: `Position "${h.obligorName ?? h.lxid ?? "unknown"}" has no Moody's rating in any SDF or Intex channel. PPM ratingDefinitions.moodys not extracted; cross-agency derivation + terminal default rungs cannot fire. Concentration tests including this position are unreliable.`,
-        severity: "warn",
-        blocking: false,
-      });
-    }
-    if (fitchResolution.source === "absent" && ratingAgencies.includes("fitch")) {
-      warnings.push({
-        field: "fitchRating",
-        message: `Position "${h.obligorName ?? h.lxid ?? "unknown"}" has no Fitch rating in any SDF or Intex channel. PPM ratingDefinitions.fitch not extracted; cross-agency derivation + terminal default rungs cannot fire. Concentration tests including this position are unreliable.`,
-        severity: "warn",
-        blocking: false,
-      });
-    }
-
-    const isCEP = moodysResolution.isCreditEstimateOrPrivate || fitchResolution.isCreditEstimateOrPrivate;
     const ratingBucket = mapToRatingBucket(moodys, sp, fitch, cleanRating(h.compositeRating));
 
     let fixedCouponPct: number | undefined;

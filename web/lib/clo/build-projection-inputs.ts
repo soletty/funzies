@@ -176,11 +176,14 @@ export const DEFAULT_ASSUMPTIONS: UserAssumptions = {
   adminFeeBps: 0,
   // C3 Senior Expenses Cap. PPM-extracted via `defaultsFromResolved` →
   // `resolved.seniorExpensesCap`; the static fallbacks here only apply when
-  // extraction is missing (legacy fixtures, synthetic test inputs).
+  // extraction is missing (legacy fixtures, synthetic test inputs). Allocation
+  // mechanics default to the neutral `"pro_rata"` baseline rather than any
+  // deal's specific PPM mechanic — Ares XV's `"sequential_b_first"` arrives
+  // via the resolver path when extraction succeeds.
   seniorExpensesCapBps: 20,
   seniorExpensesCapAbsoluteFloorPerYear: 0,
-  seniorExpensesCapAllocationWithinCap: "sequential_b_first",
-  seniorExpensesCapOverflowAllocation: "sequential_y_first",
+  seniorExpensesCapAllocationWithinCap: "pro_rata",
+  seniorExpensesCapOverflowAllocation: "pro_rata",
   incentiveFeePct: CLO_DEFAULTS.incentiveFeePct,
   incentiveFeeHurdleIrr: CLO_DEFAULTS.incentiveFeeHurdleIrr,
   equityEntryPriceCents: null,
@@ -323,20 +326,10 @@ export function defaultsFromResolved(
     base.seniorExpensesCapBps = resolved.seniorExpensesCap.bpsPerYear;
     base.seniorExpensesCapAbsoluteFloorPerYear =
       resolved.seniorExpensesCap.absoluteFloorEurPerYear ?? 0;
-    if (
-      resolved.seniorExpensesCap.allocationWithinCap === "pro_rata" ||
-      resolved.seniorExpensesCap.allocationWithinCap === "sequential_b_first"
-    ) {
-      base.seniorExpensesCapAllocationWithinCap =
-        resolved.seniorExpensesCap.allocationWithinCap;
-    }
-    if (
-      resolved.seniorExpensesCap.overflowAllocation === "pro_rata" ||
-      resolved.seniorExpensesCap.overflowAllocation === "sequential_y_first"
-    ) {
-      base.seniorExpensesCapOverflowAllocation =
-        resolved.seniorExpensesCap.overflowAllocation;
-    }
+    base.seniorExpensesCapAllocationWithinCap =
+      resolved.seniorExpensesCap.allocationWithinCap;
+    base.seniorExpensesCapOverflowAllocation =
+      resolved.seniorExpensesCap.overflowAllocation;
   }
 
   return base;
