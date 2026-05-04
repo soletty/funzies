@@ -210,6 +210,65 @@ describe("Senior Expenses Cap — KI-41 component (a) mixed day-count", () => {
     expect(drift).toBeGreaterThan(800);
     expect(drift).toBeLessThan(900);
   });
+
+  it("firstPaymentDate=null → mid-life (30/360), not first PD (Actual/360)", () => {
+    // Engine convention: a null firstPaymentDate means the engine has no
+    // anchor to distinguish the deal's first PD from any other PD, so it
+    // defaults to mid-life (30/360 under "30_360_after_first"). A regression
+    // that flips the null branch to Actual/360 would silently over-accrue
+    // the floor on every fixture that omits firstPaymentDate.
+    const baseInputs = buildFromResolved(
+      fixture.resolved,
+      defaultsFromResolved(fixture.resolved, fixture.raw),
+    );
+    const stress = {
+      ...baseInputs,
+      seniorExpensesCapBps: 0.0001,
+      seniorExpensesCapAbsoluteFloorPerYear: 300_000,
+      trusteeFeeBps: 1000,
+      adminFeeBps: 0,
+      seniorExpensesCapComponentADayCount: "30_360_after_first" as const,
+    };
+    const nullRun = runProjection({ ...stress, firstPaymentDate: null });
+    const midLifeRun = runProjection({ ...stress, firstPaymentDate: "2020-01-15" });
+    // null and an explicit past firstPaymentDate must produce the same q=1
+    // cap amount (both → 30/360).
+    expect(nullRun.periods[0].stepTrace.seniorExpensesCapAmount).toBeCloseTo(
+      midLifeRun.periods[0].stepTrace.seniorExpensesCapAmount,
+      6,
+    );
+  });
+
+  it("currentDate === firstPaymentDate → mid-life (30/360); strict less-than is the boundary", () => {
+    // q=1 runs from currentDate to currentDate + 1Q. When currentDate
+    // equals firstPaymentDate, q=1's payment date is firstPaymentDate + 1Q
+    // — the deal's SECOND PD, not the first. So 30/360 applies. Pre-fix
+    // code used `<=` and silently used Actual/360 on this boundary.
+    const baseAssumptions = defaultsFromResolved(fixture.resolved, fixture.raw);
+    const baseInputs = buildFromResolved(fixture.resolved, baseAssumptions);
+    const currentDate = fixture.resolved.dates.currentDate;
+    const stress = {
+      ...baseInputs,
+      seniorExpensesCapBps: 0.0001,
+      seniorExpensesCapAbsoluteFloorPerYear: 300_000,
+      trusteeFeeBps: 1000,
+      adminFeeBps: 0,
+      seniorExpensesCapComponentADayCount: "30_360_after_first" as const,
+    };
+    // Boundary case: firstPaymentDate exactly matches currentDate.
+    const boundaryRun = runProjection({ ...stress, firstPaymentDate: currentDate });
+    // Strictly-before case: q=1 IS the deal's first PD → Actual/360.
+    const futureFpdRun = runProjection({ ...stress, firstPaymentDate: "2099-01-15" });
+    // Boundary should use 30/360, not Actual/360. So boundaryRun should
+    // match a known-mid-life run (e.g., past firstPaymentDate), not the
+    // future-fpd run. Drift between boundary and future-fpd should be the
+    // ~€833 first-PD adjustment.
+    const boundaryCap = boundaryRun.periods[0].stepTrace.seniorExpensesCapAmount;
+    const futureFpdCap = futureFpdRun.periods[0].stepTrace.seniorExpensesCapAmount;
+    const drift = futureFpdCap - boundaryCap;
+    expect(drift).toBeGreaterThan(800);
+    expect(drift).toBeLessThan(900);
+  });
 });
 
 describe("Senior Expenses Cap — KI-39 CPA cap base augments by Principal Account", () => {
