@@ -156,6 +156,14 @@ export interface ResolvedDealData {
   loans: ResolvedLoan[];
   metadata: ResolvedMetadata;
   principalAccountCash: number; // uninvested cash in principal accounts (counts toward OC numerator)
+  /** Unused Proceeds Account opening balance (€). Per PPM Condition 1 CPA
+   *  definition (d), the Balance "standing to the credit of the Principal
+   *  Account and the Unused Proceeds Account" augments the Collateral
+   *  Principal Amount used as the Senior Expenses Cap component (b) base.
+   *  Resolver matches accountName containing "unused proceeds" (case-insensitive).
+   *  NOT credited to the OC numerator separately (the trustee's Adjusted
+   *  CPA captures it via the implied OC adjustment residual when present). */
+  unusedProceedsCash: number;
   /** Interest Account cash — collections awaiting distribution on the next
    *  payment date. Per PPM Condition 3(j)(ii)(1) the entire balance is
    *  transferred to the Payment Account on the BD prior to each Payment Date

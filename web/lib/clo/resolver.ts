@@ -1915,6 +1915,7 @@ export function resolveWaterfallInputs(
   let interestSmoothingBalance = 0;
   let supplementalReserveBalance = 0;
   let expenseReserveBalance = 0;
+  let unusedProceedsCash = 0;
   for (const a of accountBalances ?? []) {
     if (a.balanceAmount == null) continue;
     const name = (a.accountName ?? "").toLowerCase();
@@ -1928,7 +1929,13 @@ export function resolveWaterfallInputs(
     // account names.
     const isExpense = name.includes("expense") || name.includes("exp res");
     const isPrincipal = name.includes("principal") || name.includes("principle");
-    if (isSmoothing) {
+    // "unused proceeds" matches "ARES XV UNUSED PROCEEDS ACT CSH EUR" and
+    // typical Unused Proceeds Account naming. Per PPM Condition 1 CPA
+    // definition (d), this balance augments the Senior Expenses Cap base.
+    const isUnusedProceeds = name.includes("unused proceeds");
+    if (isUnusedProceeds) {
+      unusedProceedsCash += a.balanceAmount;
+    } else if (isSmoothing) {
       interestSmoothingBalance += a.balanceAmount;
     } else if (isSupplemental) {
       supplementalReserveBalance += a.balanceAmount;
@@ -2592,7 +2599,7 @@ export function resolveWaterfallInputs(
   }
 
   return {
-    resolved: { tranches, poolSummary, ocTriggers, icTriggers, qualityTests, concentrationTests, reinvestmentOcTrigger, eventOfDefaultTest, dates, fees, loans, metadata, principalAccountCash, interestAccountCash, interestSmoothingBalance, supplementalReserveBalance, expenseReserveBalance, seniorExpensesCap, preExistingDefaultedPar, preExistingDefaultRecovery, unpricedDefaultedPar, preExistingDefaultOcValue, discountObligationHaircut, longDatedObligationHaircut, cccBucketLimitPct, cccMarketValuePct, targetParAmount, referenceWeightedAverageFixedCoupon, isMoodysRated, isFitchRated, isSpRated, ratingAgencies, impliedOcAdjustment, quartersSinceReport, ddtlUnfundedPar, deferredInterestCompounds, interestNonPaymentGracePeriods, baseRateFloorPct, currency },
+    resolved: { tranches, poolSummary, ocTriggers, icTriggers, qualityTests, concentrationTests, reinvestmentOcTrigger, eventOfDefaultTest, dates, fees, loans, metadata, principalAccountCash, unusedProceedsCash, interestAccountCash, interestSmoothingBalance, supplementalReserveBalance, expenseReserveBalance, seniorExpensesCap, preExistingDefaultedPar, preExistingDefaultRecovery, unpricedDefaultedPar, preExistingDefaultOcValue, discountObligationHaircut, longDatedObligationHaircut, cccBucketLimitPct, cccMarketValuePct, targetParAmount, referenceWeightedAverageFixedCoupon, isMoodysRated, isFitchRated, isSpRated, ratingAgencies, impliedOcAdjustment, quartersSinceReport, ddtlUnfundedPar, deferredInterestCompounds, interestNonPaymentGracePeriods, baseRateFloorPct, currency },
     warnings,
   };
 }
