@@ -113,8 +113,8 @@ export interface PpmJson {
   section_5_fees_and_hurdle: {
     fees: PpmJsonFeeEntry[];
     incentive_fee_irr_threshold?: { threshold_pct_pa: number; [k: string]: unknown };
-    /** PPM Condition 1 "Senior Expenses Cap" structured definition. KI-16
-     *  closure — sibling of fees because the cap bounds steps (B) + (C). */
+    /** PPM Condition 1 "Senior Expenses Cap" structured definition.
+     *  Sibling of fees because the cap bounds steps (B) + (C). */
     senior_expenses_cap?: {
       source_pages?: number[];
       verbatim_quote?: string;

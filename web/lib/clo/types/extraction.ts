@@ -186,8 +186,8 @@ export interface ExtractedConstraints {
   waterfall?: { interestPriority?: string; principalPriority?: string; postAcceleration?: string };
   // Section 11: Fees
   fees?: FeeEntry[];
-  /** PPM Condition 1 "Senior Expenses Cap" structured definition (KI-16
-   *  closure). Sourced from `ppm.json:section_5_fees_and_hurdle.senior_expenses_cap`
+  /** PPM Condition 1 "Senior Expenses Cap" structured definition.
+   *  Sourced from `ppm.json:section_5_fees_and_hurdle.senior_expenses_cap`
    *  via `mapFeesAndExpenses`. Resolver consumes via `resolveSeniorExpensesCap`
    *  and emits `severity: "error", blocking: true` when the deal has fee
    *  rows (extraction not in greenfield state) and this field is null. */

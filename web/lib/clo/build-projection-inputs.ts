@@ -313,7 +313,7 @@ export function defaultsFromResolved(
     if (bps > 0 && bps < 50) base.adminFeeBps = bps;
   }
 
-  // C3 Senior Expenses Cap (KI-16 closure): consume the structured PPM
+  // C3 Senior Expenses Cap: consume the structured PPM
   // extraction when available. Replaces the prior `max(2× observed, 20 bps)`
   // heuristic which had no PPM grounding (per the project rule "silent
   // fallbacks on missing computational extraction are bugs"). When extraction

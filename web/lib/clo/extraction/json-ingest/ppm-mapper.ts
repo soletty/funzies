@@ -223,8 +223,8 @@ function mapFeesAndExpenses(ppm: PpmJson): Record<string, unknown> {
   };
 }
 
-/** KI-16 closure — read the Condition 1 Senior Expenses Cap structured
- *  definition from ppm.json into a typed shape consumed by the resolver. */
+/** Read the Condition 1 Senior Expenses Cap structured definition from
+ *  ppm.json into a typed shape consumed by the resolver. */
 function mapSeniorExpensesCap(ppm: PpmJson): unknown {
   const block = ppm.section_5_fees_and_hurdle.senior_expenses_cap;
   if (!block) return null;

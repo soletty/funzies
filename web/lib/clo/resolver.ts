@@ -649,7 +649,7 @@ function resolveTriggers(
   return { oc: ocWithoutEod, ic, eventOfDefaultTest };
 }
 
-/** KI-16 closure — resolve PPM Condition 1 "Senior Expenses Cap" from
+/** Resolve PPM Condition 1 "Senior Expenses Cap" from
  *  `constraints.seniorExpensesCap` (populated by `mapFeesAndExpenses` from
  *  `ppm.json:section_5_fees_and_hurdle.senior_expenses_cap`).
  *
@@ -1172,7 +1172,7 @@ export function resolveWaterfallInputs(
   // --- Fees ---
   const fees = resolveFees(constraints, warnings);
 
-  // --- Senior Expenses Cap (KI-16 closure, PPM Condition 1) ---
+  // --- Senior Expenses Cap (PPM Condition 1) ---
   const seniorExpensesCap = resolveSeniorExpensesCap(constraints, warnings);
 
   // --- Excess CCC Adjustment Amount (per-deal CCC haircut params) ---

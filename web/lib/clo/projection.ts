@@ -2808,7 +2808,7 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     // pro-tanto; the rest still routes to Y/Z overflow. Reserve balance is
     // floored at zero by the PPM ("shall not cause the balance of the
     // Expense Reserve Account to fall below zero").
-    // PPM Senior Expenses Cap (KI-16 closure): two-component cap per OC
+    // PPM Senior Expenses Cap: two-component cap per OC
     // Condition 1 — (a) absolute fixed €/yr floor + (b) bps × CPA. Both
     // pro-rated by dayFracActual. Ares XV: (a) €300K p.a. + (b) 2.5 bps.
     // The OC's component (a) uses 30/360 for ongoing PDs and Actual/360 for
@@ -2843,7 +2843,7 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     // EoD, but the engine's `isAccelerated=true` corresponds to the
     // post-acceleration state, not pre-accel-with-EoD.)
     let expenseReserveDraw = 0;
-    // KI-16 closure: B/C in-cap allocation per PPM Condition 3(c). Ares XV's
+    // B/C in-cap allocation per PPM Condition 3(c). Ares XV's
     // OC clause (C) reads "less any amounts paid pursuant to paragraph (B)
     // above" → trustee fees consume cap headroom first; admin gets the
     // remainder. The legacy "pro_rata" branch is preserved for any deal
@@ -3782,7 +3782,7 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     const subFeePaid = Math.min(subFeeAmount, availableInterest);
     availableInterest -= subFeePaid;
 
-    // KI-16 closure — PPM Steps (Y) trustee-overflow + (Z) admin-overflow.
+    // PPM Steps (Y) trustee-overflow + (Z) admin-overflow.
     // POP convention: each step is paid in full from residual interest before
     // the next step receives anything. Step (Z) clause text carries no joint-
     // allocation language; sequential Y-first is the PPM-correct rule.
