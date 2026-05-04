@@ -43,8 +43,9 @@ const BUCKET_TO_KI: Partial<Record<EngineBucket, { ids: string[]; blurb: string 
   taxes: { ids: ["KI-12a"], blurb: "Issuer taxes (A.i). Residual is 91/360 vs 90/360 harness-period-mismatch — closes fully with KI-12a." },
   // arch-boundary-allow: ui-hardcodes-currency-symbol
   issuerProfit: { ids: [], blurb: "Issuer Profit Amount (A.ii). Fixed €250/period — engine ties to the cent." },
-  trusteeFeesPaid: { ids: ["KI-08", "KI-16"], blurb: "Trustee fee (B) back-derived from Q1 waterfall. Cap mechanics shipped in C3. 3 assumptions pending PPM verification (KI-16)." },
-  adminFeesPaid: { ids: ["KI-08", "KI-16"], blurb: "Admin fee (C), split from trustee post-C3. Day-count residual closes with KI-12a." },
+  // arch-boundary-allow: ui-hardcodes-currency-symbol
+  trusteeFeesPaid: { ids: ["KI-08"], blurb: "Trustee fee (B) back-derived from Q1 waterfall. Cap mechanics shipped in C3 with PPM-verified sequential B/C allocation, sequential Y/Z overflow, and €300K + 2.5 bps two-component cap (OC pp. 150-151). Day-count residual closes with KI-12a." },
+  adminFeesPaid: { ids: ["KI-08"], blurb: "Admin fee (C), split from trustee post-C3 (sequential B-first per OC clause C). Day-count residual closes with KI-12a." },
   subDistribution: { ids: ["KI-13", "KI-13a"], blurb: "Sub distribution residual — cascade from KI-08/12a/12b. Re-baselined on each upstream closure." },
   stepG_interest: { ids: ["KI-12b", "KI-12a"], blurb: "Step (G): Class A interest + Class X amort, pari-passu. Day-count drift on Class A interest is the only material component on Euro XV (no Class X); engine Q2 (91/360) vs trustee Q1 (90/360) period mismatch closes with KI-12a." },
   classB_interest: { ids: ["KI-12b", "KI-12a"], blurb: "Class B interest day-count drift. Same mechanic as Class A." },

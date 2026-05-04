@@ -1,5 +1,5 @@
 import type { ExtractedConstraints, CloPoolSummary, CloComplianceTest, CloTranche, CloTrancheSnapshot, CloHolding, CloAccountBalance, CloParValueAdjustment } from "./types";
-import type { Citation, ComplianceTestType, ResolvedDealData, ResolvedTranche, ResolvedPool, ResolvedTrigger, ResolvedReinvestmentOcTrigger, ResolvedDates, ResolvedFees, ResolvedLoan, ResolvedComplianceTest, ResolvedEodTest, ResolvedMetadata, ResolutionWarning } from "./resolver-types";
+import type { Citation, ComplianceTestType, ResolvedDealData, ResolvedTranche, ResolvedPool, ResolvedTrigger, ResolvedReinvestmentOcTrigger, ResolvedDates, ResolvedFees, ResolvedLoan, ResolvedComplianceTest, ResolvedEodTest, ResolvedMetadata, ResolvedSeniorExpensesCap, ResolutionWarning } from "./resolver-types";
 import { parseSpreadToBps, normalizeWacSpread } from "./ingestion-gate";
 import { isHigherBetter } from "./test-direction";
 import { mapToRatingBucket, moodysWarfFactor } from "./rating-mapping";
@@ -650,6 +650,53 @@ function resolveTriggers(
   return { oc: ocWithoutEod, ic, eventOfDefaultTest };
 }
 
+/** Resolve PPM Condition 1 "Senior Expenses Cap" from
+ *  `constraints.seniorExpensesCap` (populated by `mapFeesAndExpenses` from
+ *  `ppm.json:section_5_fees_and_hurdle.senior_expenses_cap`).
+ *
+ *  Per project rule (silent fallbacks on missing computational extraction
+ *  are bugs), this emits `severity: "error", blocking: true` when the deal
+ *  has fee rows (i.e., extraction is in non-greenfield state) but the cap
+ *  is missing — a silently-applied 20 bps default would silently mis-cap
+ *  trustee/admin fees on every period of every deal. Greenfield fixtures
+ *  (no fees extracted) are exempt; the legacy DEFAULT_ASSUMPTIONS values
+ *  flow through. */
+function resolveSeniorExpensesCap(
+  constraints: ExtractedConstraints,
+  warnings: ResolutionWarning[],
+): ResolvedSeniorExpensesCap | null {
+  const block = constraints.seniorExpensesCap;
+  if (!block) {
+    const hasFees = (constraints.fees ?? []).length > 0;
+    if (hasFees) {
+      warnings.push({
+        field: "seniorExpensesCap",
+        message:
+          "PPM Senior Expenses Cap (Condition 1, ppm.json:section_5_fees_and_hurdle.senior_expenses_cap) is not extracted. Cap is deal-specific and bounds steps (B) trustee + (C) admin; falling back to UI/test defaults silently caps fees at the wrong rate. Add the senior_expenses_cap block to ppm.json with bps_per_annum, absolute_floor_eur_per_annum, and the four allocation-rule fields, then re-ingest.",
+        severity: "error",
+        blocking: true,
+      });
+    }
+    return null;
+  }
+  return {
+    bpsPerYear: block.bpsPerYear,
+    absoluteFloorEurPerYear: block.absoluteFloorEurPerYear,
+    componentADayCount: block.componentADayCount,
+    capBase: block.base,
+    capPeriod: block.period,
+    allocationWithinCap: block.allocationWithinCap,
+    overflowAllocation: block.overflowAllocation,
+    carryforwardPeriods: block.carryforwardPeriods,
+    vatIncluded: block.vatIncluded,
+    vatRatePct: block.vatRatePct,
+    citation:
+      block.sourcePages != null || block.sourceCondition != null
+        ? { sourcePages: block.sourcePages, sourceCondition: block.sourceCondition }
+        : null,
+  };
+}
+
 function resolveFees(constraints: ExtractedConstraints, warnings: ResolutionWarning[]): ResolvedFees {
   let seniorFeePct: number = CLO_DEFAULTS.seniorFeePct;
   let subFeePct: number = CLO_DEFAULTS.subFeePct;
@@ -1128,6 +1175,9 @@ export function resolveWaterfallInputs(
 
   // --- Fees ---
   const fees = resolveFees(constraints, warnings);
+
+  // --- Senior Expenses Cap (PPM Condition 1) ---
+  const seniorExpensesCap = resolveSeniorExpensesCap(constraints, warnings);
 
   // --- Excess CCC Adjustment Amount (per-deal CCC haircut params) ---
   const { cccBucketLimitPct, cccMarketValuePct } = resolveCccThresholds(constraints, warnings);
@@ -2542,7 +2592,7 @@ export function resolveWaterfallInputs(
   }
 
   return {
-    resolved: { tranches, poolSummary, ocTriggers, icTriggers, qualityTests, concentrationTests, reinvestmentOcTrigger, eventOfDefaultTest, dates, fees, loans, metadata, principalAccountCash, interestAccountCash, interestSmoothingBalance, supplementalReserveBalance, expenseReserveBalance, preExistingDefaultedPar, preExistingDefaultRecovery, unpricedDefaultedPar, preExistingDefaultOcValue, discountObligationHaircut, longDatedObligationHaircut, cccBucketLimitPct, cccMarketValuePct, targetParAmount, referenceWeightedAverageFixedCoupon, isMoodysRated, isFitchRated, isSpRated, ratingAgencies, impliedOcAdjustment, quartersSinceReport, ddtlUnfundedPar, deferredInterestCompounds, interestNonPaymentGracePeriods, baseRateFloorPct, currency },
+    resolved: { tranches, poolSummary, ocTriggers, icTriggers, qualityTests, concentrationTests, reinvestmentOcTrigger, eventOfDefaultTest, dates, fees, loans, metadata, principalAccountCash, interestAccountCash, interestSmoothingBalance, supplementalReserveBalance, expenseReserveBalance, seniorExpensesCap, preExistingDefaultedPar, preExistingDefaultRecovery, unpricedDefaultedPar, preExistingDefaultOcValue, discountObligationHaircut, longDatedObligationHaircut, cccBucketLimitPct, cccMarketValuePct, targetParAmount, referenceWeightedAverageFixedCoupon, isMoodysRated, isFitchRated, isSpRated, ratingAgencies, impliedOcAdjustment, quartersSinceReport, ddtlUnfundedPar, deferredInterestCompounds, interestNonPaymentGracePeriods, baseRateFloorPct, currency },
     warnings,
   };
 }

@@ -128,12 +128,62 @@ export interface ProjectionInputs {
    *  Jointly capped with trusteeFeeBps under Senior Expenses Cap; overflow
    *  routes to step (Z). Optional field (undefined on legacy test inputs). */
   adminFeeBps?: number;
-  /** C3 — Senior Expenses Cap in bps p.a. on Collateral Principal Amount.
-   *  Jointly bounds (trusteeFeeBps + adminFeeBps) expense emission; overflow
-   *  above the cap routes to PPM steps (Y) trustee overflow and (Z) admin
-   *  overflow, paid from residual interest after tranche interest + sub
-   *  mgmt fee. Optional (defaults to effectively unbounded when undefined). */
+  /** C3 — Senior Expenses Cap component (b) in bps p.a. on Collateral Principal
+   *  Amount. Jointly bounds (trusteeFeeBps + adminFeeBps) expense emission;
+   *  overflow above the cap routes to PPM steps (Y) trustee overflow and (Z)
+   *  admin overflow, paid from residual interest after tranche interest + sub
+   *  mgmt fee. Ares XV: 2.5 (= 0.025% per annum). Optional (defaults to
+   *  effectively unbounded when undefined). */
   seniorExpensesCapBps?: number;
+  /** C3 — Senior Expenses Cap component (a) absolute fixed component in
+   *  €/year. Pro-rated by `dayFracActual` per period. Ares XV: 300_000.
+   *  Optional (defaults to 0 when undefined; legacy test inputs that predate
+   *  this field continue to behave as bps-only cap). */
+  seniorExpensesCapAbsoluteFloorPerYear?: number;
+  /** C3 — Senior Expenses Cap allocation rule for the capped portion (PPM
+   *  steps B + C). Ares XV: "sequential_b_first" — Condition 3(c)(C) reads
+   *  "less any amounts paid pursuant to paragraph (B) above" → trustee gets
+   *  cap headroom first, admin gets the remainder. Optional; defaults to
+   *  "pro_rata" for legacy test inputs. */
+  seniorExpensesCapAllocationWithinCap?: "pro_rata" | "sequential_b_first";
+  /** C3 — Senior Expenses Cap overflow allocation rule for steps Y + Z. Ares
+   *  XV: "sequential_y_first" per POP convention. Optional; defaults to
+   *  "pro_rata" for legacy test inputs. */
+  seniorExpensesCapOverflowAllocation?: "pro_rata" | "sequential_y_first";
+  /** C3 — Day-count for cap component (a) absolute floor. PPM proviso (a):
+   *  Actual/360 on the deal's first PD; 30/360 on every other PD —
+   *  represented as "30_360_after_first". Some deals apply uniform
+   *  Actual/360 ("actual_360"). Optional; defaults to "actual_360"
+   *  preserving legacy uniform behavior. Engine dispatches on the
+   *  computed `isFirstPaymentDateOfDeal` flag derived from `firstPaymentDate`
+   *  vs `currentDate`. */
+  seniorExpensesCapComponentADayCount?: "30_360_after_first" | "actual_360";
+  /** C3 — Cap base for component (b) bps × pool. PPM Condition 1 specifies
+   *  Collateral Principal Amount (CPA = APB of Collateral Obligations
+   *  including defaulted at par + Principal Account + Unused Proceeds
+   *  Account). When "APB", engine uses `beginningPar` only (legacy).
+   *  Optional; defaults to "APB". */
+  seniorExpensesCapBaseMode?: "CPA" | "APB";
+  /** C3 — Number of preceding Payment Dates whose unused cap headroom
+   *  carries forward (PPM proviso (ii)). Ares XV: 3 pre-FSE, 1 post-FSE.
+   *  Null = no carryforward (legacy behavior). */
+  seniorExpensesCapCarryforwardPeriods?: number | null;
+  /** C3 — Whether VAT on capped expenses counts toward cap (PPM proviso (i)).
+   *  When fee inputs are gross-of-VAT (typical trustee back-derive path) the
+   *  engine path is correct without explicit gross-up; this flag combined
+   *  with non-null `seniorExpensesCapVatRatePct` triggers an explicit
+   *  gross-up of `cappedRequested` for hand-set net-of-VAT inputs. */
+  seniorExpensesCapVatIncluded?: boolean;
+  /** C3 — Applicable VAT rate (%) to gross up `cappedRequested` by when
+   *  fees are quoted net-of-VAT. Null when fees already include VAT. */
+  seniorExpensesCapVatRatePct?: number | null;
+  /** PPM Condition 1 first Payment Date of the deal. Used by the cap
+   *  construction to decide component (a) day-count under
+   *  `seniorExpensesCapComponentADayCount === "30_360_after_first"`:
+   *  if `currentDate <= firstPaymentDate`, the projection's first period is
+   *  the deal's first PD (Actual/360); otherwise mid-life projection
+   *  (30/360). Null/undefined: engine assumes mid-life. */
+  firstPaymentDate?: string | null;
   hedgeCostBps: number; // Scheduled hedge payments (PPM Step F), in bps p.a. on collateral par
   incentiveFeePct: number; // % of residual above IRR hurdle (PPM Steps BB/U), e.g. 20
   incentiveFeeHurdleIrr: number; // annualized IRR hurdle, e.g. 0.12 for 12%
@@ -1291,7 +1341,24 @@ function trancheCouponRate(t: ProjectionInputs["tranches"][number], baseRatePct:
 export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultDrawFn): ProjectionResult {
   const {
     initialPar, wacSpreadBps, baseRatePct, baseRateFloorPct, seniorFeePct, subFeePct,
-    taxesBps = 0, issuerProfitAmount = 0, trusteeFeeBps, adminFeeBps = 0, seniorExpensesCapBps, hedgeCostBps, incentiveFeePct, incentiveFeeHurdleIrr,
+    taxesBps = 0, issuerProfitAmount = 0, trusteeFeeBps, adminFeeBps = 0,
+    seniorExpensesCapBps,
+    seniorExpensesCapAbsoluteFloorPerYear = 0,
+    // Neutral defaults match DEFAULT_ASSUMPTIONS in build-projection-inputs.ts.
+    // PPM-correct mechanics (e.g., Ares XV's "sequential_b_first" /
+    // "sequential_y_first") arrive via the resolver path through
+    // `defaultsFromResolved` → `resolved.seniorExpensesCap`; hand-constructed
+    // ProjectionInputs (test factories, legacy fixtures) get the neutral
+    // pro-rata baseline rather than any deal-specific PPM mechanic.
+    seniorExpensesCapAllocationWithinCap = "pro_rata",
+    seniorExpensesCapOverflowAllocation = "pro_rata",
+    seniorExpensesCapComponentADayCount = "actual_360",
+    seniorExpensesCapBaseMode = "APB",
+    seniorExpensesCapCarryforwardPeriods = null,
+    seniorExpensesCapVatIncluded = false,
+    seniorExpensesCapVatRatePct = null,
+    firstPaymentDate = null,
+    hedgeCostBps, incentiveFeePct, incentiveFeeHurdleIrr,
     postRpReinvestmentPct, callMode, callDate, nonCallPeriodEnd, callPricePct, callPriceMode, reinvestmentOcTrigger, eventOfDefaultTest,
     stubPeriod, firstPeriodEndDate,
     reinvestmentPeriodExtension,
@@ -2134,10 +2201,31 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     //     Resolver gates a non-zero opening balance on a future deal as a
     //     blocking extraction failure (`severity: "error"`) so the engine
     //     refuses to run rather than silently understate the IC numerator.
+    // Two-component cap, same shape as the in-period cap construction below:
+    // (a) absolute €/yr floor + (b) bps × pool par, both pro-rated. T=0 uses
+    // the /4 flat quarterly approximation while the in-period path uses
+    // precise dayFracActual; directionally consistent on stub first periods.
+    // Floor term must apply at T=0 too — omitting it understates the cap by
+    // `floorPerYear/4` and falsely drains the expense reserve into
+    // `reserveContributionT0` → Q1 IC numerator. CPA-vs-APB dispatch: when
+    // `seniorExpensesCapBaseMode === "CPA"`, the cap base augments by
+    // `initialPrincipalCash` floored at zero (Principal Account balance at
+    // the prior Determination Date). Component (a) day-count: /4 = 0.25 ≈
+    // 30/360 exactly and ≈ Actual/360 on a 91-day quarter — the
+    // approximation is directionally correct under either dispatch, so no
+    // explicit branch here. Carryforward is empty at T=0 (no prior periods).
+    // VAT gross-up applied symmetrically with the in-period site.
+    const cpaAddendaT0 =
+      seniorExpensesCapBaseMode === "CPA" ? Math.max(0, initialPrincipalCash) : 0;
     const capAmountFromCapBpsT0 = seniorExpensesCapBps != null
-      ? poolPar * (seniorExpensesCapBps / 10000) / 4
+      ? (poolPar + cpaAddendaT0) * (seniorExpensesCapBps / 10000) / 4
+        + seniorExpensesCapAbsoluteFloorPerYear / 4
       : Infinity;
-    const cappedRequestedT0 = trusteeFeeAmountT0 + adminFeeAmountT0;
+    const vatGrossUpT0 =
+      seniorExpensesCapVatIncluded && seniorExpensesCapVatRatePct != null
+        ? 1 + seniorExpensesCapVatRatePct / 100
+        : 1;
+    const cappedRequestedT0 = (trusteeFeeAmountT0 + adminFeeAmountT0) * vatGrossUpT0;
     const expenseReserveInflowT0 = Math.min(
       initialExpenseReserveBalance,
       Math.max(0, cappedRequestedT0 - capAmountFromCapBpsT0),
@@ -2264,6 +2352,14 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
   // q=1 elsewhere; this state stays at 0 in those cases.
   let heldSupplementalReserveBalance =
     supplementalReserveDisposition === "hold" ? initialSupplementalReserveBalance : 0;
+
+  // Senior Expenses Cap rolling carryforward state (PPM Condition 1
+  // proviso (ii)). Each period's unused stated-cap headroom is appended;
+  // the buffer is FIFO-trimmed to `seniorExpensesCapCarryforwardPeriods`
+  // (Ares XV: 3 pre-FSE; 1 post-FSE — the engine doesn't model the FSE
+  // window switch yet, so the static value carries throughout). The next
+  // period's cap is augmented by Σ buffer. Inert when the field is null.
+  const capCarryforwardHistory: number[] = [];
   for (let q = 1; q <= totalQuarters; q++) {
     const periodDate = periodEndDate(q);
     const inRP = rpEndDate ? new Date(periodDate) <= rpEndDate : false;
@@ -2792,8 +2888,22 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     // Deducted immediately after taxes and before trustee fees. Not
     // day-count adjusted (fixed amount per waterfall event, not an accrual).
     const issuerProfitPaid = issuerProfitAmount;
-    const trusteeFeeRequested = beginningPar * (trusteeFeeBps / 10000) * dayFracActual;
-    const adminFeeRequested = beginningPar * (adminFeeBps / 10000) * dayFracActual;
+    // VAT inclusion (PPM proviso (i)): when fee inputs are net-of-VAT and
+    // `vatRatePct` is set, gross up the per-bucket requested amounts so
+    // both the cap comparison and the per-bucket overflow allocation see
+    // VAT-inclusive amounts. The engine's `trusteeFeeBps` / `adminFeeBps`
+    // typically come from `defaultsFromResolved` which back-derives from
+    // waterfall step B/C amounts paid (gross-of-VAT under BNY trustee
+    // convention) — `vatRatePct: null` is the default and produces no
+    // gross-up. Hand-set net-of-VAT inputs set vatRatePct explicitly.
+    const vatGrossUp =
+      seniorExpensesCapVatIncluded && seniorExpensesCapVatRatePct != null
+        ? 1 + seniorExpensesCapVatRatePct / 100
+        : 1;
+    const trusteeFeeRequested =
+      beginningPar * (trusteeFeeBps / 10000) * dayFracActual * vatGrossUp;
+    const adminFeeRequested =
+      beginningPar * (adminFeeBps / 10000) * dayFracActual * vatGrossUp;
     const cappedRequested = trusteeFeeRequested + adminFeeRequested;
     // Expense Reserve cap-augmentation per PPM Condition 3(j)(x)(4): trustee
     // (B) and admin (C) fees can be paid up to `cap + expenseReserveBalance`.
@@ -2802,12 +2912,67 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     // pro-tanto; the rest still routes to Y/Z overflow. Reserve balance is
     // floored at zero by the PPM ("shall not cause the balance of the
     // Expense Reserve Account to fall below zero").
+    // PPM Senior Expenses Cap: two-component cap per OC Condition 1 —
+    // (a) absolute fixed €/yr floor + (b) bps × CPA. Ares XV: (a) €300K p.a.
+    // + (b) 2.5 bps. Component (b) is always Actual/360. Component (a)
+    // dispatches on `seniorExpensesCapComponentADayCount`: when
+    // "30_360_after_first" + not the deal's first PD, accrue at 30/360
+    // (PPM proviso (a)(y)); else Actual/360. Cap base dispatches on
+    // `seniorExpensesCapBaseMode`: when "CPA", augment by Principal
+    // Account balance at the prior Determination Date. q=1 sources from
+    // `initialPrincipalCash`; q>=2 the engine has fully consumed prior-
+    // period principal cash via reinvestment / paydown so the addendum
+    // is zero by construction. Floored at zero — overdrafts do not credit
+    // CPA. Cap is augmented by Σ unused-headroom from the trailing N PDs
+    // (PPM proviso (ii)) when `seniorExpensesCapCarryforwardPeriods` > 0.
+    // When `seniorExpensesCapBps` is undefined the cap is uncapped (legacy
+    // synthetic-test behavior); the absolute floor alone never produces
+    // an Infinity cap, so the `null bps → Infinity` sentinel is preserved.
+    const isFirstPdOfDeal =
+      q === 1 &&
+      (firstPaymentDate == null || currentDate <= firstPaymentDate);
+    const componentADayFrac =
+      seniorExpensesCapComponentADayCount === "30_360_after_first" && !isFirstPdOfDeal
+        ? dayFrac30
+        : dayFracActual;
+    const cpaAddenda =
+      q === 1 && seniorExpensesCapBaseMode === "CPA"
+        ? Math.max(0, initialPrincipalCash)
+        : 0;
+    const carryforwardSum =
+      seniorExpensesCapCarryforwardPeriods != null && seniorExpensesCapCarryforwardPeriods > 0
+        ? capCarryforwardHistory.reduce((s, h) => s + h, 0)
+        : 0;
     const capAmountFromCapBps = seniorExpensesCapBps != null
-      ? beginningPar * (seniorExpensesCapBps / 10000) * dayFracActual
+      ? (beginningPar + cpaAddenda) * (seniorExpensesCapBps / 10000) * dayFracActual
+        + seniorExpensesCapAbsoluteFloorPerYear * componentADayFrac
+        + carryforwardSum
       : Infinity;
     const capAmount = capAmountFromCapBps + expenseReserveBalance;
     const cappedPaid = Math.min(cappedRequested, capAmount);
     const cappedOverflowTotal = cappedRequested - cappedPaid;
+    // Carryforward bookkeeping: each period contributes
+    // `max(0, statedCap - cappedPaid)` to the FIFO ring buffer. The
+    // "stated Senior Expenses Cap" per PPM is the bps + floor amount —
+    // expense-reserve and carryforward augmentations are NOT part of the
+    // stated cap (they are explicit augmentation mechanisms that don't
+    // reduce next period's headroom contribution). Buffer is FIFO-trimmed
+    // to `seniorExpensesCapCarryforwardPeriods` so future periods see at
+    // most N preceding contributions.
+    if (
+      seniorExpensesCapCarryforwardPeriods != null &&
+      seniorExpensesCapCarryforwardPeriods > 0 &&
+      seniorExpensesCapBps != null
+    ) {
+      const statedCap =
+        (beginningPar + cpaAddenda) * (seniorExpensesCapBps / 10000) * dayFracActual
+        + seniorExpensesCapAbsoluteFloorPerYear * componentADayFrac;
+      const usedAgainstStated = Math.min(cappedPaid, statedCap);
+      capCarryforwardHistory.push(Math.max(0, statedCap - usedAgainstStated));
+      while (capCarryforwardHistory.length > seniorExpensesCapCarryforwardPeriods) {
+        capCarryforwardHistory.shift();
+      }
+    }
     // Drain bookkeeping deferred to the senior-expense waterfall site —
     // the reserve PHYSICALLY transfers cash to the Interest Account before
     // the helper consumes the augmented pool (Condition 3(j)(x)(4)
@@ -2827,12 +2992,24 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     // EoD, but the engine's `isAccelerated=true` corresponds to the
     // post-acceleration state, not pre-accel-with-EoD.)
     let expenseReserveDraw = 0;
-    // Allocate capped portion pro rata between trustee and admin so each
-    // stepTrace bucket reflects the same cap ratio.
-    const cappedRatio = cappedRequested > 0 ? cappedPaid / cappedRequested : 0;
-    const trusteeFeeAmount = trusteeFeeRequested * cappedRatio;
-    const adminFeeAmount = adminFeeRequested * cappedRatio;
-    // Overflow per bucket (for emission at steps Y/Z).
+    // B/C in-cap allocation per PPM Condition 3(c). Ares XV's
+    // OC clause (C) reads "less any amounts paid pursuant to paragraph (B)
+    // above" → trustee fees consume cap headroom first; admin gets the
+    // remainder. The legacy "pro_rata" branch is preserved for any deal
+    // whose PPM specifies pari-passu (or for fixtures that explicitly set
+    // it for backward compatibility), dispatched via the resolved field.
+    let trusteeFeeAmount: number;
+    let adminFeeAmount: number;
+    if (seniorExpensesCapAllocationWithinCap === "sequential_b_first") {
+      trusteeFeeAmount = Math.min(trusteeFeeRequested, capAmount);
+      adminFeeAmount = Math.min(adminFeeRequested, Math.max(0, capAmount - trusteeFeeAmount));
+    } else {
+      const cappedRatio = cappedRequested > 0 ? cappedPaid / cappedRequested : 0;
+      trusteeFeeAmount = trusteeFeeRequested * cappedRatio;
+      adminFeeAmount = adminFeeRequested * cappedRatio;
+    }
+    // Overflow per bucket (for emission at steps Y/Z) is the bucket-level
+    // residual under either rule: requested minus paid-into-cap.
     const trusteeOverflowRequested = trusteeFeeRequested - trusteeFeeAmount;
     const adminOverflowRequested = adminFeeRequested - adminFeeAmount;
 
@@ -3754,21 +3931,27 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     const subFeePaid = Math.min(subFeeAmount, availableInterest);
     availableInterest -= subFeePaid;
 
-    // C3 — PPM Steps (Y) trustee-overflow + (Z) admin-overflow.
-    // Senior Expenses Cap deferred any trustee+admin above the cap to
-    // here; pay what residual interest can absorb, proportionally across
-    // the two overflow buckets. Any residual-to-sub absorbs the rest as a
-    // shortfall (trustee/admin parties receive partial payment; remainder
-    // accrues to subsequent periods under PPM, but our simplified model
-    // treats the un-absorbed overflow as paid from sub distribution).
+    // PPM Steps (Y) trustee-overflow + (Z) admin-overflow.
+    // POP convention: each step is paid in full from residual interest before
+    // the next step receives anything. Step (Z) clause text carries no joint-
+    // allocation language; sequential Y-first is the PPM-correct rule.
+    // The "pro_rata" branch is preserved for any deal whose PPM specifies
+    // pari-passu allocation on the overflow steps (rare).
     let trusteeOverflowPaid = 0;
     let adminOverflowPaid = 0;
     if (cappedOverflowTotal > 0 && availableInterest > 0) {
-      const overflowPayable = Math.min(cappedOverflowTotal, availableInterest);
-      const overflowRatio = cappedOverflowTotal > 0 ? overflowPayable / cappedOverflowTotal : 0;
-      trusteeOverflowPaid = trusteeOverflowRequested * overflowRatio;
-      adminOverflowPaid = adminOverflowRequested * overflowRatio;
-      availableInterest -= overflowPayable;
+      if (seniorExpensesCapOverflowAllocation === "sequential_y_first") {
+        trusteeOverflowPaid = Math.min(trusteeOverflowRequested, availableInterest);
+        availableInterest -= trusteeOverflowPaid;
+        adminOverflowPaid = Math.min(adminOverflowRequested, availableInterest);
+        availableInterest -= adminOverflowPaid;
+      } else {
+        const overflowPayable = Math.min(cappedOverflowTotal, availableInterest);
+        const overflowRatio = cappedOverflowTotal > 0 ? overflowPayable / cappedOverflowTotal : 0;
+        trusteeOverflowPaid = trusteeOverflowRequested * overflowRatio;
+        adminOverflowPaid = adminOverflowRequested * overflowRatio;
+        availableInterest -= overflowPayable;
+      }
     }
 
     // PPM Step BB: Incentive management fee — % of residual when equity IRR > hurdle.

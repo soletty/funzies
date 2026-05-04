@@ -215,7 +215,55 @@ function mapFeesAndExpenses(ppm: PpmJson): Record<string, unknown> {
         : undefined,
     };
   });
-  return { fees, accounts: [], _feesProvenance: feesProvenance ?? undefined };
+  return {
+    fees,
+    accounts: [],
+    seniorExpensesCap: mapSeniorExpensesCap(ppm),
+    _feesProvenance: feesProvenance ?? undefined,
+  };
+}
+
+/** Read the Condition 1 Senior Expenses Cap structured definition from
+ *  ppm.json into a typed shape consumed by the resolver. */
+function mapSeniorExpensesCap(ppm: PpmJson): unknown {
+  const block = ppm.section_5_fees_and_hurdle.senior_expenses_cap;
+  if (!block) return null;
+  const bpsPerYear =
+    typeof block.bps_per_annum === "number" ? block.bps_per_annum : null;
+  if (bpsPerYear == null) return null;
+  const allocation = block.allocation_within_cap;
+  const overflow = block.overflow_allocation;
+  const componentADayCount = (block as { component_a_day_count?: unknown })
+    .component_a_day_count;
+  const vatRatePct = (block as { vat_rate_pct?: unknown }).vat_rate_pct;
+  return {
+    bpsPerYear,
+    absoluteFloorEurPerYear:
+      typeof block.absolute_floor_eur_per_annum === "number"
+        ? block.absolute_floor_eur_per_annum
+        : null,
+    componentADayCount:
+      componentADayCount === "actual_360" ? "actual_360" : "30_360_after_first",
+    base: block.base === "APB" ? "APB" : "CPA",
+    period: block.period === "per_annum" ? "per_annum" : "per_payment_date",
+    allocationWithinCap:
+      allocation === "pro_rata" ? "pro_rata" : "sequential_b_first",
+    overflowAllocation:
+      overflow === "pro_rata" ? "pro_rata" : "sequential_y_first",
+    carryforwardPeriods:
+      typeof block.carryforward_periods === "number"
+        ? block.carryforward_periods
+        : null,
+    vatIncluded: block.vat_included === true,
+    vatRatePct: typeof vatRatePct === "number" ? vatRatePct : null,
+    sourcePages: Array.isArray(block.source_pages)
+      ? block.source_pages.filter((p): p is number => typeof p === "number")
+      : null,
+    sourceCondition:
+      typeof (block as { source_condition?: unknown }).source_condition === "string"
+        ? ((block as { source_condition?: string }).source_condition ?? null)
+        : null,
+  };
 }
 
 function mapPortfolioConstraints(ppm: PpmJson): Record<string, unknown> {

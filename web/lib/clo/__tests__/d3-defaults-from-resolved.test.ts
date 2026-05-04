@@ -3,12 +3,16 @@
  *
  * Single helper that pulls observable assumptions from resolver output + raw
  * trustee data, replacing DEFAULT_ASSUMPTIONS for every consumer that needs
- * pre-filled inputs (production-path harness, ProjectionModel UI). Closes:
+ * pre-filled inputs (production-path harness, ProjectionModel UI, N1 harness
+ * engine-math mode). Covers:
  *   - baseRate pre-fill (full)
  *   - senior/sub mgmt fee pre-fill — partial (rate plumbing; fee-base
  *     discrepancy is KI-12a's territory, not fixed here)
- *   - KI-08 (trusteeFeeBps pre-fill) — partial (Senior Expenses Cap + overflow
- *     at steps Y/Z remains Sprint 3 / C3)
+ *   - trusteeFeeBps + adminFeeBps split-pre-fill (back-derived from Q1
+ *     waterfall steps B + C respectively)
+ *   - Senior Expenses Cap propagation: bpsPerYear, absoluteFloorEurPerYear,
+ *     allocationWithinCap, overflowAllocation flow from
+ *     `resolved.seniorExpensesCap` (PPM Condition 1, OC pp. 150-151).
  */
 
 import { describe, it, expect } from "vitest";
@@ -64,10 +68,16 @@ describe("D3 — defaultsFromResolved (Euro XV fixture)", () => {
     expect(d.adminFeeBps).not.toBe(0);
   });
 
-  it("derives seniorExpensesCapBps from Q1 actuals (max(2× observed, 20) bps)", () => {
+  it("propagates seniorExpensesCap from resolved (PPM Condition 1, OC pp. 150-151)", () => {
     const d = defaultsFromResolved(fixture.resolved, fixture.raw);
-    // Euro XV: observed combined ≈ 5.24 bps. 2× = 10.48. max(10.48, 20) = 20.
-    expect(d.seniorExpensesCapBps).toBeCloseTo(20, 5);
+    // Ares CLO XV: bps_per_annum = 2.5, absolute_floor = €300K/yr,
+    // sequential B-first within cap, sequential Y-first overflow. Replaces
+    // the pre-closure `max(2× observed, 20 bps)` heuristic with the actual
+    // PPM-extracted values from `resolved.seniorExpensesCap`.
+    expect(d.seniorExpensesCapBps).toBe(2.5);
+    expect(d.seniorExpensesCapAbsoluteFloorPerYear).toBe(300000);
+    expect(d.seniorExpensesCapAllocationWithinCap).toBe("sequential_b_first");
+    expect(d.seniorExpensesCapOverflowAllocation).toBe("sequential_y_first");
   });
 
   it("preserves every non-pre-fill field from DEFAULT_ASSUMPTIONS", () => {
