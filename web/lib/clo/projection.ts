@@ -121,12 +121,28 @@ export interface ProjectionInputs {
    *  Jointly capped with trusteeFeeBps under Senior Expenses Cap; overflow
    *  routes to step (Z). Optional field (undefined on legacy test inputs). */
   adminFeeBps?: number;
-  /** C3 — Senior Expenses Cap in bps p.a. on Collateral Principal Amount.
-   *  Jointly bounds (trusteeFeeBps + adminFeeBps) expense emission; overflow
-   *  above the cap routes to PPM steps (Y) trustee overflow and (Z) admin
-   *  overflow, paid from residual interest after tranche interest + sub
-   *  mgmt fee. Optional (defaults to effectively unbounded when undefined). */
+  /** C3 — Senior Expenses Cap component (b) in bps p.a. on Collateral Principal
+   *  Amount. Jointly bounds (trusteeFeeBps + adminFeeBps) expense emission;
+   *  overflow above the cap routes to PPM steps (Y) trustee overflow and (Z)
+   *  admin overflow, paid from residual interest after tranche interest + sub
+   *  mgmt fee. Ares XV: 2.5 (= 0.025% per annum). Optional (defaults to
+   *  effectively unbounded when undefined). */
   seniorExpensesCapBps?: number;
+  /** C3 — Senior Expenses Cap component (a) absolute fixed component in
+   *  €/year. Pro-rated by `dayFracActual` per period. Ares XV: 300_000.
+   *  Optional (defaults to 0 when undefined; legacy test inputs that predate
+   *  this field continue to behave as bps-only cap). */
+  seniorExpensesCapAbsoluteFloorPerYear?: number;
+  /** C3 — Senior Expenses Cap allocation rule for the capped portion (PPM
+   *  steps B + C). Ares XV: "sequential_b_first" — Condition 3(c)(C) reads
+   *  "less any amounts paid pursuant to paragraph (B) above" → trustee gets
+   *  cap headroom first, admin gets the remainder. Optional; defaults to
+   *  "pro_rata" for legacy test inputs. */
+  seniorExpensesCapAllocationWithinCap?: "pro_rata" | "sequential_b_first";
+  /** C3 — Senior Expenses Cap overflow allocation rule for steps Y + Z. Ares
+   *  XV: "sequential_y_first" per POP convention. Optional; defaults to
+   *  "pro_rata" for legacy test inputs. */
+  seniorExpensesCapOverflowAllocation?: "pro_rata" | "sequential_y_first";
   hedgeCostBps: number; // Scheduled hedge payments (PPM Step F), in bps p.a. on collateral par
   incentiveFeePct: number; // % of residual above IRR hurdle (PPM Steps BB/U), e.g. 20
   incentiveFeeHurdleIrr: number; // annualized IRR hurdle, e.g. 0.12 for 12%
@@ -1284,7 +1300,12 @@ function trancheCouponRate(t: ProjectionInputs["tranches"][number], baseRatePct:
 export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultDrawFn): ProjectionResult {
   const {
     initialPar, wacSpreadBps, baseRatePct, baseRateFloorPct, seniorFeePct, subFeePct,
-    taxesBps = 0, issuerProfitAmount = 0, trusteeFeeBps, adminFeeBps = 0, seniorExpensesCapBps, hedgeCostBps, incentiveFeePct, incentiveFeeHurdleIrr,
+    taxesBps = 0, issuerProfitAmount = 0, trusteeFeeBps, adminFeeBps = 0,
+    seniorExpensesCapBps,
+    seniorExpensesCapAbsoluteFloorPerYear = 0,
+    seniorExpensesCapAllocationWithinCap = "sequential_b_first",
+    seniorExpensesCapOverflowAllocation = "sequential_y_first",
+    hedgeCostBps, incentiveFeePct, incentiveFeeHurdleIrr,
     postRpReinvestmentPct, callMode, callDate, nonCallPeriodEnd, callPricePct, callPriceMode, reinvestmentOcTrigger, eventOfDefaultTest,
     stubPeriod, firstPeriodEndDate,
     reinvestmentPeriodExtension,
@@ -2787,8 +2808,18 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     // pro-tanto; the rest still routes to Y/Z overflow. Reserve balance is
     // floored at zero by the PPM ("shall not cause the balance of the
     // Expense Reserve Account to fall below zero").
+    // PPM Senior Expenses Cap (KI-16 closure): two-component cap per OC
+    // Condition 1 — (a) absolute fixed €/yr floor + (b) bps × CPA. Both
+    // pro-rated by dayFracActual. Ares XV: (a) €300K p.a. + (b) 2.5 bps.
+    // The OC's component (a) uses 30/360 for ongoing PDs and Actual/360 for
+    // the first PD; engine uses uniform Actual/360 (separate KI tracks the
+    // mixed day-count gap). When `seniorExpensesCapBps` is undefined the
+    // cap is uncapped (legacy synthetic-test behavior); the absolute floor
+    // alone never produces an Infinity cap, so the `null bps → Infinity`
+    // sentinel is preserved.
     const capAmountFromCapBps = seniorExpensesCapBps != null
       ? beginningPar * (seniorExpensesCapBps / 10000) * dayFracActual
+        + seniorExpensesCapAbsoluteFloorPerYear * dayFracActual
       : Infinity;
     const capAmount = capAmountFromCapBps + expenseReserveBalance;
     const cappedPaid = Math.min(cappedRequested, capAmount);
@@ -2812,12 +2843,24 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     // EoD, but the engine's `isAccelerated=true` corresponds to the
     // post-acceleration state, not pre-accel-with-EoD.)
     let expenseReserveDraw = 0;
-    // Allocate capped portion pro rata between trustee and admin so each
-    // stepTrace bucket reflects the same cap ratio.
-    const cappedRatio = cappedRequested > 0 ? cappedPaid / cappedRequested : 0;
-    const trusteeFeeAmount = trusteeFeeRequested * cappedRatio;
-    const adminFeeAmount = adminFeeRequested * cappedRatio;
-    // Overflow per bucket (for emission at steps Y/Z).
+    // KI-16 closure: B/C in-cap allocation per PPM Condition 3(c). Ares XV's
+    // OC clause (C) reads "less any amounts paid pursuant to paragraph (B)
+    // above" → trustee fees consume cap headroom first; admin gets the
+    // remainder. The legacy "pro_rata" branch is preserved for any deal
+    // whose PPM specifies pari-passu (or for fixtures that explicitly set
+    // it for backward compatibility), dispatched via the resolved field.
+    let trusteeFeeAmount: number;
+    let adminFeeAmount: number;
+    if (seniorExpensesCapAllocationWithinCap === "sequential_b_first") {
+      trusteeFeeAmount = Math.min(trusteeFeeRequested, capAmount);
+      adminFeeAmount = Math.min(adminFeeRequested, Math.max(0, capAmount - trusteeFeeAmount));
+    } else {
+      const cappedRatio = cappedRequested > 0 ? cappedPaid / cappedRequested : 0;
+      trusteeFeeAmount = trusteeFeeRequested * cappedRatio;
+      adminFeeAmount = adminFeeRequested * cappedRatio;
+    }
+    // Overflow per bucket (for emission at steps Y/Z) is the bucket-level
+    // residual under either rule: requested minus paid-into-cap.
     const trusteeOverflowRequested = trusteeFeeRequested - trusteeFeeAmount;
     const adminOverflowRequested = adminFeeRequested - adminFeeAmount;
 
@@ -3739,21 +3782,27 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     const subFeePaid = Math.min(subFeeAmount, availableInterest);
     availableInterest -= subFeePaid;
 
-    // C3 — PPM Steps (Y) trustee-overflow + (Z) admin-overflow.
-    // Senior Expenses Cap deferred any trustee+admin above the cap to
-    // here; pay what residual interest can absorb, proportionally across
-    // the two overflow buckets. Any residual-to-sub absorbs the rest as a
-    // shortfall (trustee/admin parties receive partial payment; remainder
-    // accrues to subsequent periods under PPM, but our simplified model
-    // treats the un-absorbed overflow as paid from sub distribution).
+    // KI-16 closure — PPM Steps (Y) trustee-overflow + (Z) admin-overflow.
+    // POP convention: each step is paid in full from residual interest before
+    // the next step receives anything. Step (Z) clause text carries no joint-
+    // allocation language; sequential Y-first is the PPM-correct rule.
+    // The "pro_rata" branch is preserved for any deal whose PPM specifies
+    // pari-passu allocation on the overflow steps (rare).
     let trusteeOverflowPaid = 0;
     let adminOverflowPaid = 0;
     if (cappedOverflowTotal > 0 && availableInterest > 0) {
-      const overflowPayable = Math.min(cappedOverflowTotal, availableInterest);
-      const overflowRatio = cappedOverflowTotal > 0 ? overflowPayable / cappedOverflowTotal : 0;
-      trusteeOverflowPaid = trusteeOverflowRequested * overflowRatio;
-      adminOverflowPaid = adminOverflowRequested * overflowRatio;
-      availableInterest -= overflowPayable;
+      if (seniorExpensesCapOverflowAllocation === "sequential_y_first") {
+        trusteeOverflowPaid = Math.min(trusteeOverflowRequested, availableInterest);
+        availableInterest -= trusteeOverflowPaid;
+        adminOverflowPaid = Math.min(adminOverflowRequested, availableInterest);
+        availableInterest -= adminOverflowPaid;
+      } else {
+        const overflowPayable = Math.min(cappedOverflowTotal, availableInterest);
+        const overflowRatio = cappedOverflowTotal > 0 ? overflowPayable / cappedOverflowTotal : 0;
+        trusteeOverflowPaid = trusteeOverflowRequested * overflowRatio;
+        adminOverflowPaid = adminOverflowRequested * overflowRatio;
+        availableInterest -= overflowPayable;
+      }
     }
 
     // PPM Step BB: Incentive management fee — % of residual when equity IRR > hurdle.

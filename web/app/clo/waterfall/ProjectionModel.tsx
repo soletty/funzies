@@ -455,6 +455,16 @@ export default function ProjectionModel({
           trusteeFeeBps,
           adminFeeBps,
           seniorExpensesCapBps,
+          seniorExpensesCapAbsoluteFloorPerYear:
+            resolved?.seniorExpensesCap?.absoluteFloorEurPerYear ?? 0,
+          seniorExpensesCapAllocationWithinCap:
+            resolved?.seniorExpensesCap?.allocationWithinCap === "pro_rata"
+              ? "pro_rata"
+              : "sequential_b_first",
+          seniorExpensesCapOverflowAllocation:
+            resolved?.seniorExpensesCap?.overflowAllocation === "pro_rata"
+              ? "pro_rata"
+              : "sequential_y_first",
           incentiveFeePct,
           incentiveFeeHurdleIrr,
           ddtlDrawAssumption,
@@ -526,6 +536,16 @@ export default function ProjectionModel({
     trusteeFeeBps,
     adminFeeBps,
     seniorExpensesCapBps,
+    seniorExpensesCapAbsoluteFloorPerYear:
+      resolved?.seniorExpensesCap?.absoluteFloorEurPerYear ?? 0,
+    seniorExpensesCapAllocationWithinCap:
+      resolved?.seniorExpensesCap?.allocationWithinCap === "pro_rata"
+        ? "pro_rata"
+        : "sequential_b_first",
+    seniorExpensesCapOverflowAllocation:
+      resolved?.seniorExpensesCap?.overflowAllocation === "pro_rata"
+        ? "pro_rata"
+        : "sequential_y_first",
     incentiveFeePct,
     incentiveFeeHurdleIrr,
     ddtlDrawAssumption,
@@ -537,6 +557,7 @@ export default function ProjectionModel({
     baseRatePct, baseRateFloorPct, defaultRates, overriddenBuckets, cprPct, recoveryPct, recoveryLagMonths,
     reinvestmentSpreadBps, reinvestmentTenorYears, reinvestmentRating, cccBucketLimitPct, cccMarketValuePct,
     resolved?.deferredInterestCompounds,
+    resolved?.seniorExpensesCap,
     postRpReinvestmentPct, hedgeCostBps, callMode, callDate, callPricePct, callPriceMode, seniorFeePct, subFeePct,
     taxesBps, issuerProfitAmount, trusteeFeeBps, adminFeeBps, seniorExpensesCapBps,
     incentiveFeePct, incentiveFeeHurdleIrr,

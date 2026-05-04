@@ -65,6 +65,61 @@ export interface ResolvedEodTest {
   citation?: Citation | null;
 }
 
+/** PPM Condition 1 "Senior Expenses Cap" structured definition. Lives on
+ *  `ResolvedDealData` (not `ResolvedFees`) per codebase pattern: structural
+ *  Condition-1 definitions sit alongside `ResolvedEodTest` /
+ *  `ResolvedReinvestmentOcTrigger`, not under fee-rate types.
+ *
+ *  Ares CLO XV cap formula (verbatim, OC pp. 150-151):
+ *    sum of (a) €300,000 per annum (pro-rated 30/360 ongoing PDs, Actual/360
+ *    first PD); and (b) 0.025 per cent. per annum (Actual/360 all PDs) of the
+ *    Collateral Principal Amount as at the Determination Date immediately
+ *    preceding the Payment Date.
+ *
+ *  Provisos: (i) VAT counts toward cap; (ii) 3-period rolling carryforward
+ *  of unused cap headroom (post-Frequency-Switch-Event: 1-period). Both are
+ *  unmodeled today; tracked as separate KIs.
+ *
+ *  Resolver emits `severity: "error", blocking: true` when this field is null
+ *  on a deal whose PPM specifies a cap (per project rule: silent fallbacks
+ *  on missing computational extraction are bugs). */
+export interface ResolvedSeniorExpensesCap {
+  /** Cap rate component (b) in basis points per annum (Ares XV: 2.5 = 0.025% p.a.).
+   *  Applied as: bpsComponent = base × (bpsPerYear / 10000) × dayFrac. */
+  bpsPerYear: number;
+  /** Cap absolute fixed component (a) in € per year (Ares XV: 300_000).
+   *  Applied as: floorComponent = absoluteFloorEurPerYear × dayFrac. Null when
+   *  PPM specifies no fixed component. */
+  absoluteFloorEurPerYear: number | null;
+  /** Denominator for component (b): "CPA" = Collateral Principal Amount per
+   *  Condition 1; "APB" = Aggregate Principal Balance. Ares XV uses CPA. The
+   *  engine currently uses `beginningPar` (APB) for both — CPA-vs-APB
+   *  divergence is a separate KI. */
+  capBase: "CPA" | "APB";
+  /** Accrual cadence: "per_payment_date" = cap resets each PD (cap × dayFrac);
+   *  "per_annum" = single annual ceiling requiring rolling state. Ares XV is
+   *  per_payment_date. */
+  capPeriod: "per_payment_date" | "per_annum";
+  /** How the cap is allocated between step (B) trustee + step (C) admin when
+   *  cappedRequested > capAmount. Ares XV: "sequential_b_first" — clause (C)
+   *  reads "less any amounts paid pursuant to paragraph (B) above". */
+  allocationWithinCap: "pro_rata" | "sequential_b_first" | "separate_caps";
+  /** How overflow paid past cap is allocated between step (Y) trustee +
+   *  step (Z) admin. Ares XV: sequential per POP convention (each step paid
+   *  in full from residual before next). */
+  overflowAllocation: "pro_rata" | "sequential_y_first" | "sequential_z_first";
+  /** Number of preceding Payment Dates whose unused cap headroom carries
+   *  forward into the current PD's cap (Ares XV: 3, or 1 post-Frequency-
+   *  Switch-Event). Engine doesn't model the carryforward today; tracked
+   *  as a separate KI. Null when PPM specifies no carryforward. */
+  carryforwardPeriods: number | null;
+  /** Whether VAT on capped expenses counts toward the cap. Ares XV: true.
+   *  Engine doesn't model VAT today; tracked as a separate KI. */
+  vatIncluded: boolean;
+  /** E1 PPM provenance (OC pp. 150-151 for Ares XV). */
+  citation?: Citation | null;
+}
+
 export interface ResolvedDealData {
   tranches: ResolvedTranche[];
   poolSummary: ResolvedPool;
@@ -107,6 +162,11 @@ export interface ResolvedDealData {
    *  drains it as overflow is paid. Distinct from KI-02 step (D) deposit-
    *  into-reserve flow. NOT credited to the OC numerator. */
   expenseReserveBalance: number;
+  /** PPM Senior Expenses Cap structured definition (Condition 1). Null on
+   *  legacy fixtures or when PPM extraction missed; resolver emits a blocking
+   *  warning in that case. Engine consumes via `defaultsFromResolved` →
+   *  `ProjectionInputs.seniorExpensesCapBps` + `seniorExpensesCapAbsoluteFloorPerYear`. */
+  seniorExpensesCap: ResolvedSeniorExpensesCap | null;
   preExistingDefaultedPar: number; // par of defaulted loans excluded from loan list
   preExistingDefaultRecovery: number; // market-price recovery for priced defaulted holdings
   unpricedDefaultedPar: number; // par of defaulted holdings without market price (engine applies recoveryPct)

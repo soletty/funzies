@@ -55,25 +55,35 @@ describe("C3 — Senior Expenses Cap: stress scenarios with overflow", () => {
     const result = runProjection(inputs);
     const p1 = result.periods[0];
 
-    // Capped portion = 20 bps (cap).
-    // Requested combined = 50 bps. Ratio = 20/50 = 0.4.
-    // trusteeFeeAmount = 10 × 0.4 = 4 bps portion; adminFeeAmount = 40 × 0.4 = 16 bps portion.
-    // Overflow per bucket: trustee 6 bps, admin 24 bps. Total overflow = 30 bps.
+    // KI-16 closure — sequential B-first within cap (PPM Cond 3(c)(C) reads
+    // "less any amounts paid pursuant to paragraph (B) above"):
+    //   trusteeFeeAmount = min(10 bps, 20 bps cap) = 10 bps (full request paid)
+    //   adminFeeAmount   = min(40 bps, 20 - 10 = 10 bps remainder) = 10 bps
+    // Total cappedPaid = 20 bps; Overflow per bucket:
+    //   trustee overflow = 10 - 10 = 0 bps
+    //   admin overflow   = 40 - 10 = 30 bps
+    // Total overflow = 30 bps (invariant under both pro-rata and sequential
+    // in-cap rules — only the per-bucket split changes).
     const expectedOverflowBps = 30;
-    // Engine uses beginningPar (sum-of-loans €493.25M) not totalPrincipalBalance
-    // (€493.22M) — the ~€28k gap is Labeyrie PIK (see B1 test notes). Widen
-    // the upper bound slightly to accommodate this.
     const overflowTotalExpected =
       fixture.resolved.poolSummary.totalPrincipalBalance * (expectedOverflowBps / 10000) * (91 / 360);
     const actualOverflowTotal = (p1.stepTrace.trusteeOverflowPaid) + (p1.stepTrace.adminOverflowPaid);
-    expect(actualOverflowTotal).toBeLessThanOrEqual(overflowTotalExpected * 1.001); // 0.1% tolerance for the €28k PIK delta
-    // On Euro XV, residual interest is ample — overflow should fully pay.
+    // Total assertion is invariant under the in-cap allocation rule change.
+    // 0.1% tolerance for the ~€28k beginningPar vs totalPrincipalBalance gap
+    // (Labeyrie PIK — see B1 test notes).
+    expect(actualOverflowTotal).toBeLessThanOrEqual(overflowTotalExpected * 1.001);
     expect(actualOverflowTotal).toBeGreaterThan(overflowTotalExpected * 0.95);
 
-    // Pro-rata split: admin overflow : trustee overflow = 24 : 6 = 4:1.
-    expect(
-      (p1.stepTrace.adminOverflowPaid) / Math.max(1, p1.stepTrace.trusteeOverflowPaid),
-    ).toBeCloseTo(4, 1);
+    // Per-bucket split under sequential B-first: trustee fully consumed by
+    // cap headroom (paid at step B), zero overflow; all 30 bps overflow flows
+    // through step Z to admin. Pre-KI-16 the engine pro-rated, producing
+    // trustee 6 bps + admin 24 bps overflow (4:1 ratio); post-KI-16 the ratio
+    // is undefined (admin / 0).
+    expect(p1.stepTrace.trusteeOverflowPaid).toBeCloseTo(0, 0);
+    const adminOverflowExpected =
+      fixture.resolved.poolSummary.totalPrincipalBalance * (30 / 10000) * (91 / 360);
+    expect(p1.stepTrace.adminOverflowPaid).toBeGreaterThan(adminOverflowExpected * 0.95);
+    expect(p1.stepTrace.adminOverflowPaid).toBeLessThanOrEqual(adminOverflowExpected * 1.001);
   });
 
   it("extreme cap (1 bps) with low fees → capped portion < requested, large overflow", () => {

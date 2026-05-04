@@ -32,6 +32,7 @@ export const EMPTY_RESOLVED: ResolvedDealData = {
   interestSmoothingBalance: 0,
   supplementalReserveBalance: 0,
   expenseReserveBalance: 0,
+  seniorExpensesCap: null,
   preExistingDefaultedPar: 0,
   preExistingDefaultRecovery: 0,
   unpricedDefaultedPar: 0,
@@ -116,11 +117,24 @@ export interface UserAssumptions {
    *  Paid at PPM step (C). Jointly capped with trustee fee at
    *  `seniorExpensesCapBps`; overflow routes to uncapped step (Z). */
   adminFeeBps: number;
-  /** C3 — Senior Expenses Cap as bps on Collateral Principal Amount, per
-   *  annum. Jointly bounds trustee + admin fee emission. Overflow (above
-   *  the cap) routes to PPM steps (Y) and (Z). Default derived from Q1
-   *  actuals via `defaultsFromResolved`; max(2× observed, 20 bps). */
+  /** C3 — Senior Expenses Cap component (b): bps per annum on collateral par.
+   *  Jointly bounds trustee + admin fee emission. Overflow routes to PPM
+   *  steps (Y) and (Z). Sourced from PPM via `defaultsFromResolved` →
+   *  `resolved.seniorExpensesCap.bpsPerYear`; falls back to legacy 20 bps
+   *  when extraction missing. Ares XV: 2.5. */
   seniorExpensesCapBps: number;
+  /** C3 — Senior Expenses Cap component (a): absolute floor in €/year. Pro-
+   *  rated by `dayFracActual`. Sourced from PPM; Ares XV: 300_000. */
+  seniorExpensesCapAbsoluteFloorPerYear: number;
+  /** C3 — B/C in-cap allocation rule. PPM Condition 3(c)(C) for Ares XV:
+   *  sequential B-first ("less any amounts paid pursuant to paragraph (B)
+   *  above"). Default: sequential_b_first (PPM-correct). Legacy test
+   *  factories that predate this field implicitly inherit the default. */
+  seniorExpensesCapAllocationWithinCap: "pro_rata" | "sequential_b_first";
+  /** C3 — Y/Z overflow allocation rule. POP convention: sequential Y-first
+   *  (each step paid in full from residual before next). Default:
+   *  sequential_y_first (PPM-correct). */
+  seniorExpensesCapOverflowAllocation: "pro_rata" | "sequential_y_first";
   incentiveFeePct: number;
   incentiveFeeHurdleIrr: number; // as percentage (e.g. 12 for 12%), converted to decimal internally
   // Equity (sub note) entry price in cents of sub note par. Used for secondary-
@@ -160,9 +174,13 @@ export const DEFAULT_ASSUMPTIONS: UserAssumptions = {
   issuerProfitAmount: 0,
   trusteeFeeBps: CLO_DEFAULTS.trusteeFeeBps,
   adminFeeBps: 0,
-  // Conservative static default when Q1 actuals aren't available.
-  // `defaultsFromResolved` computes max(2× observed, 20 bps) when it can.
+  // C3 Senior Expenses Cap. PPM-extracted via `defaultsFromResolved` →
+  // `resolved.seniorExpensesCap`; the static fallbacks here only apply when
+  // extraction is missing (legacy fixtures, synthetic test inputs).
   seniorExpensesCapBps: 20,
+  seniorExpensesCapAbsoluteFloorPerYear: 0,
+  seniorExpensesCapAllocationWithinCap: "sequential_b_first",
+  seniorExpensesCapOverflowAllocation: "sequential_y_first",
   incentiveFeePct: CLO_DEFAULTS.incentiveFeePct,
   incentiveFeeHurdleIrr: CLO_DEFAULTS.incentiveFeeHurdleIrr,
   equityEntryPriceCents: null,
@@ -295,12 +313,30 @@ export function defaultsFromResolved(
     if (bps > 0 && bps < 50) base.adminFeeBps = bps;
   }
 
-  // C3 Senior Expenses Cap default: max(2× observed combined, 20 bps).
-  // The PPM cap itself isn't in raw (deal-specific; trustee report doesn't
-  // publish the cap number, only the actuals). Observed rate is a hard floor.
-  if (stepB && stepC && beginPar > 0) {
-    const observedRateBps = (((stepB.amountPaid ?? 0) + (stepC.amountPaid ?? 0)) * 4 * 10000) / beginPar;
-    base.seniorExpensesCapBps = Math.max(observedRateBps * 2, 20);
+  // C3 Senior Expenses Cap (KI-16 closure): consume the structured PPM
+  // extraction when available. Replaces the prior `max(2× observed, 20 bps)`
+  // heuristic which had no PPM grounding (per the project rule "silent
+  // fallbacks on missing computational extraction are bugs"). When extraction
+  // is missing the static DEFAULT_ASSUMPTIONS values pass through unchanged
+  // — synthetic test inputs and legacy fixtures rely on this behavior.
+  if (resolved.seniorExpensesCap != null) {
+    base.seniorExpensesCapBps = resolved.seniorExpensesCap.bpsPerYear;
+    base.seniorExpensesCapAbsoluteFloorPerYear =
+      resolved.seniorExpensesCap.absoluteFloorEurPerYear ?? 0;
+    if (
+      resolved.seniorExpensesCap.allocationWithinCap === "pro_rata" ||
+      resolved.seniorExpensesCap.allocationWithinCap === "sequential_b_first"
+    ) {
+      base.seniorExpensesCapAllocationWithinCap =
+        resolved.seniorExpensesCap.allocationWithinCap;
+    }
+    if (
+      resolved.seniorExpensesCap.overflowAllocation === "pro_rata" ||
+      resolved.seniorExpensesCap.overflowAllocation === "sequential_y_first"
+    ) {
+      base.seniorExpensesCapOverflowAllocation =
+        resolved.seniorExpensesCap.overflowAllocation;
+    }
   }
 
   return base;
@@ -677,6 +713,9 @@ export function buildFromResolved(
     trusteeFeeBps: userAssumptions.trusteeFeeBps,
     adminFeeBps: userAssumptions.adminFeeBps,
     seniorExpensesCapBps: userAssumptions.seniorExpensesCapBps,
+    seniorExpensesCapAbsoluteFloorPerYear: userAssumptions.seniorExpensesCapAbsoluteFloorPerYear,
+    seniorExpensesCapAllocationWithinCap: userAssumptions.seniorExpensesCapAllocationWithinCap,
+    seniorExpensesCapOverflowAllocation: userAssumptions.seniorExpensesCapOverflowAllocation,
     hedgeCostBps: userAssumptions.hedgeCostBps,
     incentiveFeePct: userAssumptions.incentiveFeePct,
     incentiveFeeHurdleIrr: userAssumptions.incentiveFeeHurdleIrr / 100, // convert from % to decimal
