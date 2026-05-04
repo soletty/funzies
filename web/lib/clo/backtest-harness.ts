@@ -52,7 +52,6 @@ export const STEP_TOLERANCES_TARGET: Record<EngineBucket, number> = {
   trusteeOverflow: Infinity,         // step y        — only fires when observed > cap
   adminOverflow: Infinity,           // step z        — only fires when observed > cap
   reinvestmentBlockedCompliance: Infinity, // C1 — no trustee analogue; audit-only visibility
-  classXAmortFromInterest: Infinity, // step g — audit metric until Class X-bearing deal lands; current []-empty mapping compares against trustee 0 (zero on Euro XV which has no Class X). See ppm-step-map.ts notes.
 
   // --- Steps the engine DOES model; tight TARGET tolerances (fail-loud) ---
   // These are POST-CLOSURE targets (what we'd expect once day-count and
@@ -67,7 +66,7 @@ export const STEP_TOLERANCES_TARGET: Record<EngineBucket, number> = {
   adminFeesPaid: 50,                 // step c        — red until B3 closes day-count (observed ~€709; tracked in n1 admin marker)
   seniorMgmtFeePaid: 100,            // step e        — day-count sensitive; fails until Sprint 1 / B3
   hedgePaymentPaid: 50,              // step f
-  classA_interest: 1,                // step g        — tightest post-B3
+  stepG_interest: 1,                 // step g        — Class A interest + Class X amort merged (KI-56 closed); tightest post-B3
   classB_interest: 1,                // step h
   ocCure_AB: 1000,                   // step i        — compounds OC numerator drift
   classC_current: 1,                 // step j
@@ -93,7 +92,7 @@ export const STEP_TOLERANCES_TARGET: Record<EngineBucket, number> = {
 // ============================================================================
 
 export interface StepDelta {
-  /** Engine-side bucket identifier (e.g., "classA_interest"). */
+  /** Engine-side bucket identifier (e.g., "stepG_interest"). */
   engineBucket: EngineBucket;
   /** PPM step codes covered by this bucket (e.g., ["b", "c"] for trusteeFeesPaid). */
   ppmSteps: readonly PpmInterestStep[];
@@ -298,8 +297,10 @@ function extractEngineBuckets(p: PeriodResult): Partial<Record<EngineBucket, num
     subMgmtFeePaid: p.stepTrace.subMgmtFeePaid,
     incentiveFeePaid: p.stepTrace.incentiveFeeFromInterest,
 
+    // PPM step (G): Class A interest + Class X amort paid pari-passu from
+    // interest pool. On Euro XV (no Class X) the second term is 0.
+    stepG_interest: (trancheInterestByClass.get("Class A") ?? 0) + p.stepTrace.classXAmortFromInterest,
     // Tranche current interest (from trancheInterest[])
-    classA_interest: trancheInterestByClass.get("Class A") ?? 0,
     classB_interest: (trancheInterestByClass.get("Class B-1") ?? 0) + (trancheInterestByClass.get("Class B-2") ?? 0),
     classC_current: trancheInterestByClass.get("Class C") ?? 0,
     classD_current: trancheInterestByClass.get("Class D") ?? 0,
@@ -328,13 +329,6 @@ function extractEngineBuckets(p: PeriodResult): Partial<Record<EngineBucket, num
     // C1 — reinvestment blocked by compliance enforcement. No trustee step;
     // actual will be 0 (no PPM codes), engine projects the block amount.
     reinvestmentBlockedCompliance: p.stepTrace.reinvestmentBlockedCompliance,
-
-    // Class X (or any amortising-tranche) scheduled amort paid from the
-    // interest pool at PPM step G, pari-passu with Class A interest.
-    // Treated as audit metric until a Class X-bearing deal lands and the
-    // step-g sharing with classA_interest is properly resolved (see
-    // ppm-step-map.ts comments). Zero on Euro XV.
-    classXAmortFromInterest: p.stepTrace.classXAmortFromInterest,
   };
 }
 

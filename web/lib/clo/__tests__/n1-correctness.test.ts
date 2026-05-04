@@ -175,8 +175,8 @@ describe("N1 correctness — currently broken buckets (documented in KI ledger)"
   // and these drifts are its correct-per-B3 output under a mismatched harness.
   failsWithMagnitude(
     { ki: "KI-12b-classA", closesIn: "KI-12a harness fix", expectedDrift: 25540.56, tolerance: 50 },
-    "classA_interest KI-12b day-count drift",
-    () => drift("classA_interest"),
+    "stepG_interest (Class A interest; Class X amort = 0 on Euro XV) KI-12b day-count drift",
+    () => drift("stepG_interest"),
   );
   failsWithMagnitude(
     { ki: "KI-12b-classB", closesIn: "KI-12a harness fix", expectedDrift: 3483.75, tolerance: 50 },
