@@ -252,14 +252,43 @@ export function runBacktestHarness(
 // Tranche identity is rank-based, NOT className-based — per CLAUDE.md
 // "Don't overfit to a single deal". Non-amortising debt tranches are
 // grouped by unique `seniorityRank` (sorted ascending); pari-passu tranches
-// at the same rank populate the same tier. Tier 0 = senior non-amort
-// (PPM Class A by convention), tier 1 = next (Class B), …, tier 5 = Class F.
-//
-// Cure-step mapping is also rank-based: each PPM cure step (I)/(L)/(O)/(R)/(U)
-// fires when the OC trigger covering that tier's seniority rank fails. The
-// engine emits ocCureDiversions[].rank = the failing trigger's rank, which
-// corresponds to the rank of the lowest-seniority tranche the trigger covers.
+// at the same rank populate the same tier. Each tier maps to a row in
+// `CLASS_TIER_LAYOUT` below, which spells out the tier→bucket mapping in
+// one place.
 // ============================================================================
+
+/**
+ * Per-tier harness bucket layout. Each tier in the deal's debt-tranche
+ * structure (sorted by ascending `seniorityRank`) maps to one row here:
+ *
+ *   - `interestBucket`: sum of trancheInterest paid for tranches at this tier
+ *   - `deferredBucket`: sum of deferred-accrual amounts (null when the tier
+ *     is non-deferrable per PPM — i.e., Class A and Class B)
+ *   - `cureBucket`: failing-OC-trigger diversion routed here when the trigger
+ *     covers this tier's rank. Set to "ocCure_AB" on tiers 0 and 1 because
+ *     PPM step (I) pools cures at the A/B boundary; tiers 2+ get their own
+ *     dedicated cure step (L)/(O)/(R)/(U).
+ *
+ * 6-tier cap is structural: PPM step letters G–U enumerate exactly six
+ * letter classes' worth of interest/deferred/cure steps; (V) onward are
+ * non-class steps (Effective Date Rating Event, Reinvestment OC, Sub Mgmt
+ * Fee, …). A deal with 7+ debt tiers would not fit any standard CLO PPM
+ * waterfall vocabulary, so the harness fails loud rather than silently
+ * dropping surplus tiers — see `MAX_SUPPORTED_TIERS` check below.
+ */
+const CLASS_TIER_LAYOUT: ReadonlyArray<{
+  interestBucket: EngineBucket;
+  deferredBucket: EngineBucket | null;
+  cureBucket: EngineBucket;
+}> = [
+  { interestBucket: "stepG_interest",  deferredBucket: null,              cureBucket: "ocCure_AB" }, // tier 0 (Class A)
+  { interestBucket: "classB_interest", deferredBucket: null,              cureBucket: "ocCure_AB" }, // tier 1 (Class B)
+  { interestBucket: "classC_current",  deferredBucket: "classC_deferred", cureBucket: "ocCure_C"  }, // tier 2 (Class C)
+  { interestBucket: "classD_current",  deferredBucket: "classD_deferred", cureBucket: "ocCure_D"  }, // tier 3 (Class D)
+  { interestBucket: "classE_current",  deferredBucket: "classE_deferred", cureBucket: "pvCure_E"  }, // tier 4 (Class E)
+  { interestBucket: "classF_current",  deferredBucket: "classF_deferred", cureBucket: "pvCure_F"  }, // tier 5 (Class F)
+];
+const MAX_SUPPORTED_TIERS = CLASS_TIER_LAYOUT.length;
 
 function extractEngineBuckets(
   p: PeriodResult,
@@ -284,23 +313,49 @@ function extractEngineBuckets(
   }
   const tiers = Array.from(tierByRank.values());
 
-  const tierInterest = (i: number): number =>
-    (tiers[i] ?? []).reduce((s, t) => s + (trancheInterestByClass.get(t.className) ?? 0), 0);
-  const tierDeferred = (i: number): number =>
-    (tiers[i] ?? []).reduce((s, t) => s + (deferredByClass[t.className] ?? 0), 0);
-  const tierRanks = (i: number): number[] => (tiers[i] ?? []).map((t) => t.seniorityRank);
+  if (tiers.length > MAX_SUPPORTED_TIERS) {
+    throw new Error(
+      `[backtest-harness] deal has ${tiers.length} non-amortising debt tiers; ` +
+        `harness supports up to ${MAX_SUPPORTED_TIERS} (PPM step letters G–U exhaust at tier ${MAX_SUPPORTED_TIERS - 1}). ` +
+        `Extending requires adding new EngineBucket entries, new PpmInterestStep letters, and a new CLASS_TIER_LAYOUT row — ` +
+        `but the PPM waterfall vocabulary itself caps at 6 letter classes (A–F), so this is unlikely to be the right fix. ` +
+        `Investigate whether the deal's tranche structure is being modeled correctly.`,
+    );
+  }
 
   // OC cure diversions keyed by failing trigger rank. The engine sets
   // ocCureDiversions[].rank = ocTriggers[].rank for the failing trigger.
-  // Map cure to the harness bucket whose tier contains the trigger's rank:
-  // a cure at the rank of tier-0/1 (Class A or B) → step (I), the AB cure;
-  // a cure at the rank of tier-2 (Class C) → step (L); etc.
   const diversionsByRank = new Map<number, number>();
   for (const d of p.stepTrace.ocCureDiversions) {
     diversionsByRank.set(d.rank, (diversionsByRank.get(d.rank) ?? 0) + d.amount);
   }
-  const cureAtTier = (i: number): number =>
-    tierRanks(i).reduce((s, r) => s + (diversionsByRank.get(r) ?? 0), 0);
+
+  // Build class-tier buckets from the layout. Iterating once over all tiers
+  // populates interest/deferred/cure entries; tier 0's interest entry also
+  // accumulates Class X amort (PPM step G is pari-passu Class A interest +
+  // Class X amort).
+  const classBuckets: Partial<Record<EngineBucket, number>> = {};
+  for (let i = 0; i < tiers.length; i++) {
+    const tier = tiers[i];
+    const layout = CLASS_TIER_LAYOUT[i];
+    const interestPaid = tier.reduce((s, t) => s + (trancheInterestByClass.get(t.className) ?? 0), 0);
+    const interestExtra = i === 0 ? p.stepTrace.classXAmortFromInterest : 0;
+    classBuckets[layout.interestBucket] = interestPaid + interestExtra;
+    if (layout.deferredBucket !== null) {
+      classBuckets[layout.deferredBucket] = tier.reduce((s, t) => s + (deferredByClass[t.className] ?? 0), 0);
+    }
+    const cureAtThisTier = tier.reduce((s, t) => s + (diversionsByRank.get(t.seniorityRank) ?? 0), 0);
+    classBuckets[layout.cureBucket] = (classBuckets[layout.cureBucket] ?? 0) + cureAtThisTier;
+  }
+  // Ensure every layout slot is at least 0 (so the harness emits a row for
+  // each, even when the deal has fewer tiers than the layout supports).
+  for (const layout of CLASS_TIER_LAYOUT) {
+    classBuckets[layout.interestBucket] = classBuckets[layout.interestBucket] ?? 0;
+    if (layout.deferredBucket !== null) {
+      classBuckets[layout.deferredBucket] = classBuckets[layout.deferredBucket] ?? 0;
+    }
+    classBuckets[layout.cureBucket] = classBuckets[layout.cureBucket] ?? 0;
+  }
 
   return {
     // Taxes: now emitted by the engine when taxesBps is set.
@@ -323,31 +378,8 @@ function extractEngineBuckets(
     subMgmtFeePaid: p.stepTrace.subMgmtFeePaid,
     incentiveFeePaid: p.stepTrace.incentiveFeeFromInterest,
 
-    // Tier-positional class buckets (PPM step convention: tier 0 = Class A,
-    // tier 1 = Class B, …). Each tier sums interest across all pari-passu
-    // tranches at that rank.
-    stepG_interest: tierInterest(0) + p.stepTrace.classXAmortFromInterest,
-    classB_interest: tierInterest(1),
-    classC_current: tierInterest(2),
-    classD_current: tierInterest(3),
-    classE_current: tierInterest(4),
-    classF_current: tierInterest(5),
-
-    // Deferred interest capitalized this period (tier-positional).
-    classC_deferred: tierDeferred(2),
-    classD_deferred: tierDeferred(3),
-    classE_deferred: tierDeferred(4),
-    classF_deferred: tierDeferred(5),
-
-    // OC/PV cure diversions: cure fires at the rank of the failing trigger;
-    // map to harness bucket by which tier's rank(s) the trigger covers.
-    // ocCure_AB sums diversions at tiers 0 + 1 (Class A or Class B trigger
-    // failing — both route to PPM step I).
-    ocCure_AB: cureAtTier(0) + cureAtTier(1),
-    ocCure_C: cureAtTier(2),
-    ocCure_D: cureAtTier(3),
-    pvCure_E: cureAtTier(4),
-    pvCure_F: cureAtTier(5),
+    // Class-tier buckets (interest/deferred/cure) — driven by CLASS_TIER_LAYOUT.
+    ...classBuckets,
 
     // Reinvestment OC diversion (step W)
     reinvOcDiversion: p.stepTrace.reinvOcDiversion,

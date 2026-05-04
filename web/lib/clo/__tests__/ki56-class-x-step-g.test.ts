@@ -98,7 +98,6 @@ describe("harness step-(G) merge", () => {
       cccBucketLimitPct: 100,
       cccMarketValuePct: 100,
       deferredInterestCompounds: true,
-      useLegacyBucketHazard: true,
     };
 
     // 1. Run the engine and read the period-0 Class A interest paid + Class X

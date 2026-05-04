@@ -84,7 +84,6 @@ describe("harness extractEngineBuckets — rank-based class identity", () => {
       cccBucketLimitPct: 100,
       cccMarketValuePct: 100,
       deferredInterestCompounds: true,
-      useLegacyBucketHazard: true,
     };
 
     const result = runProjection(inputs);
@@ -208,7 +207,6 @@ describe("harness extractEngineBuckets — rank-based class identity", () => {
       cccBucketLimitPct: 100,
       cccMarketValuePct: 100,
       deferredInterestCompounds: true,
-      useLegacyBucketHazard: true,
     };
 
     const result = runProjection(inputs);
@@ -246,5 +244,82 @@ describe("harness extractEngineBuckets — rank-based class identity", () => {
     expect(ocCureAB.projected, "rank-3 C cure must NOT bleed into ocCure_AB").toBe(0);
     expect(ocCureC.projected).toBeCloseTo(rank3Cure, 2);
     expect(Math.abs(ocCureC.delta)).toBeLessThan(1);
+  });
+
+  it("throws on a deal with more than 6 non-amortising debt tiers", () => {
+    // Synthetic 7-debt-tier deal. The PPM waterfall step letters G–U cover
+    // 6 letter classes (A–F); a 7th tier has no PPM step letter to compare
+    // against, so the harness fails loud rather than silently dropping the
+    // surplus tier from comparison. This guard is the difference between
+    // "engine emits 0 because nothing matches" (silent) and "harness throws
+    // a clear error" (loud) — the latter is required for correctness on a
+    // never-Euro-XV-shaped deal.
+    const loans: LoanInput[] = Array.from({ length: 4 }, (_, i) => ({
+      parBalance: 25_000_000,
+      maturityDate: addQuarters("2026-03-09", 24 + i),
+      ratingBucket: "B",
+      spreadBps: 410,
+    }));
+
+    const inputs: ProjectionInputs = {
+      initialPar: 100_000_000,
+      wacSpreadBps: 410,
+      baseRatePct: CLO_DEFAULTS.baseRatePct,
+      baseRateFloorPct: CLO_DEFAULTS.baseRateFloorPct,
+      seniorFeePct: 0,
+      subFeePct: 0,
+      trusteeFeeBps: 0,
+      hedgeCostBps: 0,
+      incentiveFeePct: 0,
+      incentiveFeeHurdleIrr: 0,
+      postRpReinvestmentPct: 0,
+      callMode: "none",
+      callDate: null,
+      callPricePct: 100,
+      callPriceMode: "par",
+      reinvestmentOcTrigger: null,
+      // 7 non-amortising debt tiers (one too many).
+      tranches: [
+        { className: "A",      currentBalance: 40_000_000, spreadBps: 110, seniorityRank: 1, isFloating: true,  isIncomeNote: false, isDeferrable: false },
+        { className: "B",      currentBalance: 15_000_000, spreadBps: 200, seniorityRank: 2, isFloating: true,  isIncomeNote: false, isDeferrable: false },
+        { className: "C",      currentBalance: 12_000_000, spreadBps: 300, seniorityRank: 3, isFloating: true,  isIncomeNote: false, isDeferrable: true  },
+        { className: "D",      currentBalance: 10_000_000, spreadBps: 400, seniorityRank: 4, isFloating: true,  isIncomeNote: false, isDeferrable: true  },
+        { className: "E",      currentBalance:  8_000_000, spreadBps: 500, seniorityRank: 5, isFloating: true,  isIncomeNote: false, isDeferrable: true  },
+        { className: "F",      currentBalance:  5_000_000, spreadBps: 600, seniorityRank: 6, isFloating: true,  isIncomeNote: false, isDeferrable: true  },
+        { className: "G",      currentBalance:  3_000_000, spreadBps: 700, seniorityRank: 7, isFloating: true,  isIncomeNote: false, isDeferrable: true  },
+        { className: "Equity", currentBalance:  7_000_000, spreadBps:   0, seniorityRank: 8, isFloating: false, isIncomeNote: true,  isDeferrable: false },
+      ],
+      ocTriggers: [],
+      icTriggers: [],
+      reinvestmentPeriodEnd: "2030-06-15",
+      maturityDate: "2034-06-15",
+      currentDate: "2026-03-09",
+      loans,
+      defaultRatesByRating: uniformRates(0),
+      cprPct: 0,
+      recoveryPct: 0,
+      recoveryLagMonths: 6,
+      ratingAgencies: ["moodys", "sp", "fitch"],
+      reinvestmentSpreadBps: 0,
+      reinvestmentTenorQuarters: 8,
+      reinvestmentRating: null,
+      cccBucketLimitPct: 100,
+      cccMarketValuePct: 100,
+      deferredInterestCompounds: true,
+    };
+
+    const backtest: BacktestInputs = {
+      reportDate: "2026-04-01",
+      paymentDate: "2026-04-15",
+      beginningPar: 100_000_000,
+      waterfallSteps: [],
+      trancheSnapshots: [],
+      complianceTests: [],
+      accountBalances: [],
+    };
+
+    expect(() => runBacktestHarness(inputs, backtest)).toThrow(
+      /7 non-amortising debt tiers.*supports up to 6/,
+    );
   });
 });
