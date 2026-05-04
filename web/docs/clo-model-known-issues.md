@@ -25,7 +25,6 @@ Categorized so a partner reading cold can separate "what's still wrong" from "wh
 ### Open — currently wrong, path to close documented
 - [KI-08 — `trusteeFeesPaid` bundled steps B+C (PARTIAL: pre-fill D3 + cap mechanics C3 + KI-16 PPM verifications cleared; day-count residuals remain blocked on KI-12a)](#ki-08)
 - [KI-12a — Senior / sub management fee base discrepancy](#ki-12a) — **BLOCKED ON DATA ACQUISITION** (Q4 2025 historical SDF + trustee-report bundles)
-- [KI-18 — pctCccAndBelow per-agency rollup ships; ~1.3pp residual from per-position rating extraction coverage gap](#ki-18)
 - [KI-20 — D2 legacy escape-hatch on 6 test-factory sites](#ki-20)
 - [KI-21 — Parallel implementations of same calculation (PARTIAL — Scope 1+2 closed; Scope 3 accel + T=0 remains)](#ki-21)
 - [KI-23 — Industry taxonomy missing on BuyListItem + ResolvedLoan blocks industry-cap filtering](#ki-23)
@@ -36,7 +35,6 @@ Categorized so a partner reading cold can separate "what's still wrong" from "wh
 - [KI-40 — Senior Expenses Cap 3-period rolling carryforward unmodeled](#ki-40)
 - [KI-41 — Senior Expenses Cap component (a) mixed day-count (30/360 + Actual/360) — engine uses uniform Actual/360](#ki-41)
 - [KI-42 — VAT inclusion in Senior Expenses Cap unmodeled](#ki-42)
-- [KI-43 — `ki58-blocking-extraction-failures.test.ts` referenced in `web/CLAUDE.md` but not present in repo](#ki-43)
 
 ### Latent — currently inactive on Euro XV; emerges on portability or stress
 *Distinct from "Deferred" (those are intentional design choices about mechanics that exist in the indenture but the model elects not to simulate). "Latent" entries are unmodeled or hardcoded paths whose current Euro XV magnitude happens to be zero, but which will produce wrong numbers the moment a deal hits the triggering condition (different deal structure, different PPM, non-zero balance, FX exposure, etc.). Treat each as a real bug whose materiality is data-dependent, not a deliberate scope decision.*
@@ -390,29 +388,6 @@ The Class A/B/C/D/E/F interest tie-outs currently pass at |drift| < €1 under l
 **Deferral rationale:** Restoring the IRR solver under acceleration requires carrying equity-cash-flow state across the normal → accelerated mode transition and wiring the same `resolveIncentiveFee` circular solver used in normal mode. Not structural; tedious. Low priority relative to the Sprint 2 B1+B2 scope.
 **Path to close:** Add `incentiveFeeActive` computation in the engine's accel branch: call `resolveIncentiveFee` with the current equity-cash-flow series and hurdle, pass the resulting active flag + computed fee to the executor. Carry the equity-cash-flow series across the normal → accelerated mode transition rather than re-initializing.
 **Test:** No active marker — requires a synthetic scenario where pre-breach equity distributions accumulate above the hurdle, then EoD triggers. Not covered by current B2 stress tests (which use low-MV + high-default scenarios that have near-zero pre-breach distributions). When the fix lands, add a test that constructs such a scenario and verifies incentive fee fires correctly under acceleration.
-
----
-
-<a id="ki-18"></a>
-### [KI-18] pctCccAndBelow per-agency rollup ships, but per-position rating extraction coverage gap leaves ~1.3pp residual
-
-**PPM reference:** Condition 1 / definitions — "Caa Obligation", "CCC Obligation". Separate per-agency definitions (Moody's Caa1/Caa2/Caa3 + Ca + C, and Fitch CCC+/CCC/CCC-/CC/C). The trustee's "Caa and below" concentration test takes the **max across agencies** — a position counted by either rating agency flips it into the bucket. Per PPM definition (PDF p. 138), defaulted obligations are EXCLUDED from the Caa Obligations set.
-
-**Current engine behavior:** `computePoolQualityMetrics` in `pool-metrics.ts` now computes per-agency Caa/CCC rollups (`isMoodysCaaOrBelow`, `isFitchCccOrBelow` from `rating-mapping.ts`) and takes max across agencies via `pctCccAndBelow = max(pctMoodysCaa, pctFitchCcc)` — the per-agency methodology required by the path-to-close. Defaulted positions are excluded by two filters at the call sites in `projection.ts`: `survivingPar > 0` drops fully-defaulted loans (par migrates from `survivingPar` into `defaultedParPending` on default), and `defaultedParPending > 0 → continue` drops partially-defaulted loans entirely (the surviving piece does NOT count toward Caa/CCC numerator or denominator). Both filters apply identically in `computeQualityMetrics` and `maxCompliantReinvestment` so the per-period output and the compliance gate's pre-buy state stay bit-identical (KI-21 invariant). The remaining residual is per-agency rating extraction: ~6% of Euro XV loan positions have `moodysRatingFinal === null && fitchRatingFinal === null` (per-agency rating extraction missing); these fall through to the coarse `ratingBucket === "CCC"` legacy path. The C2 parity tolerance currently sits at **±2pp** (`c2-quality-forward-projection.test.ts:100`) to absorb the resulting ~1.3pp residual drift.
-
-**Why the entry stays open:** the path-to-close required tightening the C2 parity tolerance to ±0.1pp. ±2pp is a partial close — the per-agency methodology landed, but the residual extraction-coverage gap is still wide enough that the original ±3pp bug magnitude is within the test's tolerance. Deleting the entry while ±2pp tolerance is in place would be a fake-close (the assertion would pass even if the old methodology were reinstated). The remaining work is per-position rating extraction, NOT pool-metrics arithmetic.
-
-**Quantitative magnitude:** Reduced from ±3pp (pre-fix) to ~1.3pp (post-fix); residual driven by extraction coverage, not by methodology.
-
-**Impact on compliance enforcement:** Euro XV's Moody's Caa concentration trigger is 7.5% vs observed 6.92% — a 0.58 pp cushion. Engine's ~1.3pp residual is now 2× the cushion (down from 5×). C1 reinvestment compliance now DOES enforce against the Moody's Caa and Fitch CCC concentration tests via Feature A's multi-gate enrichment — the trigger numerator uses `pctMoodysCaa` / `pctFitchCcc` from the per-agency rollup directly, NOT the coarse `pctCccAndBelow`, so the ±2pp parity drift on the legacy aggregate does not bleed into the compliance gate. The compliance gate's correctness is bound by per-loan rating extraction quality, not by the parity tolerance.
-
-**Path to close (revised):** (a) Improve per-loan rating extraction such that `moodysRatingFinal` and `fitchRatingFinal` are populated for ≥95% of positions on Euro XV. The remaining 5% legacy-bucket fallback is acceptable. (b) Tighten the C2 parity tolerance from ±2pp to ±0.1pp once coverage is sufficient. (c) Document the bijection between the per-agency rollup (used by C1 enforcement) and the legacy aggregate `pctCccAndBelow` (used for partner-facing display) so neither drifts independently.
-
-**Defaulted-position semantics correction:** an earlier draft of this entry's path-to-close said "include defaulted positions in Caa bucket." That was wrong — per PPM PDF p. 138 the Caa Obligations definition explicitly EXCLUDES Defaulted Obligations. The current implementation is PPM-correct via two filters at the call sites: `survivingPar > 0` (full defaults exit when par migrates to `defaultedParPending`) AND `defaultedParPending > 0 → continue` (partial defaults — the surviving piece is also dropped, conservative interpretation that treats any obligor with non-zero defaulted balance as a whole-obligor Defaulted Obligation). LML exclusion inside the pool-metrics loop covers Loss Mitigation Loans separately. The dual-filter invariant lives at the call site as a comment in `pool-metrics.ts`.
-
-**Test:** `c2-quality-forward-projection.test.ts:100` — current tolerance ±2pp on `pctCccAndBelow` is the ledger anchor for the residual extraction-coverage gap. Tighten to ±0.1pp on closure.
-
-**⚠ No active honesty-guard test for partial enforcement.** C1 enforcement against Caa/CCC concentration tests is now LIVE (per Feature A), so the prior "we don't enforce Caa" stance has flipped — the c1 test file's positive-enforcement assertions cover the new path. The remaining concern is the parity-tolerance gap on the legacy aggregate; pinning that requires re-validation each time the rating extraction pipeline changes.
 
 ---
 
@@ -807,21 +782,3 @@ No FX rate is ingested. The engine does not consume `currency` anywhere — `web
 
 ---
 
-<a id="ki-43"></a>
-### [KI-43] `ki58-blocking-extraction-failures.test.ts` referenced in `web/CLAUDE.md` but absent from repo
-
-**Surfaced:** 2026-05-04 during KI-16 Phase 2 codebase exploration.
-
-**Reference:** `web/CLAUDE.md` § "Silent fallbacks on extraction failures are bugs, not defaults" claims: "The canonical inventory of every site under this rule lives in `web/lib/clo/__tests__/ki58-blocking-extraction-failures.test.ts` (one `it()` block per site)..."
-
-**Verification (2026-05-04):** `find web/lib/clo/__tests__ -name "ki58-blocking-extraction-failures*"` returns nothing. The CLAUDE.md claim is partner-facing-style documentation drift — recurring-failure-mode #2 ("partner-facing claims mechanically bound to engine state") applied one layer up to docs.
-
-**Current engine behavior:** Blocking-warning sites exist as individual `severity: "error", blocking: true` warnings in `resolver.ts` (verifiable via the grep CLAUDE.md cites). No single test file aggregates them. The "ledger ↔ test bijection" CLAUDE.md cites against this anchor is broken.
-
-**Path to close:** Two options — (a) create the file with one `it()` per `blocking: true` warning site in `resolver.ts` (preferred per CLAUDE.md text); (b) edit `web/CLAUDE.md` to remove the claim if the test was aspirational.
-
-**Tentative status:** Filed as tentative pending decision on (a) vs (b). Filed per project rule (newly-discovered candidate KIs ship with their entry in the same PR as the discovery).
-
-**Test:** No active marker — the entry IS the marker (filing-only). Closure mechanism: either the new test file (option a) or the CLAUDE.md edit (option b).
-
----

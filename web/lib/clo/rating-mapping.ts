@@ -28,11 +28,26 @@ export const MOODYS_WARF_FACTORS: Record<string, number> = {
   ca: 10000, c: 10000,
 };
 
+/** Canonical rating-string normalizer. Strips trailing parentheticals
+ *  ("(sf)", "(p)") and rating-watch flags ("*-", "*+"). Lowercases.
+ *  Single source of truth for textual cleanup so per-agency predicates
+ *  (`isMoodysCaaOrBelow`, `isFitchCccOrBelow`) and WARF-factor lookup
+ *  cannot drift. Anti-pattern #5 boundary: any consumer that operates on
+ *  raw rating strings (validator, buy-list filter, mapping helpers) must
+ *  go through this. */
+export function stripRatingSuffixes(rating: string): string {
+  // Order matters: watch flags appear AFTER parentheticals on inputs like
+  // "Caa1 (sf) *-", so strip the watch flag first to peel back the layers
+  // outside-in.
+  return rating.trim().toLowerCase()
+    .replace(/\s*\*.*$/, "")
+    .replace(/\s*\(.*\)\s*$/, "")
+    .trim();
+}
+
 export function moodysWarfFactor(rating: string | null | undefined): number | null {
   if (!rating) return null;
-  // Strip "(sf)" / "*-" / whitespace suffixes. "Ba2 (sf)" → "ba2".
-  const key = rating.trim().toLowerCase().replace(/\s*\(.*\)\s*$/, "").replace(/\*.*$/, "").trim();
-  return MOODYS_WARF_FACTORS[key] ?? null;
+  return MOODYS_WARF_FACTORS[stripRatingSuffixes(rating)] ?? null;
 }
 
 /** D2 — Convert a Moody's WARF factor to a per-quarter default hazard rate.
@@ -98,7 +113,7 @@ const SP_FITCH_MAP: Record<string, RatingBucket> = {
 
 function tryMap(rating: string | null, map: Record<string, RatingBucket>): RatingBucket | null {
   if (!rating || !rating.trim()) return null;
-  return map[rating.trim().toLowerCase()] ?? null;
+  return map[stripRatingSuffixes(rating)] ?? null;
 }
 
 export function mapToRatingBucket(

@@ -48,7 +48,10 @@ function loadRaw(): RawFixture["raw"] {
   return JSON.parse(JSON.stringify(JSON.parse(readFileSync(FIXTURE_PATH, "utf8")).raw));
 }
 
-function runResolver(raw: RawFixture["raw"]) {
+function runResolver(
+  raw: RawFixture["raw"],
+  intexPositions?: Map<string, import("../resolve-rating").IntexPositionRow>,
+) {
   return resolveWaterfallInputs(
     raw.constraints,
     raw.complianceData,
@@ -58,6 +61,7 @@ function runResolver(raw: RawFixture["raw"]) {
     raw.dealDates,
     raw.accountBalances,
     raw.parValueAdjustments,
+    intexPositions,
   );
 }
 
@@ -699,5 +703,46 @@ describe("Carve-out at :1434 (display-only, severity:error + blocking:false)", (
     expect(() =>
       buildFromResolved(resolved, DEFAULT_ASSUMPTIONS, [w!]),
     ).not.toThrow();
+  });
+});
+
+describe("Pattern E (per-position rating ladder absence — aggregated post-loop)", () => {
+  it("moodysRating — active position resolves absent on Moody's-rated deal → aggregated blocking", () => {
+    const raw = loadRaw();
+    // Wipe every Moody's rating channel on every active holding. With no
+    // Intex positions threaded in, the rating ladder has no SDF rung 1-3
+    // hit and no Intex rung 4-6 hit; absent fires for every active loan.
+    for (const h of raw.holdings as any[]) {
+      if (h.isDefaulted) continue;
+      h.moodysRating = null;
+      h.moodysRatingFinal = null;
+      h.moodysDpRating = null;
+      h.moodysIssuerRating = null;
+    }
+    const { resolved, warnings } = runResolver(raw);
+    const w = warnings.find((w) => w.field === "moodysRating");
+    expectBlockingError(w, "moodysRating (aggregated absent)");
+    // Aggregated shape: ONE warning per agency, listing all affected obligors
+    // (sample of up to 8 + "+N more"). Confirm the message lists obligor names
+    // so the partner-facing DATA INCOMPLETE banner identifies which positions
+    // need Intex coverage.
+    expect(w!.message).toMatch(/active position\(s\) have no Moody's rating/);
+    expectGateThrows(resolved, warnings);
+  });
+
+  it("fitchRating — active position resolves absent on Fitch-rated deal → aggregated blocking", () => {
+    const raw = loadRaw();
+    for (const h of raw.holdings as any[]) {
+      if (h.isDefaulted) continue;
+      h.fitchRating = null;
+      h.fitchRatingFinal = null;
+      h.fitchSecurityRating = null;
+      h.fitchIssuerRating = null;
+    }
+    const { resolved, warnings } = runResolver(raw);
+    const w = warnings.find((w) => w.field === "fitchRating");
+    expectBlockingError(w, "fitchRating (aggregated absent)");
+    expect(w!.message).toMatch(/active position\(s\) have no Fitch rating/);
+    expectGateThrows(resolved, warnings);
   });
 });

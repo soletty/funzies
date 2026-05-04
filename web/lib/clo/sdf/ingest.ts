@@ -6,6 +6,7 @@ import { parseNotes, type SdfNoteRow } from "./parse-notes";
 import { parseAccounts, type SdfAccountRow } from "./parse-accounts";
 import { parseTransactions, type SdfTransactionRow } from "./parse-transactions";
 import { parseAccruals, type SdfAccrualRow } from "./parse-accruals";
+import { parseIntexPositions, type ParsedIntexPositionRow } from "../intex/parse-positions";
 import type { SdfFileType, SdfIngestionResult, SdfParseResult } from "./types";
 
 type ParsedFile =
@@ -15,7 +16,8 @@ type ParsedFile =
   | { fileType: "notes"; parsed: SdfParseResult<SdfNoteRow> }
   | { fileType: "accounts"; parsed: SdfParseResult<SdfAccountRow> }
   | { fileType: "transactions"; parsed: SdfParseResult<SdfTransactionRow> }
-  | { fileType: "accruals"; parsed: SdfParseResult<SdfAccrualRow> };
+  | { fileType: "accruals"; parsed: SdfParseResult<SdfAccrualRow> }
+  | { fileType: "intex_positions"; parsed: SdfParseResult<ParsedIntexPositionRow> };
 
 const PROCESSING_ORDER: SdfFileType[] = [
   "notes",
@@ -25,6 +27,8 @@ const PROCESSING_ORDER: SdfFileType[] = [
   "accounts",
   "transactions",
   "accruals",
+  // Intex positions ingest after holdings — sidecar data, no FK to clo_holdings.
+  "intex_positions",
 ];
 
 const PHASE2_STUBS = new Set<SdfFileType>([]);
@@ -72,6 +76,11 @@ export async function ingestSdfFiles(
       parsed.set("accruals", {
         fileType: "accruals",
         parsed: parseAccruals(file.csvText),
+      });
+    } else if (file.fileType === "intex_positions") {
+      parsed.set("intex_positions", {
+        fileType: "intex_positions",
+        parsed: parseIntexPositions(file.csvText),
       });
     }
   }
@@ -302,6 +311,8 @@ async function processFile(
       return processTransactions(reportPeriodId, entry.parsed);
     case "accruals":
       return processAccruals(reportPeriodId, entry.parsed);
+    case "intex_positions":
+      return processIntexPositions(reportPeriodId, entry.parsed);
   }
 }
 
@@ -809,6 +820,42 @@ async function processAccruals(
       ...r,
     }));
     await sdfBatchInsert("clo_accruals", rows, client);
+
+    await client.query("COMMIT");
+    return parsed.rows.length;
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Intex per-position positions — DELETE + INSERT (idempotent re-ingest).
+// Sidecar to clo_holdings; no FK to it. Resolver-side join uses
+// (report_period_id, lxid|isin|facility_id).
+// ---------------------------------------------------------------------------
+
+async function processIntexPositions(
+  reportPeriodId: string,
+  parsed: SdfParseResult<ParsedIntexPositionRow>
+): Promise<number> {
+  if (parsed.rows.length === 0) return 0;
+
+  const client = await getClient();
+  try {
+    await client.query("BEGIN");
+    await client.query(
+      `DELETE FROM clo_intex_positions WHERE report_period_id = $1`,
+      [reportPeriodId]
+    );
+
+    const rows = parsed.rows.map((r) => ({
+      report_period_id: reportPeriodId,
+      ...r,
+    }));
+    await sdfBatchInsert("clo_intex_positions", rows, client);
 
     await client.query("COMMIT");
     return parsed.rows.length;

@@ -2,6 +2,7 @@ import type { Pass1Output, Pass2Output, Pass3Output, Pass4Output } from "./schem
 import type { CapitalStructureEntry } from "../types";
 import { normalizeClassName } from "../api";
 import { parseDecoratedAmount } from "../sdf/csv-utils";
+import { stripRatingSuffixes } from "../rating-mapping";
 
 export interface ValidationCheck {
   name: string;
@@ -33,7 +34,7 @@ const CCC_RATINGS = new Set([
 
 function isCccOrBelow(rating: string | null | undefined): boolean {
   if (!rating) return false;
-  return CCC_RATINGS.has(rating.toLowerCase().trim());
+  return CCC_RATINGS.has(stripRatingSuffixes(rating));
 }
 
 function pctDiff(expected: number, actual: number): number {

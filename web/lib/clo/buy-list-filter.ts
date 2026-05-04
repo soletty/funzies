@@ -28,7 +28,7 @@
 
 import type { BuyListItem } from "./types";
 import type { ResolvedDealData } from "./resolver-types";
-import { moodysWarfFactor } from "./rating-mapping";
+import { isMoodysCaaOrBelow, moodysWarfFactor } from "./rating-mapping";
 import { BUCKET_WARF_FALLBACK } from "./pool-metrics";
 
 export interface BuyListFilterParams {
@@ -65,14 +65,6 @@ export interface FilterResult {
   dropped: Array<{ item: BuyListItem; reasons: string[] }>;
 }
 
-/** Check whether a Moody's rating is in the Caa/Ca/C band. Case + suffix
- *  tolerant — matches "Caa2", "Caa2 (sf)", "ca", "C". */
-function isCaaOrBelow(moodysRating: string | null | undefined): boolean {
-  if (!moodysRating) return false;
-  const key = moodysRating.trim().toLowerCase().replace(/\s*\(.*\)\s*$/, "").replace(/\*.*$/, "").trim();
-  return key.startsWith("caa") || key === "ca" || key === "c";
-}
-
 /** Apply filters to a buy-list. Returns both passed + dropped-with-reasons
  *  so partner UI can show "here's what was excluded and why". */
 export function filterBuyList(items: BuyListItem[], filters: BuyListFilterParams): FilterResult {
@@ -103,7 +95,7 @@ export function filterBuyList(items: BuyListItem[], filters: BuyListFilterParams
       }
     }
 
-    if (filters.excludeCaa && isCaaOrBelow(item.moodysRating)) {
+    if (filters.excludeCaa && isMoodysCaaOrBelow(item.moodysRating)) {
       reasons.push(`Caa-or-below rating (${item.moodysRating})`);
     }
 

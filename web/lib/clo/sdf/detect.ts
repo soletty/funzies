@@ -43,6 +43,14 @@ const FINGERPRINTS: Fingerprint[] = [
     mustHave: ["Cash_Flow_Type", "Transaction_Code", "Settle_Date"],
     mustNotHave: [],
   },
+  {
+    // Intex DealCF per-position positions CSV — distinct from SDF outputs
+    // (lowercase column names, "clo_name" identifier). Filename pattern:
+    // <reportDate>_output_<dealName>_positions.csv. Generic across deals.
+    type: "intex_positions",
+    mustHave: ["identifier", "clo_name", "moody_issue_rating", "fitch_issue_rating"],
+    mustNotHave: [],
+  },
 ];
 
 export function detectSdfFileType(csvText: string): SdfFileType | null {

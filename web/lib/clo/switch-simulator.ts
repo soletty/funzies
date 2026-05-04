@@ -56,6 +56,8 @@ function toQualityMetricLoan(l: ResolvedLoan, currentDate: string) {
     currency: l.currency,
     moodysRatingFinal: l.moodysRatingFinal,
     fitchRatingFinal: l.fitchRatingFinal,
+    moodysRatingSource: l.moodysRatingSource,
+    isCreditEstimateOrPrivateRating: l.isCreditEstimateOrPrivateRating,
   };
 }
 

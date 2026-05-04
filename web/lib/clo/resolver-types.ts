@@ -353,10 +353,28 @@ export interface ResolvedLoan {
   moodysRating?: string;
   spRating?: string;
   fitchRating?: string;
-  // Derived ratings (what WARF actually uses)
+  // Derived ratings (what WARF actually uses). Resolver fills these via
+  // the ladder in `resolve-rating.ts` — SDF channels + Intex shadow rating
+  // channels + (when `raw.constraints.ratingDefinitions` extracted)
+  // cross-agency derivation + terminal default. The ladder rung that
+  // produced the value is captured below.
   moodysRatingFinal?: string;
   spRatingFinal?: string;
   fitchRatingFinal?: string;
+  /** Tag identifying which ladder rung resolved `moodysRatingFinal`.
+   *  Drives `pctMoodysRatingDerivedFromSp` (when `derive_from_sp`).
+   *  Drives the consumer-side blocking gate when `absent` and Moody's
+   *  is in the deal's agency set. */
+  moodysRatingSource?: import("./resolve-rating").MoodysRatingSource;
+  /** Tag identifying which ladder rung resolved `fitchRatingFinal`. */
+  fitchRatingSource?: import("./resolve-rating").FitchRatingSource;
+  /** True when Intex tags this position's Moody's OR Fitch rating as a
+   *  credit estimate / private letter rating. Drives partner-facing
+   *  `pctOnCreditEstimateOrPrivateRating` engine output (matches BNY
+   *  trustee-report page-3 disclosure shape). Independent of which
+   *  ladder rung resolved the rating — Intex tells us about provenance
+   *  even when the SDF channel ultimately won. */
+  isCreditEstimateOrPrivateRating?: boolean;
   // Market data
   currentPrice?: number;
   marketValue?: number;

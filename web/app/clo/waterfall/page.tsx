@@ -14,6 +14,7 @@ import {
   getTrades,
   getPanelForUser,
   getHistoricalSubNoteDistributions,
+  getIntexPositionsByReportPeriod,
   rowToProfile,
 } from "@/lib/clo/access";
 import { getBuyListForUser } from "@/lib/clo/buy-list";
@@ -40,7 +41,7 @@ export default async function WaterfallPage() {
   // Fetch report-level data if a deal record exists
   const reportPeriod = deal ? await getLatestReportPeriod(deal.id) : null;
 
-  const [waterfallSteps, tranches, trancheSnapshots, periodData, accountBalances, parValueAdjustments, holdings, trades, extractedDistributions] =
+  const [waterfallSteps, tranches, trancheSnapshots, periodData, accountBalances, parValueAdjustments, holdings, trades, extractedDistributions, intexPositions] =
     await Promise.all([
       reportPeriod ? getWaterfallSteps(reportPeriod.id) : Promise.resolve([]),
       deal ? getTranches(deal.id) : Promise.resolve([]),
@@ -51,6 +52,7 @@ export default async function WaterfallPage() {
       reportPeriod ? getHoldings(reportPeriod.id) : Promise.resolve([]),
       reportPeriod ? getTrades(reportPeriod.id) : Promise.resolve([]),
       deal ? getHistoricalSubNoteDistributions(deal.id) : Promise.resolve([]),
+      reportPeriod ? getIntexPositionsByReportPeriod(reportPeriod.id) : Promise.resolve(new Map()),
     ]);
 
   const panel = await getPanelForUser(session.user.id);
@@ -73,6 +75,7 @@ export default async function WaterfallPage() {
     { maturity: maturityDate, reinvestmentPeriodEnd, reportDate: reportPeriod?.reportDate ?? null, dealCurrency: deal?.dealCurrency ?? null },
     accountBalances,
     parValueAdjustments,
+    intexPositions,
   );
 
   // Build deal context for AI features

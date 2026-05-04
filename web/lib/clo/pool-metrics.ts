@@ -67,6 +67,18 @@ export interface PoolQualityMetrics {
   pctFitchCcc: number;
   /** `max(pctMoodysCaa, pctFitchCcc)` — coarse summary for UI display. */
   pctCccAndBelow: number;
+  /** Par share (%) of positions whose Moody's rating was derived from S&P
+   *  via the rating ladder's cross-agency rung (rather than coming directly
+   *  from a Moody's SDF or Intex channel). Mirrors the BNY trustee-report
+   *  page-3 disclosure shape: when high, the partner sees that the Moody's
+   *  concentration tests are sensitive to the per-deal S&P→Moody's mapping
+   *  table extracted from the PPM. Denominator: same as the WARF totalPar. */
+  pctMoodysRatingDerivedFromSp: number;
+  /** Par share (%) of positions whose Moody's OR Fitch rating is tagged by
+   *  Intex as a Credit Estimate or Private Letter rating (regulatory
+   *  confidentiality redacts the rating itself in the BNY trustee PDF as
+   *  `***`; only Intex carries the value). Denominator: WARF totalPar. */
+  pctOnCreditEstimateOrPrivateRating: number;
 }
 
 /** Minimum per-loan shape required for quality-metric computation. Both
@@ -98,6 +110,13 @@ export interface QualityMetricLoan {
   moodysRatingFinal?: string | null;
   /** Per-agency Fitch rating (sub-bucket, e.g. "CCC+"). Same fallback. */
   fitchRatingFinal?: string | null;
+  /** Tag identifying which rung of the rating ladder produced
+   *  `moodysRatingFinal`. `"derive_from_sp"` drives the
+   *  `pctMoodysRatingDerivedFromSp` aggregate. */
+  moodysRatingSource?: import("./resolve-rating").MoodysRatingSource;
+  /** True when Intex tags this position as a credit estimate or private
+   *  letter rating. Drives `pctOnCreditEstimateOrPrivateRating`. */
+  isCreditEstimateOrPrivateRating?: boolean;
 }
 
 /** Optional knobs for `computePoolQualityMetrics`. */
@@ -145,6 +164,10 @@ export interface QualityMetricsAggregates {
   /** Σ par over non-LML loans where `isFitchCccOrBelow(fitchRatingFinal)`
    *  (same bucket fallback as `moodysCaaPar`). */
   fitchCccPar: number;
+  /** Σ par over loans whose `moodysRatingSource === "derive_from_sp"`. */
+  moodysDerivedFromSpPar: number;
+  /** Σ par over loans whose `isCreditEstimateOrPrivateRating === true`. */
+  creditEstimateOrPrivatePar: number;
 }
 
 /** Single-pass aggregation over a loan list, producing the partial sums
@@ -185,6 +208,8 @@ export function aggregateQualityMetrics(
   let concDenom = 0;
   let moodysCaaPar = 0;
   let fitchCccPar = 0;
+  let moodysDerivedFromSpPar = 0;
+  let creditEstimateOrPrivatePar = 0;
 
   for (const l of loans) {
     const par = l.parBalance;
@@ -192,6 +217,10 @@ export function aggregateQualityMetrics(
     totalPar += par;
     warfSum += par * l.warfFactor;
     walSum += par * l.yearsToMaturity;
+
+    // Provenance aggregates — denominator is the same totalPar used for WARF.
+    if (l.moodysRatingSource === "derive_from_sp") moodysDerivedFromSpPar += par;
+    if (l.isCreditEstimateOrPrivateRating === true) creditEstimateOrPrivatePar += par;
 
     const isLML = l.isLossMitigationLoan === true;
     const isDeferring = l.isDeferring === true;
@@ -240,6 +269,8 @@ export function aggregateQualityMetrics(
     concDenom,
     moodysCaaPar,
     fitchCccPar,
+    moodysDerivedFromSpPar,
+    creditEstimateOrPrivatePar,
   };
 }
 
@@ -263,6 +294,8 @@ export function deriveQualityMetrics(
     concDenom,
     moodysCaaPar,
     fitchCccPar,
+    moodysDerivedFromSpPar,
+    creditEstimateOrPrivatePar,
   } = aggregates;
 
   if (totalPar === 0) {
@@ -275,6 +308,8 @@ export function deriveQualityMetrics(
       pctMoodysCaa: 0,
       pctFitchCcc: 0,
       pctCccAndBelow: 0,
+      pctMoodysRatingDerivedFromSp: 0,
+      pctOnCreditEstimateOrPrivateRating: 0,
     };
   }
 
@@ -291,6 +326,8 @@ export function deriveQualityMetrics(
   const pctMoodysCaa = concDenom > 0 ? (moodysCaaPar / concDenom) * 100 : 0;
   const pctFitchCcc = concDenom > 0 ? (fitchCccPar / concDenom) * 100 : 0;
   const pctCccAndBelow = Math.max(pctMoodysCaa, pctFitchCcc);
+  const pctMoodysRatingDerivedFromSp = (moodysDerivedFromSpPar / totalPar) * 100;
+  const pctOnCreditEstimateOrPrivateRating = (creditEstimateOrPrivatePar / totalPar) * 100;
 
   return {
     warf: warfSum / totalPar,
@@ -301,6 +338,8 @@ export function deriveQualityMetrics(
     pctMoodysCaa,
     pctFitchCcc,
     pctCccAndBelow,
+    pctMoodysRatingDerivedFromSp,
+    pctOnCreditEstimateOrPrivateRating,
   };
 }
 
