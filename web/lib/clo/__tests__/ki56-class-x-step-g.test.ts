@@ -1,16 +1,17 @@
 /**
- * KI-56: harness step-(G) merge correctness on Class X-bearing deals.
+ * Harness step-(G) merge correctness on Class X-bearing deals.
  *
  * On a deal with an amortising Class X tranche, PPM step (G) pays Class A
  * interest AND Class X scheduled amortisation pari-passu pro-rata from the
  * interest pool. Trustee waterfall reports step (g) as a single line summing
- * both flows. The harness merges the engine's Class A interest payment with
- * `stepTrace.classXAmortFromInterest` into a single `stepG_interest` bucket
- * so the comparison against trustee[g] ties out.
+ * both flows. The harness's `stepG_interest` bucket merges the engine's
+ * Class A interest payment with `stepTrace.classXAmortFromInterest` so the
+ * comparison against trustee[g] ties out 1:1.
  *
- * Pre-merge the harness had separate `classA_interest: ["g"]` and
- * `classXAmortFromInterest: []` buckets, and `classA_interest` would diverge
- * from trustee[g] by exactly `classXAmortFromInterest`.
+ * Splitting these into two buckets would diverge from trustee[g] by exactly
+ * the Class X amort amount on any Class X-bearing deal — silent on Euro XV
+ * (no Class X) but a loud false "engine bug" signal on the next deal whose
+ * capital structure includes an amortising tranche.
  */
 
 import { describe, it, expect } from "vitest";
@@ -20,7 +21,7 @@ import { runBacktestHarness } from "../backtest-harness";
 import type { BacktestInputs } from "../backtest-types";
 import { uniformRates } from "./test-helpers";
 
-describe("KI-56 harness step-(G) merge", () => {
+describe("harness step-(G) merge", () => {
   it("stepG_interest bucket equals Class A interest + Class X amort and ties to trustee[g]", () => {
     // Build a synthetic deal with an amortising Class X tranche (rank 1) and
     // a non-amortising Class A (rank 2). Class X amort fires on period 0

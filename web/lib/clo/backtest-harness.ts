@@ -66,7 +66,7 @@ export const STEP_TOLERANCES_TARGET: Record<EngineBucket, number> = {
   adminFeesPaid: 50,                 // step c        — red until B3 closes day-count (observed ~€709; tracked in n1 admin marker)
   seniorMgmtFeePaid: 100,            // step e        — day-count sensitive; fails until Sprint 1 / B3
   hedgePaymentPaid: 50,              // step f
-  stepG_interest: 1,                 // step g        — Class A interest + Class X amort merged (KI-56 closed); tightest post-B3
+  stepG_interest: 1,                 // step g        — Class A interest + Class X amort merged (pari-passu pro-rata per PPM); tightest post-B3
   classB_interest: 1,                // step h
   ocCure_AB: 1000,                   // step i        — compounds OC numerator drift
   classC_current: 1,                 // step j

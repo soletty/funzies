@@ -41,7 +41,6 @@ Categorized so a partner reading cold can separate "what's still wrong" from "wh
 - [KI-31 — Hedge cost bps never extracted; engine emits zero on every hedged deal](#ki-31)
 - [KI-36 — Per-tranche `payment_frequency` extracted but not consumed (uniform quarterly cadence)](#ki-36)
 - [KI-38 — FX / multi-currency unmodeled; `native_currency` parsed and discarded](#ki-38)
-- [KI-56 — N1 harness step-G sharing: `classA_interest` bucket compares against trustee[g] which on a Class X-bearing deal includes Class X amort](#ki-56)
 
 ### Deferred — intentionally not modeled, magnitude known
 - [KI-02 — Step (D) Expense Reserve top-up](#ki-02)
@@ -737,33 +736,3 @@ No FX rate is ingested. The engine does not consume `currency` anywhere — `web
 
 ---
 
-<a id="ki-56"></a>
-### [KI-56] N1 harness step-G sharing: `classA_interest` bucket compares against trustee[g] which on a Class X-bearing deal includes Class X amort
-
-**PPM reference:** PPM Condition 7 / step (G) — interest waterfall pari-passu disbursement to Class A interest AND Class X scheduled amortisation. Trustees report a single line for step (g) summing both flows; the engine emits them separately into `stepTrace.classA_interest` (via `trancheInterest[]`) and `stepTrace.classXAmortFromInterest`.
-
-**Current engine behavior:** `web/lib/clo/ppm-step-map.ts:149-195` (the `ENGINE_BUCKET_TO_PPM` map) maps `classA_interest: ["g"]`. The new `classXAmortFromInterest` bucket is mapped to `[]` (audit-metric, no PPM steps) as an interim measure documented inline in that file. The harness at `backtest-harness.ts:197-221` iterates buckets and sums trustee amounts at each bucket's mapped steps, comparing against the engine value.
-
-On Euro XV (no Class X tranche), the harness behavior is correct: `classXAmortFromInterest` engine value is 0; trustee step-(g) row reports only Class A interest; `classA_interest` ties to trustee[g]; `classXAmortFromInterest` ties to its empty-mapping zero comparison. No false delta.
-
-On a future deal whose capital structure includes Class X (or any other amortising tranche): trustee step-(g) reports the SUM of Class A interest + Class X amort. The engine's `classA_interest` bucket would then compare against `trustee[g] = classA_interest_actual + classX_amort_actual`, producing a spurious delta of approximately `classX_amort_actual` per period — flagged by the harness as a `classA_interest` failure even though the engine is emitting the right number into the right bucket.
-
-**PPM-correct behavior:** The harness must compare `(engine.classA_interest + engine.classXAmortFromInterest)` against `trustee[g]`, OR split the trustee step-(g) row by sub-type (Class A interest line vs Class X amort line) — the latter requires per-row trustee data that may not be reliably parseable across all trustees / vintages. Two options for the bucket map:
-- **(a)** `classXAmortFromInterest: ["g"]` alongside `classA_interest: ["g"]`, and update the harness loop to sum trustee[g] across BOTH engine buckets when comparing — turns the 1:1 bucket-step relationship into 1-many on step g.
-- **(b)** Merge `classA_interest` + `classXAmortFromInterest` into a combined `stepG_interest` bucket whose engine value is `trancheInterest["Class A"].paid + classXAmortFromInterest`, restoring 1:1.
-
-Option (a) preserves per-source granularity in the harness output (partner can see separately how much was Class A interest vs Class X amort) but requires harness logic changes. Option (b) is simpler but loses the per-source split.
-
-**Quantitative magnitude:** Zero on Euro XV. On a Class X-bearing deal, magnitude per period equals the Class X amort schedule paid in that period — typically 0.5%-1% of original Class X par per quarter, e.g. €500K/quarter on a €5M Class X amortising over 10 quarters. Compounds to a `classA_interest` bucket failure equal to total Class X amort over the harness period.
-
-**Deferral rationale:** Latent. Euro XV has no Class X. Filing per the discipline so the issue is captured before the first Class X-bearing deal is ingested into the harness — at which point the false `classA_interest` delta would be the harness's loudest failure and could be misread as an engine-side bug.
-
-**Path to close:**
-1. Decide between option (a) and option (b) above. Recommend (b) for simplicity if the partner-facing harness table doesn't need per-source breakdown; (a) if it does.
-2. If (a): change `ppm-step-map.ts` mapping to `classXAmortFromInterest: ["g"]`, and update the harness comparison loop at `backtest-harness.ts:197-221` to sum across all buckets sharing a step. Update the reverse-lookup `ppmStepToEngineBucket` to handle 1-many or document it as 1-of-many.
-3. If (b): rename `classA_interest` to `stepG_interest`, change `extractEngineBuckets` to populate from `trancheInterestByClass.get("Class A") + p.stepTrace.classXAmortFromInterest`, drop `classXAmortFromInterest` from `EngineBucket`. Update `STEP_TOLERANCES_TARGET` accordingly.
-4. Add a marker test that constructs a synthetic harness scenario with a Class X tranche (using a synthetic trustee distribution row at step g containing both Class A interest and Class X amort), and asserts the bucket comparison succeeds. Pre-fix the marker would assert the spurious delta; post-fix it flips to assertion of correctness.
-
-**Test:** No active marker on Euro XV (no Class X). After the fix, the synthetic harness scenario above pins it.
-
----
