@@ -198,8 +198,13 @@ describe("KI-56 harness step-(G) merge", () => {
     // 3. Run the harness; the stepG_interest bucket must tie to trustee[g]
     //    within €1 (pure arithmetic — no day-count / period-mismatch noise
     //    on a synthetic single-period deal).
+    //
+    // The `as string` cast on the find lets this test type-check cleanly
+    // BOTH pre-rename (when "stepG_interest" is not yet in the EngineBucket
+    // union — TS2367 otherwise) and post-rename. Same shape used for the
+    // two retired-bucket finds below.
     const harness = runBacktestHarness(inputs, backtest);
-    const stepG = harness.steps.find((s) => s.engineBucket === "stepG_interest");
+    const stepG = harness.steps.find((s) => (s.engineBucket as string) === "stepG_interest");
     expect(stepG, "harness must emit a stepG_interest bucket").toBeDefined();
     expect(stepG!.actual).toBeCloseTo(trusteeStepG, 2);
     expect(stepG!.projected).toBeCloseTo(classAPaid + classXAmort, 2);
@@ -217,34 +222,19 @@ describe("KI-56 harness step-(G) merge", () => {
 });
 ```
 
-- [ ] **Step 3: Run the test to confirm it fails to compile / type-checks red**
+- [ ] **Step 3: Run the test to confirm it fails (RED)**
 
 Run: `cd web && npm test -- ki56-class-x-step-g`
 
-Expected: TypeScript / Vitest reports a failure. Most likely shape: `harness.steps.find((s) => s.engineBucket === "stepG_interest")` returns `undefined` (the bucket doesn't exist yet); the `expect(stepG).toBeDefined()` assertion fails. Alternatively, if Vitest is strict on string-vs-union comparisons, you may see a type narrowing error on the literal "stepG_interest". Either way the test is RED.
+Expected: Vitest reports a failure with `expect(stepG).toBeDefined()` — the bucket doesn't exist yet, so `harness.steps.find(...)` returns `undefined`. The `as string` cast on the literal comparison keeps the test file type-clean, so `tsc --noEmit` between Task 1 and Task 2 only complains about the source files, not this test file.
 
 If the test errors out before reaching the `stepG` assertion (e.g. `runProjection` throws because of a missing field), inspect the throw and tighten the synthetic input. The pari-passu-absorption test (`projection-pari-passu-absorption.test.ts:267-302`) is the working reference shape for synthetic Class X inputs.
 
-- [ ] **Step 4: Commit the failing test**
+- [ ] **Step 4: DO NOT COMMIT YET**
 
-```bash
-cd /Users/solal/Documents/GitHub/funzies
-git add web/lib/clo/__tests__/ki56-class-x-step-g.test.ts
-git commit -m "$(cat <<'EOF'
-test(ki-56): add synthetic Class X harness test for step-(G) merge
+Per Defect 2 of the independent plan review: an isolated "failing test" commit landing on `main` after fast-forward merge would leave a deliberately-broken commit in `main`'s history, which breaks `git bisect` and any post-merge CI re-run. Instead, this plan commits the test + the implementation as ONE atomic commit on the feature branch (in Task 7). Leave the new test file uncommitted in the working tree and proceed.
 
-Pre-fix: harness emits classA_interest + classXAmortFromInterest as
-separate buckets; classA_interest diverges from trustee[g] by exactly
-classXAmortFromInterest. This test pins the post-fix shape: a single
-stepG_interest bucket equal to Class A interest + Class X amort,
-tying out to trustee[g] on a synthetic Class X-bearing deal.
-
-Marker test for KI-56 closure (per ledger ↔ test bijection rule).
-
-Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
-EOF
-)"
-```
+Verify with `git status`: `web/lib/clo/__tests__/ki56-class-x-step-g.test.ts` should appear under "Untracked files".
 
 ---
 
@@ -478,13 +468,20 @@ Expected: PASS across the board, with no new red marks. If any unrelated test fa
 
 ---
 
-## Task 7: Commit the implementation
+## Task 7: Commit the implementation (atomic — test + fix together)
 
-- [ ] **Step 1: Stage and commit the rename + harness changes**
+Per Defect 2 of the plan review: this commit bundles the synthetic test (written but not yet committed in Task 1) with the rename + extractor + tolerance + marker + blurb fixes (Tasks 2-5). One atomic commit on the feature branch keeps `main` green at every commit after the eventual merge.
+
+- [ ] **Step 1: Stage everything together and commit**
 
 ```bash
 cd /Users/solal/Documents/GitHub/funzies
-git add web/lib/clo/ppm-step-map.ts web/lib/clo/backtest-harness.ts web/lib/clo/__tests__/n1-correctness.test.ts web/app/clo/waterfall/HarnessPanel.tsx
+git add \
+  web/lib/clo/__tests__/ki56-class-x-step-g.test.ts \
+  web/lib/clo/ppm-step-map.ts \
+  web/lib/clo/backtest-harness.ts \
+  web/lib/clo/__tests__/n1-correctness.test.ts \
+  web/app/clo/waterfall/HarnessPanel.tsx
 git commit -m "$(cat <<'EOF'
 ki-56: merge classA_interest + classXAmortFromInterest into stepG_interest
 
@@ -509,6 +506,9 @@ Marker: KI-12b-classA's drift("classA_interest") becomes
 drift("stepG_interest"); on Euro XV the merged bucket value equals the
 old classA_interest value because classXAmortFromInterest = 0, so the
 pinned magnitude (€25,540.56) is unchanged.
+
+Ships with synthetic Class X-bearing harness marker test
+(ki56-class-x-step-g.test.ts) per ledger ↔ test bijection rule.
 
 Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
 EOF
@@ -542,9 +542,11 @@ DELETE this line entirely.
 
 - [ ] **Step 2: Remove the KI-56 entry**
 
-Delete lines 740-768 inclusive (the `<a id="ki-56"></a>` anchor through the closing `---`). The next entry (`<a id="ki-63"></a>`) starts immediately after.
+Delete lines 740-770 inclusive (the `<a id="ki-56"></a>` anchor at line 740 through the trailing blank at line 770, which sits between KI-56's closing `---` at line 769 and the next entry's anchor at line 771). Per the independent plan review (Defect 1) the closing `---` is at line 769, not 768; deleting only 740-768 would leave an orphan `---` next to the prior entry's closing `---`. The 740-770 range preserves the `--- / blank / next-anchor` boundary.
 
-- [ ] **Step 3: Confirm no stale `KI-56` references remain in code or docs**
+Verify with `head -n 745 web/docs/clo-model-known-issues.md | tail -n 15` after the edit: the output should show KI-38's closing `---`, a blank line, then the `<a id="ki-63"></a>` anchor — no orphan separators.
+
+- [ ] **Step 3: Confirm no stale `KI-56` references remain in source code**
 
 Run:
 
@@ -552,7 +554,9 @@ Run:
 grep -rn "KI-56\|ki-56\|ki56" web --include="*.ts" --include="*.tsx" --include="*.md"
 ```
 
-Expected output: only the new test file `web/lib/clo/__tests__/ki56-class-x-step-g.test.ts` (filename + JSDoc reference). No live source-code references to `KI-56`. If any other reference exists (e.g. an inline comment in `ppm-step-map.ts` or `backtest-harness.ts` left over from the old portability framing), remove it — the disclosure-bijection scanner (`web/lib/clo/__tests__/disclosure-bijection.test.ts`) will flag stale `KI-56` cross-references because the entry no longer exists.
+Expected output: only the new test file `web/lib/clo/__tests__/ki56-class-x-step-g.test.ts` (filename + JSDoc reference). No live source-code references to `KI-56`. If any other reference exists (e.g. an inline comment in `ppm-step-map.ts` or `backtest-harness.ts` left over from the old portability framing), remove it.
+
+Note: per the plan review's stylistic note 5, `disclosure-bijection.test.ts` does NOT scan test files — its `SCAN_FILES` covers `ppm-step-map.ts`, `projection.ts`, `resolver.ts`, etc. So the bijection scanner (Step 4) catches stale `KI-56` references in source code, but the manual grep above is the load-bearing safety check for test-file references. Treat the grep result, not the bijection-test result, as the authority on test files.
 
 - [ ] **Step 4: Run the disclosure-bijection test**
 
