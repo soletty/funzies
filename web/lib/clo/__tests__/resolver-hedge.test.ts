@@ -170,4 +170,23 @@ describe("resolveHedgeCost — Signal 2 positive cases", () => {
     const { resolved } = runResolver(raw);
     expect(resolved.hedgeCostBps).toBe(15);
   });
+
+  it("multi-row with one unparseable rate → blocks; partial sum is discarded", () => {
+    // Defense-in-depth invariant: if ANY periodic hedge row has a
+    // blocking issue, the whole hedgeCostBps blocks. A future change
+    // that "skips bad rows and sums the rest" would silently report
+    // partial data — exactly the principle-3 violation this closure
+    // exists to prevent. Locks return-0-on-block + early-exit.
+    const raw = loadRaw();
+    raw.constraints.fees = [
+      ...(raw.constraints.fees ?? []),
+      { name: "Currency Hedge Cost", rate: "30", rateUnit: "bps_pa" }, // valid
+      { name: "IR Swap Cost", rate: "per agreement", rateUnit: null }, // unparseable
+    ];
+    const { resolved, warnings } = runResolver(raw);
+    expect(resolved.hedgeCostBps).toBe(0);
+    const w = warnings.find((w) => w.field === "hedgeCostBps");
+    expect(w?.severity).toBe("error");
+    expect(w?.blocking).toBe(true);
+  });
 });
