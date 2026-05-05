@@ -1,14 +1,14 @@
 /**
- * KI-21 Scope 2 closure — canonical representation of per-period senior
- * expense amounts.
+ * Canonical representation of per-period senior expense amounts.
  *
- * The IC numerator and the cash-flow waterfall in `projection.ts` both
- * consume THIS object instead of re-implementing the sum / iteration. Adding
- * a new field here propagates to BOTH consumers automatically — drift-by-
+ * Three engine sites consume this shape directly: the normal-mode period
+ * loop (IC numerator + cash-flow waterfall), the post-acceleration
+ * executor, and the T=0 initialState.icTests construction. Adding a new
+ * field here propagates to all consumers automatically — drift-by-
  * construction impossible.
  *
- * Same template as D4's `pool-metrics.ts` extraction (which collapsed three
- * parallel quality-metric implementations).
+ * Same template as `pool-metrics.ts` (which collapsed three parallel
+ * quality-metric implementations).
  */
 
 /** Per-period senior expenses, broken out per PPM step. */

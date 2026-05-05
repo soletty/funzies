@@ -6,9 +6,9 @@
  *   - `switch-simulator.ts` — pre/post switch pool metrics so the UI can show
  *     compliance impact of a proposed trade.
  *
- * Extracting shared math here avoids the parallel-implementation trap tracked
- * as KI-21: per-period and per-switch metrics must match the engine's
- * definitions exactly.
+ * Extracting shared math here avoids the parallel-implementation trap:
+ * per-period and per-switch metrics must match the engine's definitions
+ * exactly.
  *
  * Methodology (PPM Euro XV Condition 1, PDF pp. 302-305, 127, 138):
  *   - `floatingWasBps` = Σ(par × spreadBps) / Σ(par) over Floating Par.
@@ -135,9 +135,9 @@ export interface PoolQualityMetricsOpts {
 /** Partial sums extracted from one pass over the loan list. Sole source of
  *  truth for both `computePoolQualityMetrics` (post-period output) and
  *  `projection.ts`'s reinvestment-compliance gate (boundary math). Co-locating
- *  the aggregation prevents the parallel-implementation drift tracked as
- *  KI-21 — the gate's pre-buy state and the helper's post-period state are
- *  guaranteed to use identical exclusion rules. */
+ *  the aggregation prevents parallel-implementation drift — the gate's pre-buy
+ *  state and the helper's post-period state are guaranteed to use identical
+ *  exclusion rules. */
 export interface QualityMetricsAggregates {
   /** Σ par over all loans with par > 0. WARF / WAL denominator. */
   totalPar: number;

@@ -9,10 +9,9 @@
  * toward Caa/CCC numerator OR denominator. The closure adds
  * `defaultedParPending > 0 → continue` filters at BOTH per-period
  * `computeQualityMetrics` (projection.ts ~1421) and the pre-buy
- * `maxCompliantReinvestment` gate (projection.ts ~1273) — KI-21
- * parallel-implementation invariant requires identical exclusions on both
- * sides so the gate's pre-buy state and the per-period output are
- * bit-identical.
+ * `maxCompliantReinvestment` gate (projection.ts ~1273) — the parallel-
+ * implementation invariant requires identical exclusions on both sides so
+ * the gate's pre-buy state and the per-period output are bit-identical.
  *
  * Without the filter: a partially-defaulted CCC loan with `survivingPar > 0`
  * would inflate `pctMoodysCaa` (numerator and denominator both grow, but the

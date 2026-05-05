@@ -26,7 +26,6 @@ Categorized so a partner reading cold can separate "what's still wrong" from "wh
 - [KI-08 — `trusteeFeesPaid` bundled steps B+C (PARTIAL: pre-fill D3 + cap mechanics C3 + 2026-05-04 PPM verifications cleared; day-count residuals remain blocked on KI-12a)](#ki-08)
 - [KI-12a — Senior / sub management fee base discrepancy](#ki-12a) — **BLOCKED ON DATA ACQUISITION** (Q4 2025 historical SDF + trustee-report bundles)
 - [KI-20 — D2 legacy escape-hatch on 6 test-factory sites](#ki-20)
-- [KI-21 — Parallel implementations of same calculation (PARTIAL — Scope 1+2 closed; Scope 3 accel + T=0 remains)](#ki-21)
 - [KI-23 — Industry taxonomy missing on BuyListItem + ResolvedLoan blocks industry-cap filtering](#ki-23)
 - [KI-24 — E1 citation propagation coverage is partial (8 deferred paths)](#ki-24)
 - [KI-33 — Reinvestment loan synthesis assumes par-purchase (€1 diverted = €1 par)](#ki-33)
@@ -413,41 +412,6 @@ The D5 buy-list filter therefore ships 4 enforceable filters (WARF / WAS / exclu
 Partner-demo gap but not blocking for Euro XV where industry concentration is likely within caps.
 
 **Test:** None standalone until Tier 1 ships. When it does, a `d5-industry-filter.test.ts` pinned to synthetic buy-list items would cover the normalization + filter logic.
-
----
-
-<a id="ki-21"></a>
-### [KI-21] Parallel implementations of same calculation in multiple engine sites (architectural — PARTIAL: Scope 1+2 closed, Scope 3 remains)
-
-**Status (2026-04-23):** Scope 1 (quality metrics) closed Sprint 4; Scope 2 (normal-mode waterfall two-path drift) closed Sprint 5; Scope 3 (accel executor + T=0 initialState hardcoded field enumerations) remains open — surfaced during Sprint 5 closure-verification probe.
-
-**Original scope (Sprint 4 / KI-01 ship):** Engine had multiple parallel-implementation sites where "same calculation maintained in two places" risked drift:
-
-1. **Quality-metric computation:** projection engine (per-period closure), switch simulator (inline recomputation), resolver T=0 (inline). Three implementations that needed to agree.
-2. **Senior-expense two-path drift (normal mode):** IC-numerator path (`totalSeniorExpenses` → `interestAfterFees`) vs cash-flow path (`availableInterest -=` chain). Two parallel accumulators computing the same six senior-expense amounts that had to stay in sync.
-
-**Scope 1 close (Sprint 4 / D4, 2026-04-23):** `lib/clo/pool-metrics.ts` now hosts the canonical implementations of `computePoolQualityMetrics`, `computeTopNObligorsPct`, and `BUCKET_WARF_FALLBACK`. Three consumers (projection engine, switch simulator, resolver) delegate to the shared helpers — drift-by-construction eliminated.
-
-**How Scope 2 surfaced (Sprint 4):** KI-01 ship. First-pass fix added `issuerProfitPaid` to `totalSeniorExpenses` only. Harness showed engine emitting €250 correctly AND KI-13a cascade probe showed sub-distribution drift UNCHANGED — meaning cash flow didn't lose the €250. Fixed by adding to the `availableInterest -=` chain; drift shifted by exactly −€250 as theory predicted.
-
-**Scope 2 close (Sprint 5, 2026-04-23):** Retired via `lib/clo/senior-expense-breakdown.ts` extraction — same template as D4's `pool-metrics.ts`. The IC numerator and the cash-flow chain in `projection.ts`'s normal-mode period loop now both derive from the same `SeniorExpenseBreakdown` object: the IC path calls `sumSeniorExpensesPreOverflow(breakdown)`, the cash-flow path calls `applySeniorExpensesToAvailable(breakdown, availableInterest)`. Two-path drift eliminated in normal mode.
-
-**Scope 3 (still open) — cross-site field-enumeration consistency:** The Scope 2 closure applies only to the normal-mode period loop. Two OTHER engine sites still maintain hardcoded six-field senior-expense enumerations:
-
-1. **Accelerated executor** (`runPostAccelerationWaterfall`, lines 661-668 in `projection.ts` — function declared at line 652): hardcoded `seniorPaid = { taxes: pay(input.seniorExpenses.taxes), issuerProfit: pay(...), trusteeFees: pay(...), adminExpenses: pay(...), seniorMgmtFee: pay(...), hedgePayments: pay(...) }`. Single-path (no internal parallel-accumulator bug) but DOES hardcode the full field list at a site separate from the normal-mode breakdown.
-2. **T=0 initialState.icTests** (line 1271 in `projection.ts`): hardcoded subtraction `scheduledInterest − taxesAmountT0 − issuerProfitAmountT0 − trusteeFeeAmountT0 − adminFeeAmountT0 − seniorFeeAmountT0 − hedgeCostAmountT0`. Also single-path internally but maintains its own field enumeration.
-
-**Concrete failure mode:** a future KI that adds a new senior expense (e.g., modeling KI-02 Expense Reserve top-up at step (D)) would update the `SeniorExpenseBreakdown` type and the normal-mode callsite picks it up automatically (Scope 2 closure win). BUT the accel executor + T=0 initialState would silently skip the new expense until a reader remembers to touch those sites. That's the vigilance-based maintenance Scope 2 was supposed to retire — just scoped narrowly.
-
-**Path to close (Scope 3):** Extend the breakdown's use to the other two sites:
-- Accel executor: accept a `breakdown: SeniorExpenseBreakdown` instead of the current field-by-field `seniorExpenses` param. Internal `pay(...)` loop iterates the breakdown's fields in PPM order. Callers (the accel branch in the period loop) pass the same breakdown they already construct.
-- T=0 initialState: construct a `SeniorExpenseBreakdown` at T=0 using quarterly rates instead of per-period amounts, then call `sumSeniorExpensesPreOverflow(breakdownT0)` once. Removes the hardcoded subtraction chain.
-
-Refactor scope is local: extend the breakdown's use to two more callsites with N1-harness re-verification. Forcing function: a new senior expense (KI-02 Expense Reserve would be the natural trigger).
-
-**Verification (Sprint 5, Scope 2 only):** Full suite green with unchanged numerical output. KI-13a expected drift unchanged at −€50,992.24 ± €50, KI-12b markers unchanged, KI-IC-AB/C/D markers unchanged. The refactor consolidated the normal-mode representation; it did not change any computed amount.
-
-**Tests:** `lib/clo/__tests__/senior-expense-breakdown.test.ts` covers the helpers' arithmetic and PPM-order truncation. Full waterfall correctness regression remains in `n1-correctness.test.ts`.
 
 ---
 

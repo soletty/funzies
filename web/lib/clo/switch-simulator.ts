@@ -97,7 +97,8 @@ export function applySwitch(
 
   // D4 — Recompute portfolio quality + concentration metrics so partner sees
   // compliance impact of the proposed trade. Uses the same `computePoolQualityMetrics`
-  // helper as the projection engine's per-period metrics to avoid drift (see KI-21).
+  // helper as the projection engine's per-period metrics — single source of
+  // truth, no parallel-implementation drift.
   // Funded-only filter: unfunded DDTLs don't count toward current pool composition.
   const fundedSwitched = switchedLoans.filter((l) => !l.isDelayedDraw);
   const qloans = fundedSwitched.map((l) => toQualityMetricLoan(l, resolved.dates.currentDate));

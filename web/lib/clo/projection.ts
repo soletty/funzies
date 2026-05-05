@@ -1801,17 +1801,17 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     // is bit-identical with `computePoolQualityMetrics`'s end-of-period
     // output. Drift between the two would mean the gate enforces against a
     // different pool than the one the partner sees on `qualityMetrics` —
-    // exactly the parallel-implementation trap KI-21 tracks.
+    // exactly the parallel-implementation trap the shared helper exists to
+    // prevent.
     const qLoans: QualityMetricLoan[] = [];
     for (const l of loanStates) {
       if (l.isDelayedDraw && (l.drawQuarter ?? 0) > currentQuarter) continue;
       if (l.survivingPar <= 0) continue;
       // Same partial-default exclusion as `computeQualityMetrics` —
-      // mirroring the per-period helper exactly is a hard requirement of
-      // KI-21 (parallel-implementation drift): the gate's pre-buy state
-      // and the per-period output must apply identical exclusions, else
-      // a reinvestment would be allowed against one denominator and
-      // displayed against another.
+      // mirroring the per-period helper exactly is load-bearing: the
+      // gate's pre-buy state and the per-period output must apply
+      // identical exclusions, else a reinvestment would be allowed
+      // against one denominator and displayed against another.
       if (l.defaultedParPending > 0) continue;
       qLoans.push({
         parBalance: l.survivingPar,
@@ -1943,7 +1943,7 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
   // `loanStates`. Ignores unfunded DDTLs and defaulted par pending recovery.
   // Called at each period emit so partner can see forward drift. Delegates
   // the math to `computePoolQualityMetrics` in pool-metrics.ts so the switch
-  // simulator uses identical formulas (see KI-21 — avoid parallel impls).
+  // simulator uses identical formulas — single source of truth, no drift.
   const computeQualityMetrics = (currentQuarter: number): PeriodQualityMetrics => {
     const qloans = [];
     for (const l of loanStates) {
@@ -2214,11 +2214,11 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     const adminFeeAmountT0 = poolPar * (adminFeeBps / 10000) / 4 * vatGrossUpT0Pre;
     const seniorFeeAmountT0 = poolPar * (seniorFeePct / 100) / 4;
     const hedgeCostAmountT0 = poolPar * (hedgeCostBps / 10000) / 4;
-    // KI-21 Scope 3 closure: fold the six per-T0 fee amounts into the
-    // canonical SeniorExpenseBreakdown so a future senior expense (e.g.
-    // KI-02 step (D) Expense Reserve top-up) auto-propagates here. The IC
-    // numerator at T=0 uses REQUESTED amounts (parity with the normal-mode
-    // IC numerator at the period loop), so trusteeOverflow / adminOverflow
+    // Fold the six per-T0 fee amounts into the canonical
+    // SeniorExpenseBreakdown so a future senior expense (e.g. KI-02 step
+    // (D) Expense Reserve top-up) auto-propagates here. The IC numerator
+    // at T=0 uses REQUESTED amounts (parity with the normal-mode IC
+    // numerator at the period loop), so trusteeOverflow / adminOverflow
     // are zero and the cap is not exercised at this site.
     const seniorExpenseBreakdownT0: SeniorExpenseBreakdown = {
       taxes: taxesAmountT0,
@@ -3116,9 +3116,9 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     const seniorFeeAmount = beginningPar * (seniorFeePct / 100) * dayFracActual;
     // PPM Step F: Hedge payments (NOT capped).
     const hedgeCostAmount = beginningPar * (hedgeCostBps / 10000) * dayFracActual;
-    // KI-21 Scope 2 closure: single canonical breakdown drives BOTH the IC
-    // numerator (via sumSeniorExpensesPreOverflow) AND the cash-flow chain
-    // (via applySeniorExpensesToAvailable below). Trustee/admin overflow at
+    // Single canonical breakdown drives BOTH the IC numerator (via
+    // sumSeniorExpensesPreOverflow) AND the cash-flow chain (via
+    // applySeniorExpensesToAvailable below). Trustee/admin overflow at
     // steps Y/Z is computed separately on residual interest after tranche
     // interest, so it's set later (see `trusteeOverflowPaid` block).
     //
@@ -3694,7 +3694,8 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     // PPM Steps (A)(i) → (F): senior expenses deducted in strict PPM order
     // (taxes → issuer profit → trustee capped → admin capped → senior mgmt
     // → hedge). Single helper drives this AND the IC numerator above from
-    // the same `seniorExpenseBreakdown` object — see KI-21 Scope 2. The
+    // the same `seniorExpenseBreakdown` object — drift-by-construction
+    // impossible because both consumers read the same field set. The
     // `paid` return is consumed by stepTrace emission below (post-truncation
     // values per partner-visible "actually paid" semantic); the IC numerator
     // above keeps the requested-deducted reading on purpose — see comment

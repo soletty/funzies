@@ -5,7 +5,7 @@
  * so partner UI comparing base vs switched pool summaries sees compliance
  * impact of the proposed trade directly. Shared computation lives in
  * `pool-metrics.ts` — same helpers as the projection engine's per-period
- * metrics (KI-21 — avoid parallel implementations).
+ * metrics (single source of truth, no parallel-implementation drift).
  *
  * Scope:
  *   ✅ warf, walYears, wacSpreadBps, pctCccAndBelow recomputed from switchedLoans.

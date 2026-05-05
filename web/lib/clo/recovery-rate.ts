@@ -5,9 +5,9 @@
 //   - projection.ts forward-default firing block (per-loan recovered cash).
 //
 // Lifting both sites to share one helper closes the parallel-implementation
-// drift documented in KI-21: adding or changing the convention requires
-// editing one file. A bijection unit test (`__tests__/recovery-rate.test.ts`)
-// pins the contract; downstream consumers compose without re-implementing.
+// drift: adding or changing the convention requires editing one file. A
+// bijection unit test (`__tests__/recovery-rate.test.ts`) pins the contract;
+// downstream consumers compose without re-implementing.
 //
 // Per-deal PPM language at the T=0 site (Adjusted CPA paragraph (e),
 // `oc.txt:7120-7124` for Ares European CLO XV) reads "the lesser of (i) its

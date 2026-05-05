@@ -1,5 +1,5 @@
 /**
- * KI-21 Scope 2 — `SeniorExpenseBreakdown` helpers.
+ * `SeniorExpenseBreakdown` helpers.
  *
  * Pure function unit tests; no engine wiring. The full waterfall correctness
  * regression lives in n1-correctness.test.ts (KI-13a / KI-IC / KI-12b

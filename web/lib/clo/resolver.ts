@@ -1580,7 +1580,7 @@ export function resolveWaterfallInputs(
       // Per-position agency recovery rates — propagate raw (unnormalized) so
       // the engine's forward-default site can call the same `resolveAgencyRecovery`
       // helper used at the T=0 site. Centralizing the convention in one helper
-      // is the KI-21 anti-drift template; see `recovery-rate.ts`.
+      // is the canonical anti-drift template; see `recovery-rate.ts`.
       // Intex provides per-agency derived recovery rates as a competing source
       // when the SDF doesn't carry the column. Fall back per agency rather
       // than at the helper level so any per-position SDF rate that IS present
