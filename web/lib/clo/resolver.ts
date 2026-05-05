@@ -722,9 +722,10 @@ function resolveSeniorExpensesCap(
  *
  *  Engine plumbing already consumes the result via
  *  `ProjectionInputs.hedgeCostBps` at every PPM site (T=0 IC
- *  numerator, per-period normal mode, post-acceleration executor —
- *  KI-21 Scope 3 closed). This function only fills in the resolver-
- *  layer half of the extraction gap. */
+ *  numerator, per-period normal mode, post-acceleration executor) —
+ *  hedge plumbing routes through the canonical `SeniorExpenseBreakdown`
+ *  uniformly. This function only fills in the resolver-layer half of
+ *  the extraction gap. */
 function resolveHedgeCost(
   constraints: ExtractedConstraints,
   warnings: ResolutionWarning[],

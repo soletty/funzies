@@ -9093,6 +9093,7 @@
     "interestSmoothingBalance": 0,
     "supplementalReserveBalance": 0,
     "expenseReserveBalance": 0,
+    "hedgeCostBps": 0,
     "preExistingDefaultedPar": 0,
     "preExistingDefaultRecovery": 0,
     "unpricedDefaultedPar": 0,
