@@ -1332,6 +1332,29 @@ export function resolveWaterfallInputs(
 
   // --- Loans ---
   const fallbackMaturity = resolvedMaturity;
+
+  // Per-position Discount Obligation classification helper. Resolver
+  // dispatches on the per-deal rule's `classificationThresholdPct`
+  // discriminated union: `single` applies one cutoff to every position,
+  // `split_by_rate_type` reads the rate-type flag and picks the
+  // floating/fixed cutoff. Used as a derivation fallback when the SDF
+  // path didn't populate `is_discount_obligation` on the holding row;
+  // returns null when the rule is missing OR the holding has no usable
+  // purchase price (resolver has already blocked on missing rule via
+  // resolveDiscountObligation; this null path covers greenfield
+  // fixtures and synthetic test inputs). See KI-29.
+  const classifyAsDiscountObligation = (
+    purchasePricePct: number | null,
+    isFixedRate: boolean,
+  ): boolean | undefined => {
+    if (discountObligationRule == null) return undefined;
+    if (purchasePricePct == null || purchasePricePct <= 0) return undefined;
+    const t = discountObligationRule.classificationThresholdPct;
+    const threshold =
+      t.type === "single" ? t.pct : isFixedRate ? t.fixedPct : t.floatingPct;
+    return purchasePricePct < threshold;
+  };
+
   // Bonds carry parBalance=0 by SDF convention (the "funded balance" concept
   // doesn't apply — their outstanding par lives in principalBalance). Use the
   // higher of the two so bonds aren't silently dropped. The SDF parser now
@@ -1657,6 +1680,25 @@ export function resolveWaterfallInputs(
       // present in the SDF. Resolver leaves undefined; only relevant for
       // distressed deals where the source extends to populate them.
       dayCountConvention: dccResult.convention,
+      // KI-29 per-position discount-obligation + long-dated state.
+      // Purchase price + acquisition date carry forward through the
+      // engine; classification flags are populated from the SDF row when
+      // the LLM/PDF extraction path filled them, else derived from the
+      // per-deal rule (discount) or universal rule (long-dated). The
+      // engine consumes these per-period at the OC numerator
+      // construction site rather than the static `discountObligationHaircut`
+      // scalar.
+      purchasePricePct:
+        h.purchasePrice != null && h.purchasePrice > 0 ? h.purchasePrice : undefined,
+      acquisitionDate: h.acquisitionDate ?? undefined,
+      isDiscountObligation:
+        h.isDiscountObligation ??
+        classifyAsDiscountObligation(h.purchasePrice ?? null, isFixed),
+      isLongDated:
+        h.isLongDated ??
+        (h.maturityDate != null && fallbackMaturity != null
+          ? new Date(h.maturityDate).getTime() > new Date(fallbackMaturity).getTime()
+          : undefined),
     });
   });
 
@@ -2018,6 +2060,39 @@ export function resolveWaterfallInputs(
   const longDatedObligationHaircut = pvAdj
     .filter(a => a.adjustmentType === "LONG_DATED_HAIRCUT" && a.netAmount != null)
     .reduce((s, a) => s + Math.abs(a.netAmount!), 0);
+
+  // --- T=0 reconciliation: per-position derived discount haircut vs trustee scalar ---
+  // KI-29: the engine consumes the per-position derived haircut from
+  // ResolvedLoan.purchasePricePct + isDiscountObligation at every period
+  // (commit 6 swap). The trustee scalar above is an INDEPENDENT signal
+  // from the compliance report's parValueAdjustments table — they should
+  // agree at T=0 within tolerance. A drift means either (a) the SDF
+  // holdings extraction missed some discount classifications that the
+  // trustee carries (data-quality gap) or (b) the per-deal rule is
+  // mis-extracted. Either way the partner needs to know — non-blocking
+  // warning surfaces the drift without refusing the projection (the
+  // scalar still rides forward as the long-dated haircut, and the
+  // discount haircut comes from per-position state in commit 6).
+  if (loans.length > 0 && discountObligationHaircut > 0) {
+    const derivedHaircut = loans
+      .filter(l => l.isDiscountObligation === true && l.purchasePricePct != null)
+      .reduce((s, l) => s + l.parBalance * (1 - l.purchasePricePct! / 100), 0);
+    const drift = Math.abs(derivedHaircut - discountObligationHaircut);
+    const tolerance = Math.max(1000, discountObligationHaircut * 0.05);
+    if (drift > tolerance) {
+      warnings.push({
+        field: "discountObligationHaircut",
+        message:
+          `T=0 reconciliation drift on discount-obligation haircut: ` +
+          `per-position derived = ${Math.round(derivedHaircut).toLocaleString()}, ` +
+          `trustee parValueAdjustments = ${Math.round(discountObligationHaircut).toLocaleString()}, ` +
+          `delta ${Math.round(drift).toLocaleString()} > tolerance ${Math.round(tolerance).toLocaleString()}. ` +
+          `Most likely the SDF holdings extraction missed some discount classifications that the trustee carries — verify isDiscountObligation flags / purchasePrice values on holdings. The engine consumes per-position state forward (KI-29); this drift indicates the T=0 OC numerator may diverge from the trustee's reported number even before any forward projection.`,
+        severity: "warn",
+        blocking: false,
+      });
+    }
+  }
 
   // --- Implied OC Adjustment ---
   // Residual between the trustee's Adjusted CPA and the components we can now identify

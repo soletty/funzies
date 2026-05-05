@@ -614,6 +614,42 @@ export interface ResolvedLoan {
    *  switch-simulator's `pctPik` recompute as the "actively accreting
    *  PIK" signal. */
   pikSpreadBps?: number;
+  /** Per-position purchase price as percent of par (immutable post-
+   *  acquisition). Sourced from `CloHolding.purchasePrice` (SDF row's
+   *  `purchase_price` field, scaled to percent). Drives the discount-
+   *  obligation classification at every period via the per-deal rule's
+   *  `classificationThresholdPct`. Distinct from `currentPrice` —
+   *  `purchasePricePct` is locked at acquisition and never updates;
+   *  `currentPrice` evolves with market and drives MV-based downstream
+   *  uses (A3 call-at-MtM, B1 EoD MV × PB, KI-29 hysteretic cure
+   *  threshold). Conflating the two is a known footgun. Undefined when
+   *  the SDF row carries no purchase_price (rare; resolver derives the
+   *  classification flag from currentPrice as a fallback). */
+  purchasePricePct?: number;
+  /** Date of acquisition (ISO YYYY-MM-DD). Sourced from
+   *  `CloHolding.acquisitionDate`. Used by the discount-obligation cure
+   *  mechanic to gate "MV at-or-above cure threshold for N days/PDs
+   *  *since acquisition*" — positions held for less than the cure
+   *  window cannot cure, regardless of price. Undefined for synthesised
+   *  reinvestment loans (acquisitionDate set at synthesis time inside
+   *  the engine). */
+  acquisitionDate?: string;
+  /** Per-position Discount Obligation classification flag. Resolver
+   *  populates from `CloHolding.isDiscountObligation` when present
+   *  (LLM/PDF-extraction path), else derives from
+   *  `purchasePricePct < classificationThresholdPct` per the deal's
+   *  per-deal rule (SDF path). Engine re-evaluates each period under
+   *  the cure mechanic (`continuous_threshold` may flip true→false if
+   *  cure conditions are met; `permanent_until_paid` never flips). */
+  isDiscountObligation?: boolean;
+  /** Per-position Long-Dated Collateral Obligation classification flag.
+   *  Resolver populates from `CloHolding.isLongDated` when present, else
+   *  derives from `loan.maturityDate > deal.maturityDate` (universal
+   *  rule across the PPM sample we have). Static — no cure mechanic for
+   *  long-dated. KI-29 partial closure: per-position classification is
+   *  modeled; per-deal forward-period valuation rule remains static
+   *  (mechanically bound to LongDatedStaticBanner). */
+  isLongDated?: boolean;
 }
 
 export type WarningSeverity = "info" | "warn" | "error";
