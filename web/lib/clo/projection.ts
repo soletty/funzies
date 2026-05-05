@@ -440,8 +440,7 @@ export interface ProjectionInputs {
   preExistingDefaultRecovery?: number; // market-price recovery for priced defaulted holdings
   unpricedDefaultedPar?: number; // par of defaulted holdings without market price (model applies recoveryPct)
   preExistingDefaultOcValue?: number; // recovery value for OC numerator (agency rate — typically higher than market)
-  discountObligationHaircut?: number; // [DEPRECATED in KI-29 commit 6] net OC deduction for discount obligations (from trustee report). Engine swaps to per-position Σ at projection.ts:2180 + :3568; kept on the type until the swap lands so commit 5 (type extension) is build-green standalone.
-  longDatedObligationHaircut?: number; // net OC deduction for long-dated obligations (from trustee report). Per-position classification lands in KI-29 commit 6; per-deal forward-period valuation rule remains static — bound to LongDatedStaticBanner.
+  longDatedObligationHaircut?: number; // net OC deduction for long-dated obligations (from trustee report). Per-position classification lives on `LoanInput.isLongDated`; per-deal forward-period valuation rule remains static — mechanically bound to LongDatedStaticBanner via the > 0 condition.
   /** PPM Discount Obligation classification + cure rule (Condition 1).
    *  Resolver-extracted; engine consumes per-period for per-position
    *  discount-obligation classification and KI-33 price-aware cure math.
@@ -1449,7 +1448,7 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     supplementalReserveDisposition = "principalCash",
     seniorExpensesCapCarryforwardSeed,
     preExistingDefaultedPar = 0, preExistingDefaultRecovery = 0, unpricedDefaultedPar = 0, preExistingDefaultOcValue = 0,
-    discountObligationHaircut = 0, longDatedObligationHaircut = 0, impliedOcAdjustment = 0, quartersSinceReport = 0,
+    longDatedObligationHaircut = 0, impliedOcAdjustment = 0, quartersSinceReport = 0,
     ddtlDrawPercent = 100,
     moodysWarfTriggerLevel = null,
     minWasBps: minWasBpsTrigger = null,
@@ -2210,6 +2209,35 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
       : reinvestmentPeriodExtension ?? reinvestmentPeriodEnd;
   const rpEndDate = effectiveRpEnd ? new Date(effectiveRpEnd) : null;
 
+  // KI-29 — per-position discount-obligation haircut Σ. Replaces the
+  // static `discountObligationHaircut` scalar consumption pattern. Each
+  // classified position contributes `par × (1 − purchasePricePct/100)`
+  // to the OC numerator deduction, and the haircut shrinks automatically
+  // as positions amortize / prepay / default (their `survivingPar` decays
+  // in the existing loanStates mutation paths). Long-dated valuation
+  // continues to ride on the static `longDatedObligationHaircut` scalar
+  // per the KI-29 partial-closure scope; banner mechanically bound at
+  // the UI layer to the scalar > 0 condition.
+  //
+  // Skips contribution when `purchasePricePct == null` (no extracted
+  // price — no signal, contribute zero), `purchasePricePct >= 100`
+  // (premium-purchase has no haircut by definition), or `isDelayedDraw`
+  // (unfunded commitment doesn't carry an OC haircut). Hand-constructed
+  // test fixtures that don't model the discount mechanic see all loans
+  // with `isDiscountObligation === undefined` and the haircut collapses
+  // to zero — same numerical output as the pre-KI-29 path on those
+  // inputs.
+  const computeDiscountHaircut = (states: LoanState[]): number => {
+    let total = 0;
+    for (const l of states) {
+      if (l.isDiscountObligation !== true) continue;
+      if (l.purchasePricePct == null || l.purchasePricePct >= 100) continue;
+      if (l.isDelayedDraw) continue;
+      total += l.survivingPar * (1 - l.purchasePricePct / 100);
+    }
+    return total;
+  };
+
   // ── T=0 snapshot for N6 harness (determination-date compliance parity) ──
   // Computed BEFORE the period loop runs. Uses initial trancheBalances (no
   // mutations), initial pool par, initial principal cash, agency default
@@ -2232,8 +2260,9 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     const currentDdtlUnfundedPar = hasLoans
       ? loanStates.filter(l => l.isDelayedDraw).reduce((s, l) => s + l.survivingPar, 0)
       : 0;
+    const discountHaircutT0 = hasLoans ? computeDiscountHaircut(loanStates) : 0;
     const ocNumerator = poolPar + initialPrincipalCash + pendingRecoveryValue + ocDefaultAdjustment
-      - discountObligationHaircut - longDatedObligationHaircut - impliedOcAdjustment - currentDdtlUnfundedPar;
+      - discountHaircutT0 - longDatedObligationHaircut - impliedOcAdjustment - currentDdtlUnfundedPar;
 
     const ocTests: ProjectionInitialState["ocTests"] = ocTriggersByClass.map((oc) => {
       const debtAtAndAbove = ocEligibleAtStart
@@ -3619,9 +3648,10 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     // cash sitting in the Principal Account at the Determination Date
     // immediately preceding period q+1's Payment Date.
     priorPeriodEndPrincipalCash = remainingPrelim;
+    const discountHaircut = hasLoans ? computeDiscountHaircut(loanStates) : 0;
     let ocNumerator = endingPar + remainingPrelim - suppReserveLeftoverInRemainingPrelim
       + pendingRecoveryValue + ocDefaultAdjustment
-      - discountObligationHaircut - longDatedObligationHaircut - impliedOcAdjustment - currentDdtlUnfundedPar;
+      - discountHaircut - longDatedObligationHaircut - impliedOcAdjustment - currentDdtlUnfundedPar;
     if (hasLoans && cccBucketLimitPct > 0) {
       const cccPar = loanStates
         .filter((l) => !l.isDelayedDraw && l.ratingBucket === "CCC" && l.survivingPar > 0)
