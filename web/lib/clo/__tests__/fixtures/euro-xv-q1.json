@@ -158,75 +158,35 @@
         "triggerLevel": 129.37,
         "rank": 2,
         "testType": "OC",
-        "source": "compliance",
-        "citation": {
-          "sourcePages": [
-            28,
-            207,
-            208
-          ],
-          "sourceCondition": null
-        }
+        "source": "compliance"
       },
       {
         "className": "C",
         "triggerLevel": 120.3,
         "rank": 3,
         "testType": "OC",
-        "source": "compliance",
-        "citation": {
-          "sourcePages": [
-            28,
-            207,
-            208
-          ],
-          "sourceCondition": null
-        }
+        "source": "compliance"
       },
       {
         "className": "D",
         "triggerLevel": 111.47,
         "rank": 4,
         "testType": "OC",
-        "source": "compliance",
-        "citation": {
-          "sourcePages": [
-            28,
-            207,
-            208
-          ],
-          "sourceCondition": null
-        }
+        "source": "compliance"
       },
       {
         "className": "E",
         "triggerLevel": 105.8,
         "rank": 5,
         "testType": "OC",
-        "source": "compliance",
-        "citation": {
-          "sourcePages": [
-            28,
-            207,
-            208
-          ],
-          "sourceCondition": null
-        }
+        "source": "compliance"
       },
       {
         "className": "F",
         "triggerLevel": 103.24,
         "rank": 6,
         "testType": "OC",
-        "source": "compliance",
-        "citation": {
-          "sourcePages": [
-            28,
-            207,
-            208
-          ],
-          "sourceCondition": null
-        }
+        "source": "compliance"
       }
     ],
     "icTriggers": [
@@ -235,45 +195,21 @@
         "triggerLevel": 120,
         "rank": 2,
         "testType": "IC",
-        "source": "compliance",
-        "citation": {
-          "sourcePages": [
-            28,
-            207,
-            208
-          ],
-          "sourceCondition": null
-        }
+        "source": "compliance"
       },
       {
         "className": "C",
         "triggerLevel": 110,
         "rank": 3,
         "testType": "IC",
-        "source": "compliance",
-        "citation": {
-          "sourcePages": [
-            28,
-            207,
-            208
-          ],
-          "sourceCondition": null
-        }
+        "source": "compliance"
       },
       {
         "className": "D",
         "triggerLevel": 105,
         "rank": 4,
         "testType": "IC",
-        "source": "compliance",
-        "citation": {
-          "sourcePages": [
-            28,
-            207,
-            208
-          ],
-          "sourceCondition": null
-        }
+        "source": "compliance"
       }
     ],
     "qualityTests": [
@@ -931,32 +867,14 @@
     "reinvestmentOcTrigger": {
       "triggerLevel": 103.74,
       "rank": 6,
-      "diversionPct": 50,
-      "citation": {
-        "sourcePages": [
-          28,
-          207,
-          208
-        ],
-        "sourceCondition": null
-      }
+      "diversionPct": 50
     },
     "dates": {
       "maturity": "2036-01-15",
       "reinvestmentPeriodEnd": "2026-07-14",
       "nonCallPeriodEnd": "2023-06-16",
       "firstPaymentDate": "2022-07-15",
-      "currentDate": "2026-04-01",
-      "citation": {
-        "sourcePages": [
-          18,
-          19,
-          20,
-          21,
-          22
-        ],
-        "sourceCondition": null
-      }
+      "currentDate": "2026-04-01"
     },
     "fees": {
       "seniorFeePct": 0.15,
@@ -9209,24 +9127,7 @@
     "ratingAgencies": [
       "moodys",
       "fitch"
-    ],
-    "tranchesCitation": {
-      "sourcePages": [
-        18
-      ],
-      "sourceCondition": null
-    },
-    "waterfallCitation": {
-      "sourcePages": [
-        176,
-        179
-      ],
-      "sourceCondition": "OC Condition 3(c)"
-    },
-    "waterfallPostAccelCitation": {
-      "sourcePages": null,
-      "sourceCondition": "OC Condition 10"
-    }
+    ]
   },
   "warnings": [
     {
@@ -9299,17 +9200,7 @@
         "nonCallPeriodEnd": "2023-06-16",
         "paymentFrequency": "Quarterly in arrear",
         "originalIssueDate": "2021-12-16",
-        "reinvestmentPeriodEnd": "2026-07-14",
-        "_datesProvenance": {
-          "source_pages": [
-            18,
-            19,
-            20,
-            21,
-            22
-          ],
-          "source_condition": null
-        }
+        "reinvestmentPeriodEnd": "2026-07-14"
       },
       "cmDetails": {
         "name": "Ares Management Limited"
@@ -9317,18 +9208,7 @@
       "waterfall": {
         "interestPriority": "(A) Issuer taxes (i) + Issuer Profit Amount (ii)\n(B) Trustee Fees & Expenses \u2014 subject to Senior Expenses Cap\n(C) Administrative Expenses \u2014 subject to Senior Expenses Cap\n(D) Top-up of Expense Reserve Account \u2014 Senior Expenses Cap headroom\n(E) Senior Collateral Management Fee + VAT (current, then past due)\n(F) Scheduled Periodic Hedge Payments + Currency/Interest Rate Hedge Termination Payments (non-defaulted); Hedge Replacement Payments\n(G) Class A Interest Amounts\n(H) Class B-1 & B-2 Interest Amounts (pro rata, pari passu)\n(I) Redemption to cure Class A/B Coverage Tests (per Note Payment Sequence)\n(J) Class C Interest Amounts (current, ex Deferred Interest)\n(K) Class C Deferred Interest (per Condition 6(c))\n(L) Redemption to cure Class C Coverage Tests\n(M) Class D Interest Amounts (current, ex Deferred Interest)\n(N) Class D Deferred Interest\n(O) Redemption to cure Class D Coverage Tests\n(P) Class E Interest Amounts (current, ex Deferred Interest)\n(Q) Class E Deferred Interest\n(R) Redemption to cure Class E Par Value Test\n(S) Class F Interest Amounts (current, ex Deferred Interest)\n(T) Class F Deferred Interest\n(U) Redemption to cure Class F Par Value Test\n(V) Redemption on Effective Date Rating Event (if continuing)\n(W) Reinvestment OC Test cure: lesser of 50% of remaining IP, or amount to meet 103.74%, at CM discretion \u2014 reinvest or repay Rated Notes\n(X) Sub Collateral Management Fee + VAT (current, then past due); then CM Advances + interest thereon\n(Y) Trustee Fees & Expenses not paid under cap\n(Z) Administrative Expenses not paid under cap\n(AA) Defaulted Currency/IR Hedge Termination Payments (pari passu, pro rata)\n(BB) Supplemental Reserve Account deposit (during Reinvestment Period, CM discretion)\n(CC) Incentive Collateral Management Fee (IF IRR Threshold met: 20% of remaining IP) + VAT\n(DD) All remaining Interest Proceeds \u2192 Subordinated Notes (pro rata)",
         "postAcceleration": "(A) taxes + profit \u2192 (B) trustee fees uncapped \u2192 (C) admin expenses uncapped \u2192 (D) senior mgmt fee \u2192 (E) hedge periodic/termination (non-defaulted) \u2192 (F) Class A P+I \u2192 (G) Class B P+I pari passu \u2192 (H) Class C I+P sequential \u2192 \u2026 \u2192 (Q) Sub mgmt fee \u2192 (T) hedge defaulted termination \u2192 (V) incentive fee if IRR met \u2192 (W) residual to Sub Noteholders",
-        "principalPriority": "(A) Sequential backfill of unpaid Interest waterfall items (A)\u2013(H)\n(B) Backfill of Interest item (I) to extent needed for Class A/B Coverage Tests\n(C) Backfill of Interest item (J) to extent Class C Notes are Controlling Class\n(D) Backfill of Interest item (K) to extent Class C Notes are Controlling Class\n(E) Backfill of Interest item (L) to extent needed for Class C Coverage Tests\n(F) Backfill of Interest item (M) to extent Class D Notes are Controlling Class\n(G) Backfill of Interest item (N) to extent Class D Notes are Controlling Class\n(H) Backfill of Interest item (O) to extent needed for Class D Coverage Tests\n(I) Backfill of Interest item (P) to extent Class E Notes are Controlling Class\n(J) Backfill of Interest item (Q) to extent Class E Notes are Controlling Class\n(K) Backfill of Interest item (R) to extent needed for Class E Par Value Test\n(L) Backfill of Interest item (S) to extent Class F Notes are Controlling Class\n(M) Backfill of Interest item (T) to extent Class F Notes are Controlling Class\n(N) Backfill of Interest item (U) to extent needed for Class F Par Value Test\n(O) Backfill of Interest item (V) \u2014 Effective Date Rating Event\n(P) Special Redemption Amount (CM election on Special Redemption Date)\n(Q) Reinvestment/Substitute Collateral \u2014 (1) during Reinvestment Period: purchase Substitute Collateral or hold in Principal Account at CM discretion; (2) post-Reinvestment: reinvestment of Unscheduled Proceeds + Credit Improved/Credit Risk sale proceeds at CM discretion\n(R) After Reinvestment Period: redeem Notes per Note Payment Sequence\n(S) After Reinvestment Period: sequential backfill of Interest items (W)\u2013(Z)\n(T) Reinvesting Noteholder Reinvestment Amounts (sub notes)\n(U) Incentive Collateral Management Fee (IF IRR Threshold met) + VAT\n(V) All remaining Principal Proceeds \u2192 Subordinated Notes (principal first, then interest, pro rata)",
-        "_waterfallProvenance": {
-          "source_pages": [
-            176,
-            179
-          ],
-          "source_condition": "OC Condition 3(c)"
-        },
-        "_waterfallPostAccelProvenance": {
-          "source_pages": null,
-          "source_condition": "OC Condition 10"
-        }
+        "principalPriority": "(A) Sequential backfill of unpaid Interest waterfall items (A)\u2013(H)\n(B) Backfill of Interest item (I) to extent needed for Class A/B Coverage Tests\n(C) Backfill of Interest item (J) to extent Class C Notes are Controlling Class\n(D) Backfill of Interest item (K) to extent Class C Notes are Controlling Class\n(E) Backfill of Interest item (L) to extent needed for Class C Coverage Tests\n(F) Backfill of Interest item (M) to extent Class D Notes are Controlling Class\n(G) Backfill of Interest item (N) to extent Class D Notes are Controlling Class\n(H) Backfill of Interest item (O) to extent needed for Class D Coverage Tests\n(I) Backfill of Interest item (P) to extent Class E Notes are Controlling Class\n(J) Backfill of Interest item (Q) to extent Class E Notes are Controlling Class\n(K) Backfill of Interest item (R) to extent needed for Class E Par Value Test\n(L) Backfill of Interest item (S) to extent Class F Notes are Controlling Class\n(M) Backfill of Interest item (T) to extent Class F Notes are Controlling Class\n(N) Backfill of Interest item (U) to extent needed for Class F Par Value Test\n(O) Backfill of Interest item (V) \u2014 Effective Date Rating Event\n(P) Special Redemption Amount (CM election on Special Redemption Date)\n(Q) Reinvestment/Substitute Collateral \u2014 (1) during Reinvestment Period: purchase Substitute Collateral or hold in Principal Account at CM discretion; (2) post-Reinvestment: reinvestment of Unscheduled Proceeds + Credit Improved/Credit Risk sale proceeds at CM discretion\n(R) After Reinvestment Period: redeem Notes per Note Payment Sequence\n(S) After Reinvestment Period: sequential backfill of Interest items (W)\u2013(Z)\n(T) Reinvesting Noteholder Reinvestment Amounts (sub notes)\n(U) Incentive Collateral Management Fee (IF IRR Threshold met) + VAT\n(V) All remaining Principal Proceeds \u2192 Subordinated Notes (principal first, then interest, pro rata)"
       },
       "dealSizing": {
         "totalDealSize": "511050000",
@@ -9840,20 +9720,6 @@
           151
         ],
         "sourceCondition": "Condition 1 (Senior Expenses Cap)"
-      },
-      "_tranchesProvenance": {
-        "source_pages": [
-          18
-        ],
-        "source_condition": null
-      },
-      "_triggersProvenance": {
-        "source_pages": [
-          28,
-          207,
-          208
-        ],
-        "source_condition": null
       }
     },
     "fundProfile": {

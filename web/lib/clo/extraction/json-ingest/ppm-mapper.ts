@@ -32,7 +32,6 @@ function mapTransactionOverview(ppm: PpmJson): Record<string, unknown> {
 
 function mapCapitalStructure(ppm: PpmJson): Record<string, unknown> {
   const tranches = ppm.section_3_capital_structure.tranches;
-  const tranchesProvenance = deriveSectionProvenance(ppm.section_3_capital_structure as { source_pages?: unknown; source_condition?: unknown });
 
   // section_7_interest_mechanics.interest_deferral is keyed by snake_case base
   // class (class_a, class_b, ...). Sub-classes (B-1, B-2) inherit from base.
@@ -99,13 +98,11 @@ function mapCapitalStructure(ppm: PpmJson): Record<string, unknown> {
         ? String(ppm.section_3_capital_structure.total_principal)
         : undefined,
     },
-    _tranchesProvenance: tranchesProvenance ?? undefined,
   };
 }
 
 function mapKeyDates(ppm: PpmJson): Record<string, unknown> {
   const kd = ppm.section_2_key_dates;
-  const datesProvenance = deriveSectionProvenance(kd as { source_pages?: unknown; source_condition?: unknown });
   return {
     originalIssueDate: u(parseFlexibleDate(kd.issue_date)),
     currentIssueDate: u(parseFlexibleDate(kd.effective_date_actual)),
@@ -114,7 +111,6 @@ function mapKeyDates(ppm: PpmJson): Record<string, unknown> {
     reinvestmentPeriodEnd: u(parseFlexibleDate(kd.reinvestment_period_end)),
     firstPaymentDate: u(parseFlexibleDate(kd.first_payment_date)),
     paymentFrequency: u(kd.payment_frequency),
-    _datesProvenance: datesProvenance ?? undefined,
   };
 }
 
@@ -132,7 +128,6 @@ function mapKeyParties(ppm: PpmJson): Record<string, unknown> {
 
 function mapCoverageTests(ppm: PpmJson): Record<string, unknown> {
   const ct = ppm.section_4_coverage_tests;
-  const triggersProvenance = deriveSectionProvenance(ct as { source_pages?: unknown; source_condition?: unknown });
   // Build one entry per class_group, combining PV + IC on the same class_group.
   // Schema expects `class`, `parValueRatio` (string), `interestCoverageRatio` (string).
   const byClass = new Map<string, { pv?: number; ic?: number }>();
@@ -168,7 +163,6 @@ function mapCoverageTests(ppm: PpmJson): Record<string, unknown> {
       : cccAdj === null ? null : undefined,
     // Preserve EoD hybrid composition as passthrough (schema is .passthrough())
     eventOfDefaultParValueTest: ct.event_of_default_par_value_test,
-    _triggersProvenance: triggersProvenance ?? undefined,
   };
 }
 
@@ -309,16 +303,10 @@ function mapWaterfallRules(ppm: PpmJson): Record<string, unknown> {
   const wf = ppm.section_6_waterfall;
   const serializeClauses = (clauses: Array<{ clause: string; application: string }>): string =>
     clauses.map((c) => `(${c.clause}) ${c.application}`).join("\n");
-  const waterfallProvenance = deriveSectionProvenance(wf as { source_pages?: unknown; source_condition?: unknown });
-  const postAccelProvenance = deriveSectionProvenance(
-    wf.post_acceleration_priority_of_payments as { source_pages?: unknown; source_condition?: unknown } | undefined,
-  );
   return {
     interestPriority: serializeClauses(wf.interest_priority_of_payments.clauses),
     principalPriority: serializeClauses(wf.principal_priority_of_payments.clauses),
     postAcceleration: wf.post_acceleration_priority_of_payments?.sequence_summary ?? undefined,  // ppmWaterfallRulesSchema is string | undefined, NOT nullable
-    _waterfallProvenance: waterfallProvenance ?? undefined,
-    _waterfallPostAccelProvenance: postAccelProvenance ?? undefined,
   };
 }
 

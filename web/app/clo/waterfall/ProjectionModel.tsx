@@ -51,7 +51,6 @@ import { useMonteCarlo } from "@/lib/clo/useMonteCarlo";
 import MonteCarloChart from "./MonteCarloChart";
 import { formatPct, formatDate, TRANCHE_COLORS, formatAmount as helpersFormatAmount } from "./helpers";
 import { DealCurrencyProvider, MissingCurrencyBanner } from "./CurrencyContext";
-import { CitationTooltip } from "@/components/clo/CitationTooltip";
 import { SliderInput, SelectInput } from "./SliderInput";
 import { SummaryCard } from "./SummaryCard";
 import { ModelInputsPanel } from "./ModelInputsPanel";
@@ -1996,10 +1995,6 @@ export default function ProjectionModel({
           {/* Cash Flow Detail */}
           <h3 style={{ fontFamily: "var(--font-display)", fontSize: "0.95rem", fontWeight: 600, marginBottom: "0.75rem" }}>
             Cash Flow Detail
-            <CitationTooltip citation={resolved?.waterfallCitation ?? null} />
-            {resolved?.waterfallPostAccelCitation && (
-              <CitationTooltip citation={resolved.waterfallPostAccelCitation} />
-            )}
           </h3>
           <div
             style={{

@@ -4,10 +4,6 @@ export interface ResolvedReinvestmentOcTrigger {
   triggerLevel: number;
   rank: number;
   diversionPct: number; // % of remaining interest diverted when test fails (e.g. 50 for 50%)
-  /** E1: PPM provenance for the reinvestment OC trigger (broadcast section-level
-   *  pages from ppm.json section_4_coverage_tests). Section-level only — the
-   *  source carries no per-trigger granularity. */
-  citation?: Citation | null;
 }
 
 /** Canonical classification of compliance tests used by the engine and
@@ -277,23 +273,6 @@ export interface ResolvedDealData {
    *  field on the resolved deal (no UI assumption knob exists today). */
   interestNonPaymentGracePeriods: number | null;
   baseRateFloorPct: number | null; // extracted reference rate floor (null = not extracted, use default)
-  /** E1: PPM provenance for the capital-structure block (source_pages from
-   *  ppm.json section_3_capital_structure). Header-level — the source carries
-   *  no per-tranche granularity, so the citation applies to the tranche table
-   *  as a whole. Null when extraction didn't carry provenance. */
-  tranchesCitation?: Citation | null;
-  /** E1: PPM provenance for the interest/principal priority of payments
-   *  (source_pages + source_condition from ppm.json section_6_waterfall —
-   *  typically "OC Condition 3(c)" with pp. 176-179 on Ares-family deals).
-   *  Section-level — applies to the entire interest/principal waterfall as
-   *  rendered in the Period Trace. */
-  waterfallCitation?: Citation | null;
-  /** E1: PPM provenance for the post-acceleration priority of payments
-   *  (source_condition from ppm.json
-   *  section_6_waterfall.post_acceleration_priority_of_payments — typically
-   *  "OC Condition 10" on Ares-family deals). Pages are not always carried
-   *  on this sub-block; condition-only is acceptable. */
-  waterfallPostAccelCitation?: Citation | null;
   /** ISO 4217 currency code for the deal (e.g. "EUR", "USD", "GBP"). Sourced
    *  from `CloDeal.dealCurrency` when populated, otherwise derived as the
    *  modal `nativeCurrency` across non-defaulted holdings. Null when neither
@@ -427,11 +406,6 @@ export interface ResolvedTrigger {
   rank: number;
   testType: "OC" | "IC";
   source: "compliance" | "ppm";
-  /** E1: PPM provenance for the trigger (broadcast section-level pages from
-   *  ppm.json section_4_coverage_tests). Section-level only — the source
-   *  carries no per-class granularity, so every trigger on the deal carries
-   *  the same citation. */
-  citation?: Citation | null;
 }
 
 export interface ResolvedDates {
@@ -440,10 +414,6 @@ export interface ResolvedDates {
   nonCallPeriodEnd: string | null;
   firstPaymentDate: string | null;
   currentDate: string;
-  /** E1: PPM provenance for the key-dates block (source_pages from
-   *  ppm.json section_2_key_dates). Section-level only — every date in the
-   *  block shares the same citation. */
-  citation?: Citation | null;
 }
 
 export interface ResolvedFees {
