@@ -720,7 +720,7 @@ function resolveDiscountObligation(
       warnings.push({
         field: "discountObligationRule",
         message:
-          "PPM Discount Obligation rule (Condition 1, ppm.json:section_5_fees_and_hurdle.discount_obligation) is not extracted. Rule is deal-specific (classification threshold, cure mechanic, cure window, optional rate-type split) and drives the OC numerator's discount-obligation haircut at every period plus the reinvestment cure math (KI-33). Add the discount_obligation block to ppm.json with classification_threshold and cure_mechanic, then re-ingest.",
+          "PPM Discount Obligation rule (Condition 1, ppm.json:section_5_fees_and_hurdle.discount_obligation) is not extracted. Rule is deal-specific (classification threshold, cure mechanic, cure window, optional rate-type split) and drives the OC numerator's discount-obligation haircut at every period plus the price-aware reinvestment cure math. Add the discount_obligation block to ppm.json with classification_threshold and cure_mechanic, then re-ingest.",
         severity: "error",
         blocking: true,
       });

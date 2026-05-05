@@ -132,8 +132,8 @@ export interface PpmJson {
      *  Lives in section_5 alongside senior_expenses_cap because both are
      *  Condition-1 economic rules with downstream computational impact —
      *  the senior expenses cap on steps (B)+(C), the discount-obligation
-     *  classification on the OC numerator and the reinvestment cure math
-     *  (KI-29 + KI-33). Resolver maps to ResolvedDiscountObligationRule
+     *  classification on the OC numerator, and the price-aware
+     *  reinvestment cure math. Resolver maps to ResolvedDiscountObligationRule
      *  via ppm-mapper; blocks when null on a deal whose pool composition
      *  needs the rule. */
     discount_obligation?: {

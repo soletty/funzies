@@ -35,7 +35,6 @@ const ASSUMPTIONS_REGISTER: { domain: string; items: Assumption[] }[] = [
     items: [
       // arch-boundary-allow: ui-hardcodes-currency-symbol
       { label: "No active trading", detail: "The model does not capture manager trading activity (sales, purchases, credit risk trades). Real CLO managers actively trade — the Ares XVIII compliance report shows €5.8M in sales with a -€558K loss in a single month. Trading gains/losses directly affect par and returns.", impact: "high" },
-      { label: "Reinvestment at par", detail: "Reinvested assets are always purchased at par (100 cents on the dollar). In practice, managers buy at varying prices — discounts improve returns, premiums reduce them.", impact: "medium" }, // KI-33 (reinvestment loan synthesis assumes par-purchase)
       { label: "Uniform reinvestment quality", detail: "All reinvestment goes into a single synthetic loan with one rating and spread. Real reinvestment is diversified across many names, ratings, and spreads.", impact: "medium" },
       { label: "Constant prepayment rate", detail: "CPR is held constant. In reality, prepayments are cyclical — they increase when rates fall (borrowers refinance) and decrease when rates rise. This interacts with reinvestment spread.", impact: "medium" },
     ],
@@ -54,7 +53,7 @@ const ASSUMPTIONS_REGISTER: { domain: string; items: Assumption[] }[] = [
       { label: "No call prediction", detail: "The model does not predict when a deal will be called. Most performing CLOs are called at or near the first call date, which dramatically changes equity returns. Use the call date input to model this scenario.", impact: "high" },
       { label: "No frequency switch", detail: "Some deals switch from quarterly to semi-annual payments after a trigger event. The model is hardcoded to quarterly periods.", impact: "low" }, // KI-04 (Frequency Switch mid-projection cadence/rate switch)
       { label: "Quarterly periodicity", detail: "Cash flows are modeled in quarterly periods with beginning-of-period accrual. Real deals accrue daily and pay on specific calendar dates with business day adjustments.", impact: "low" }, // KI-04 (Frequency Switch mid-projection cadence/rate switch)
-      { label: "Discount obligation haircuts are static", detail: "Discount and long-dated obligation haircuts are applied at projection start from the trustee report, not recomputed forward through reinvestment. CCC excess haircuts ARE applied per-period.", impact: "low" }, // KI-29 (discount/long-dated haircuts not recomputed forward)
+      { label: "Long-dated obligation valuation is static", detail: "Long-dated obligations (loans whose maturity exceeds the deal maturity) carry a static trustee-reported haircut that does not amortize as positions mature or are paid down. Per-deal valuation rules (e.g. cap at 5% of APB, excess deemed zero) are not yet extracted.", impact: "low" }, // KI-29 (long-dated valuation residual)
       { label: "DDTL draw is a single event", detail: "Unfunded DDTLs draw fully (or at the user-specified percentage) in a single quarter. Real DDTLs may draw in tranches over time. Commitment fees on unfunded amounts are not modeled.", impact: "low" }, // KI-35 (partial DDTL draw discards un-drawn commitment)
     ],
   },

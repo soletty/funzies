@@ -371,13 +371,13 @@ export interface ProjectionInputs {
   reinvestmentSpreadBps: number;
   reinvestmentTenorQuarters: number;
   reinvestmentRating: string | null; // null = use portfolio modal
-  /** KI-33 — assumed purchase price (as percent of par) for reinvested loans
+  /** Assumed purchase price (as percent of par) for reinvested loans
    *  synthesized mid-projection. Drives the price-aware cure math in
    *  `computeReinvOcDiversion` and the per-position classification of
    *  synthesised loans (sub-threshold purchases become discount obligations
-   *  immediately). Default 100 (par-purchase) preserves pre-KI-33 behavior
-   *  for hand-constructed test inputs. Production callers via `buildFromResolved`
-   *  derive from the calibration hierarchy (slider override → recent BUY-trade
+   *  immediately). Default 100 (par-purchase) for hand-constructed test
+   *  inputs. Production callers via `buildFromResolved` derive from the
+   *  calibration hierarchy (slider override → recent BUY-trade
    *  weighted-average → pool-WAS-derived). */
   reinvestmentPricePct?: number;
   cccBucketLimitPct: number; // CCC excess above this % of par is haircut in OC test
@@ -452,7 +452,7 @@ export interface ProjectionInputs {
   longDatedObligationHaircut?: number; // net OC deduction for long-dated obligations (from trustee report). Per-position classification lives on `LoanInput.isLongDated`; per-deal forward-period valuation rule remains static — mechanically bound to LongDatedStaticBanner via the > 0 condition.
   /** PPM Discount Obligation classification + cure rule (Condition 1).
    *  Resolver-extracted; engine consumes per-period for per-position
-   *  discount-obligation classification and KI-33 price-aware cure math.
+   *  discount-obligation classification and price-aware cure math.
    *  Null on legacy fixtures and synthetic test inputs that don't model
    *  the discount mechanic — engine leaves all positions classified by
    *  whatever LoanInput.isDiscountObligation arrives at. */
@@ -900,40 +900,29 @@ export function quartersBetween(startIso: string, endIso: string): number {
  *
  * Returns 0 when (a) no interest to divert, (b) no rated debt, (c) test passes.
  *
- * Known approximation: assumes €1 diverted buys €1 of par (par-purchase). Real
- * reinvestments happen at market prices (typically 95–100%), so €1 of diversion
- * buys €1/price of par; cure-exact math would be `cureAmount × price`. Tracked
- * under C1 (reinvestment compliance) for modelling at purchase price.
+ * Price-aware OC cure cash sizing: returns both `cashDiverted` (subtracted
+ * from availableInterest) and `parBought` (pushed as new survivingPar).
+ * Math depends on whether the synthesised loan is sub-threshold:
+ *
+ *   - Above-threshold (purchasePricePct >= classificationThresholdPct):
+ *     not a discount obligation → contributes full par to OC numerator.
+ *     Cash needed for `numeratorGain` of cure: `cash = numeratorGain ×
+ *     purchasePricePct/100` (LEVERAGED — €1 cash buys €1/price par which
+ *     contributes €1/price numerator).
+ *
+ *   - Sub-threshold: synthesised position is a discount obligation →
+ *     contributes `par × purchasePricePct/100` to numerator after the
+ *     per-position haircut. Cash needed: `cash = numeratorGain` (no
+ *     leverage; same dollar of OC ratio per dollar of cash). Buying
+ *     sub-threshold paper does change pool composition (more par for the
+ *     same cash) but does not improve OC ratio more than holding cash.
+ *
+ * parBought = cashDiverted × (100 / purchasePricePct) in both cases.
+ * Caller uses parBought to size the new loan, cashDiverted to consume
+ * available interest. Caller is also responsible for setting
+ * `isDiscountObligation` on the synthesised loan per the same threshold
+ * test (so the haircut Σ on the next period reflects classification).
  */
-/** KI-33 — price-aware OC cure cash sizing.
- *
- *  Pre-fix: returned `cureAmount` interpreted as cash diverted, with the
- *  caller synthesising a loan of par equal to the cash. This implicitly
- *  assumed par-purchase (€1 cash buys €1 par) — wrong on any deal where
- *  reinvestment happens at non-par prices.
- *
- *  Post-fix: returns both `cashDiverted` (what to subtract from
- *  availableInterest) and `parBought` (what to push as new survivingPar).
- *  Math depends on whether the synthesised loan is sub-threshold:
- *
- *    - Above-threshold (purchasePricePct >= classificationThresholdPct):
- *      not a discount obligation → contributes full par to OC numerator.
- *      Cash needed for `numeratorGain` of cure: `cash = numeratorGain ×
- *      purchasePricePct/100` (LEVERAGED — €1 cash buys €1/price par which
- *      contributes €1/price numerator).
- *
- *    - Sub-threshold: synthesised position is a discount obligation →
- *      contributes `par × purchasePricePct/100` to numerator after the
- *      per-position haircut. Cash needed: `cash = numeratorGain` (no
- *      leverage; same dollar of OC ratio per dollar of cash). Buying
- *      sub-threshold paper does change pool composition (more par for the
- *      same cash) but does not improve OC ratio more than holding cash.
- *
- *  parBought = cashDiverted × (100 / purchasePricePct) in both cases.
- *  Caller uses parBought to size the new loan, cashDiverted to consume
- *  available interest. Caller is also responsible for setting
- *  `isDiscountObligation` on the synthesised loan per the same threshold
- *  test (so the haircut Σ on the next period reflects classification). */
 export function computeReinvOcDiversion(
   availableInterest: number,
   ocNumerator: number,
@@ -1881,7 +1870,7 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
   // (no per-position sub-bucket on reinvestment). NR→b2 proxy if bucket unknown.
   const reinvestmentWarfFactor = BUCKET_WARF_FALLBACK[reinvestmentRating] ?? BUCKET_WARF_FALLBACK.NR;
 
-  // KI-33 — sub-threshold flag for synthesised reinvestment loans, computed
+  // Sub-threshold flag for synthesised reinvestment loans, computed
   // once at engine setup since reinvestment-purchase shape doesn't vary per
   // period. Synthetic reinvestment loans are treated as floating-rate per
   // market default for Euro/USD CLOs (Ares family: floating threshold 80;
@@ -2313,7 +2302,7 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
   // never flips (returns immediately). At quarterly engine cadence with
   // static `currentPrice` from ingestion, the dispatch is a no-op after
   // the initial T=0 application — but it remains correctly per-period
-  // because (i) reinvested loans synthesised mid-projection (KI-33) get
+  // because (i) reinvested loans synthesised mid-projection get
   // classified at synthesis time and may cure on a later PD, and (ii)
   // any future engine extension that models price evolution will exercise
   // the per-period dispatch automatically. `days` cure window collapses
@@ -3123,8 +3112,8 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     }
     if (reinvestment > 0 && hasLoans) {
       const matQ = q + reinvestmentTenorQuarters;
-      // KI-33 — `reinvestment` is the cash amount; par bought at the
-      // assumed reinvestment price. avgLoanSize is a CASH ceiling (matches
+      // `reinvestment` is the cash amount; par bought at the assumed
+      // reinvestment price. avgLoanSize is a CASH ceiling (matches the
       // pool's dollar-weighted typical position size); the per-loan
       // `survivingPar` is the cash chunk × 1/(price/100). Sub-threshold
       // purchases set isDiscountObligation true at synthesis time so
@@ -4147,8 +4136,8 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
           const _mode: "reinvest" | "paydown" = inRP && !failingIc ? "reinvest" : "paydown";
           _stepTrace_ocCureDiversions.push({ rank, mode: _mode, amount: diversion });
           if (inRP && !failingIc) {
-            // KI-33 — price-aware synthesis. `diversion` here is the cash
-            // amount diverted to reinvestment; par bought scales with
+            // Price-aware synthesis. `diversion` here is the cash amount
+            // diverted to reinvestment; par bought scales with
             // 1/(purchasePricePct/100) so sub-par purchases buy more par
             // for the same cash. OC numerator increment depends on whether
             // the synthesised loan is sub-threshold (discount-obligation

@@ -28,13 +28,12 @@ Categorized so a partner reading cold can separate "what's still wrong" from "wh
 - [KI-20 — D2 legacy escape-hatch on 6 test-factory sites](#ki-20)
 - [KI-23 — Industry taxonomy missing on BuyListItem + ResolvedLoan blocks industry-cap filtering](#ki-23)
 - [KI-24 — E1 citation propagation coverage is partial (8 deferred paths)](#ki-24)
-- [KI-33 — Reinvestment loan synthesis assumes par-purchase (€1 diverted = €1 par)](#ki-33)
 - [KI-35 — Partial DDTL draw silently discards the un-drawn commitment](#ki-35)
 
 ### Latent — currently inactive on Euro XV; emerges on portability or stress
 *Distinct from "Deferred" (those are intentional design choices about mechanics that exist in the indenture but the model elects not to simulate). "Latent" entries are unmodeled or hardcoded paths whose current Euro XV magnitude happens to be zero, but which will produce wrong numbers the moment a deal hits the triggering condition (different deal structure, different PPM, non-zero balance, FX exposure, etc.). Treat each as a real bug whose materiality is data-dependent, not a deliberate scope decision.*
 
-- [KI-29 — Discount / long-dated obligation haircuts are static snapshots, not recomputed forward](#ki-29)
+- [KI-29 — Long-dated obligation forward-period valuation rule not modeled (PARTIAL: discount-obligation closed; long-dated classification done; long-dated valuation residual)](#ki-29)
 - [KI-31 — Hedge cost bps never extracted; engine emits zero on every hedged deal](#ki-31)
 - [KI-36 — Per-tranche `payment_frequency` extracted but not consumed (uniform quarterly cadence)](#ki-36)
 - [KI-38 — FX / multi-currency unmodeled; `native_currency` parsed and discarded](#ki-38)
@@ -489,32 +488,34 @@ Tier 1 closes the most common partner "where from?" questions; Tier 2+ wait for 
 ---
 
 <a id="ki-29"></a>
-### [KI-29] Discount / long-dated obligation haircuts are static snapshots, not recomputed forward
+### [KI-29] Long-dated obligation forward-period valuation rule not modeled — **PARTIAL: discount-obligation leg closed; long-dated classification done; long-dated valuation residual remains**
 
-**PPM reference:** Condition 1 ("Discount Obligation", "Long-Dated Obligation"); Condition 10(a)(iv) Adjusted Collateral Principal Amount construction. Discount obligations carry the LESSER of par and purchase price into the OC numerator (typically: positions purchased below 80c are valued at purchase price until they trade above some recovery threshold). Long-dated obligations (those maturing past the deal's stated maturity) take a separate haircut.
+**Status (closure of discount-obligation leg + KI-33 in same PR, 2026-05-05):**
 
-**Current engine behavior:** `web/lib/clo/projection.ts:189-190` declares `discountObligationHaircut` and `longDatedObligationHaircut` as scalar `ProjectionInputs` fields. Both are sourced from `resolver.ts:1083-1088`, which sums `parValueAdjustments` rows filtered by `adjustmentType === "DISCOUNT_OBLIGATION_HAIRCUT"` / `"LONG_DATED_HAIRCUT"` (extracted from the compliance report at report date), and applied unchanged at:
+The discount-obligation leg of this entry CLOSED:
+- `ResolvedLoan` carries `purchasePricePct`, `acquisitionDate`, `isDiscountObligation`, `isLongDated` per-position.
+- Per-deal `ResolvedDiscountObligationRule` (Condition 1 classification + cure mechanic) extracted from PPM via `ppm.json:section_5_fees_and_hurdle.discount_obligation`. Resolver blocks via `severity: "error", blocking: true` when missing on a non-greenfield deal.
+- Engine drives the OC numerator's discount-obligation haircut from per-position Σ at every period (T=0 and forward) via `computeDiscountHaircut(loanStates)` at `projection.ts:2266` + `:3655`. Per-position survivingPar decays naturally as positions amortize / prepay / default.
+- Cure mechanic dispatch (`continuous_threshold` with rate-type discriminator and holding-since-acquisition window; `permanent_until_paid`) re-evaluates classification per period via `applyCureDispatch`.
+- KI-33 closed in the same PR: `computeReinvOcDiversion` is price-aware (returns `{ cashDiverted, parBought }` with above-threshold-vs-sub-threshold dispatch); all four reinvestment synthesis sites set per-position fields including `purchasePricePct = reinvestmentPricePct` and `isDiscountObligation = isSubThreshold`.
 
-- `projection.ts:1241` — T=0 OC numerator construction.
-- `projection.ts:1994` — every period's OC numerator construction.
+Long-dated leg:
+- Per-position **classification** done — `loan.isLongDated = (loan.maturityDate > deal.maturityDate)` (universal rule in our PPM sample).
+- Per-deal **valuation rule** NOT modeled (Ares XV: 5% of APB cap, excess deemed zero; generic Ares: tiered with 2.5% CPA + 2-year cliff; N=2 deals show heterogeneous rules — encoding a discriminated union on this thin evidence would overfit). Engine continues to consume the trustee's static `longDatedObligationHaircut` scalar at every period; mechanically bound to a partner-facing banner (`LongDatedStaticBanner`) that fires whenever the scalar is > 0.
 
-The engine never recomputes either haircut as the pool composition evolves through reinvestment, default, or aging. A loan purchased post-T0 below the discount threshold is not flagged as a new discount obligation; a loan whose maturity ages past the deal's maturity does not become long-dated.
+**PPM reference (long-dated residual):** Condition 1 ("Long-Dated Obligation"); Condition 10(a)(iv) Adjusted Collateral Principal Amount paragraph (h). Each deal's PPM specifies a different valuation: Ares XV deems excess above 5% of APB to zero; the generic Ares PPM applies a tiered cap (first 2.5% of CPA at `min(MV × par, 70% × par)`, excess at `min(S&P CV, Fitch CV)`, anything > 2 years past maturity = zero).
 
-**PPM-correct behavior:** Both haircuts are pool-state-dependent and must be recomputed per period:
-- **Discount Obligation:** for each loan, the haircut at period T is `max(0, par − marketValue × par)` if the loan is currently classified as a discount obligation. Classification depends on purchase price relative to the threshold and a "cure" mechanism (the loan exits the discount-obligation status once it trades above the recovery threshold).
-- **Long-Dated Obligation:** for each loan, haircut at period T fires if `loan.maturityDate > deal.maturityDate − k_quarters` (k specified by PPM). As loans roll into reinvestment, the long-dated bucket grows or shrinks.
+**Current engine behavior (residual):** `ResolvedDealData.longDatedObligationHaircut` (number) is consumed at the OC numerator construction at every period (the same scalar across all periods). Per-position `LoanState.isLongDated` is set but never read by the haircut Σ — there's no per-deal valuation rule for the engine to dispatch on.
 
-**Quantitative magnitude:** On Euro XV at T=0 the haircuts are populated from the trustee snapshot and ride correctly. As reinvestment progresses (typical European CLO has 4–5 years of reinvestment), reinvested loans purchased at distressed prices in stress scenarios are not flagged. Bias grows monotonically through the projection. Materiality scales with the stress scenario: a 50% CDR + 70% recovery scenario typically induces 5-10% of the pool into discount-obligation status at the trough, none of which is captured by the static haircut. Effect is on partner-facing OC ratios in the back half of the projection.
+**Quantitative magnitude (residual):** Zero on Euro XV today (no long-dated positions; trustee scalar = 0; banner does not fire). On a deal with T=0 long-dated positions, the static scalar over-states haircut as the original cohort amortizes — same shape as the discount-obligation runoff bias the closed leg fixed. Materiality is data-dependent and partner-zero on Euro XV.
 
-**Deferral rationale:** Snapshot-based forward modeling is a deliberate simplification — recomputing the haircut requires per-loan purchase-price tracking through reinvestment, which the loan-state engine does not currently maintain. Distinct from KI-04 (cadence) and KI-12a (period mismatch).
+**Path to close (residual):**
+1. Survey N≥3 PPMs' long-dated valuation rules to establish a defensible discriminated union (avoid overfit on N=2 Ares deals).
+2. Extract per-deal rule from PPM into `ResolvedDealData.longDatedValuationRule` (new field, discriminated union).
+3. Engine consumes via per-position dispatch — sum over `loanStates` filtered by `isLongDated`, applying the per-deal rule.
+4. Delete `LongDatedStaticBanner.tsx` in lockstep with the engine swap; remove this entry from the ledger entirely (closed = deleted).
 
-**Path to close:**
-1. Extend `LoanState` (`projection.ts`) with `purchasePricePct: number | null` and `acquisitionDate: string | null` for reinvested loans.
-2. In the reinvestment loan-synthesis path (`projection.ts:1631-1635, 2273`), record the synthesized purchase price on the new `LoanState`.
-3. Each period, compute `currentDiscountObligationHaircut` as the sum over loans where `purchasePricePct < deal.discountThreshold` of `(par − purchasePricePct × par)`, and `currentLongDatedObligationHaircut` as the sum over loans where `loan.maturityDate > deal.maturityDate`. Replace the static `discountObligationHaircut` / `longDatedObligationHaircut` fields with the per-period computed values at lines 1241 and 1994.
-4. Decide cure mechanics for the discount-obligation classification (PPM-specific; either "permanent until paid" or "cure on price ≥ threshold for N consecutive periods"). Document the choice.
-
-**Test:** No active marker. When the fix lands, add `KI-29-discountObligationDynamic` with a synthetic fixture that reinvests at 75c and asserts the per-period haircut reflects the new position. Also extend the C2 forward-projection test (`c2-quality-forward-projection.test.ts`) to cover OC parity over a multi-period horizon under reinvestment-at-distressed-price scenarios.
+**Test:** marker pinned by `KI-29-longDatedStatic` in `c5-discount-obligation.test.ts` (asserts the static-scalar behavior is preserved on a synthetic fixture with non-zero long-dated haircut). KI-33 markers in `a2-reinv-oc-diversion.test.ts` (above-threshold-leverage and sub-threshold-no-leverage cases). Discount-obligation closure asserted via the engine's `computeDiscountHaircut` swap on a synthetic fixture with a sub-threshold reinvested loan; covered in `c5-discount-obligation.test.ts`.
 
 ---
 
@@ -540,33 +541,6 @@ Verified live on Euro XV: N1 harness diagnostic table shows `hedgePaymentPaid | 
 4. Verify against a hedged-deal trustee report once one is available; cross-check engine's step (F) emission against the trustee.
 
 **Test:** No active marker on Euro XV (engine 0, trustee 0). When extraction support lands, add a resolver test pinning the extracted bps for any hedged-deal fixture, and an N-harness test verifying step (F) tie-out.
-
----
-
-<a id="ki-33"></a>
-### [KI-33] Reinvestment loan synthesis assumes par-purchase (€1 diverted = €1 par)
-
-**PPM reference:** Condition 7 (Reinvestment Period mechanics). Real-world reinvestments happen at market prices: typically 95-100% in benign markets, 80-95% in stress.
-
-**Current engine behavior:** Confessed approximation in code at `web/lib/clo/projection.ts:477-486` (the `computeReinvOcDiversion` block):
-
-> *Known approximation: assumes €1 diverted buys €1 of par (par-purchase). Real reinvestments happen at market prices (typically 95–100%), so €1 of diversion buys €1/price of par; cure-exact math would be `cureAmount × price`. Tracked under C1 (reinvestment compliance) for modelling at purchase price.*
-
-The reinvestment loan synthesis paths at `projection.ts:1631, 1635` (per-period reinvestment), `:2273-2284` (OC-cure reinvestment), and `:2327` (additional reinvestment site) create new loans with `currentPrice` left undefined → defaulted to par downstream. The OC numerator gets credit for €1 of par per €1 of cash diverted, when in reality the diversion should buy `1/price` of par with the price showing up in the OC numerator at MV (or par with a discount-obligation haircut, depending on price relative to threshold).
-
-**PPM-correct behavior:** Cure math should solve `(numerator + cureAmount × currentPrice) / debt ≥ trigger` instead of `(numerator + cureAmount) / debt ≥ trigger`. The synthesized loan carries `currentPrice = marketPrice` and the OC numerator reflects MV-or-par-with-haircut per the discount-obligation rule. Same applies to non-cure reinvestment in the post-RP path.
-
-**Quantitative magnitude:** Zero in periods with no diversion or no reinvestment (Euro XV Q1 base case has both at 0). Material in stress scenarios where the OC trigger trips: each period of cure under-states the cure amount needed to meet the trigger, leaving the test in breach when the model says it has been cured. Direction of error: model over-states the cure efficacy → over-states OC → under-states the depth of the breach → under-states diversion to the right-hand side of the waterfall.
-
-**Deferral rationale:** Code already confesses the approximation. Path forward is well-understood; just hasn't been prioritized. Interacts with KI-29 (discount-obligation classification) — the right fix is to land both together so the reinvested loan that ends up below the discount threshold gets correctly haircut.
-
-**Path to close:**
-1. Decide and document the canonical reinvestment-price assumption: a user input (sensitivity slider), a pool-WAS-derived market estimate, or the trustee-reported recent-trade-average from `reinvestment-calibration.ts`.
-2. In `computeReinvOcDiversion`: solve `cureAmount × purchasePrice = trigger × debt − numerator` instead of `cureAmount = trigger × debt − numerator`. Returns the cash-diverted amount, not the par bought.
-3. In the reinvestment loan synthesis at `projection.ts:1631`, `:1635`, `:2273-2284`, AND `:2327`: set `currentPrice` to the assumed reinvestment price and let the existing pricing path handle the OC credit (with KI-29's discount-obligation logic if `purchasePrice < discountThreshold` — note KI-29 must land first or jointly, since the current static `discountObligationHaircut` scalar does not see new loans).
-4. Re-baseline any test that assumes cure-exact = cure-cash; explicitly assert the new diversion amount.
-
-**Test:** No active marker. When the fix lands, add a C1 test pinning the cure-cash math under a non-par reinvestment-price assumption.
 
 ---
 
