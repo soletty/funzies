@@ -35,7 +35,6 @@ Categorized so a partner reading cold can separate "what's still wrong" from "wh
 *Distinct from "Deferred" (those are intentional design choices about mechanics that exist in the indenture but the model elects not to simulate). "Latent" entries are unmodeled or hardcoded paths whose current Euro XV magnitude happens to be zero, but which will produce wrong numbers the moment a deal hits the triggering condition (different deal structure, different PPM, non-zero balance, FX exposure, etc.). Treat each as a real bug whose materiality is data-dependent, not a deliberate scope decision.*
 
 - [KI-29 — Discount / long-dated obligation haircuts are static snapshots, not recomputed forward](#ki-29)
-- [KI-31 — Hedge cost bps never extracted; engine emits zero on every hedged deal](#ki-31)
 - [KI-36 — Per-tranche `payment_frequency` extracted but not consumed (uniform quarterly cadence)](#ki-36)
 - [KI-38 — FX / multi-currency unmodeled; `native_currency` parsed and discarded](#ki-38)
 - [KI-45 — Senior Expenses Cap carryforward seed not populated; mid-life projections start with empty buffer](#ki-45)
@@ -515,31 +514,6 @@ The engine never recomputes either haircut as the pool composition evolves throu
 4. Decide cure mechanics for the discount-obligation classification (PPM-specific; either "permanent until paid" or "cure on price ≥ threshold for N consecutive periods"). Document the choice.
 
 **Test:** No active marker. When the fix lands, add `KI-29-discountObligationDynamic` with a synthetic fixture that reinvests at 75c and asserts the per-period haircut reflects the new position. Also extend the C2 forward-projection test (`c2-quality-forward-projection.test.ts`) to cover OC parity over a multi-period horizon under reinvestment-at-distressed-price scenarios.
-
----
-
-<a id="ki-31"></a>
-### [KI-31] Hedge cost bps never extracted; engine emits zero on every hedged deal
-
-**PPM reference:** Condition 1 ("Hedge Agreement", "Hedge Counterparty"); step (F) `hedgePaymentPaid` in the interest waterfall. Many European CLOs carry an interest-rate hedge or cross-currency hedge whose periodic cost runs through step (F).
-
-**Current engine behavior:** `web/lib/clo/build-projection-inputs.ts:131` defaults `hedgeCostBps: 0`. The engine consumes `hedgeCostBps` at `projection.ts:1698` as `beginningPar * (hedgeCostBps / 10000) * dayFracActual` and emits `stepTrace.hedgePaymentPaid`. End-to-end engine plumbing exists. **No extraction site populates `hedgeCostBps` from PPM or trustee data** — neither `resolver.ts` nor `extraction/` references the field. The engine emits 0 at step (F) on every projection.
-
-Verified live on Euro XV: N1 harness diagnostic table shows `hedgePaymentPaid | f | 0.00 | 0.00 | 0.00 | 50.00 | ✓` — both engine and trustee report 0. Euro XV is Euro-investing-in-Euro-loans with no hedge schedule, so the default is correct *for Euro XV specifically*.
-
-**PPM-correct behavior:** For deals with a hedge, the per-period hedge cost is extracted from the PPM (typical: a fixed bps × notional schedule, or a swap leg paying fixed receiving floating). Engine should consume the extracted value rather than zero.
-
-**Quantitative magnitude:** Zero on Euro XV. On any hedged deal — rough estimate, US BSL CLOs and a meaningful share of European deals (deals investing in non-EUR loans, deals with interest-rate hedges) — engine will silently emit 0 for step (F) when the trustee reports a non-zero amount, with the residual cascading into `subDistribution`. Magnitude scales with the hedge notional × cost; on a deal with a 30 bps hedge cost on a €100M notional, that is €75K/quarter.
-
-**Deferral rationale:** Latent on Euro XV (no hedge). Distinct from KI-06 (defaulted hedge termination at step AA — that activates only on counterparty default).
-
-**Path to close:**
-1. Add `hedgeCostBps` (or a structured `hedgeSchedule: { notional, fixedRate, floatingIndex, ... }` if the PPM mechanic is more complex) to the extraction schema.
-2. Populate from PPM Condition 1 ("Hedge Agreement") in the resolver.
-3. Replace the hardcoded `0` at `build-projection-inputs.ts:131` with the resolver-extracted value (or null when no hedge), with the existing 0 fallback.
-4. Verify against a hedged-deal trustee report once one is available; cross-check engine's step (F) emission against the trustee.
-
-**Test:** No active marker on Euro XV (engine 0, trustee 0). When extraction support lands, add a resolver test pinning the extracted bps for any hedged-deal fixture, and an N-harness test verifying step (F) tie-out.
 
 ---
 

@@ -357,7 +357,7 @@ export function defaultsFromResolved(
     if (bps > 0 && bps < 50) base.adminFeeBps = bps;
   }
 
-  // Hedge cost (KI-31). Signal 2 (PPM compliance fee row) seeded from
+  // Hedge cost. Signal 2 (PPM compliance fee row) seeded from
   // `resolved.hedgeCostBps` via `resolveHedgeCost`; Signal 1 (back-
   // derive from observed step F) overrides when present. Description
   // filter `/hedge|swap/i` prevents silent mis-classification of any
