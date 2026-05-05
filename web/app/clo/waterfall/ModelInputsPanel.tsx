@@ -37,7 +37,10 @@ export function ModelInputsPanel({ resolved, inputs }: { resolved: ResolvedDealD
       </button>
       {open && (
         <div style={{ marginTop: "0.5rem" }}>
-          <div style={{ fontSize: "0.68rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--color-text-muted)", marginBottom: "0.4rem" }}>Capital Structure</div>
+          <div style={{ fontSize: "0.68rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--color-text-muted)", marginBottom: "0.4rem" }}>
+            Capital Structure
+            <CitationTooltip citation={resolved.tranchesCitation ?? null} />
+          </div>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.73rem", fontVariantNumeric: "tabular-nums", marginBottom: "1rem" }}>
             <thead>
               <tr style={{ borderBottom: "2px solid var(--color-border)", textAlign: "right" }}>
@@ -75,7 +78,10 @@ export function ModelInputsPanel({ resolved, inputs }: { resolved: ResolvedDealD
               <div style={kvStyle}><span style={kvLabel}>Hedge Cost</span> <span style={kvValue}>{inputs.hedgeCostBps} bps</span></div>
             </div>
             <div>
-              <div style={{ fontSize: "0.68rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--color-text-muted)", marginBottom: "0.4rem" }}>Dates</div>
+              <div style={{ fontSize: "0.68rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--color-text-muted)", marginBottom: "0.4rem" }}>
+                Dates
+                <CitationTooltip citation={resolved.dates.citation ?? null} />
+              </div>
               <div style={kvStyle}><span style={kvLabel}>Maturity</span> <span style={kvValue}>{resolved.dates.maturity}</span></div>
               <div style={kvStyle}><span style={kvLabel}>RP End</span> <span style={kvValue}>{resolved.dates.reinvestmentPeriodEnd ?? "N/A"}</span></div>
               <div style={kvStyle}><span style={kvLabel}>Non-Call</span> <span style={kvValue}>{resolved.dates.nonCallPeriodEnd ?? "N/A"}</span></div>
@@ -94,13 +100,19 @@ export function ModelInputsPanel({ resolved, inputs }: { resolved: ResolvedDealD
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
             <div>
-              <div style={{ fontSize: "0.68rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--color-text-muted)", marginBottom: "0.4rem" }}>OC Triggers</div>
+              <div style={{ fontSize: "0.68rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--color-text-muted)", marginBottom: "0.4rem" }}>
+                OC Triggers
+                <CitationTooltip citation={resolved.ocTriggers[0]?.citation ?? null} />
+              </div>
               {resolved.ocTriggers.map((t) => (
                 <div key={t.className} style={kvStyle}><span style={kvLabel}>{t.className}</span> <span style={kvValue}>{t.triggerLevel}% {sourceBadge(t.source)}</span></div>
               ))}
             </div>
             <div>
-              <div style={{ fontSize: "0.68rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--color-text-muted)", marginBottom: "0.4rem" }}>IC Triggers</div>
+              <div style={{ fontSize: "0.68rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--color-text-muted)", marginBottom: "0.4rem" }}>
+                IC Triggers
+                <CitationTooltip citation={resolved.icTriggers[0]?.citation ?? null} />
+              </div>
               {resolved.icTriggers.map((t) => (
                 <div key={t.className} style={kvStyle}><span style={kvLabel}>{t.className}</span> <span style={kvValue}>{t.triggerLevel}% {sourceBadge(t.source)}</span></div>
               ))}

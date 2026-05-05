@@ -27,7 +27,6 @@ Categorized so a partner reading cold can separate "what's still wrong" from "wh
 - [KI-12a — Senior / sub management fee base discrepancy](#ki-12a) — **BLOCKED ON DATA ACQUISITION** (Q4 2025 historical SDF + trustee-report bundles)
 - [KI-20 — D2 legacy escape-hatch on 6 test-factory sites](#ki-20)
 - [KI-23 — Industry taxonomy missing on BuyListItem + ResolvedLoan blocks industry-cap filtering](#ki-23)
-- [KI-24 — E1 citation propagation coverage is partial (8 deferred paths)](#ki-24)
 - [KI-33 — Reinvestment loan synthesis assumes par-purchase (€1 diverted = €1 par)](#ki-33)
 - [KI-35 — Partial DDTL draw silently discards the un-drawn commitment](#ki-35)
 
@@ -414,33 +413,6 @@ Partner-demo gap but not blocking for Euro XV where industry concentration is li
 **Test:** None standalone until Tier 1 ships. When it does, a `d5-industry-filter.test.ts` pinned to synthetic buy-list items would cover the normalization + filter logic.
 
 ---
-
-<a id="ki-24"></a>
-### [KI-24] E1 citation propagation coverage is partial (8 deferred paths)
-
-**Context:** Sprint 5 / E1 shipped PPM citation propagation on three partner-facing surfaces: `ResolvedPool`, `ResolvedFees`, `ResolvedEodTest`. Partner hovering the Pool or Fees header sees "Source: PPM p.23, 27, 287, 295" / "p.22, 23, 146" / "p.207, 208 (OC Condition 10(a)(iv))" as intended.
-
-**What's NOT covered (surfaced in the E1 subagent's completion report):** Eight ppm.json source-annotated paths carry `source_pages` or `source_condition` but don't yet propagate into partner-facing tooltips. Enumerated:
-
-1. `section_1_deal_identity.source_pages = [1, 17, 18, 19, 240, 327]` — no current consumer; would tooltip a deal-identity header.
-2. `section_2_key_dates.source_pages = [18, 19, 20, 21, 22]` — could attach to `ResolvedDates` (maturity / reinvestment end / non-call). Intentionally omitted from E1 scope; reasonable follow-up.
-3. `section_3_capital_structure.source_pages = [18]` — per-tranche citations. E1 explicitly excluded `ResolvedLoan` / `ResolvedTrigger` per scope.
-4. `section_4_coverage_tests.source_pages = [28, 207, 208]` — section-level page range. Only the EoD subsection is plumbed; class-level OC / IC triggers would need per-trigger citations on `ResolvedTrigger`.
-5. `section_6_waterfall.source_condition = "OC Condition 3(c)"`, `source_pages = [176, 179]` + `post_acceleration_priority_of_payments.source_condition = "OC Condition 10"` — no current `Resolved*` consumer for waterfall shape (engine implements the waterfall; no partner-facing tooltip surface today).
-6. `section_7_interest_mechanics.source_condition` — flows through `constraints.interestMechanics` passthrough; no partner-facing slider rooted in it today.
-7. `section_8_portfolio_and_quality_tests.source_pages.{moodys_matrix, fitch_matrix}` — rating-matrix-specific pages. Only `portfolio_profile` and `collateral_quality_tests` are folded into `poolSummary.citation`; matrix pages intentionally omitted (not partner-facing fields).
-8. `section_9_collateral_manager_replacement.source_pages = [313, 318]` — no UI surface today.
-
-**Partner-visible impact:** A partner asking "where does this Class A/B OC test trigger come from?" sees no citation on the OC row today (coverage gap #4). Same for reinvestment-period-end date (gap #2), class coupon formulas (gap #3), waterfall clause-level references (gap #5). E1 shipped the pattern; extending it to these eight paths is mechanical but not free.
-
-**Path to close:**
-- **Tier 1 (partner-demo value):** Key dates + class-level OC/IC triggers. Most frequent partner questions are "where's this date/trigger from?" Add `citation?` field to `ResolvedTrigger` + `ResolvedDates`; populate in resolver from `section_4` + `section_2` provenance. Wire tooltips into the trigger display + dates display.
-- **Tier 2 (institutional completeness):** Per-tranche citations + waterfall section citations. Requires extending `ResolvedTranche` (partner tranche panel tooltips) and introducing a waterfall-rendering surface that doesn't exist today.
-- **Tier 3 (rating matrix, misc):** Moody's / Fitch rating matrix pages; collateral manager replacement section. Low-demand surfaces.
-
-Tier 1 closes the most common partner "where from?" questions; Tier 2+ wait for specific asks.
-
-**Test:** No standalone test required until each deferred path ships. When a path lands, extend the existing `e1-citation-propagation.test.ts` with a per-surface assertion.
 
 ---
 

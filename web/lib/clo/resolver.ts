@@ -552,6 +552,12 @@ function resolveTriggers(
   const ocRaw = mergeTriggersPerClass(ocFromTests, ocFromPpm, "OC", warnings);
   const icRaw = mergeTriggersPerClass(icFromTests, icFromPpm, "IC", warnings);
 
+  // E1 (Sprint 5) — broadcast section_4_coverage_tests provenance to every
+  // OC/IC trigger. The source carries no per-class granularity, so every
+  // trigger on the deal shares the same citation.
+  const triggersProvenance = (constraints as unknown as { _triggersProvenance?: { source_pages?: number[] | null; source_condition?: string | null } | null })._triggersProvenance ?? null;
+  const triggersCitation = extractCitation(triggersProvenance);
+
   if (ocRaw.length === 0) {
     warnings.push({
       field: "ocTriggers",
@@ -588,7 +594,7 @@ function resolveTriggers(
     if (triggerLevel > 200) {
       warnings.push({ field: `ocTrigger.${t.className}`, message: `OC trigger ${triggerLevel}% for ${t.className} seems unusually high`, severity: "warn", blocking: false });
     }
-    return { className: t.className, triggerLevel, rank: resolveRank(t.className), testType: "OC" as const, source: t.source };
+    return { className: t.className, triggerLevel, rank: resolveRank(t.className), testType: "OC" as const, source: t.source, citation: triggersCitation };
   });
 
   const ic: ResolvedTrigger[] = dedupTriggers(icRaw, warnings).map(t => {
@@ -613,7 +619,7 @@ function resolveTriggers(
     if (triggerLevel > 500) {
       warnings.push({ field: `icTrigger.${t.className}`, message: `IC trigger ${triggerLevel}% for ${t.className} seems unusually high`, severity: "warn", blocking: false });
     }
-    return { className: t.className, triggerLevel, rank: resolveRank(t.className), testType: "IC" as const, source: t.source };
+    return { className: t.className, triggerLevel, rank: resolveRank(t.className), testType: "IC" as const, source: t.source, citation: triggersCitation };
   });
 
   // B1: Extract Event of Default Par Value Test (PPM Condition 10(a)(iv)) as
@@ -1153,12 +1159,20 @@ export function resolveWaterfallInputs(
     });
   }
 
+  // E1 (Sprint 5) — surface PPM section provenance for the key-dates block.
+  // ppm-mapper.ts attaches `_datesProvenance` inside the `keyDates` object
+  // (the normalizer assigns key_dates wholesale, so provenance lives nested
+  // rather than at constraints top-level like fees/pool).
+  const datesProvenance = (constraints.keyDates as unknown as { _datesProvenance?: { source_pages?: number[] | null; source_condition?: string | null } | null } | undefined)?._datesProvenance ?? null;
+  const datesCitation = extractCitation(datesProvenance);
+
   const dates: ResolvedDates = {
     maturity: resolvedMaturity,
     reinvestmentPeriodEnd: dealDates?.reinvestmentPeriodEnd ?? constraints.keyDates?.reinvestmentPeriodEnd ?? null,
     nonCallPeriodEnd: resolvedNonCallPeriodEnd,
     firstPaymentDate: constraints.keyDates?.firstPaymentDate ?? null,
     currentDate,
+    citation: datesCitation,
   };
 
   // Quarters between compliance report date and projection start.
@@ -1190,6 +1204,12 @@ export function resolveWaterfallInputs(
   // class OC trigger as last resort.
   let reinvestmentOcTrigger: ResolvedReinvestmentOcTrigger | null = null;
   const reinvOcRaw = constraints.reinvestmentOcTest;
+
+  // E1 (Sprint 5) — broadcast section_4 provenance to the reinvestment OC
+  // trigger. Same source as the class-level OC/IC triggers; section-level
+  // pages, no per-trigger granularity.
+  const reinvTriggersProvenance = (constraints as unknown as { _triggersProvenance?: { source_pages?: number[] | null; source_condition?: string | null } | null })._triggersProvenance ?? null;
+  const reinvTriggersCitation = extractCitation(reinvTriggersProvenance);
 
   let diversionPct = 50; // common default
   if (reinvOcRaw?.diversionAmount) {
@@ -1229,6 +1249,7 @@ export function resolveWaterfallInputs(
       triggerLevel: complianceReinvOc.triggerLevel,
       rank: mostJuniorOcRank,
       diversionPct,
+      citation: reinvTriggersCitation,
     };
   }
 
@@ -1249,7 +1270,7 @@ export function resolveWaterfallInputs(
         if (triggerLevel > 200) {
           warnings.push({ field: "reinvestmentOcTrigger", message: `Reinvestment OC trigger ${triggerLevel}% seems unusually high`, severity: "warn", blocking: false });
         }
-        reinvestmentOcTrigger = { triggerLevel, rank: mostJuniorOcRank, diversionPct };
+        reinvestmentOcTrigger = { triggerLevel, rank: mostJuniorOcRank, diversionPct, citation: reinvTriggersCitation };
       }
     }
   }
@@ -1257,7 +1278,7 @@ export function resolveWaterfallInputs(
   if (!reinvestmentOcTrigger && ocTriggers.length > 0) {
     const sortedOc = [...ocTriggers].filter(t => t.triggerLevel >= 103).sort((a, b) => b.rank - a.rank);
     if (sortedOc.length > 0) {
-      reinvestmentOcTrigger = { triggerLevel: sortedOc[0].triggerLevel, rank: sortedOc[0].rank, diversionPct };
+      reinvestmentOcTrigger = { triggerLevel: sortedOc[0].triggerLevel, rank: sortedOc[0].rank, diversionPct, citation: reinvTriggersCitation };
     }
   }
 
@@ -2608,8 +2629,20 @@ export function resolveWaterfallInputs(
     }
   }
 
+  // E1 (Sprint 5) — surface PPM section provenance for tranches (header-level
+  // only; section_3 carries no per-tranche granularity) and the waterfall
+  // (interest/principal POP + post-acceleration POP). The tranches provenance
+  // lands at constraints top-level via the capital_structure rest spread; the
+  // waterfall provenance lands inside `constraints.waterfall` because the
+  // normalizer assigns the waterfall_rules section wholesale.
+  const tranchesProvenance = (constraints as unknown as { _tranchesProvenance?: { source_pages?: number[] | null; source_condition?: string | null } | null })._tranchesProvenance ?? null;
+  const tranchesCitation = extractCitation(tranchesProvenance);
+  const waterfallSource = (constraints as unknown as { waterfall?: { _waterfallProvenance?: { source_pages?: number[] | null; source_condition?: string | null } | null; _waterfallPostAccelProvenance?: { source_pages?: number[] | null; source_condition?: string | null } | null } | undefined }).waterfall;
+  const waterfallCitation = extractCitation(waterfallSource?._waterfallProvenance ?? null);
+  const waterfallPostAccelCitation = extractCitation(waterfallSource?._waterfallPostAccelProvenance ?? null);
+
   return {
-    resolved: { tranches, poolSummary, ocTriggers, icTriggers, qualityTests, concentrationTests, reinvestmentOcTrigger, eventOfDefaultTest, dates, fees, loans, metadata, principalAccountCash, unusedProceedsCash, interestAccountCash, interestSmoothingBalance, supplementalReserveBalance, expenseReserveBalance, seniorExpensesCap, preExistingDefaultedPar, preExistingDefaultRecovery, unpricedDefaultedPar, preExistingDefaultOcValue, discountObligationHaircut, longDatedObligationHaircut, cccBucketLimitPct, cccMarketValuePct, targetParAmount, referenceWeightedAverageFixedCoupon, isMoodysRated, isFitchRated, isSpRated, ratingAgencies, impliedOcAdjustment, quartersSinceReport, ddtlUnfundedPar, deferredInterestCompounds, interestNonPaymentGracePeriods, baseRateFloorPct, currency },
+    resolved: { tranches, poolSummary, ocTriggers, icTriggers, qualityTests, concentrationTests, reinvestmentOcTrigger, eventOfDefaultTest, dates, fees, loans, metadata, principalAccountCash, unusedProceedsCash, interestAccountCash, interestSmoothingBalance, supplementalReserveBalance, expenseReserveBalance, seniorExpensesCap, preExistingDefaultedPar, preExistingDefaultRecovery, unpricedDefaultedPar, preExistingDefaultOcValue, discountObligationHaircut, longDatedObligationHaircut, cccBucketLimitPct, cccMarketValuePct, targetParAmount, referenceWeightedAverageFixedCoupon, isMoodysRated, isFitchRated, isSpRated, ratingAgencies, impliedOcAdjustment, quartersSinceReport, ddtlUnfundedPar, deferredInterestCompounds, interestNonPaymentGracePeriods, baseRateFloorPct, tranchesCitation, waterfallCitation, waterfallPostAccelCitation, currency },
     warnings,
   };
 }

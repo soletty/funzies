@@ -107,14 +107,77 @@ describe("E1 — resolver propagates citations from constraints", () => {
     const poolProv = raw.constraints._poolProvenance;
     expect(resolved.poolSummary.citation!.sourcePages).toEqual(poolProv.source_pages);
   });
+
+  it("dates.citation is non-null with section-2 pages", () => {
+    const c = resolved.dates.citation;
+    expect(c).not.toBeNull();
+    expect(c).toBeDefined();
+    expect(c!.sourcePages).toEqual([18, 19, 20, 21, 22]);
+    expect(c!.sourceCondition).toBeNull();
+  });
+
+  it("tranchesCitation is non-null with section-3 pages", () => {
+    const c = resolved.tranchesCitation;
+    expect(c).not.toBeNull();
+    expect(c).toBeDefined();
+    expect(c!.sourcePages).toEqual([18]);
+    expect(c!.sourceCondition).toBeNull();
+  });
+
+  it("ocTriggers and icTriggers each carry the broadcast section-4 citation", () => {
+    expect(resolved.ocTriggers.length).toBeGreaterThan(0);
+    for (const t of resolved.ocTriggers) {
+      expect(t.citation).not.toBeNull();
+      expect(t.citation).toBeDefined();
+      expect(t.citation!.sourcePages).toEqual([28, 207, 208]);
+    }
+    expect(resolved.icTriggers.length).toBeGreaterThan(0);
+    for (const t of resolved.icTriggers) {
+      expect(t.citation).not.toBeNull();
+      expect(t.citation).toBeDefined();
+      expect(t.citation!.sourcePages).toEqual([28, 207, 208]);
+    }
+  });
+
+  it("reinvestmentOcTrigger.citation broadcasts the section-4 pages", () => {
+    if (resolved.reinvestmentOcTrigger != null) {
+      const c = resolved.reinvestmentOcTrigger.citation;
+      expect(c).not.toBeNull();
+      expect(c).toBeDefined();
+      expect(c!.sourcePages).toEqual([28, 207, 208]);
+    }
+  });
+
+  it("waterfallCitation captures section-6 pages + condition", () => {
+    const c = resolved.waterfallCitation;
+    expect(c).not.toBeNull();
+    expect(c).toBeDefined();
+    expect(c!.sourcePages).toEqual([176, 179]);
+    expect(c!.sourceCondition).toBe("OC Condition 3(c)");
+  });
+
+  it("waterfallPostAccelCitation is condition-only (no pages on this sub-block)", () => {
+    const c = resolved.waterfallPostAccelCitation;
+    expect(c).not.toBeNull();
+    expect(c).toBeDefined();
+    expect(c!.sourcePages).toBeNull();
+    expect(c!.sourceCondition).toBe("OC Condition 10");
+  });
 });
 
 describe("E1 — resolver returns null citation when provenance absent", () => {
-  it("poolSummary.citation is null when constraints lack _poolProvenance", () => {
+  it("citations are null when constraints lack their provenance markers", () => {
     const rawNoProv = { ...fixture.raw };
     rawNoProv.constraints = { ...fixture.raw.constraints };
     delete (rawNoProv.constraints as Record<string, unknown>)._poolProvenance;
     delete (rawNoProv.constraints as Record<string, unknown>)._feesProvenance;
+    delete (rawNoProv.constraints as Record<string, unknown>)._tranchesProvenance;
+    delete (rawNoProv.constraints as Record<string, unknown>)._triggersProvenance;
+    rawNoProv.constraints.keyDates = { ...rawNoProv.constraints.keyDates };
+    delete (rawNoProv.constraints.keyDates as Record<string, unknown>)._datesProvenance;
+    rawNoProv.constraints.waterfall = { ...rawNoProv.constraints.waterfall };
+    delete (rawNoProv.constraints.waterfall as Record<string, unknown>)._waterfallProvenance;
+    delete (rawNoProv.constraints.waterfall as Record<string, unknown>)._waterfallPostAccelProvenance;
     const { resolved } = resolveWaterfallInputs(
       rawNoProv.constraints,
       rawNoProv.complianceData,
@@ -127,5 +190,18 @@ describe("E1 — resolver returns null citation when provenance absent", () => {
     );
     expect(resolved.poolSummary.citation).toBeNull();
     expect(resolved.fees.citation).toBeNull();
+    expect(resolved.dates.citation).toBeNull();
+    expect(resolved.tranchesCitation).toBeNull();
+    expect(resolved.waterfallCitation).toBeNull();
+    expect(resolved.waterfallPostAccelCitation).toBeNull();
+    for (const t of resolved.ocTriggers) {
+      expect(t.citation).toBeNull();
+    }
+    for (const t of resolved.icTriggers) {
+      expect(t.citation).toBeNull();
+    }
+    if (resolved.reinvestmentOcTrigger != null) {
+      expect(resolved.reinvestmentOcTrigger.citation).toBeNull();
+    }
   });
 });
