@@ -192,6 +192,15 @@ export interface ResolvedDealData {
    *  drains it as overflow is paid. Distinct from KI-02 step (D) deposit-
    *  into-reserve flow. NOT credited to the OC numerator. */
   expenseReserveBalance: number;
+  /** Annualized hedge cost in bps on collateral par, sourced via Signal 2
+   *  (compliance fees row matching /hedge|swap/i in `resolveHedgeCost`).
+   *  Signal 1 (back-derive from observed waterfall step (F)) lives in
+   *  `defaultsFromResolved` (build-projection-inputs.ts) and takes
+   *  precedence over this field when both fire. Zero when the deal has no
+   *  hedge signal — Euro XV is single-currency, no active hedges. The
+   *  slider at `UserAssumptions.hedgeCostBps` overrides this value for
+   *  sensitivity analysis. */
+  hedgeCostBps: number;
   /** PPM Senior Expenses Cap structured definition (Condition 1). Null on
    *  legacy fixtures or when PPM extraction missed; resolver emits a blocking
    *  warning in that case. Engine consumes via `defaultsFromResolved` →

@@ -33,6 +33,7 @@ export const EMPTY_RESOLVED: ResolvedDealData = {
   interestSmoothingBalance: 0,
   supplementalReserveBalance: 0,
   expenseReserveBalance: 0,
+  hedgeCostBps: 0,
   seniorExpensesCap: null,
   preExistingDefaultedPar: 0,
   preExistingDefaultRecovery: 0,
