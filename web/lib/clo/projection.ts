@@ -1449,6 +1449,7 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     seniorExpensesCapCarryforwardSeed,
     preExistingDefaultedPar = 0, preExistingDefaultRecovery = 0, unpricedDefaultedPar = 0, preExistingDefaultOcValue = 0,
     longDatedObligationHaircut = 0, impliedOcAdjustment = 0, quartersSinceReport = 0,
+    discountObligationRule = null,
     ddtlDrawPercent = 100,
     moodysWarfTriggerLevel = null,
     minWasBps: minWasBpsTrigger = null,
@@ -2238,6 +2239,51 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     return total;
   };
 
+  // KI-29 — cure-mechanic dispatch. Re-evaluates `isDiscountObligation`
+  // per period under the per-deal `discountObligationRule.cureMechanic`
+  // variant. `continuous_threshold` may flip true→false when the
+  // position's current MV is at or above the cure threshold and the
+  // holding-since-acquisition window has elapsed; `permanent_until_paid`
+  // never flips (returns immediately). At quarterly engine cadence with
+  // static `currentPrice` from ingestion, the dispatch is a no-op after
+  // the initial T=0 application — but it remains correctly per-period
+  // because (i) reinvested loans synthesised mid-projection (KI-33) get
+  // classified at synthesis time and may cure on a later PD, and (ii)
+  // any future engine extension that models price evolution will exercise
+  // the per-period dispatch automatically. `days` cure window collapses
+  // to a single-PD spot test for n ≤ ~90 (see ResolvedCureWindow doc);
+  // `payment_dates` tracked exactly via period-count vs acquisition.
+  const applyCureDispatch = (states: LoanState[], asOfDate: string): void => {
+    if (discountObligationRule == null) return;
+    if (discountObligationRule.cureMechanic.type !== "continuous_threshold") return;
+    const cm = discountObligationRule.cureMechanic;
+    const asOfMs = new Date(asOfDate).getTime();
+    for (const l of states) {
+      if (l.isDiscountObligation !== true) continue;
+      if (l.currentPrice == null) continue;
+      const cureThreshold =
+        cm.cureThresholdPct.type === "single"
+          ? cm.cureThresholdPct.pct
+          : l.isFixedRate
+            ? cm.cureThresholdPct.fixedPct
+            : cm.cureThresholdPct.floatingPct;
+      if (l.currentPrice < cureThreshold) continue;
+      // Holding-since-acquisition window check. Conservative: positions
+      // missing acquisitionDate cannot cure (we can't assert the window
+      // has elapsed). Synthesised reinvestment loans set acquisitionDate
+      // at synthesis time so this check fires correctly for them.
+      if (l.acquisitionDate == null) continue;
+      const acquiredMs = new Date(l.acquisitionDate).getTime();
+      const meetsWindow =
+        cm.cureWindow.type === "days"
+          ? (asOfMs - acquiredMs) / (24 * 3600 * 1000) >= cm.cureWindow.n
+          : quartersBetween(l.acquisitionDate, asOfDate) >= cm.cureWindow.n;
+      if (meetsWindow) {
+        l.isDiscountObligation = false;
+      }
+    }
+  };
+
   // ── T=0 snapshot for N6 harness (determination-date compliance parity) ──
   // Computed BEFORE the period loop runs. Uses initial trancheBalances (no
   // mutations), initial pool par, initial principal cash, agency default
@@ -2260,6 +2306,7 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     const currentDdtlUnfundedPar = hasLoans
       ? loanStates.filter(l => l.isDelayedDraw).reduce((s, l) => s + l.survivingPar, 0)
       : 0;
+    if (hasLoans) applyCureDispatch(loanStates, currentDate);
     const discountHaircutT0 = hasLoans ? computeDiscountHaircut(loanStates) : 0;
     const ocNumerator = poolPar + initialPrincipalCash + pendingRecoveryValue + ocDefaultAdjustment
       - discountHaircutT0 - longDatedObligationHaircut - impliedOcAdjustment - currentDdtlUnfundedPar;
@@ -3648,6 +3695,7 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     // cash sitting in the Principal Account at the Determination Date
     // immediately preceding period q+1's Payment Date.
     priorPeriodEndPrincipalCash = remainingPrelim;
+    if (hasLoans) applyCureDispatch(loanStates, periodDate);
     const discountHaircut = hasLoans ? computeDiscountHaircut(loanStates) : 0;
     let ocNumerator = endingPar + remainingPrelim - suppReserveLeftoverInRemainingPrelim
       + pendingRecoveryValue + ocDefaultAdjustment
