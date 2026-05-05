@@ -697,6 +697,74 @@ function resolveSeniorExpensesCap(
   };
 }
 
+/** Resolve hedge cost from compliance fees rows (Signal 2).
+ *
+ *  Two-layer architecture: Signal 1 (back-derive from observed
+ *  waterfall step (F)) lives in `defaultsFromResolved`
+ *  (build-projection-inputs.ts) — the resolver layer cannot see
+ *  `raw.waterfallSteps`. Signal 1 takes precedence when both fire.
+ *  Signal 3 (LLM-extracted `hedgePositions[]`) is intentionally out
+ *  of scope for the principle-3 closure: `ExtractedConstraints` does
+ *  not currently carry the array, and threading it through requires
+ *  a separate type-extension refactor.
+ *
+ *  Detection: any `constraints.fees[]` row whose name matches
+ *  /hedge|swap/i with a parseable rate. Reuses the unit-dispatch
+ *  pattern from `resolveFees` (`bps_pa` direct, `pct_pa` × 100,
+ *  no-unit + value > 5 → blocking).
+ *
+ *  When a hedge fee row is present but the rate is unparseable
+ *  ("per agreement", null, etc.), emit `severity: "error",
+ *  blocking: true` per project rule (silent fallbacks on missing
+ *  computational extraction are bugs). When no hedge fee row exists,
+ *  return 0 with no warning — Signal 1 in the builder layer may
+ *  still back-derive a non-zero value from observed waterfall.
+ *
+ *  Engine plumbing already consumes the result via
+ *  `ProjectionInputs.hedgeCostBps` at every PPM site (T=0 IC
+ *  numerator, per-period normal mode, post-acceleration executor —
+ *  KI-21 Scope 3 closed). This function only fills in the resolver-
+ *  layer half of the extraction gap. */
+function resolveHedgeCost(
+  constraints: ExtractedConstraints,
+  warnings: ResolutionWarning[],
+): number {
+  for (const fee of constraints.fees ?? []) {
+    const name = fee.name?.toLowerCase() ?? "";
+    if (!/hedge|swap/.test(name)) continue;
+
+    const rate = parseFloat(fee.rate ?? "");
+    const unit = fee.rateUnit ?? null;
+
+    if (isNaN(rate)) {
+      warnings.push({
+        field: "hedgeCostBps",
+        message: `Hedge fee row "${fee.name}" present in extracted constraints.fees[] but rate is unparseable (got "${fee.rate}"). Silent fallback to 0 would emit zero step (F) every period; refusing to run rather than ship that drift. Set the rate manually from the PPM hedge schedule (typical: 5-50 bps p.a. on notional).`,
+        severity: "error",
+        blocking: true,
+      });
+      return 0;
+    }
+
+    if (unit === "bps_pa") return rate;
+    if (unit === "pct_pa") return rate * 100;
+
+    if (rate > 5) {
+      warnings.push({
+        field: "hedgeCostBps",
+        message: `Hedge fee rate ${rate} extracted with no rateUnit — heuristic would treat it as bps and convert to ${rate / 100}%, but this is a guess. Wrong-direction interpretation produces a 100× error. Set rateUnit explicitly ("bps_pa" or "pct_pa") in the source data.`,
+        severity: "error",
+        blocking: true,
+      });
+      return rate;
+    }
+    // Small numbers without explicit unit are conventionally pct_pa
+    // (e.g., 0.5% rather than 0.5 bps). Convert to bps.
+    return rate * 100;
+  }
+  return 0;
+}
+
 function resolveFees(constraints: ExtractedConstraints, warnings: ResolutionWarning[]): ResolvedFees {
   let seniorFeePct: number = CLO_DEFAULTS.seniorFeePct;
   let subFeePct: number = CLO_DEFAULTS.subFeePct;
@@ -2609,7 +2677,7 @@ export function resolveWaterfallInputs(
   }
 
   return {
-    resolved: { tranches, poolSummary, ocTriggers, icTriggers, qualityTests, concentrationTests, reinvestmentOcTrigger, eventOfDefaultTest, dates, fees, loans, metadata, principalAccountCash, unusedProceedsCash, interestAccountCash, interestSmoothingBalance, supplementalReserveBalance, expenseReserveBalance, hedgeCostBps: 0, seniorExpensesCap, preExistingDefaultedPar, preExistingDefaultRecovery, unpricedDefaultedPar, preExistingDefaultOcValue, discountObligationHaircut, longDatedObligationHaircut, cccBucketLimitPct, cccMarketValuePct, targetParAmount, referenceWeightedAverageFixedCoupon, isMoodysRated, isFitchRated, isSpRated, ratingAgencies, impliedOcAdjustment, quartersSinceReport, ddtlUnfundedPar, deferredInterestCompounds, interestNonPaymentGracePeriods, baseRateFloorPct, currency },
+    resolved: { tranches, poolSummary, ocTriggers, icTriggers, qualityTests, concentrationTests, reinvestmentOcTrigger, eventOfDefaultTest, dates, fees, loans, metadata, principalAccountCash, unusedProceedsCash, interestAccountCash, interestSmoothingBalance, supplementalReserveBalance, expenseReserveBalance, hedgeCostBps: resolveHedgeCost(constraints, warnings), seniorExpensesCap, preExistingDefaultedPar, preExistingDefaultRecovery, unpricedDefaultedPar, preExistingDefaultOcValue, discountObligationHaircut, longDatedObligationHaircut, cccBucketLimitPct, cccMarketValuePct, targetParAmount, referenceWeightedAverageFixedCoupon, isMoodysRated, isFitchRated, isSpRated, ratingAgencies, impliedOcAdjustment, quartersSinceReport, ddtlUnfundedPar, deferredInterestCompounds, interestNonPaymentGracePeriods, baseRateFloorPct, currency },
     warnings,
   };
 }
