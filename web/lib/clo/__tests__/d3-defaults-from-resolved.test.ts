@@ -138,6 +138,52 @@ describe("D3 — defaultsFromResolved (degenerate inputs)", () => {
     expect(d.trusteeFeeBps).toBe(3.5);
   });
 
+  it("KI-31 Signal 1 — back-derives hedgeCostBps from observed step (F) hedge entry", () => {
+    const beginPar = fixture.resolved.poolSummary.totalPrincipalBalance;
+    // Inject a synthetic step (F) hedge row that annualizes to 20 bps:
+    //   amountPaid × 4 × 10_000 / beginPar = 20 ⇒ amountPaid = beginPar / 2000.
+    const targetBps = 20;
+    const amount = (targetBps * beginPar) / (4 * 10_000);
+    // Replace any existing step (F) entry — fixture carries one with empty
+    // description and amountPaid 0, which `find()` would hit first.
+    const stepsWithoutF = (fixture.raw!.waterfallSteps ?? []).filter(
+      (s) => !(s && s.description != null && /^\(?F\)?\b/i.test(s.description)),
+    );
+    const rawWithHedge = {
+      ...fixture.raw!,
+      waterfallSteps: [
+        { description: "(F) Hedge Periodic Payment", amountPaid: amount, waterfallType: "INTEREST" },
+        ...stepsWithoutF,
+      ],
+    };
+    const d = defaultsFromResolved(fixture.resolved, rawWithHedge);
+    expect(d.hedgeCostBps).toBeCloseTo(targetBps, 1);
+    // Sanity: not the DEFAULT_ASSUMPTIONS value (0).
+    expect(d.hedgeCostBps).not.toBe(DEFAULT_ASSUMPTIONS.hedgeCostBps);
+  });
+
+  it("KI-31 Signal 1 — non-hedge step (F) description does NOT back-derive (description filter required)", () => {
+    // Defensive: a rogue step F entry without a hedge/swap description
+    // (e.g., upstream extraction bug, deal where step F carries something
+    // else) must NOT silently classify as hedge cost. Code-only matching
+    // would mis-classify; description filter prevents the silent error.
+    const beginPar = fixture.resolved.poolSummary.totalPrincipalBalance;
+    const amount = (20 * beginPar) / (4 * 10_000);
+    const stepsWithoutF = (fixture.raw!.waterfallSteps ?? []).filter(
+      (s) => !(s && s.description != null && /^\(?F\)?\b/i.test(s.description)),
+    );
+    const rawWithRogueF = {
+      ...fixture.raw!,
+      waterfallSteps: [
+        { description: "(F) Misclassified Other Payment", amountPaid: amount, waterfallType: "INTEREST" },
+        ...stepsWithoutF,
+      ],
+    };
+    const d = defaultsFromResolved(fixture.resolved, rawWithRogueF);
+    // Falls through to resolved.hedgeCostBps (0 for Euro XV) and DEFAULT (0).
+    expect(d.hedgeCostBps).toBe(0);
+  });
+
   it("bps sanity bound: ignores implausible back-derived values (≥ 50 bps)", () => {
     // If fixture shows e.g. a one-off expense spike that annualizes to 200 bps,
     // the bound prevents polluting the forward projection. Falls back to default.
