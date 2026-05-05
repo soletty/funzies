@@ -2214,6 +2214,23 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     const adminFeeAmountT0 = poolPar * (adminFeeBps / 10000) / 4 * vatGrossUpT0Pre;
     const seniorFeeAmountT0 = poolPar * (seniorFeePct / 100) / 4;
     const hedgeCostAmountT0 = poolPar * (hedgeCostBps / 10000) / 4;
+    // KI-21 Scope 3 closure: fold the six per-T0 fee amounts into the
+    // canonical SeniorExpenseBreakdown so a future senior expense (e.g.
+    // KI-02 step (D) Expense Reserve top-up) auto-propagates here. The IC
+    // numerator at T=0 uses REQUESTED amounts (parity with the normal-mode
+    // IC numerator at the period loop), so trusteeOverflow / adminOverflow
+    // are zero and the cap is not exercised at this site.
+    const seniorExpenseBreakdownT0: SeniorExpenseBreakdown = {
+      taxes: taxesAmountT0,
+      issuerProfit: issuerProfitAmountT0,
+      trusteeCapped: trusteeFeeAmountT0,
+      adminCapped: adminFeeAmountT0,
+      seniorMgmt: seniorFeeAmountT0,
+      hedge: hedgeCostAmountT0,
+      trusteeOverflow: 0,
+      adminOverflow: 0,
+    };
+    const totalSeniorExpensesT0 = sumSeniorExpensesPreOverflow(seniorExpenseBreakdownT0);
     // PPM Condition 1, "Interest Coverage Amount" definition (paraphrased
     // and elided for brevity from the Ares Euro CLO XV final offering
     // circular, ll. 8951-9005; sub-paragraph labels follow the source's
@@ -2305,7 +2322,7 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     const reserveYieldT0 = reserveYieldBaseT0 * flooredBaseRateT0 / 100 / 4;
     const interestAfterFeesT0 = Math.max(
       0,
-      scheduledInterestOnCollateral + reserveContributionT0 + reserveYieldT0 - taxesAmountT0 - issuerProfitAmountT0 - trusteeFeeAmountT0 - adminFeeAmountT0 - seniorFeeAmountT0 - hedgeCostAmountT0,
+      scheduledInterestOnCollateral + reserveContributionT0 + reserveYieldT0 - totalSeniorExpensesT0,
     );
     const icTests: ProjectionInitialState["icTests"] = icTriggersByClass.map((ic) => {
       const interestDueAtAndAbove = ocEligibleAtStart
