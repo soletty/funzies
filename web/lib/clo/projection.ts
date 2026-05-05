@@ -17,6 +17,7 @@ import {
   type SeniorExpenseBreakdown,
 } from "./senior-expense-breakdown";
 import type { DayCountConvention } from "./day-count-canonicalize";
+import type { ResolvedDiscountObligationRule } from "./resolver-types";
 import { resolveAgencyRecovery } from "./recovery-rate";
 
 export interface LoanInput {
@@ -97,6 +98,29 @@ export interface LoanInput {
    *  cash accrual). Zero / undefined → no PIK accretion (cash-paying or
    *  toggle-off PIK loan). */
   pikSpreadBps?: number;
+  /** Per-position purchase price as percent of par (immutable post-
+   *  acquisition). Sourced from `ResolvedLoan.purchasePricePct` (in turn
+   *  from the SDF row's `purchase_price` column or the LLM-extracted
+   *  holding's purchasePrice). Drives the KI-29 discount-obligation
+   *  classification at every period. Distinct from `currentPrice` —
+   *  conflating them is a known footgun (purchase is locked at
+   *  acquisition; current evolves with market). */
+  purchasePricePct?: number;
+  /** Date of acquisition (ISO YYYY-MM-DD). Used by the cure mechanic
+   *  to gate "MV at-or-above cure threshold *since acquisition*". */
+  acquisitionDate?: string;
+  /** Per-position Discount Obligation classification flag at projection
+   *  start. Re-evaluated per period inside the engine under the deal's
+   *  `discountObligationRule.cureMechanic` (continuous_threshold may
+   *  flip true→false; permanent_until_paid never flips). */
+  isDiscountObligation?: boolean;
+  /** Per-position Long-Dated Collateral Obligation classification flag.
+   *  Universal classification rule (loan.maturityDate > deal.maturityDate);
+   *  static — no cure mechanic. Engine consumes for per-position
+   *  long-dated identification. KI-29 partial closure: per-deal forward-
+   *  period valuation rule remains static (mechanically bound to
+   *  LongDatedStaticBanner). */
+  isLongDated?: boolean;
 }
 
 // C2 — Coarse RatingBucket → Moody's WARF factor. Imported from pool-metrics.ts
@@ -416,8 +440,15 @@ export interface ProjectionInputs {
   preExistingDefaultRecovery?: number; // market-price recovery for priced defaulted holdings
   unpricedDefaultedPar?: number; // par of defaulted holdings without market price (model applies recoveryPct)
   preExistingDefaultOcValue?: number; // recovery value for OC numerator (agency rate — typically higher than market)
-  discountObligationHaircut?: number; // net OC deduction for discount obligations (from trustee report)
-  longDatedObligationHaircut?: number; // net OC deduction for long-dated obligations (from trustee report)
+  discountObligationHaircut?: number; // [DEPRECATED in KI-29 commit 6] net OC deduction for discount obligations (from trustee report). Engine swaps to per-position Σ at projection.ts:2180 + :3568; kept on the type until the swap lands so commit 5 (type extension) is build-green standalone.
+  longDatedObligationHaircut?: number; // net OC deduction for long-dated obligations (from trustee report). Per-position classification lands in KI-29 commit 6; per-deal forward-period valuation rule remains static — bound to LongDatedStaticBanner.
+  /** PPM Discount Obligation classification + cure rule (Condition 1).
+   *  Resolver-extracted; engine consumes per-period for per-position
+   *  discount-obligation classification and KI-33 price-aware cure math.
+   *  Null on legacy fixtures and synthetic test inputs that don't model
+   *  the discount mechanic — engine leaves all positions classified by
+   *  whatever LoanInput.isDiscountObligation arrives at. */
+  discountObligationRule?: ResolvedDiscountObligationRule | null;
   impliedOcAdjustment?: number; // derived residual between trustee's Adjusted CPA and identified components
   quartersSinceReport?: number; // quarters between compliance report and projection start (adjusts default recovery timing)
   ddtlDrawPercent?: number; // % of DDTL par actually funded on draw (default 100)
@@ -1683,6 +1714,27 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
      *  `survivingPar` on top of the cash interest path. Synthetic
      *  reinvestment loans leave this undefined (default cash-paying). */
     pikSpreadBps?: number;
+    /** Per-position purchase price as percent of par (immutable).
+     *  Carried from `LoanInput.purchasePricePct`. The cure mechanic
+     *  may reclassify `isDiscountObligation` per period, but
+     *  `purchasePricePct` itself is a one-time stamp from acquisition
+     *  and never updates. Synthetic reinvestment loans set this at
+     *  synthesis time from the calibration-derived assumption. */
+    purchasePricePct?: number;
+    /** Acquisition date (ISO YYYY-MM-DD). Used by the cure mechanic
+     *  to require holding-since-acquisition before cure can fire. */
+    acquisitionDate?: string;
+    /** Discount Obligation classification flag — re-evaluated each
+     *  period by the cure-mechanic dispatch in the period loop.
+     *  `continuous_threshold` may flip true→false when MV crosses
+     *  the cure threshold; `permanent_until_paid` never flips. */
+    isDiscountObligation?: boolean;
+    /** Long-Dated Collateral Obligation classification flag — static
+     *  per-position (no cure). KI-29 partial closure: per-position
+     *  classification modeled here; per-deal forward-period valuation
+     *  rule continues to ride on the static `longDatedObligationHaircut`
+     *  scalar (mechanically bound to LongDatedStaticBanner). */
+    isLongDated?: boolean;
   }
 
   // Per-deal Rating Agencies subset is required. Production callers via
@@ -1745,6 +1797,10 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
       // oc.txt:7120-7124), not the modeled cash recovery upon a forward default.
     ),
     pikSpreadBps: l.pikSpreadBps,
+    purchasePricePct: l.purchasePricePct,
+    acquisitionDate: l.acquisitionDate,
+    isDiscountObligation: l.isDiscountObligation,
+    isLongDated: l.isLongDated,
   }));
 
   // Remove never_draw DDTLs (drawQuarter <= 0) — they never fund and shouldn't appear in the portfolio

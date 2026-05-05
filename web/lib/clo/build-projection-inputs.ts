@@ -829,6 +829,7 @@ export function buildFromResolved(
     unpricedDefaultedPar: resolved.unpricedDefaultedPar,
     preExistingDefaultOcValue: resolved.preExistingDefaultOcValue,
     discountObligationHaircut: resolved.discountObligationHaircut,
+    discountObligationRule: resolved.discountObligationRule,
     longDatedObligationHaircut: resolved.longDatedObligationHaircut,
     impliedOcAdjustment: resolved.impliedOcAdjustment,
     quartersSinceReport: resolved.quartersSinceReport,
