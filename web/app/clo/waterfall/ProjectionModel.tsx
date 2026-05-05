@@ -52,6 +52,7 @@ import MonteCarloChart from "./MonteCarloChart";
 import { formatPct, formatDate, TRANCHE_COLORS, formatAmount as helpersFormatAmount } from "./helpers";
 import { DealCurrencyProvider, MissingCurrencyBanner } from "./CurrencyContext";
 import { LongDatedStaticBanner } from "./LongDatedStaticBanner";
+import { ReinvestmentPriceFallbackBanner } from "./ReinvestmentPriceFallbackBanner";
 import { SliderInput, SelectInput } from "./SliderInput";
 import { SummaryCard } from "./SummaryCard";
 import { ModelInputsPanel } from "./ModelInputsPanel";
@@ -907,6 +908,7 @@ export default function ProjectionModel({
     <div className="wf-section" style={{ marginTop: "2.5rem" }}>
       <MissingCurrencyBanner />
       <LongDatedStaticBanner resolved={resolved} />
+      <ReinvestmentPriceFallbackBanner result={result} />
 
       {/* DATA INCOMPLETE banner. Renders one row per blocking
           ResolutionWarning. The projection panels below are gated on

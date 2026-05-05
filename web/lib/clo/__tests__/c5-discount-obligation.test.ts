@@ -1,11 +1,12 @@
-/** KI-29 + KI-33 marker tests — discount-obligation per-position dynamics
- *  + price-aware reinvestment cure math + long-dated static residual.
+/** KI-29 marker tests — discount-obligation per-position dynamics +
+ *  long-dated static residual.
  *
  *  Synthetic non-Euro-XV inputs (10-loan minimal pool, 3-tranche structure)
  *  exercising the engine paths the production fixture (Euro XV) collapses
  *  to zero on (no positions classify as discount; no long-dated; no cure
- *  diversion). KI-33 cure-math asymmetry is unit-tested directly in
- *  a2-reinv-oc-diversion.test.ts; this file covers the integration paths.
+ *  diversion). Price-aware reinvestment cure-math asymmetry is unit-tested
+ *  directly in `a2-reinv-oc-diversion.test.ts`; this file covers the
+ *  integration paths.
  *
  *  Markers:
  *    - KI-29-discountObligationDynamic — per-position haircut at T=0 +
@@ -205,5 +206,44 @@ describe("KI-29-longDatedStatic — long-dated valuation residual rides static s
     // value as positions amortize / mature; flip this assertion when the
     // residual closes.
     expect(Math.abs(ocActualClassA_q1! - ocActualClassA)).toBeLessThan(10);
+  });
+});
+
+describe("reinvestmentPricePct provenance — engine emits pricing source for transparency", () => {
+  it("hand-constructed inputs without UserAssumption override → user_override (default 100, hand-set inputs)", () => {
+    // Hand-constructed inputs bypass buildFromResolved; runProjection's
+    // destructure default is `reinvestmentPricePct = 100, reinvestmentPriceSource = "user_override"`.
+    // That's correct for hand-set tests — the test author is "the user".
+    const inputs = makeInputs({});
+    const result = runProjection(inputs);
+    expect(result.initialState.reinvestmentPriceSource).toBe("user_override");
+    expect(result.initialState.reinvestmentPricePctApplied).toBe(100);
+  });
+
+  it("buildFromResolved with priced pool → pool_was_derived (par-weighted)", () => {
+    // Two priced loans: 60M @ 95c and 40M @ 90c → WAS = (60×95 + 40×90)/100 = 93.
+    const inputs = makeInputs({
+      loans: [
+        { parBalance: 60_000_000, maturityDate: "2034-06-15", ratingBucket: "B", spreadBps: 375, currentPrice: 95 },
+        { parBalance: 40_000_000, maturityDate: "2034-06-15", ratingBucket: "B", spreadBps: 375, currentPrice: 90 },
+      ],
+      initialPar: 100_000_000,
+      reinvestmentPricePct: 93,
+      reinvestmentPriceSource: "pool_was_derived",
+    });
+    const result = runProjection(inputs);
+    expect(result.initialState.reinvestmentPriceSource).toBe("pool_was_derived");
+    expect(result.initialState.reinvestmentPricePctApplied).toBeCloseTo(93, 5);
+  });
+
+  it("buildFromResolved with no priced positions → par_fallback (100, banner-bound)", () => {
+    // Mirror the par-fallback shape coming out of buildFromResolved.
+    const inputs = makeInputs({
+      reinvestmentPricePct: 100,
+      reinvestmentPriceSource: "par_fallback",
+    });
+    const result = runProjection(inputs);
+    expect(result.initialState.reinvestmentPriceSource).toBe("par_fallback");
+    expect(result.initialState.reinvestmentPricePctApplied).toBe(100);
   });
 });

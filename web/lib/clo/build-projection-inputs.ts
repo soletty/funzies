@@ -699,6 +699,57 @@ export function composeBuildWarnings(
     }
   }
 
+  // Boundary scale invariants on percent-of-par fields. The plausible
+  // range for a market price (currentPrice) or purchase price is roughly
+  // [1, 200] cents on the par dollar — distressed positions can drop to
+  // ~5-30c, and slightly-premium positions can exceed par by a few cents
+  // (Euro XV carries multiple positions at ~100.2c). A value at 0.965
+  // (decimal-fraction-vs-percent scale error) or 9650 (basis-points-vs-
+  // percent scale error) is unambiguously wrong and would propagate a
+  // 100× shape through OC haircut, cure leverage, and discount-obligation
+  // classification. Range chosen to detect scale errors, not to bound
+  // realistic distressed/premium prices.
+  const isImplausiblePricePct = (v: number) => v < 1 || v > 200;
+  if (
+    userAssumptions.reinvestmentPricePct != null &&
+    isImplausiblePricePct(userAssumptions.reinvestmentPricePct)
+  ) {
+    composedWarnings.push({
+      field: "reinvestmentPricePct",
+      message:
+        `UserAssumptions.reinvestmentPricePct=${userAssumptions.reinvestmentPricePct} is ` +
+        `outside the plausible market-price range [1, 200]. A value like 0.965 (decimal ` +
+        `fraction) or 9650 (basis points) silently produces a 100× error in cure cash ` +
+        `sizing and discount-obligation classification. Fix the upstream input.`,
+      severity: "error",
+      blocking: true,
+    });
+  }
+  for (const l of resolved.loans) {
+    if (l.purchasePricePct != null && isImplausiblePricePct(l.purchasePricePct)) {
+      composedWarnings.push({
+        field: `loans[${l.obligorName ?? "?"}].purchasePricePct`,
+        message:
+          `Loan purchasePricePct=${l.purchasePricePct} is outside the plausible range ` +
+          `[1, 200]. Likely cause: extraction sign-convention or scale error (decimal ` +
+          `fraction vs percent). Fix the SDF / Intex parser.`,
+        severity: "error",
+        blocking: true,
+      });
+    }
+    if (l.currentPrice != null && isImplausiblePricePct(l.currentPrice)) {
+      composedWarnings.push({
+        field: `loans[${l.obligorName ?? "?"}].currentPrice`,
+        message:
+          `Loan currentPrice=${l.currentPrice} is outside the plausible range [1, 200]. ` +
+          `Likely cause: extraction scale error (decimal fraction vs percent) or ` +
+          `stale-default-mark sentinel. Fix the upstream parser.`,
+        severity: "error",
+        blocking: true,
+      });
+    }
+  }
+
   return composedWarnings;
 }
 
@@ -756,10 +807,15 @@ export function buildFromResolved(
   // happening near 96.5c. Falling back to par (100) produces no leverage in
   // the OC cure path and no discount-obligation classification on synthesised
   // loans, which silently disables the price-aware reinvestment math on
-  // every deal whose user did not explicitly override.
-  const reinvestmentPricePct = (() => {
+  // every deal whose user did not explicitly override. The source tag is
+  // emitted on `initialState.reinvestmentPriceSource` so a UI banner can
+  // alert the partner on the par-fallback path.
+  const { reinvestmentPricePct, reinvestmentPriceSource } = (() => {
     if (userAssumptions.reinvestmentPricePct != null) {
-      return userAssumptions.reinvestmentPricePct;
+      return {
+        reinvestmentPricePct: userAssumptions.reinvestmentPricePct,
+        reinvestmentPriceSource: "user_override" as const,
+      };
     }
     let parWithPrice = 0;
     let pxParSum = 0;
@@ -769,7 +825,9 @@ export function buildFromResolved(
       parWithPrice += l.parBalance;
       pxParSum += l.parBalance * l.currentPrice;
     }
-    return parWithPrice > 0 ? pxParSum / parWithPrice : 100;
+    return parWithPrice > 0
+      ? { reinvestmentPricePct: pxParSum / parWithPrice, reinvestmentPriceSource: "pool_was_derived" as const }
+      : { reinvestmentPricePct: 100, reinvestmentPriceSource: "par_fallback" as const };
   })();
 
   return {
@@ -844,6 +902,7 @@ export function buildFromResolved(
     reinvestmentTenorQuarters: userAssumptions.reinvestmentTenorYears * 4,
     reinvestmentRating: userAssumptions.reinvestmentRating,
     reinvestmentPricePct,
+    reinvestmentPriceSource,
     cccBucketLimitPct: userAssumptions.cccBucketLimitPct,
     cccMarketValuePct: userAssumptions.cccMarketValuePct,
     deferredInterestCompounds: userAssumptions.deferredInterestCompounds ?? resolved.deferredInterestCompounds,

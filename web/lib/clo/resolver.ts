@@ -1219,6 +1219,19 @@ export function resolveWaterfallInputs(
   // --- Senior Expenses Cap (PPM Condition 1) ---
   const seniorExpensesCap = resolveSeniorExpensesCap(constraints, warnings);
 
+  // Bonds carry parBalance=0 by SDF convention (the "funded balance" concept
+  // doesn't apply — their outstanding par lives in principalBalance). Use the
+  // higher of the two so bonds aren't silently dropped. The SDF parser now
+  // handles this at ingestion time; this fallback protects already-ingested
+  // rows and any other source that mirrors the SDF convention. Defined here
+  // (above the per-deal extraction gates) so the discount-obligation
+  // blocking gate uses the SAME predicate as the downstream `activeHoldings`
+  // filter — anti-pattern #1: helper duplication invites silent drift.
+  const holdingPar = (h: typeof holdings[number]): number =>
+    (h.parBalance && h.parBalance > 0) ? h.parBalance
+    : (h.principalBalance && h.principalBalance > 0) ? h.principalBalance
+    : 0;
+
   // --- Discount Obligation classification + cure rule (PPM Condition 1) ---
   // Sized against the active-holdings predicate (greenfield-exemption signal
   // matching `activeHoldings` below): if the deal carries no live positions
@@ -1227,12 +1240,7 @@ export function resolveWaterfallInputs(
   // per-position discount haircut to compute. Defaulted/zero-par rows do
   // NOT count — a workout-phase deal with all-defaulted holdings would
   // otherwise falsely block.
-  const hasActiveHoldings = holdings.some(h => {
-    const par = (h.parBalance && h.parBalance > 0) ? h.parBalance
-      : (h.principalBalance && h.principalBalance > 0) ? h.principalBalance
-      : 0;
-    return par > 0 && !h.isDefaulted;
-  });
+  const hasActiveHoldings = holdings.some(h => holdingPar(h) > 0 && !h.isDefaulted);
   const discountObligationRule = resolveDiscountObligation(
     constraints,
     warnings,
@@ -1364,15 +1372,9 @@ export function resolveWaterfallInputs(
     return purchasePricePct < threshold;
   };
 
-  // Bonds carry parBalance=0 by SDF convention (the "funded balance" concept
-  // doesn't apply — their outstanding par lives in principalBalance). Use the
-  // higher of the two so bonds aren't silently dropped. The SDF parser now
-  // handles this at ingestion time; this fallback protects already-ingested
-  // rows and any other source that mirrors the SDF convention.
-  const holdingPar = (h: typeof holdings[number]): number =>
-    (h.parBalance && h.parBalance > 0) ? h.parBalance
-    : (h.principalBalance && h.principalBalance > 0) ? h.principalBalance
-    : 0;
+  // `holdingPar` and the active-holdings predicate are defined above
+  // (just before the discount-obligation gate) so a single helper backs
+  // both the gate and the consumer-side `activeHoldings` filter.
   const activeHoldings = holdings.filter(h => holdingPar(h) > 0 && !h.isDefaulted);
   const nonDdtlHoldings = activeHoldings.filter(h => !h.isDelayedDraw);
 

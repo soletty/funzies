@@ -381,6 +381,10 @@ export interface ProjectionInputs {
    *  pool-weighted-average `currentPrice` (Σ par × currentPrice / Σ par
    *  over loans) → 100 fallback when the pool carries no priced positions. */
   reinvestmentPricePct?: number;
+  /** Provenance tag for `reinvestmentPricePct`. Surfaced via
+   *  `initialState.reinvestmentPriceSource` for partner-facing
+   *  transparency and the par-fallback banner. */
+  reinvestmentPriceSource?: "user_override" | "pool_was_derived" | "par_fallback";
   cccBucketLimitPct: number; // CCC excess above this % of par is haircut in OC test
   cccMarketValuePct: number; // market value assumption for CCC excess haircut (% of par)
   deferredInterestCompounds: boolean; // whether PIK'd interest itself earns interest
@@ -852,6 +856,19 @@ export interface ProjectionInitialState {
    *  VAT when applicable). Exposed for marker tests verifying the VAT
    *  gross-up path at T=0 mirrors the in-period site. */
   seniorExpensesCapRequestedT0: number;
+  /** Reinvestment purchase price (percent of par) the engine actually
+   *  applied. Exposed for partner-facing transparency — synthesised
+   *  reinvestment loans are valued at this price, and the source tag
+   *  identifies the derivation lineage:
+   *    - `user_override`: UserAssumptions.reinvestmentPricePct was set
+   *    - `pool_was_derived`: Σ par × currentPrice / Σ par over priced
+   *      funded loans
+   *    - `par_fallback`: pool carries no priced positions; engine fell
+   *      back to 100. On a deal in its reinvestment period, this is a
+   *      silent disabling of the price-aware reinvestment math — the
+   *      UI surfaces a banner alerting the partner. */
+  reinvestmentPricePctApplied: number;
+  reinvestmentPriceSource: "user_override" | "pool_was_derived" | "par_fallback";
 }
 
 export interface ProjectionResult {
@@ -1472,7 +1489,7 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     reinvestmentPeriodEnd, maturityDate, currentDate,
     loans, defaultRatesByRating, cdrMultiplierPathFn, cprPct, recoveryPct, recoveryLagMonths,
     ratingAgencies,
-    reinvestmentSpreadBps, reinvestmentTenorQuarters, reinvestmentRating: reinvestmentRatingOverride, reinvestmentPricePct = 100,
+    reinvestmentSpreadBps, reinvestmentTenorQuarters, reinvestmentRating: reinvestmentRatingOverride, reinvestmentPricePct = 100, reinvestmentPriceSource = "user_override",
     cccBucketLimitPct, cccMarketValuePct, deferredInterestCompounds,
     initialPrincipalCash = 0,
     initialUnusedProceedsCash = 0,
@@ -2574,6 +2591,8 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
       },
       seniorExpensesCapAmountT0: capAmountFromCapBpsT0,
       seniorExpensesCapRequestedT0: cappedRequestedT0,
+      reinvestmentPricePctApplied: reinvestmentPricePct,
+      reinvestmentPriceSource,
     };
   })();
 
@@ -4112,7 +4131,18 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
             .reduce((s, tr) => s + trancheBalances[tr.className] + deferredBalances[tr.className], 0);
           const trigger = failingOc.triggerLevel / 100;
           if (inRP && !failingIc) {
-            cureAmount = Math.max(0, trigger * debtAtAndAbove - ocNumerator);
+            // Reinvestment cure: divert interest, buy collateral, lift the
+            // OC numerator. `cureAmount` is the CASH needed (consumed from
+            // availableInterest below). Mirror computeReinvOcDiversion's
+            // price-aware sizing: above-threshold purchases are leveraged
+            // (€1 cash → €1/price par → €1/price numerator gain, so cash
+            // needed = numeratorGain × price/100); sub-threshold purchases
+            // become discount obligations and contribute par × price/100
+            // post-haircut to numerator (no leverage; cash = numeratorGain).
+            const numeratorGainNeeded = Math.max(0, trigger * debtAtAndAbove - ocNumerator);
+            cureAmount = reinvIsSubThreshold
+              ? numeratorGainNeeded
+              : numeratorGainNeeded * (reinvestmentPricePct / 100);
           } else {
             cureAmount = Math.max(0, debtAtAndAbove - ocNumerator / trigger);
           }
