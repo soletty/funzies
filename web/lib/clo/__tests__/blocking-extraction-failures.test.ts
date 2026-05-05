@@ -258,6 +258,23 @@ describe("Pattern A (silent fallback to common default)", () => {
     expectBlockingError(w, "seniorExpensesCap (non-greenfield deal missing block)");
     expectGateThrows(resolved, warnings);
   });
+
+  it("hedgeCostBps (resolver.ts:728) — hedge fee row present but rate unparseable → blocking", () => {
+    // KI-31 closure (Signal 2). When a /hedge|swap/i fee row is extracted
+    // but the rate is unparseable ("per agreement", null, etc.), silent
+    // fallback to 0 would emit zero step (F) every period on a hedged
+    // deal — partner-facing under-statement of senior expenses, residual
+    // cascading silently into subDistribution. Refuse to run.
+    const raw = loadRaw();
+    raw.constraints.fees = [
+      ...(raw.constraints.fees ?? []),
+      { name: "Hedge Cost", rate: "per agreement", rateUnit: null },
+    ];
+    const { resolved, warnings } = runResolver(raw);
+    const w = warnings.find((w) => w.field === "hedgeCostBps");
+    expectBlockingError(w, "hedgeCostBps (unparseable rate)");
+    expectGateThrows(resolved, warnings);
+  });
 });
 
 describe("Pattern B (silent acceptance of sentinel value)", () => {
