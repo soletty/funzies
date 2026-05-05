@@ -219,6 +219,7 @@ function mapFeesAndExpenses(ppm: PpmJson): Record<string, unknown> {
     fees,
     accounts: [],
     seniorExpensesCap: mapSeniorExpensesCap(ppm),
+    discountObligation: mapDiscountObligation(ppm),
     _feesProvenance: feesProvenance ?? undefined,
   };
 }
@@ -263,6 +264,55 @@ function mapSeniorExpensesCap(ppm: PpmJson): unknown {
       typeof (block as { source_condition?: unknown }).source_condition === "string"
         ? ((block as { source_condition?: string }).source_condition ?? null)
         : null,
+  };
+}
+
+/** Read the Condition 1 Discount Obligation structured definition from
+ *  ppm.json into a typed shape consumed by the resolver. Mirrors the
+ *  ResolvedDiscountObligationRule discriminated union shape directly so
+ *  resolver consumption is mechanical (no field-level renaming). Drops
+ *  null/missing if any structurally-required field absent — resolver
+ *  then emits a blocking warning on the missing rule. */
+function mapDiscountObligation(ppm: PpmJson): unknown {
+  const block = ppm.section_5_fees_and_hurdle.discount_obligation;
+  if (!block) return null;
+  const classification = block.classification_threshold;
+  const cure = block.cure_mechanic;
+  if (!classification || !cure) return null;
+
+  const mapThreshold = (t: typeof classification): unknown => {
+    if (t.type === "single") {
+      return { type: "single", pct: t.pct };
+    }
+    return {
+      type: "split_by_rate_type",
+      floatingPct: t.floating_pct,
+      fixedPct: t.fixed_pct,
+    };
+  };
+
+  let cureMechanicMapped: unknown;
+  if (cure.type === "continuous_threshold") {
+    cureMechanicMapped = {
+      type: "continuous_threshold",
+      cureThresholdPct: mapThreshold(cure.cure_threshold),
+      cureWindow:
+        cure.cure_window.type === "days"
+          ? { type: "days", n: cure.cure_window.n }
+          : { type: "payment_dates", n: cure.cure_window.n },
+    };
+  } else {
+    cureMechanicMapped = { type: "permanent_until_paid" };
+  }
+
+  return {
+    classificationThresholdPct: mapThreshold(classification),
+    cureMechanic: cureMechanicMapped,
+    sourcePages: Array.isArray(block.source_pages)
+      ? block.source_pages.filter((p): p is number => typeof p === "number")
+      : null,
+    sourceCondition:
+      typeof block.source_condition === "string" ? block.source_condition : null,
   };
 }
 

@@ -142,6 +142,94 @@ export interface ResolvedSeniorExpensesCap {
   citation?: Citation | null;
 }
 
+/** Threshold expressed as either a single percent-of-par cutoff applied
+ *  to every Collateral Obligation, or a discriminated split by rate type
+ *  (floating vs fixed) — observed-universal in the Ares family but not
+ *  assumed universal across managers. The discriminated form prevents a
+ *  single-threshold deal from encoding `{ floating: x, fixed: x }` as a
+ *  duplicated lie that a future reviewer can't distinguish from a real
+ *  rate-type split. */
+export type ResolvedThresholdShape =
+  | { type: "single"; pct: number }
+  | { type: "split_by_rate_type"; floatingPct: number; fixedPct: number };
+
+/** Cure-window quantization variants:
+ *
+ *  - `days`: continuous-MV-above-threshold for N consecutive calendar
+ *    days since acquisition (Ares family: 30). At quarterly
+ *    determination-date granularity, any `n` up to one period (~90 days)
+ *    collapses to a single-PD spot test "MV at most-recent Determination
+ *    Date >= cure threshold" — intra-period prices are not tracked.
+ *    `days` variants with `n` materially exceeding one period would need
+ *    intra-period price tracking the engine doesn't carry; that boundary
+ *    is the quantization cliff.
+ *
+ *  - `payment_dates`: PPM intent is "position has been at-or-above the
+ *    cure threshold at the most recent N Determination Dates." Engine
+ *    implementation is a simplification: it checks (a) holding-since-
+ *    acquisition >= N quarters AND (b) current MV >= cure threshold at
+ *    the most recent PD. It does NOT track per-loan price history at
+ *    each of the N intervening PDs — a position whose price was below
+ *    threshold at PD k-1 and recovered by PD k would cure on PD k under
+ *    this implementation, where strict PPM semantics would require
+ *    another N PDs of recovery. Acceptable because (i) at quarterly
+ *    cadence and static `currentPrice` from ingestion, the engine has
+ *    no intra-period price evolution to differentiate, and (ii) a
+ *    rolling-history check would require a structural change to
+ *    LoanState (new `priceHistory: number[]` field). When per-period
+ *    price evolution is modeled (e.g. stress-scenario MV trajectories),
+ *    the rolling check should be implemented to match PPM intent.
+ *
+ *  Engine implementation: both variants collapse to a "current price >=
+ *  cure threshold AND held-since-acquisition >= window" test at PD
+ *  granularity. */
+export type ResolvedCureWindow =
+  | { type: "days"; n: number }
+  | { type: "payment_dates"; n: number };
+
+/** Cure mechanic variant. Resolver dispatches on `type`. */
+export type ResolvedDiscountObligationCureMechanic =
+  /** Continuous-threshold cure with hysteretic in/out thresholds.
+   *  Position exits the bucket when its market value has been at-or-
+   *  above the cure threshold for the cure window since acquisition.
+   *  The cure threshold is universally strictly higher than the
+   *  classification threshold — prevents boundary flip-flop on noise.
+   *  Ares family: floating in 80 / out 90; fixed in 75 / out 85;
+   *  window 30 days. */
+  | {
+      type: "continuous_threshold";
+      cureThresholdPct: ResolvedThresholdShape;
+      cureWindow: ResolvedCureWindow;
+    }
+  /** Permanent until paid — once a position is classified as a Discount
+   *  Obligation it remains so until full repayment, default, or sale.
+   *  Engine never reclassifies. Observed in some US BSL CLOs and older
+   *  European deals; included so the union accommodates non-Ares
+   *  conventions without forcing every deal to declare a cure window
+   *  it doesn't have. */
+  | { type: "permanent_until_paid" };
+
+/** Per-deal Discount Obligation classification + cure rule extracted
+ *  from the PPM (Condition 1 "Discount Obligation"). Per-deal because
+ *  thresholds, cure mechanic, and the rate-type split vary across
+ *  managers. Resolver emits `severity: "error", blocking: true` when
+ *  missing (Anti-pattern #3 — silent fallbacks on missing computational
+ *  extraction are bugs).
+ *
+ *  Ares CLO XV (verbatim, OC pp. 119-121, Condition 1):
+ *    floating-rate Collateral Obligation classified at purchase price
+ *    < 80% of Principal Balance; cured at MV >= 90% for 30 consecutive
+ *    days since acquisition. Fixed-rate: 75% / 85% / 30 days. */
+export interface ResolvedDiscountObligationRule {
+  /** Purchase price (as percent of par) at acquisition below which the
+   *  position is classified as a Discount Obligation. */
+  classificationThresholdPct: ResolvedThresholdShape;
+  /** Cure semantics — when a classified position exits the bucket. */
+  cureMechanic: ResolvedDiscountObligationCureMechanic;
+  /** E1 PPM provenance (Ares XV: OC pp. 119-121, Condition 1). */
+  citation?: Citation | null;
+}
+
 export interface ResolvedDealData {
   tranches: ResolvedTranche[];
   poolSummary: ResolvedPool;
@@ -206,6 +294,13 @@ export interface ResolvedDealData {
    *  warning in that case. Engine consumes via `defaultsFromResolved` →
    *  `ProjectionInputs.seniorExpensesCapBps` + `seniorExpensesCapAbsoluteFloorPerYear`. */
   seniorExpensesCap: ResolvedSeniorExpensesCap | null;
+  /** PPM Discount Obligation classification + cure rule (Condition 1).
+   *  Null on legacy fixtures or extraction-miss; resolver emits a blocking
+   *  warning in that case. Engine consumes via per-position classification
+   *  (`purchasePrice/par < classificationThresholdPct`) at every period,
+   *  with cure dispatched per the `cureMechanic` variant. KI-29 closure
+   *  marker. */
+  discountObligationRule: ResolvedDiscountObligationRule | null;
   preExistingDefaultedPar: number; // par of defaulted loans excluded from loan list
   preExistingDefaultRecovery: number; // market-price recovery for priced defaulted holdings
   unpricedDefaultedPar: number; // par of defaulted holdings without market price (engine applies recoveryPct)
@@ -539,6 +634,42 @@ export interface ResolvedLoan {
    *  switch-simulator's `pctPik` recompute as the "actively accreting
    *  PIK" signal. */
   pikSpreadBps?: number;
+  /** Per-position purchase price as percent of par (immutable post-
+   *  acquisition). Sourced from `CloHolding.purchasePrice` (SDF row's
+   *  `purchase_price` field, scaled to percent). Drives the discount-
+   *  obligation classification at every period via the per-deal rule's
+   *  `classificationThresholdPct`. Distinct from `currentPrice` —
+   *  `purchasePricePct` is locked at acquisition and never updates;
+   *  `currentPrice` evolves with market and drives MV-based downstream
+   *  uses (A3 call-at-MtM, B1 EoD MV × PB, KI-29 hysteretic cure
+   *  threshold). Conflating the two is a known footgun. Undefined when
+   *  the SDF row carries no purchase_price (rare; resolver derives the
+   *  classification flag from currentPrice as a fallback). */
+  purchasePricePct?: number;
+  /** Date of acquisition (ISO YYYY-MM-DD). Sourced from
+   *  `CloHolding.acquisitionDate`. Used by the discount-obligation cure
+   *  mechanic to gate "MV at-or-above cure threshold for N days/PDs
+   *  *since acquisition*" — positions held for less than the cure
+   *  window cannot cure, regardless of price. Undefined for synthesised
+   *  reinvestment loans (acquisitionDate set at synthesis time inside
+   *  the engine). */
+  acquisitionDate?: string;
+  /** Per-position Discount Obligation classification flag. Resolver
+   *  populates from `CloHolding.isDiscountObligation` when present
+   *  (LLM/PDF-extraction path), else derives from
+   *  `purchasePricePct < classificationThresholdPct` per the deal's
+   *  per-deal rule (SDF path). Engine re-evaluates each period under
+   *  the cure mechanic (`continuous_threshold` may flip true→false if
+   *  cure conditions are met; `permanent_until_paid` never flips). */
+  isDiscountObligation?: boolean;
+  /** Per-position Long-Dated Collateral Obligation classification flag.
+   *  Resolver populates from `CloHolding.isLongDated` when present, else
+   *  derives from `loan.maturityDate > deal.maturityDate` (universal
+   *  rule across the PPM sample we have). Static — no cure mechanic for
+   *  long-dated. KI-29 partial closure: per-position classification is
+   *  modeled; per-deal forward-period valuation rule remains static
+   *  (mechanically bound to LongDatedStaticBanner). */
+  isLongDated?: boolean;
 }
 
 export type WarningSeverity = "info" | "warn" | "error";

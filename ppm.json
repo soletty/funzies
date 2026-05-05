@@ -169,6 +169,29 @@
       "covers_steps": ["B", "C"],
       "overflow_steps": ["Y", "Z"],
       "ki_16_verification_date": "2026-05-04"
+    },
+    "discount_obligation": {
+      "source_pages": [119, 120, 121],
+      "source_condition": "OC Condition 1 (\"Discount Obligation\")",
+      "verbatim_quote_short": "any Collateral Obligation that is not a Swapped Non-Discount Obligation, acquired (a) [floating] for purchase price < 80% of Principal Balance, ceasing to be a Discount Obligation when MV >= 90% of Principal Balance for any 30 consecutive days since acquisition; (b) [fixed] purchase price < 75%, ceasing at MV >= 85% for 30 consecutive days; for Revolving / DDTL Obligations, purchase price includes the Unfunded Amount required to be deposited in the URRA",
+      "classification_threshold": {
+        "type": "split_by_rate_type",
+        "floating_pct": 80.0,
+        "fixed_pct": 75.0
+      },
+      "cure_mechanic": {
+        "type": "continuous_threshold",
+        "cure_threshold": {
+          "type": "split_by_rate_type",
+          "floating_pct": 90.0,
+          "fixed_pct": 85.0
+        },
+        "cure_window": {
+          "type": "days",
+          "n": 30
+        }
+      },
+      "ki_29_verification_date": "2026-05-05"
     }
   },
 

@@ -35,6 +35,7 @@ export const EMPTY_RESOLVED: ResolvedDealData = {
   expenseReserveBalance: 0,
   hedgeCostBps: 0,
   seniorExpensesCap: null,
+  discountObligationRule: null,
   preExistingDefaultedPar: 0,
   preExistingDefaultRecovery: 0,
   unpricedDefaultedPar: 0,
@@ -72,6 +73,13 @@ export interface UserAssumptions {
   reinvestmentSpreadBps: number;
   reinvestmentTenorYears: number;
   reinvestmentRating: string | null;
+  /** Reinvestment purchase price as percent of par (e.g. 96.5 = 96.5c).
+   *  Null means use the pool-weighted-average current price as the default
+   *  (derived from `resolved.loans` in `buildFromResolved`). Drives the
+   *  price-aware OC cure cash sizing in `computeReinvOcDiversion` and the
+   *  per-position discount-obligation classification of synthesised loans
+   *  (sub-threshold purchases become discount obligations immediately). */
+  reinvestmentPricePct: number | null;
   cccBucketLimitPct: number;
   cccMarketValuePct: number;
   deferredInterestCompounds: boolean;
@@ -182,6 +190,7 @@ export const DEFAULT_ASSUMPTIONS: UserAssumptions = {
   reinvestmentSpreadBps: CLO_DEFAULTS.reinvestmentSpreadBps,
   reinvestmentTenorYears: CLO_DEFAULTS.reinvestmentTenorYears,
   reinvestmentRating: null,
+  reinvestmentPricePct: null,
   cccBucketLimitPct: CLO_DEFAULTS.cccBucketLimitPct,
   cccMarketValuePct: CLO_DEFAULTS.cccMarketValuePct,
   deferredInterestCompounds: true,
@@ -715,6 +724,85 @@ export function composeBuildWarnings(
     }
   }
 
+  // Boundary scale invariants on percent-of-par fields. The plausible
+  // range for a market price (currentPrice) or purchase price is roughly
+  // [1, 200] cents on the par dollar — distressed positions can drop to
+  // ~5-30c, and slightly-premium positions can exceed par by a few cents
+  // (Euro XV carries multiple positions at ~100.2c). A value at 0.965
+  // (decimal-fraction-vs-percent scale error) or 9650 (basis-points-vs-
+  // percent scale error) is unambiguously wrong and would propagate a
+  // 100× shape through OC haircut, cure leverage, and discount-obligation
+  // classification. Range chosen to detect scale errors, not to bound
+  // realistic distressed/premium prices.
+  const isImplausiblePricePct = (v: number) => v < 1 || v > 200;
+  if (
+    userAssumptions.reinvestmentPricePct != null &&
+    isImplausiblePricePct(userAssumptions.reinvestmentPricePct)
+  ) {
+    composedWarnings.push({
+      field: "reinvestmentPricePct",
+      message:
+        `UserAssumptions.reinvestmentPricePct=${userAssumptions.reinvestmentPricePct} is ` +
+        `outside the plausible market-price range [1, 200]. A value like 0.965 (decimal ` +
+        `fraction) or 9650 (basis points) silently produces a 100× error in cure cash ` +
+        `sizing and discount-obligation classification. Fix the upstream input.`,
+      severity: "error",
+      blocking: true,
+    });
+  }
+  // Reinvestment price par-fallback gate. When the user has not overridden
+  // and no priced position in the pool can drive a par-weighted derivation,
+  // refuse to fall back to par silently — a 100c assumption disables the
+  // price-aware reinvestment cure math (no cure leverage, no discount-
+  // obligation classification of synthesised loans), materially over-
+  // stating cure cash sizing on a deal in its reinvestment period whose
+  // true market is sub-par. Anti-pattern #3: computational fallbacks block.
+  if (userAssumptions.reinvestmentPricePct == null && resolved.loans.length > 0) {
+    const anyPriced = resolved.loans.some(
+      l => !l.isDelayedDraw && l.currentPrice != null && l.currentPrice > 0,
+    );
+    if (!anyPriced) {
+      composedWarnings.push({
+        field: "reinvestmentPricePct",
+        message:
+          `No priced positions in the pool to derive a par-weighted reinvestment ` +
+          `price (every active loan has currentPrice == null or <= 0). Falling back ` +
+          `to par (100c) would silently disable the price-aware reinvestment cure ` +
+          `math (no cure leverage, no discount-obligation classification on ` +
+          `synthesised loans) and materially over-state OC cure cash sizing on a ` +
+          `deal in its reinvestment period whose true market is sub-par. Set ` +
+          `UserAssumptions.reinvestmentPricePct explicitly, or fix the upstream ` +
+          `pricing extraction so resolved.loans[].currentPrice is populated.`,
+        severity: "error",
+        blocking: true,
+      });
+    }
+  }
+  for (const l of resolved.loans) {
+    if (l.purchasePricePct != null && isImplausiblePricePct(l.purchasePricePct)) {
+      composedWarnings.push({
+        field: `loans[${l.obligorName ?? "?"}].purchasePricePct`,
+        message:
+          `Loan purchasePricePct=${l.purchasePricePct} is outside the plausible range ` +
+          `[1, 200]. Likely cause: extraction sign-convention or scale error (decimal ` +
+          `fraction vs percent). Fix the SDF / Intex parser.`,
+        severity: "error",
+        blocking: true,
+      });
+    }
+    if (l.currentPrice != null && isImplausiblePricePct(l.currentPrice)) {
+      composedWarnings.push({
+        field: `loans[${l.obligorName ?? "?"}].currentPrice`,
+        message:
+          `Loan currentPrice=${l.currentPrice} is outside the plausible range [1, 200]. ` +
+          `Likely cause: extraction scale error (decimal fraction vs percent) or ` +
+          `stale-default-mark sentinel. Fix the upstream parser.`,
+        severity: "error",
+        blocking: true,
+      });
+    }
+  }
+
   return composedWarnings;
 }
 
@@ -765,6 +853,39 @@ export function buildFromResolved(
     userAssumptions.equityEntryPriceCents != null && subNoteFaceAtPurchase > 0
       ? subNoteFaceAtPurchase * (userAssumptions.equityEntryPriceCents / 100)
       : undefined;
+
+  // Reinvestment purchase price: user override > pool-weighted-average
+  // current price. The pool-WAS-derived default is grounded — if the pool
+  // is currently trading at 96.5c on average, reinvestments are likely
+  // happening near 96.5c. The no-priced-positions case is gated upstream
+  // in `composeBuildWarnings` (blocking) so this branch only sees a
+  // greenfield pool (no loans at all) — par is correct there since
+  // greenfield deals don't reinvest until they ramp.
+  let reinvestmentPricePct: number;
+  let reinvestmentPriceSource: "user_override" | "pool_was_derived" | "par_fallback";
+  if (userAssumptions.reinvestmentPricePct != null) {
+    reinvestmentPricePct = userAssumptions.reinvestmentPricePct;
+    reinvestmentPriceSource = "user_override";
+  } else {
+    let parWithPrice = 0;
+    let pxParSum = 0;
+    for (const l of resolved.loans) {
+      if (l.currentPrice == null || l.currentPrice <= 0) continue;
+      if (l.isDelayedDraw) continue;
+      parWithPrice += l.parBalance;
+      pxParSum += l.parBalance * l.currentPrice;
+    }
+    if (parWithPrice > 0) {
+      reinvestmentPricePct = pxParSum / parWithPrice;
+      reinvestmentPriceSource = "pool_was_derived";
+    } else {
+      // Greenfield path (resolved.loans.length === 0). The composeBuildWarnings
+      // gate above blocks the with-loans-but-no-prices case, so reaching
+      // here means the pool is empty — par fallback is correct.
+      reinvestmentPricePct = 100;
+      reinvestmentPriceSource = "par_fallback";
+    }
+  }
 
   return {
     initialPar: resolved.poolSummary.totalPar,
@@ -837,6 +958,8 @@ export function buildFromResolved(
     reinvestmentSpreadBps: userAssumptions.reinvestmentSpreadBps,
     reinvestmentTenorQuarters: userAssumptions.reinvestmentTenorYears * 4,
     reinvestmentRating: userAssumptions.reinvestmentRating,
+    reinvestmentPricePct,
+    reinvestmentPriceSource,
     cccBucketLimitPct: userAssumptions.cccBucketLimitPct,
     cccMarketValuePct: userAssumptions.cccMarketValuePct,
     deferredInterestCompounds: userAssumptions.deferredInterestCompounds ?? resolved.deferredInterestCompounds,
@@ -852,7 +975,7 @@ export function buildFromResolved(
     preExistingDefaultRecovery: resolved.preExistingDefaultRecovery,
     unpricedDefaultedPar: resolved.unpricedDefaultedPar,
     preExistingDefaultOcValue: resolved.preExistingDefaultOcValue,
-    discountObligationHaircut: resolved.discountObligationHaircut,
+    discountObligationRule: resolved.discountObligationRule,
     longDatedObligationHaircut: resolved.longDatedObligationHaircut,
     impliedOcAdjustment: resolved.impliedOcAdjustment,
     quartersSinceReport: resolved.quartersSinceReport,

@@ -17,6 +17,7 @@ import {
   type SeniorExpenseBreakdown,
 } from "./senior-expense-breakdown";
 import type { DayCountConvention } from "./day-count-canonicalize";
+import type { ResolvedDiscountObligationRule } from "./resolver-types";
 import { resolveAgencyRecovery } from "./recovery-rate";
 
 export interface LoanInput {
@@ -97,6 +98,29 @@ export interface LoanInput {
    *  cash accrual). Zero / undefined → no PIK accretion (cash-paying or
    *  toggle-off PIK loan). */
   pikSpreadBps?: number;
+  /** Per-position purchase price as percent of par (immutable post-
+   *  acquisition). Sourced from `ResolvedLoan.purchasePricePct` (in turn
+   *  from the SDF row's `purchase_price` column or the LLM-extracted
+   *  holding's purchasePrice). Drives the KI-29 discount-obligation
+   *  classification at every period. Distinct from `currentPrice` —
+   *  conflating them is a known footgun (purchase is locked at
+   *  acquisition; current evolves with market). */
+  purchasePricePct?: number;
+  /** Date of acquisition (ISO YYYY-MM-DD). Used by the cure mechanic
+   *  to gate "MV at-or-above cure threshold *since acquisition*". */
+  acquisitionDate?: string;
+  /** Per-position Discount Obligation classification flag at projection
+   *  start. Re-evaluated per period inside the engine under the deal's
+   *  `discountObligationRule.cureMechanic` (continuous_threshold may
+   *  flip true→false; permanent_until_paid never flips). */
+  isDiscountObligation?: boolean;
+  /** Per-position Long-Dated Collateral Obligation classification flag.
+   *  Universal classification rule (loan.maturityDate > deal.maturityDate);
+   *  static — no cure mechanic. Engine consumes for per-position
+   *  long-dated identification. KI-29 partial closure: per-deal forward-
+   *  period valuation rule remains static (mechanically bound to
+   *  LongDatedStaticBanner). */
+  isLongDated?: boolean;
 }
 
 // C2 — Coarse RatingBucket → Moody's WARF factor. Imported from pool-metrics.ts
@@ -347,6 +371,20 @@ export interface ProjectionInputs {
   reinvestmentSpreadBps: number;
   reinvestmentTenorQuarters: number;
   reinvestmentRating: string | null; // null = use portfolio modal
+  /** Assumed purchase price (as percent of par) for reinvested loans
+   *  synthesized mid-projection. Drives the price-aware cure math in
+   *  `computeReinvOcDiversion` and the per-position classification of
+   *  synthesised loans (sub-threshold purchases become discount obligations
+   *  immediately). Default 100 (par-purchase) for hand-constructed test
+   *  inputs. Production callers via `buildFromResolved` resolve in this
+   *  order: `UserAssumptions.reinvestmentPricePct` slider override →
+   *  pool-weighted-average `currentPrice` (Σ par × currentPrice / Σ par
+   *  over loans) → 100 fallback when the pool carries no priced positions. */
+  reinvestmentPricePct?: number;
+  /** Provenance tag for `reinvestmentPricePct`. Surfaced via
+   *  `initialState.reinvestmentPriceSource` for partner-facing
+   *  transparency and the par-fallback banner. */
+  reinvestmentPriceSource?: "user_override" | "pool_was_derived" | "par_fallback";
   cccBucketLimitPct: number; // CCC excess above this % of par is haircut in OC test
   cccMarketValuePct: number; // market value assumption for CCC excess haircut (% of par)
   deferredInterestCompounds: boolean; // whether PIK'd interest itself earns interest
@@ -416,8 +454,14 @@ export interface ProjectionInputs {
   preExistingDefaultRecovery?: number; // market-price recovery for priced defaulted holdings
   unpricedDefaultedPar?: number; // par of defaulted holdings without market price (model applies recoveryPct)
   preExistingDefaultOcValue?: number; // recovery value for OC numerator (agency rate — typically higher than market)
-  discountObligationHaircut?: number; // net OC deduction for discount obligations (from trustee report)
-  longDatedObligationHaircut?: number; // net OC deduction for long-dated obligations (from trustee report)
+  longDatedObligationHaircut?: number; // net OC deduction for long-dated obligations (from trustee report). Per-position classification lives on `LoanInput.isLongDated`; per-deal forward-period valuation rule remains static — mechanically bound to LongDatedStaticBanner via the > 0 condition.
+  /** PPM Discount Obligation classification + cure rule (Condition 1).
+   *  Resolver-extracted; engine consumes per-period for per-position
+   *  discount-obligation classification and price-aware cure math.
+   *  Null on legacy fixtures and synthetic test inputs that don't model
+   *  the discount mechanic — engine leaves all positions classified by
+   *  whatever LoanInput.isDiscountObligation arrives at. */
+  discountObligationRule?: ResolvedDiscountObligationRule | null;
   impliedOcAdjustment?: number; // derived residual between trustee's Adjusted CPA and identified components
   quartersSinceReport?: number; // quarters between compliance report and projection start (adjusts default recovery timing)
   ddtlDrawPercent?: number; // % of DDTL par actually funded on draw (default 100)
@@ -812,6 +856,19 @@ export interface ProjectionInitialState {
    *  VAT when applicable). Exposed for marker tests verifying the VAT
    *  gross-up path at T=0 mirrors the in-period site. */
   seniorExpensesCapRequestedT0: number;
+  /** Reinvestment purchase price (percent of par) the engine actually
+   *  applied. Exposed for partner-facing transparency — synthesised
+   *  reinvestment loans are valued at this price, and the source tag
+   *  identifies the derivation lineage:
+   *    - `user_override`: UserAssumptions.reinvestmentPricePct was set
+   *    - `pool_was_derived`: Σ par × currentPrice / Σ par over priced
+   *      funded loans
+   *    - `par_fallback`: greenfield path (resolved.loans.length === 0).
+   *      The with-loans-but-no-prices case is gated upstream in
+   *      `composeBuildWarnings` (blocking) so this tag fires only when
+   *      par is correct — greenfield deals don't reinvest until they ramp. */
+  reinvestmentPricePctApplied: number;
+  reinvestmentPriceSource: "user_override" | "pool_was_derived" | "par_fallback";
 }
 
 export interface ProjectionResult {
@@ -861,10 +918,28 @@ export function quartersBetween(startIso: string, endIso: string): number {
  *
  * Returns 0 when (a) no interest to divert, (b) no rated debt, (c) test passes.
  *
- * Known approximation: assumes €1 diverted buys €1 of par (par-purchase). Real
- * reinvestments happen at market prices (typically 95–100%), so €1 of diversion
- * buys €1/price of par; cure-exact math would be `cureAmount × price`. Tracked
- * under C1 (reinvestment compliance) for modelling at purchase price.
+ * Price-aware OC cure cash sizing: returns both `cashDiverted` (subtracted
+ * from availableInterest) and `parBought` (pushed as new survivingPar).
+ * Math depends on whether the synthesised loan is sub-threshold:
+ *
+ *   - Above-threshold (purchasePricePct >= classificationThresholdPct):
+ *     not a discount obligation → contributes full par to OC numerator.
+ *     Cash needed for `numeratorGain` of cure: `cash = numeratorGain ×
+ *     purchasePricePct/100` (LEVERAGED — €1 cash buys €1/price par which
+ *     contributes €1/price numerator).
+ *
+ *   - Sub-threshold: synthesised position is a discount obligation →
+ *     contributes `par × purchasePricePct/100` to numerator after the
+ *     per-position haircut. Cash needed: `cash = numeratorGain` (no
+ *     leverage; same dollar of OC ratio per dollar of cash). Buying
+ *     sub-threshold paper does change pool composition (more par for the
+ *     same cash) but does not improve OC ratio more than holding cash.
+ *
+ * parBought = cashDiverted × (100 / purchasePricePct) in both cases.
+ * Caller uses parBought to size the new loan, cashDiverted to consume
+ * available interest. Caller is also responsible for setting
+ * `isDiscountObligation` on the synthesised loan per the same threshold
+ * test (so the haircut Σ on the next period reflects classification).
  */
 export function computeReinvOcDiversion(
   availableInterest: number,
@@ -872,14 +947,21 @@ export function computeReinvOcDiversion(
   reinvOcDebt: number,
   triggerLevelPct: number,
   diversionPct: number,
-): number {
-  if (availableInterest <= 0) return 0;
-  if (reinvOcDebt <= 0) return 0;
+  purchasePricePct: number = 100,
+  isSubThresholdPurchase: boolean = false,
+): { cashDiverted: number; parBought: number } {
+  if (availableInterest <= 0) return { cashDiverted: 0, parBought: 0 };
+  if (reinvOcDebt <= 0) return { cashDiverted: 0, parBought: 0 };
   const actualPct = (ocNumerator / reinvOcDebt) * 100;
-  if (actualPct >= triggerLevelPct) return 0;
-  const cureAmount = Math.max(0, (triggerLevelPct / 100) * reinvOcDebt - ocNumerator);
+  if (actualPct >= triggerLevelPct) return { cashDiverted: 0, parBought: 0 };
+  const numeratorGainNeeded = Math.max(0, (triggerLevelPct / 100) * reinvOcDebt - ocNumerator);
+  const cashNeededForCure = isSubThresholdPurchase
+    ? numeratorGainNeeded
+    : numeratorGainNeeded * (purchasePricePct / 100);
   const maxDiversion = availableInterest * (diversionPct / 100);
-  return Math.min(maxDiversion, cureAmount);
+  const cashDiverted = Math.min(maxDiversion, cashNeededForCure);
+  const parBought = purchasePricePct > 0 ? cashDiverted * (100 / purchasePricePct) : cashDiverted;
+  return { cashDiverted, parBought };
 }
 
 /**
@@ -1407,7 +1489,7 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     reinvestmentPeriodEnd, maturityDate, currentDate,
     loans, defaultRatesByRating, cdrMultiplierPathFn, cprPct, recoveryPct, recoveryLagMonths,
     ratingAgencies,
-    reinvestmentSpreadBps, reinvestmentTenorQuarters, reinvestmentRating: reinvestmentRatingOverride,
+    reinvestmentSpreadBps, reinvestmentTenorQuarters, reinvestmentRating: reinvestmentRatingOverride, reinvestmentPricePct = 100, reinvestmentPriceSource = "user_override",
     cccBucketLimitPct, cccMarketValuePct, deferredInterestCompounds,
     initialPrincipalCash = 0,
     initialUnusedProceedsCash = 0,
@@ -1418,7 +1500,8 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     supplementalReserveDisposition = "principalCash",
     seniorExpensesCapCarryforwardSeed,
     preExistingDefaultedPar = 0, preExistingDefaultRecovery = 0, unpricedDefaultedPar = 0, preExistingDefaultOcValue = 0,
-    discountObligationHaircut = 0, longDatedObligationHaircut = 0, impliedOcAdjustment = 0, quartersSinceReport = 0,
+    longDatedObligationHaircut = 0, impliedOcAdjustment = 0, quartersSinceReport = 0,
+    discountObligationRule = null,
     ddtlDrawPercent = 100,
     moodysWarfTriggerLevel = null,
     minWasBps: minWasBpsTrigger = null,
@@ -1683,6 +1766,27 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
      *  `survivingPar` on top of the cash interest path. Synthetic
      *  reinvestment loans leave this undefined (default cash-paying). */
     pikSpreadBps?: number;
+    /** Per-position purchase price as percent of par (immutable).
+     *  Carried from `LoanInput.purchasePricePct`. The cure mechanic
+     *  may reclassify `isDiscountObligation` per period, but
+     *  `purchasePricePct` itself is a one-time stamp from acquisition
+     *  and never updates. Synthetic reinvestment loans set this at
+     *  synthesis time from the calibration-derived assumption. */
+    purchasePricePct?: number;
+    /** Acquisition date (ISO YYYY-MM-DD). Used by the cure mechanic
+     *  to require holding-since-acquisition before cure can fire. */
+    acquisitionDate?: string;
+    /** Discount Obligation classification flag — re-evaluated each
+     *  period by the cure-mechanic dispatch in the period loop.
+     *  `continuous_threshold` may flip true→false when MV crosses
+     *  the cure threshold; `permanent_until_paid` never flips. */
+    isDiscountObligation?: boolean;
+    /** Long-Dated Collateral Obligation classification flag — static
+     *  per-position (no cure). KI-29 partial closure: per-position
+     *  classification modeled here; per-deal forward-period valuation
+     *  rule continues to ride on the static `longDatedObligationHaircut`
+     *  scalar (mechanically bound to LongDatedStaticBanner). */
+    isLongDated?: boolean;
   }
 
   // Per-deal Rating Agencies subset is required. Production callers via
@@ -1745,6 +1849,10 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
       // oc.txt:7120-7124), not the modeled cash recovery upon a forward default.
     ),
     pikSpreadBps: l.pikSpreadBps,
+    purchasePricePct: l.purchasePricePct,
+    acquisitionDate: l.acquisitionDate,
+    isDiscountObligation: l.isDiscountObligation,
+    isLongDated: l.isLongDated,
   }));
 
   // Remove never_draw DDTLs (drawQuarter <= 0) — they never fund and shouldn't appear in the portfolio
@@ -1779,6 +1887,39 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
   // C2 — WARF factor for reinvested positions. Uses the coarse-bucket fallback
   // (no per-position sub-bucket on reinvestment). NR→b2 proxy if bucket unknown.
   const reinvestmentWarfFactor = BUCKET_WARF_FALLBACK[reinvestmentRating] ?? BUCKET_WARF_FALLBACK.NR;
+
+  // Sub-threshold flag for synthesised reinvestment loans, computed
+  // once at engine setup since reinvestment-purchase shape doesn't vary per
+  // period. Reinvestment-rate-type derived from the pool's par-weighted
+  // majority — managers typically reinvest in the same shape as the
+  // existing collateral. A pool that is >50% par-weighted fixed-rate
+  // synthesises fixed-rate reinvestments (classified at the deal's
+  // fixed-rate threshold, e.g. Ares family 75); else floating (e.g. 80).
+  // Hardcoding `false` here would silently mis-classify reinvested loans
+  // on a fixed-rate-heavy deal whose rule splits by rate type. When the
+  // rule is null (greenfield / hand-constructed inputs), no classification
+  // applies and synthesised loans default to non-discount.
+  const reinvIsFixedRate = (() => {
+    if (fundedLoans.length === 0) return false;
+    let fixedPar = 0;
+    let totalPar = 0;
+    for (const l of fundedLoans) {
+      totalPar += l.survivingPar;
+      if (l.isFixedRate) fixedPar += l.survivingPar;
+    }
+    return totalPar > 0 && fixedPar / totalPar > 0.5;
+  })();
+  const reinvIsSubThreshold = (() => {
+    if (discountObligationRule == null) return false;
+    const t = discountObligationRule.classificationThresholdPct;
+    const threshold =
+      t.type === "single"
+        ? t.pct
+        : reinvIsFixedRate
+          ? t.fixedPct
+          : t.floatingPct;
+    return reinvestmentPricePct < threshold;
+  })();
 
   // C1 — Max reinvestment amount that keeps the post-buy pool compliant with
   // every active reinvestment-period trigger:
@@ -2154,6 +2295,81 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
       : reinvestmentPeriodExtension ?? reinvestmentPeriodEnd;
   const rpEndDate = effectiveRpEnd ? new Date(effectiveRpEnd) : null;
 
+  // KI-29 — per-position discount-obligation haircut Σ. Replaces the
+  // static `discountObligationHaircut` scalar consumption pattern. Each
+  // classified position contributes `par × (1 − purchasePricePct/100)`
+  // to the OC numerator deduction, and the haircut shrinks automatically
+  // as positions amortize / prepay / default (their `survivingPar` decays
+  // in the existing loanStates mutation paths). Long-dated valuation
+  // continues to ride on the static `longDatedObligationHaircut` scalar
+  // per the KI-29 partial-closure scope; banner mechanically bound at
+  // the UI layer to the scalar > 0 condition.
+  //
+  // Skips contribution when `purchasePricePct == null` (no extracted
+  // price — no signal, contribute zero), `purchasePricePct >= 100`
+  // (premium-purchase has no haircut by definition), or `isDelayedDraw`
+  // (unfunded commitment doesn't carry an OC haircut). Hand-constructed
+  // test fixtures that don't model the discount mechanic see all loans
+  // with `isDiscountObligation === undefined` and the haircut collapses
+  // to zero — same numerical output as the pre-KI-29 path on those
+  // inputs.
+  const computeDiscountHaircut = (states: LoanState[]): number => {
+    let total = 0;
+    for (const l of states) {
+      if (l.isDiscountObligation !== true) continue;
+      if (l.purchasePricePct == null || l.purchasePricePct >= 100) continue;
+      if (l.isDelayedDraw) continue;
+      total += l.survivingPar * (1 - l.purchasePricePct / 100);
+    }
+    return total;
+  };
+
+  // KI-29 — cure-mechanic dispatch. Re-evaluates `isDiscountObligation`
+  // per period under the per-deal `discountObligationRule.cureMechanic`
+  // variant. `continuous_threshold` may flip true→false when the
+  // position's current MV is at or above the cure threshold and the
+  // holding-since-acquisition window has elapsed; `permanent_until_paid`
+  // never flips (returns immediately). At quarterly engine cadence with
+  // static `currentPrice` from ingestion, the dispatch is a no-op after
+  // the initial T=0 application — but it remains correctly per-period
+  // because (i) reinvested loans synthesised mid-projection get
+  // classified at synthesis time and may cure on a later PD, and (ii)
+  // any future engine extension that models price evolution will exercise
+  // the per-period dispatch automatically. Both `days` and `payment_dates`
+  // cure-window variants collapse to "current price >= cure threshold
+  // AND held-since-acquisition >= window" at PD granularity — see
+  // ResolvedCureWindow docstring for the simplification rationale.
+  const applyCureDispatch = (states: LoanState[], asOfDate: string): void => {
+    if (discountObligationRule == null) return;
+    if (discountObligationRule.cureMechanic.type !== "continuous_threshold") return;
+    const cm = discountObligationRule.cureMechanic;
+    const asOfMs = new Date(asOfDate).getTime();
+    for (const l of states) {
+      if (l.isDiscountObligation !== true) continue;
+      if (l.currentPrice == null) continue;
+      const cureThreshold =
+        cm.cureThresholdPct.type === "single"
+          ? cm.cureThresholdPct.pct
+          : l.isFixedRate
+            ? cm.cureThresholdPct.fixedPct
+            : cm.cureThresholdPct.floatingPct;
+      if (l.currentPrice < cureThreshold) continue;
+      // Holding-since-acquisition window check. Conservative: positions
+      // missing acquisitionDate cannot cure (we can't assert the window
+      // has elapsed). Synthesised reinvestment loans set acquisitionDate
+      // at synthesis time so this check fires correctly for them.
+      if (l.acquisitionDate == null) continue;
+      const acquiredMs = new Date(l.acquisitionDate).getTime();
+      const meetsWindow =
+        cm.cureWindow.type === "days"
+          ? (asOfMs - acquiredMs) / (24 * 3600 * 1000) >= cm.cureWindow.n
+          : quartersBetween(l.acquisitionDate, asOfDate) >= cm.cureWindow.n;
+      if (meetsWindow) {
+        l.isDiscountObligation = false;
+      }
+    }
+  };
+
   // ── T=0 snapshot for N6 harness (determination-date compliance parity) ──
   // Computed BEFORE the period loop runs. Uses initial trancheBalances (no
   // mutations), initial pool par, initial principal cash, agency default
@@ -2176,8 +2392,10 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     const currentDdtlUnfundedPar = hasLoans
       ? loanStates.filter(l => l.isDelayedDraw).reduce((s, l) => s + l.survivingPar, 0)
       : 0;
+    if (hasLoans) applyCureDispatch(loanStates, currentDate);
+    const discountHaircutT0 = hasLoans ? computeDiscountHaircut(loanStates) : 0;
     const ocNumerator = poolPar + initialPrincipalCash + pendingRecoveryValue + ocDefaultAdjustment
-      - discountObligationHaircut - longDatedObligationHaircut - impliedOcAdjustment - currentDdtlUnfundedPar;
+      - discountHaircutT0 - longDatedObligationHaircut - impliedOcAdjustment - currentDdtlUnfundedPar;
 
     const ocTests: ProjectionInitialState["ocTests"] = ocTriggersByClass.map((oc) => {
       const debtAtAndAbove = ocEligibleAtStart
@@ -2373,6 +2591,8 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
       },
       seniorExpensesCapAmountT0: capAmountFromCapBpsT0,
       seniorExpensesCapRequestedT0: cappedRequestedT0,
+      reinvestmentPricePctApplied: reinvestmentPricePct,
+      reinvestmentPriceSource,
     };
   })();
 
@@ -2925,18 +3145,37 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     }
     if (reinvestment > 0 && hasLoans) {
       const matQ = q + reinvestmentTenorQuarters;
-      // Split reinvestment into individual loans sized to the portfolio average.
-      // Improves Monte Carlo accuracy: each loan defaults independently instead
-      // of one giant loan going all-or-nothing.
+      // `reinvestment` is the cash amount; par bought at the assumed
+      // reinvestment price. avgLoanSize is a CASH ceiling (matches the
+      // pool's dollar-weighted typical position size); the per-loan
+      // `survivingPar` is the cash chunk × 1/(price/100). Sub-threshold
+      // purchases set isDiscountObligation true at synthesis time so
+      // the per-period haircut Σ correctly deducts on the next
+      // determination date.
+      const isLongDatedSynth = matQ > totalQuarters;
+      const synthCommonFields = {
+        ratingBucket: reinvestmentRating,
+        spreadBps: reinvestmentSpreadBps,
+        warfFactor: reinvestmentWarfFactor,
+        maturityQuarter: matQ,
+        isFixedRate: reinvIsFixedRate,
+        isDelayedDraw: false,
+        defaultedParPending: 0,
+        defaultEvents: [],
+        purchasePricePct: reinvestmentPricePct,
+        acquisitionDate: periodDate,
+        isDiscountObligation: reinvIsSubThreshold,
+        isLongDated: isLongDatedSynth,
+      };
       if (avgLoanSize > 0 && reinvestment > avgLoanSize * 1.5) {
         let remaining = reinvestment;
         while (remaining > 0) {
-          const par = Math.min(avgLoanSize, remaining);
-          loanStates.push({ survivingPar: par, ratingBucket: reinvestmentRating, spreadBps: reinvestmentSpreadBps, warfFactor: reinvestmentWarfFactor, maturityQuarter: matQ, isFixedRate: false, isDelayedDraw: false, defaultedParPending: 0, defaultEvents: [] });
-          remaining -= par;
+          const cashChunk = Math.min(avgLoanSize, remaining);
+          loanStates.push({ survivingPar: cashChunk * (100 / reinvestmentPricePct), ...synthCommonFields });
+          remaining -= cashChunk;
         }
       } else {
-        loanStates.push({ survivingPar: reinvestment, ratingBucket: reinvestmentRating, spreadBps: reinvestmentSpreadBps, warfFactor: reinvestmentWarfFactor, maturityQuarter: matQ, isFixedRate: false, isDelayedDraw: false, defaultedParPending: 0, defaultEvents: [] });
+        loanStates.push({ survivingPar: reinvestment * (100 / reinvestmentPricePct), ...synthCommonFields });
       }
     }
 
@@ -3563,9 +3802,11 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     // cash sitting in the Principal Account at the Determination Date
     // immediately preceding period q+1's Payment Date.
     priorPeriodEndPrincipalCash = remainingPrelim;
+    if (hasLoans) applyCureDispatch(loanStates, periodDate);
+    const discountHaircut = hasLoans ? computeDiscountHaircut(loanStates) : 0;
     let ocNumerator = endingPar + remainingPrelim - suppReserveLeftoverInRemainingPrelim
       + pendingRecoveryValue + ocDefaultAdjustment
-      - discountObligationHaircut - longDatedObligationHaircut - impliedOcAdjustment - currentDdtlUnfundedPar;
+      - discountHaircut - longDatedObligationHaircut - impliedOcAdjustment - currentDdtlUnfundedPar;
     if (hasLoans && cccBucketLimitPct > 0) {
       const cccPar = loanStates
         .filter((l) => !l.isDelayedDraw && l.ratingBucket === "CCC" && l.survivingPar > 0)
@@ -3890,7 +4131,18 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
             .reduce((s, tr) => s + trancheBalances[tr.className] + deferredBalances[tr.className], 0);
           const trigger = failingOc.triggerLevel / 100;
           if (inRP && !failingIc) {
-            cureAmount = Math.max(0, trigger * debtAtAndAbove - ocNumerator);
+            // Reinvestment cure: divert interest, buy collateral, lift the
+            // OC numerator. `cureAmount` is the CASH needed (consumed from
+            // availableInterest below). Mirror computeReinvOcDiversion's
+            // price-aware sizing: above-threshold purchases are leveraged
+            // (€1 cash → €1/price par → €1/price numerator gain, so cash
+            // needed = numeratorGain × price/100); sub-threshold purchases
+            // become discount obligations and contribute par × price/100
+            // post-haircut to numerator (no leverage; cash = numeratorGain).
+            const numeratorGainNeeded = Math.max(0, trigger * debtAtAndAbove - ocNumerator);
+            cureAmount = reinvIsSubThreshold
+              ? numeratorGainNeeded
+              : numeratorGainNeeded * (reinvestmentPricePct / 100);
           } else {
             cureAmount = Math.max(0, debtAtAndAbove - ocNumerator / trigger);
           }
@@ -3928,19 +4180,34 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
           const _mode: "reinvest" | "paydown" = inRP && !failingIc ? "reinvest" : "paydown";
           _stepTrace_ocCureDiversions.push({ rank, mode: _mode, amount: diversion });
           if (inRP && !failingIc) {
-            currentPar += diversion;
-            ocNumerator += diversion;
+            // Price-aware synthesis. `diversion` here is the cash amount
+            // diverted to reinvestment; par bought scales with
+            // 1/(purchasePricePct/100) so sub-par purchases buy more par
+            // for the same cash. OC numerator increment depends on whether
+            // the synthesised loan is sub-threshold (discount-obligation
+            // → contributes post-haircut value) or above (full par).
+            const cureParBought = diversion * (100 / reinvestmentPricePct);
+            const cureNumeratorGain = reinvIsSubThreshold
+              ? cureParBought * (reinvestmentPricePct / 100)
+              : cureParBought;
+            const cureMaturityQ = q + reinvestmentTenorQuarters;
+            currentPar += cureParBought;
+            ocNumerator += cureNumeratorGain;
             if (hasLoans) {
               loanStates.push({
-                survivingPar: diversion,
+                survivingPar: cureParBought,
                 ratingBucket: reinvestmentRating,
                 spreadBps: reinvestmentSpreadBps,
                 warfFactor: reinvestmentWarfFactor,
-                maturityQuarter: q + reinvestmentTenorQuarters,
-                isFixedRate: false,
+                maturityQuarter: cureMaturityQ,
+                isFixedRate: reinvIsFixedRate,
                 isDelayedDraw: false,
                 defaultedParPending: 0,
                 defaultEvents: [],
+                purchasePricePct: reinvestmentPricePct,
+                acquisitionDate: periodDate,
+                isDiscountObligation: reinvIsSubThreshold,
+                isLongDated: cureMaturityQ > totalQuarters,
               });
             }
           } else {
@@ -3999,28 +4266,43 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
       const reinvOcDebt = ocEligibleTranches
         .filter((tr) => tr.seniorityRank <= reinvestmentOcTrigger.rank)
         .reduce((s, tr) => s + trancheBalances[tr.className] + deferredBalances[tr.className], 0);
-      const diversion = computeReinvOcDiversion(
+      const { cashDiverted, parBought } = computeReinvOcDiversion(
         availableInterest,
         ocNumerator,
         reinvOcDebt,
         reinvestmentOcTrigger.triggerLevel,
         reinvestmentOcTrigger.diversionPct,
+        reinvestmentPricePct,
+        reinvIsSubThreshold,
       );
-      if (diversion > 0) {
-        _stepTrace_reinvOcDiversion = diversion;
-        availableInterest -= diversion;
-        currentPar += diversion;
+      if (cashDiverted > 0) {
+        _stepTrace_reinvOcDiversion = cashDiverted;
+        availableInterest -= cashDiverted;
+        currentPar += parBought;
+        // OC numerator: full par for above-threshold; par × purchasePrice/100
+        // for sub-threshold (the per-position discount-obligation haircut
+        // gets subtracted at the next period's haircut Σ pass — for the
+        // current-period in-place ocNumerator update, contribute the
+        // post-haircut net so the in-period cure measurement is consistent).
+        ocNumerator += reinvIsSubThreshold
+          ? parBought * (reinvestmentPricePct / 100)
+          : parBought;
+        const synthMaturityQ = q + reinvestmentTenorQuarters;
         if (hasLoans) {
           loanStates.push({
-            survivingPar: diversion,
+            survivingPar: parBought,
             ratingBucket: reinvestmentRating,
             spreadBps: reinvestmentSpreadBps,
             warfFactor: reinvestmentWarfFactor,
-            maturityQuarter: q + reinvestmentTenorQuarters,
-            isFixedRate: false,
+            maturityQuarter: synthMaturityQ,
+            isFixedRate: reinvIsFixedRate,
             isDelayedDraw: false,
             defaultedParPending: 0,
             defaultEvents: [],
+            purchasePricePct: reinvestmentPricePct,
+            acquisitionDate: periodDate,
+            isDiscountObligation: reinvIsSubThreshold,
+            isLongDated: synthMaturityQ > totalQuarters,
           });
         }
       }

@@ -128,6 +128,34 @@ export interface PpmJson {
       vat_included?: boolean;
       [k: string]: unknown;
     } | null;
+    /** PPM Condition 1 "Discount Obligation" structured definition.
+     *  Lives in section_5 alongside senior_expenses_cap because both are
+     *  Condition-1 economic rules with downstream computational impact —
+     *  the senior expenses cap on steps (B)+(C), the discount-obligation
+     *  classification on the OC numerator, and the price-aware
+     *  reinvestment cure math. Resolver maps to ResolvedDiscountObligationRule
+     *  via ppm-mapper; blocks when null on a deal whose pool composition
+     *  needs the rule. */
+    discount_obligation?: {
+      source_pages?: number[];
+      source_condition?: string;
+      verbatim_quote_short?: string;
+      classification_threshold?:
+        | { type: "single"; pct: number }
+        | { type: "split_by_rate_type"; floating_pct: number; fixed_pct: number };
+      cure_mechanic?:
+        | {
+            type: "continuous_threshold";
+            cure_threshold:
+              | { type: "single"; pct: number }
+              | { type: "split_by_rate_type"; floating_pct: number; fixed_pct: number };
+            cure_window:
+              | { type: "days"; n: number }
+              | { type: "payment_dates"; n: number };
+          }
+        | { type: "permanent_until_paid" };
+      [k: string]: unknown;
+    } | null;
     [k: string]: unknown;
   };
   section_6_waterfall: {

@@ -20,6 +20,7 @@ const LEDGER_PATH = resolve(REPO_ROOT, "web/docs/clo-model-known-issues.md");
 const SCAN_FILES: string[] = [
   "web/app/clo/waterfall/ModelAssumptions.tsx",
   "web/app/clo/waterfall/CurrencyContext.tsx",
+  "web/app/clo/waterfall/LongDatedStaticBanner.tsx",
   "web/lib/clo/ppm-step-map.ts",
   // CLAUDE.md is at repo root (outside web/). It carries KI annotations in
   // the Engine-as-Source-of-Truth and "Recurring failure modes" sections;
@@ -84,7 +85,12 @@ describe("disclosure ↔ ledger bijection", () => {
   const anchors = parseLedgerAnchors();
 
   it("ledger has parseable anchors", () => {
-    expect(anchors.size).toBeGreaterThan(20);
+    // Smoke check on the parser — confirm at least a handful of `<a id="ki-N">`
+    // anchors were extracted. The exact count drifts as closures land
+    // (KI-31 + KI-33 merge brought it to 20); the strict `> 20` previously
+    // was a happy-accident of the count at the time, not a load-bearing
+    // assertion. Use `> 15` for buffer that survives several more closures.
+    expect(anchors.size).toBeGreaterThan(15);
   });
 
   for (const relPath of SCAN_FILES) {
