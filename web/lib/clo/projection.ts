@@ -863,10 +863,10 @@ export interface ProjectionInitialState {
    *    - `user_override`: UserAssumptions.reinvestmentPricePct was set
    *    - `pool_was_derived`: Σ par × currentPrice / Σ par over priced
    *      funded loans
-   *    - `par_fallback`: pool carries no priced positions; engine fell
-   *      back to 100. On a deal in its reinvestment period, this is a
-   *      silent disabling of the price-aware reinvestment math — the
-   *      UI surfaces a banner alerting the partner. */
+   *    - `par_fallback`: greenfield path (resolved.loans.length === 0).
+   *      The with-loans-but-no-prices case is gated upstream in
+   *      `composeBuildWarnings` (blocking) so this tag fires only when
+   *      par is correct — greenfield deals don't reinvest until they ramp. */
   reinvestmentPricePctApplied: number;
   reinvestmentPriceSource: "user_override" | "pool_was_derived" | "par_fallback";
 }

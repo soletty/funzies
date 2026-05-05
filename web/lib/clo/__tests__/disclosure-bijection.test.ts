@@ -21,7 +21,6 @@ const SCAN_FILES: string[] = [
   "web/app/clo/waterfall/ModelAssumptions.tsx",
   "web/app/clo/waterfall/CurrencyContext.tsx",
   "web/app/clo/waterfall/LongDatedStaticBanner.tsx",
-  "web/app/clo/waterfall/ReinvestmentPriceFallbackBanner.tsx",
   "web/lib/clo/ppm-step-map.ts",
   // CLAUDE.md is at repo root (outside web/). It carries KI annotations in
   // the Engine-as-Source-of-Truth and "Recurring failure modes" sections;

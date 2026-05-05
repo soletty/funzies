@@ -19,7 +19,13 @@
 
 import { describe, expect, it } from "vitest";
 import { runProjection } from "@/lib/clo/projection";
-import type { ResolvedDiscountObligationRule } from "@/lib/clo/resolver-types";
+import type { ResolvedDealData, ResolvedDiscountObligationRule, ResolvedLoan } from "@/lib/clo/resolver-types";
+import {
+  buildFromResolved,
+  DEFAULT_ASSUMPTIONS,
+  EMPTY_RESOLVED,
+  IncompleteDataError,
+} from "@/lib/clo/build-projection-inputs";
 import { makeInputs } from "./test-helpers";
 
 const ARES_FAMILY_RULE: ResolvedDiscountObligationRule = {
@@ -210,40 +216,102 @@ describe("KI-29-longDatedStatic — long-dated valuation residual rides static s
 });
 
 describe("reinvestmentPricePct provenance — engine emits pricing source for transparency", () => {
-  it("hand-constructed inputs without UserAssumption override → user_override (default 100, hand-set inputs)", () => {
+  it("engine pass-through: hand-constructed inputs default to user_override / 100", () => {
     // Hand-constructed inputs bypass buildFromResolved; runProjection's
-    // destructure default is `reinvestmentPricePct = 100, reinvestmentPriceSource = "user_override"`.
-    // That's correct for hand-set tests — the test author is "the user".
+    // destructure defaults `reinvestmentPriceSource = "user_override"`,
+    // `reinvestmentPricePct = 100`. The engine emits these unchanged.
     const inputs = makeInputs({});
     const result = runProjection(inputs);
     expect(result.initialState.reinvestmentPriceSource).toBe("user_override");
     expect(result.initialState.reinvestmentPricePctApplied).toBe(100);
   });
 
-  it("buildFromResolved with priced pool → pool_was_derived (par-weighted)", () => {
-    // Two priced loans: 60M @ 95c and 40M @ 90c → WAS = (60×95 + 40×90)/100 = 93.
-    const inputs = makeInputs({
-      loans: [
-        { parBalance: 60_000_000, maturityDate: "2034-06-15", ratingBucket: "B", spreadBps: 375, currentPrice: 95 },
-        { parBalance: 40_000_000, maturityDate: "2034-06-15", ratingBucket: "B", spreadBps: 375, currentPrice: 90 },
-      ],
-      initialPar: 100_000_000,
-      reinvestmentPricePct: 93,
-      reinvestmentPriceSource: "pool_was_derived",
-    });
-    const result = runProjection(inputs);
-    expect(result.initialState.reinvestmentPriceSource).toBe("pool_was_derived");
-    expect(result.initialState.reinvestmentPricePctApplied).toBeCloseTo(93, 5);
+  // Synthetic ResolvedDealData factory for buildFromResolved integration tests.
+  // EMPTY_RESOLVED is the greenfield baseline; we overlay the minimum that
+  // `buildFromResolved` needs to construct a valid ProjectionInputs (a sub-note
+  // tranche so equity-entry-price computation finds a denominator) plus the
+  // loans the test wants to exercise.
+  const buildResolvedWithLoans = (loans: ResolvedLoan[]): ResolvedDealData => ({
+    ...EMPTY_RESOLVED,
+    poolSummary: {
+      ...EMPTY_RESOLVED.poolSummary,
+      totalPar: loans.reduce((s, l) => s + l.parBalance, 0),
+      totalPrincipalBalance: loans.reduce((s, l) => s + l.parBalance, 0),
+    },
+    tranches: [
+      {
+        className: "Sub",
+        currentBalance: 0,
+        originalBalance: 1,
+        spreadBps: 0,
+        seniorityRank: 99,
+        isFloating: false,
+        isIncomeNote: true,
+        isDeferrable: false,
+        isAmortising: false,
+        amortisationPerPeriod: null,
+        amortStartDate: null,
+        source: "manual",
+        priorInterestShortfall: null,
+        priorShortfallCount: null,
+        deferredInterestBalance: null,
+      },
+    ],
+    loans,
   });
 
-  it("buildFromResolved with no priced positions → par_fallback (100, banner-bound)", () => {
-    // Mirror the par-fallback shape coming out of buildFromResolved.
-    const inputs = makeInputs({
-      reinvestmentPricePct: 100,
-      reinvestmentPriceSource: "par_fallback",
-    });
-    const result = runProjection(inputs);
-    expect(result.initialState.reinvestmentPriceSource).toBe("par_fallback");
-    expect(result.initialState.reinvestmentPricePctApplied).toBe(100);
+  it("integration: buildFromResolved derives pool_was_derived (par-weighted) from priced pool", () => {
+    // 60M @ 95c + 40M @ 90c → WAS = (60×95 + 40×90)/100 = 93.
+    const loans: ResolvedLoan[] = [
+      { parBalance: 60_000_000, maturityDate: "2034-06-15", ratingBucket: "B", spreadBps: 375, currentPrice: 95 },
+      { parBalance: 40_000_000, maturityDate: "2034-06-15", ratingBucket: "B", spreadBps: 375, currentPrice: 90 },
+    ];
+    const inputs = buildFromResolved(buildResolvedWithLoans(loans), DEFAULT_ASSUMPTIONS);
+    expect(inputs.reinvestmentPriceSource).toBe("pool_was_derived");
+    expect(inputs.reinvestmentPricePct).toBeCloseTo(93, 5);
+  });
+
+  it("integration: user override takes priority over pool-WAS-derivation", () => {
+    const loans: ResolvedLoan[] = [
+      { parBalance: 100_000_000, maturityDate: "2034-06-15", ratingBucket: "B", spreadBps: 375, currentPrice: 95 },
+    ];
+    const inputs = buildFromResolved(
+      buildResolvedWithLoans(loans),
+      { ...DEFAULT_ASSUMPTIONS, reinvestmentPricePct: 88 },
+    );
+    expect(inputs.reinvestmentPriceSource).toBe("user_override");
+    expect(inputs.reinvestmentPricePct).toBe(88);
+  });
+
+  it("integration: buildFromResolved BLOCKS when pool has loans but no priced positions (anti-pattern #3)", () => {
+    // Loans exist but every position has currentPrice == null → no
+    // pool-WAS derivation possible. Engine refuses to fall back to par
+    // silently because reinvestmentPricePct is computational (cure cash
+    // sizing, OC numerator updates).
+    const loans: ResolvedLoan[] = [
+      { parBalance: 60_000_000, maturityDate: "2034-06-15", ratingBucket: "B", spreadBps: 375 },
+      { parBalance: 40_000_000, maturityDate: "2034-06-15", ratingBucket: "B", spreadBps: 375 },
+    ];
+    expect(() =>
+      buildFromResolved(buildResolvedWithLoans(loans), DEFAULT_ASSUMPTIONS),
+    ).toThrow(IncompleteDataError);
+  });
+
+  it("integration: blocking gate is cleared by user override even when no pool prices exist", () => {
+    const loans: ResolvedLoan[] = [
+      { parBalance: 100_000_000, maturityDate: "2034-06-15", ratingBucket: "B", spreadBps: 375 },
+    ];
+    expect(() =>
+      buildFromResolved(
+        buildResolvedWithLoans(loans),
+        { ...DEFAULT_ASSUMPTIONS, reinvestmentPricePct: 92 },
+      ),
+    ).not.toThrow();
+  });
+
+  it("integration: greenfield (no loans) → par_fallback, no block (no reinvestment will fire)", () => {
+    const inputs = buildFromResolved(EMPTY_RESOLVED, DEFAULT_ASSUMPTIONS);
+    expect(inputs.reinvestmentPriceSource).toBe("par_fallback");
+    expect(inputs.reinvestmentPricePct).toBe(100);
   });
 });

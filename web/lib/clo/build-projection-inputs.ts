@@ -725,6 +725,34 @@ export function composeBuildWarnings(
       blocking: true,
     });
   }
+  // Reinvestment price par-fallback gate. When the user has not overridden
+  // and no priced position in the pool can drive a par-weighted derivation,
+  // refuse to fall back to par silently — a 100c assumption disables the
+  // price-aware reinvestment cure math (no cure leverage, no discount-
+  // obligation classification of synthesised loans), materially over-
+  // stating cure cash sizing on a deal in its reinvestment period whose
+  // true market is sub-par. Anti-pattern #3: computational fallbacks block.
+  if (userAssumptions.reinvestmentPricePct == null && resolved.loans.length > 0) {
+    const anyPriced = resolved.loans.some(
+      l => !l.isDelayedDraw && l.currentPrice != null && l.currentPrice > 0,
+    );
+    if (!anyPriced) {
+      composedWarnings.push({
+        field: "reinvestmentPricePct",
+        message:
+          `No priced positions in the pool to derive a par-weighted reinvestment ` +
+          `price (every active loan has currentPrice == null or <= 0). Falling back ` +
+          `to par (100c) would silently disable the price-aware reinvestment cure ` +
+          `math (no cure leverage, no discount-obligation classification on ` +
+          `synthesised loans) and materially over-state OC cure cash sizing on a ` +
+          `deal in its reinvestment period whose true market is sub-par. Set ` +
+          `UserAssumptions.reinvestmentPricePct explicitly, or fix the upstream ` +
+          `pricing extraction so resolved.loans[].currentPrice is populated.`,
+        severity: "error",
+        blocking: true,
+      });
+    }
+  }
   for (const l of resolved.loans) {
     if (l.purchasePricePct != null && isImplausiblePricePct(l.purchasePricePct)) {
       composedWarnings.push({
@@ -802,21 +830,18 @@ export function buildFromResolved(
       : undefined;
 
   // Reinvestment purchase price: user override > pool-weighted-average
-  // current price > 100. The pool-WAS-derived default is grounded — if the
-  // pool is currently trading at 96.5c on average, reinvestments are likely
-  // happening near 96.5c. Falling back to par (100) produces no leverage in
-  // the OC cure path and no discount-obligation classification on synthesised
-  // loans, which silently disables the price-aware reinvestment math on
-  // every deal whose user did not explicitly override. The source tag is
-  // emitted on `initialState.reinvestmentPriceSource` so a UI banner can
-  // alert the partner on the par-fallback path.
-  const { reinvestmentPricePct, reinvestmentPriceSource } = (() => {
-    if (userAssumptions.reinvestmentPricePct != null) {
-      return {
-        reinvestmentPricePct: userAssumptions.reinvestmentPricePct,
-        reinvestmentPriceSource: "user_override" as const,
-      };
-    }
+  // current price. The pool-WAS-derived default is grounded — if the pool
+  // is currently trading at 96.5c on average, reinvestments are likely
+  // happening near 96.5c. The no-priced-positions case is gated upstream
+  // in `composeBuildWarnings` (blocking) so this branch only sees a
+  // greenfield pool (no loans at all) — par is correct there since
+  // greenfield deals don't reinvest until they ramp.
+  let reinvestmentPricePct: number;
+  let reinvestmentPriceSource: "user_override" | "pool_was_derived" | "par_fallback";
+  if (userAssumptions.reinvestmentPricePct != null) {
+    reinvestmentPricePct = userAssumptions.reinvestmentPricePct;
+    reinvestmentPriceSource = "user_override";
+  } else {
     let parWithPrice = 0;
     let pxParSum = 0;
     for (const l of resolved.loans) {
@@ -825,10 +850,17 @@ export function buildFromResolved(
       parWithPrice += l.parBalance;
       pxParSum += l.parBalance * l.currentPrice;
     }
-    return parWithPrice > 0
-      ? { reinvestmentPricePct: pxParSum / parWithPrice, reinvestmentPriceSource: "pool_was_derived" as const }
-      : { reinvestmentPricePct: 100, reinvestmentPriceSource: "par_fallback" as const };
-  })();
+    if (parWithPrice > 0) {
+      reinvestmentPricePct = pxParSum / parWithPrice;
+      reinvestmentPriceSource = "pool_was_derived";
+    } else {
+      // Greenfield path (resolved.loans.length === 0). The composeBuildWarnings
+      // gate above blocks the with-loans-but-no-prices case, so reaching
+      // here means the pool is empty — par fallback is correct.
+      reinvestmentPricePct = 100;
+      reinvestmentPriceSource = "par_fallback";
+    }
+  }
 
   return {
     initialPar: resolved.poolSummary.totalPar,
