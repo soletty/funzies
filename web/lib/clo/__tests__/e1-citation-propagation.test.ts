@@ -140,12 +140,26 @@ describe("E1 — resolver propagates citations from constraints", () => {
   });
 
   it("reinvestmentOcTrigger.citation broadcasts the section-4 pages", () => {
-    if (resolved.reinvestmentOcTrigger != null) {
-      const c = resolved.reinvestmentOcTrigger.citation;
-      expect(c).not.toBeNull();
-      expect(c).toBeDefined();
-      expect(c!.sourcePages).toEqual([28, 207, 208]);
-    }
+    // Assert non-null up front so this test can't pass vacuously on a fixture
+    // where the trigger happens to be absent.
+    expect(resolved.reinvestmentOcTrigger).not.toBeNull();
+    const c = resolved.reinvestmentOcTrigger!.citation;
+    expect(c).not.toBeNull();
+    expect(c).toBeDefined();
+    expect(c!.sourcePages).toEqual([28, 207, 208]);
+    expect(c!.sourceCondition).toBeNull();
+  });
+
+  it("seniorExpensesCap.citation carries section-5 cap pages + condition", () => {
+    // Pre-existing E1 surface (Sprint 5 wiring); this test closes the
+    // bijection gap — every named citation surface gets its own assertion,
+    // not just the recursive full-equality walk in fixture-regeneration.
+    expect(resolved.seniorExpensesCap).not.toBeNull();
+    const c = resolved.seniorExpensesCap!.citation;
+    expect(c).not.toBeNull();
+    expect(c).toBeDefined();
+    expect(c!.sourcePages).toEqual([150, 151]);
+    expect(c!.sourceCondition).toBe("Condition 1 (Senior Expenses Cap)");
   });
 
   it("waterfallCitation captures section-6 pages + condition", () => {
@@ -181,6 +195,9 @@ describe("E1 — resolver returns null citation when provenance absent", () => {
     rawNoProv.constraints.eventOfDefaultParValueTest = { ...rawNoProv.constraints.eventOfDefaultParValueTest };
     delete (rawNoProv.constraints.eventOfDefaultParValueTest as Record<string, unknown>).source_pages;
     delete (rawNoProv.constraints.eventOfDefaultParValueTest as Record<string, unknown>).source_condition;
+    rawNoProv.constraints.seniorExpensesCap = { ...rawNoProv.constraints.seniorExpensesCap };
+    delete (rawNoProv.constraints.seniorExpensesCap as Record<string, unknown>).sourcePages;
+    delete (rawNoProv.constraints.seniorExpensesCap as Record<string, unknown>).sourceCondition;
     const { resolved } = resolveWaterfallInputs(
       rawNoProv.constraints,
       rawNoProv.complianceData,
@@ -199,6 +216,9 @@ describe("E1 — resolver returns null citation when provenance absent", () => {
     expect(resolved.waterfallPostAccelCitation).toBeNull();
     if (resolved.eventOfDefaultTest != null) {
       expect(resolved.eventOfDefaultTest.citation).toBeNull();
+    }
+    if (resolved.seniorExpensesCap != null) {
+      expect(resolved.seniorExpensesCap.citation).toBeNull();
     }
     for (const t of resolved.ocTriggers) {
       expect(t.citation).toBeNull();
