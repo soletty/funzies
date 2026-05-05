@@ -142,6 +142,83 @@ export interface ResolvedSeniorExpensesCap {
   citation?: Citation | null;
 }
 
+/** Threshold expressed as either a single percent-of-par cutoff applied
+ *  to every Collateral Obligation, or a discriminated split by rate type
+ *  (floating vs fixed) — observed-universal in the Ares family but not
+ *  assumed universal across managers. The discriminated form prevents a
+ *  single-threshold deal from encoding `{ floating: x, fixed: x }` as a
+ *  duplicated lie that a future reviewer can't distinguish from a real
+ *  rate-type split. */
+export type ResolvedThresholdShape =
+  | { type: "single"; pct: number }
+  | { type: "split_by_rate_type"; floatingPct: number; fixedPct: number };
+
+/** Cure-window quantization variants:
+ *
+ *  - `days`: continuous-MV-above-threshold for N consecutive calendar
+ *    days since acquisition (Ares family: 30). At quarterly
+ *    determination-date granularity, any `n` up to one period (~90 days)
+ *    collapses to a single-PD spot test "MV at most-recent Determination
+ *    Date >= cure threshold" — intra-period prices are not tracked.
+ *    `days` variants with `n` materially exceeding one period would need
+ *    intra-period price tracking the engine doesn't carry; that boundary
+ *    is the quantization cliff.
+ *
+ *  - `payment_dates`: position must have been at-or-above the cure
+ *    threshold at the most recent N Determination Dates. Tested exactly
+ *    at quarterly cadence; no quantization loss. Materially different
+ *    from `days` when `n` covers > 1 PD — a 2-PD window is a real
+ *    multi-quarter test, not a same-PD spot check.
+ *
+ *  Engine implementation: `days` collapses to a 1-PD spot test;
+ *  `payment_dates` tracked exactly via per-loan rolling MV history. */
+export type ResolvedCureWindow =
+  | { type: "days"; n: number }
+  | { type: "payment_dates"; n: number };
+
+/** Cure mechanic variant. Resolver dispatches on `type`. */
+export type ResolvedDiscountObligationCureMechanic =
+  /** Continuous-threshold cure with hysteretic in/out thresholds.
+   *  Position exits the bucket when its market value has been at-or-
+   *  above the cure threshold for the cure window since acquisition.
+   *  The cure threshold is universally strictly higher than the
+   *  classification threshold — prevents boundary flip-flop on noise.
+   *  Ares family: floating in 80 / out 90; fixed in 75 / out 85;
+   *  window 30 days. */
+  | {
+      type: "continuous_threshold";
+      cureThresholdPct: ResolvedThresholdShape;
+      cureWindow: ResolvedCureWindow;
+    }
+  /** Permanent until paid — once a position is classified as a Discount
+   *  Obligation it remains so until full repayment, default, or sale.
+   *  Engine never reclassifies. Observed in some US BSL CLOs and older
+   *  European deals; included so the union accommodates non-Ares
+   *  conventions without forcing every deal to declare a cure window
+   *  it doesn't have. */
+  | { type: "permanent_until_paid" };
+
+/** Per-deal Discount Obligation classification + cure rule extracted
+ *  from the PPM (Condition 1 "Discount Obligation"). Per-deal because
+ *  thresholds, cure mechanic, and the rate-type split vary across
+ *  managers. Resolver emits `severity: "error", blocking: true` when
+ *  missing (Anti-pattern #3 — silent fallbacks on missing computational
+ *  extraction are bugs).
+ *
+ *  Ares CLO XV (verbatim, OC pp. 119-121, Condition 1):
+ *    floating-rate Collateral Obligation classified at purchase price
+ *    < 80% of Principal Balance; cured at MV >= 90% for 30 consecutive
+ *    days since acquisition. Fixed-rate: 75% / 85% / 30 days. */
+export interface ResolvedDiscountObligationRule {
+  /** Purchase price (as percent of par) at acquisition below which the
+   *  position is classified as a Discount Obligation. */
+  classificationThresholdPct: ResolvedThresholdShape;
+  /** Cure semantics — when a classified position exits the bucket. */
+  cureMechanic: ResolvedDiscountObligationCureMechanic;
+  /** E1 PPM provenance (Ares XV: OC pp. 119-121, Condition 1). */
+  citation?: Citation | null;
+}
+
 export interface ResolvedDealData {
   tranches: ResolvedTranche[];
   poolSummary: ResolvedPool;
@@ -197,6 +274,13 @@ export interface ResolvedDealData {
    *  warning in that case. Engine consumes via `defaultsFromResolved` →
    *  `ProjectionInputs.seniorExpensesCapBps` + `seniorExpensesCapAbsoluteFloorPerYear`. */
   seniorExpensesCap: ResolvedSeniorExpensesCap | null;
+  /** PPM Discount Obligation classification + cure rule (Condition 1).
+   *  Null on legacy fixtures or extraction-miss; resolver emits a blocking
+   *  warning in that case. Engine consumes via per-position classification
+   *  (`purchasePrice/par < classificationThresholdPct`) at every period,
+   *  with cure dispatched per the `cureMechanic` variant. KI-29 closure
+   *  marker. */
+  discountObligationRule: ResolvedDiscountObligationRule | null;
   preExistingDefaultedPar: number; // par of defaulted loans excluded from loan list
   preExistingDefaultRecovery: number; // market-price recovery for priced defaulted holdings
   unpricedDefaultedPar: number; // par of defaulted holdings without market price (engine applies recoveryPct)

@@ -34,6 +34,7 @@ export const EMPTY_RESOLVED: ResolvedDealData = {
   supplementalReserveBalance: 0,
   expenseReserveBalance: 0,
   seniorExpensesCap: null,
+  discountObligationRule: null,
   preExistingDefaultedPar: 0,
   preExistingDefaultRecovery: 0,
   unpricedDefaultedPar: 0,
