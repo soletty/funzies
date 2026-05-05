@@ -496,7 +496,7 @@ function resolveTriggers(
   resolvedTranches: ResolvedTranche[],
   warnings: ResolutionWarning[],
   eventOfDefaultConstraint: { required_ratio_pct?: number; source_pages?: number[]; source_condition?: string } | null | undefined,
-): { oc: ResolvedTrigger[]; ic: ResolvedTrigger[]; eventOfDefaultTest: ResolvedEodTest | null } {
+): { oc: ResolvedTrigger[]; ic: ResolvedTrigger[]; eventOfDefaultTest: ResolvedEodTest | null; triggersCitation: Citation | null } {
   // Resolve a class name (possibly compound like "A/B") to its most junior seniority rank
   function resolveRank(cls: string): number {
     const parts = cls.split("/").map(s => s.trim());
@@ -553,8 +553,11 @@ function resolveTriggers(
   const icRaw = mergeTriggersPerClass(icFromTests, icFromPpm, "IC", warnings);
 
   // E1 (Sprint 5) — broadcast section_4_coverage_tests provenance to every
-  // OC/IC trigger. The source carries no per-class granularity, so every
-  // trigger on the deal shares the same citation.
+  // OC/IC trigger AND return it so the reinvestmentOcTrigger construction
+  // (in the outer `resolveWaterfallInputs` scope) consumes the same value
+  // without re-casting / re-extracting from constraints. The source carries
+  // no per-class granularity, so every trigger on the deal shares the same
+  // citation.
   const triggersProvenance = (constraints as unknown as { _triggersProvenance?: { source_pages?: number[] | null; source_condition?: string | null } | null })._triggersProvenance ?? null;
   const triggersCitation = extractCitation(triggersProvenance);
 
@@ -653,7 +656,7 @@ function resolveTriggers(
     };
   }
 
-  return { oc: ocWithoutEod, ic, eventOfDefaultTest };
+  return { oc: ocWithoutEod, ic, eventOfDefaultTest, triggersCitation };
 }
 
 /** Resolve PPM Condition 1 "Senior Expenses Cap" from
@@ -696,10 +699,11 @@ function resolveSeniorExpensesCap(
     carryforwardPeriods: block.carryforwardPeriods,
     vatIncluded: block.vatIncluded,
     vatRatePct: block.vatRatePct,
-    citation:
-      block.sourcePages != null || block.sourceCondition != null
-        ? { sourcePages: block.sourcePages, sourceCondition: block.sourceCondition }
-        : null,
+    // E1: wrap back to snake_case so extractCitation handles the empty-array
+    // and condition-only edge cases consistently with every other citation
+    // call site (`block` carries `sourcePages` / `sourceCondition` per the
+    // mapper's typed shape).
+    citation: extractCitation({ source_pages: block.sourcePages, source_condition: block.sourceCondition }),
   };
 }
 
@@ -1094,7 +1098,7 @@ export function resolveWaterfallInputs(
   const eodConstraint =
     (constraints as unknown as { eventOfDefaultParValueTest?: { required_ratio_pct?: number; source_pages?: number[]; source_condition?: string } | null })
       .eventOfDefaultParValueTest ?? null;
-  const { oc: ocTriggers, ic: icTriggers, eventOfDefaultTest } = resolveTriggers(
+  const { oc: ocTriggers, ic: icTriggers, eventOfDefaultTest, triggersCitation: reinvTriggersCitation } = resolveTriggers(
     complianceData?.complianceTests ?? [],
     constraints,
     tranches,
@@ -1204,12 +1208,10 @@ export function resolveWaterfallInputs(
   // class OC trigger as last resort.
   let reinvestmentOcTrigger: ResolvedReinvestmentOcTrigger | null = null;
   const reinvOcRaw = constraints.reinvestmentOcTest;
-
-  // E1 (Sprint 5) — broadcast section_4 provenance to the reinvestment OC
-  // trigger. Same source as the class-level OC/IC triggers; section-level
-  // pages, no per-trigger granularity.
-  const reinvTriggersProvenance = (constraints as unknown as { _triggersProvenance?: { source_pages?: number[] | null; source_condition?: string | null } | null })._triggersProvenance ?? null;
-  const reinvTriggersCitation = extractCitation(reinvTriggersProvenance);
+  // `reinvTriggersCitation` is the same broadcast section_4 citation
+  // resolveTriggers applies to every OC/IC trigger — destructured above
+  // from the resolveTriggers return so the cast/extraction lives in one
+  // place.
 
   let diversionPct = 50; // common default
   if (reinvOcRaw?.diversionAmount) {

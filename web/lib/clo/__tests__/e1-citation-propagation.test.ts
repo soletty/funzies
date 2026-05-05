@@ -178,6 +178,9 @@ describe("E1 — resolver returns null citation when provenance absent", () => {
     rawNoProv.constraints.waterfall = { ...rawNoProv.constraints.waterfall };
     delete (rawNoProv.constraints.waterfall as Record<string, unknown>)._waterfallProvenance;
     delete (rawNoProv.constraints.waterfall as Record<string, unknown>)._waterfallPostAccelProvenance;
+    rawNoProv.constraints.eventOfDefaultParValueTest = { ...rawNoProv.constraints.eventOfDefaultParValueTest };
+    delete (rawNoProv.constraints.eventOfDefaultParValueTest as Record<string, unknown>).source_pages;
+    delete (rawNoProv.constraints.eventOfDefaultParValueTest as Record<string, unknown>).source_condition;
     const { resolved } = resolveWaterfallInputs(
       rawNoProv.constraints,
       rawNoProv.complianceData,
@@ -194,6 +197,9 @@ describe("E1 — resolver returns null citation when provenance absent", () => {
     expect(resolved.tranchesCitation).toBeNull();
     expect(resolved.waterfallCitation).toBeNull();
     expect(resolved.waterfallPostAccelCitation).toBeNull();
+    if (resolved.eventOfDefaultTest != null) {
+      expect(resolved.eventOfDefaultTest.citation).toBeNull();
+    }
     for (const t of resolved.ocTriggers) {
       expect(t.citation).toBeNull();
     }
