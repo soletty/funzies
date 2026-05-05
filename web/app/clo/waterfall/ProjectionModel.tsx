@@ -249,6 +249,7 @@ export default function ProjectionModel({
     setTrusteeFeeBps(d.trusteeFeeBps);
     setAdminFeeBps(d.adminFeeBps);
     setSeniorExpensesCapBps(d.seniorExpensesCapBps);
+    setHedgeCostBps(d.hedgeCostBps);
     setIncentiveFeePct(d.incentiveFeePct);
     setIncentiveFeeHurdleIrr(d.incentiveFeeHurdleIrr);
     setPrefillWarnings(diagnoseFeePrefill(resolved, raw, d));

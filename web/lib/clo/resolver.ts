@@ -708,17 +708,50 @@ function resolveSeniorExpensesCap(
  *  not currently carry the array, and threading it through requires
  *  a separate type-extension refactor.
  *
- *  Detection: any `constraints.fees[]` row whose name matches
- *  /hedge|swap/i with a parseable rate. Reuses the unit-dispatch
- *  pattern from `resolveFees` (`bps_pa` direct, `pct_pa` × 100,
- *  no-unit + value > 5 → blocking).
+ *  Detection — two-stage filter on `constraints.fees[]`:
+ *    1. INCLUDE rows whose name matches /hedge|swap/i (covers
+ *       "Hedge Cost", "Currency Hedge Fee", "IR Swap Premium",
+ *       "Cross-Currency Swap", etc.).
+ *    2. EXCLUDE rows whose name additionally matches
+ *       /termination|replacement|defaulted|mtm|mark[- ]to[- ]market/i.
+ *       These are event-driven payments (counterparty default →
+ *       step (AA), KI-06; hedge replacement = one-off, not periodic;
+ *       MTM = revaluation flowing through the OC numerator, not the
+ *       interest waterfall). Including them would double-count or
+ *       misclassify event cash as periodic accrual.
  *
- *  When a hedge fee row is present but the rate is unparseable
- *  ("per agreement", null, etc.), emit `severity: "error",
- *  blocking: true` per project rule (silent fallbacks on missing
- *  computational extraction are bugs). When no hedge fee row exists,
- *  return 0 with no warning — Signal 1 in the builder layer may
- *  still back-derive a non-zero value from observed waterfall.
+ *  Sum across all matched periodic rows. A deal with a "Currency
+ *  Hedge" row + an "IR Swap" row carries combined periodic cost at
+ *  step (F); both contribute. The single-row case is the special case.
+ *
+ *  Unit dispatch — per-row, NOT per-deal:
+ *    - `bps_pa` explicit → use rate directly.
+ *    - `pct_pa` explicit → multiply by 100.
+ *    - No unit → BLOCK regardless of magnitude. Hedge cost is quoted
+ *      in bps OR pct depending on instrument type (IR swaps typically
+ *      bps; currency hedges quoted both ways). The "small values are
+ *      pct_pa" heuristic that works for management fees (where pct
+ *      is the dominant convention) cannot disambiguate hedge cost
+ *      safely — wrong-direction interpretation of a no-unit value
+ *      produces a 100× error. Force the source data to declare the
+ *      unit explicitly; principle 3 strict.
+ *
+ *  Sanity warn at ≥200 bps (per row, post-conversion). 200 bps is the
+ *  upper bound for cross-currency hedges in stress regimes (IR swaps
+ *  are typically 5-30 bps). Values above suggest extraction artefacts
+ *  (sign error, unit confusion at the LLM layer, one-off termination
+ *  spike misclassified as periodic). Non-blocking — the value is still
+ *  used; the warn surfaces at audit time.
+ *
+ *  Both blocking exits return 0 (not the input rate) to preserve the
+ *  bps scale invariant on `resolved.hedgeCostBps` (CLAUDE.md principle
+ *  5). The blocking gate via `IncompleteDataError` in
+ *  `buildFromResolved` is the primary defense; the 0 sentinel is
+ *  defense-in-depth. `resolveFees.toPctPa`'s same-shape blocking
+ *  branch returns `r / 100` to match its pct_pa output scale; copying
+ *  that pattern here would inject a pct-shaped value into a bps
+ *  field — different output scale, same helper structure, scale
+ *  invariant must not be conflated.
  *
  *  Engine plumbing already consumes the result via
  *  `ProjectionInputs.hedgeCostBps` at every PPM site (T=0 IC
@@ -730,26 +763,18 @@ function resolveHedgeCost(
   constraints: ExtractedConstraints,
   warnings: ResolutionWarning[],
 ): number {
-  for (const fee of constraints.fees ?? []) {
+  const periodicHedgeRows = (constraints.fees ?? []).filter((fee) => {
     const name = fee.name?.toLowerCase() ?? "";
-    if (!/hedge|swap/.test(name)) continue;
+    if (!/hedge|swap/.test(name)) return false;
+    if (/termination|replacement|defaulted|mtm|mark[- ]to[- ]market/.test(name)) return false;
+    return true;
+  });
 
+  let totalBps = 0;
+  for (const fee of periodicHedgeRows) {
     const rate = parseFloat(fee.rate ?? "");
     const unit = fee.rateUnit ?? null;
 
-    // Both blocking paths below return 0, not the input rate, to preserve
-    // the bps scale invariant on `resolved.hedgeCostBps` (CLAUDE.md
-    // principle 5). The blocking gate is the primary defense — the
-    // projection refuses to run via IncompleteDataError before the engine
-    // reads this field. The 0 sentinel is defense-in-depth: if the gate
-    // ever bypasses (test that skips the gate assertion, future regression),
-    // a returned `rate` could leak into a debug surface as a
-    // pct/bps-ambiguous value, exactly the 100× error the warning text
-    // calls out. Note that `resolveFees.toPctPa`'s same-shape blocking
-    // branch returns `r / 100` (defensive bps→pct conversion to match its
-    // pct_pa output scale); copying that pattern here would inject a pct-
-    // shaped value into a bps field — different output scale, same
-    // helper structure, scale invariant must not be conflated.
     if (isNaN(rate)) {
       warnings.push({
         field: "hedgeCostBps",
@@ -760,23 +785,33 @@ function resolveHedgeCost(
       return 0;
     }
 
-    if (unit === "bps_pa") return rate;
-    if (unit === "pct_pa") return rate * 100;
-
-    if (rate > 5) {
+    let bps: number;
+    if (unit === "bps_pa") {
+      bps = rate;
+    } else if (unit === "pct_pa") {
+      bps = rate * 100;
+    } else {
       warnings.push({
         field: "hedgeCostBps",
-        message: `Hedge fee rate ${rate} extracted with no rateUnit — refusing to guess. Set rateUnit explicitly ("bps_pa" or "pct_pa") in the source data; wrong-direction interpretation would produce a 100× error.`,
+        message: `Hedge fee row "${fee.name}" rate ${rate} extracted with no rateUnit. Hedge cost conventions vary by instrument (IR swaps typically bps_pa; currency hedges quoted both ways) — the management-fee heuristic ("small values are pct_pa") is unsafe here. Set rateUnit explicitly ("bps_pa" or "pct_pa") in the source data; wrong-direction interpretation would produce a 100× error.`,
         severity: "error",
         blocking: true,
       });
       return 0;
     }
-    // Small numbers without explicit unit are conventionally pct_pa
-    // (e.g., 0.5% rather than 0.5 bps). Convert to bps.
-    return rate * 100;
+
+    if (bps >= 200) {
+      warnings.push({
+        field: "hedgeCostBps",
+        message: `Hedge fee row "${fee.name}" extracted at ${bps.toFixed(0)} bps p.a. — at or above the 200 bps sanity threshold. Cross-currency hedges in stress reach ~150 bps; values above this often indicate extraction artefacts (termination spike misclassified as periodic, sign error, unit confusion). Verify against the PPM hedge schedule and the trustee step (F) row.`,
+        severity: "warn",
+        blocking: false,
+      });
+    }
+
+    totalBps += bps;
   }
-  return 0;
+  return totalBps;
 }
 
 function resolveFees(constraints: ExtractedConstraints, warnings: ResolutionWarning[]): ResolvedFees {

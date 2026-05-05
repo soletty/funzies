@@ -276,22 +276,26 @@ describe("Pattern A (silent fallback to common default)", () => {
     expectGateThrows(resolved, warnings);
   });
 
-  it("hedgeCostBps (resolver.ts:728) — hedge fee row with ambiguous no-unit rate > 5 → blocking", () => {
+  it("hedgeCostBps (resolver.ts:728) — hedge fee row with no-unit rate (any magnitude) → blocking", () => {
     // KI-31 closure (Signal 2), distinct branch from above. When a
-    // /hedge|swap/i fee row carries a parseable rate > 5 but no
-    // rateUnit, the heuristic cannot disambiguate bps vs pct_pa: rate
-    // 25 could mean 25 bps (0.25%, a normal hedge cost) or 25% (an
-    // extraction error or a swap MTM spike, not a periodic accrual).
-    // Wrong-direction interpretation = 100× error; refusing to run
-    // forces the source data to declare its unit explicitly.
+    // periodic /hedge|swap/i fee row has no rateUnit, we BLOCK
+    // regardless of rate magnitude. Hedge cost conventions vary by
+    // instrument (IR swaps typically bps_pa; currency hedges quoted
+    // both ways) — the management-fee "small values are pct_pa"
+    // heuristic that `toPctPa` uses cannot disambiguate hedge cost
+    // safely. Wrong-direction interpretation produces a 100× error;
+    // forcing explicit rateUnit is principle 3 strict for this
+    // domain. Test asserts that even a small (≤ 5) value blocks —
+    // the prior heuristic permitted that case as silent pct_pa
+    // conversion, which a closure of this stripe must not preserve.
     const raw = loadRaw();
     raw.constraints.fees = [
       ...(raw.constraints.fees ?? []),
-      { name: "Hedge Cost", rate: "25", rateUnit: null },
+      { name: "Hedge Cost", rate: "5", rateUnit: null },
     ];
     const { resolved, warnings } = runResolver(raw);
     const w = warnings.find((w) => w.field === "hedgeCostBps");
-    expectBlockingError(w, "hedgeCostBps (no-unit ambiguous rate)");
+    expectBlockingError(w, "hedgeCostBps (no-unit, any rate)");
     expectGateThrows(resolved, warnings);
   });
 });
