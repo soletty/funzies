@@ -357,6 +357,26 @@ export function defaultsFromResolved(
     if (bps > 0 && bps < 50) base.adminFeeBps = bps;
   }
 
+  // Hedge cost (KI-31). Signal 2 (PPM compliance fee row) seeded from
+  // `resolved.hedgeCostBps` via `resolveHedgeCost`; Signal 1 (back-
+  // derive from observed step F) overrides when present. Description
+  // filter `/hedge|swap/i` prevents silent mis-classification of any
+  // rogue step F entry — the engine and trustee use step (F) for
+  // hedge while ppm.json's sequence_summary annotation says "(E)";
+  // code-only matching is unsafe.
+  if (resolved.hedgeCostBps > 0) base.hedgeCostBps = resolved.hedgeCostBps;
+  const stepF = findStep("F");
+  const stepFhedge =
+    stepF && stepF.description != null && /hedge|swap/i.test(stepF.description)
+      ? stepF
+      : null;
+  if (stepFhedge && (stepFhedge.amountPaid ?? 0) > 0 && beginPar > 0) {
+    const observedBps = ((stepFhedge.amountPaid ?? 0) * 4 * 10000) / beginPar;
+    // Sanity bound: 0 < bps < 100 covers typical hedge cost range with
+    // generous headroom; rejects extraction artefacts.
+    if (observedBps > 0 && observedBps < 100) base.hedgeCostBps = observedBps;
+  }
+
   // C3 Senior Expenses Cap: consume the structured PPM
   // extraction when available. Replaces the prior `max(2× observed, 20 bps)`
   // heuristic which had no PPM grounding (per the project rule "silent
