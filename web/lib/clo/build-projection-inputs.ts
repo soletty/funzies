@@ -372,9 +372,13 @@ export function defaultsFromResolved(
       : null;
   if (stepFhedge && (stepFhedge.amountPaid ?? 0) > 0 && beginPar > 0) {
     const observedBps = ((stepFhedge.amountPaid ?? 0) * 4 * 10000) / beginPar;
-    // Sanity bound: 0 < bps < 100 covers typical hedge cost range with
-    // generous headroom; rejects extraction artefacts.
-    if (observedBps > 0 && observedBps < 100) base.hedgeCostBps = observedBps;
+    // Sanity bound: 0 < bps < 200. IR swaps are typically 5-30 bps;
+    // cross-currency hedges (EUR/USD, EUR/GBP) on partially non-EUR
+    // deals reach 70-100 bps in normal markets and have historically
+    // exceeded that in stress regimes. The 200 bps ceiling rejects
+    // extraction artefacts (one-off termination spike, sign-error,
+    // unit-confusion) without dropping legitimate stressed hedge cost.
+    if (observedBps > 0 && observedBps < 200) base.hedgeCostBps = observedBps;
   }
 
   // C3 Senior Expenses Cap: consume the structured PPM

@@ -737,6 +737,19 @@ function resolveHedgeCost(
     const rate = parseFloat(fee.rate ?? "");
     const unit = fee.rateUnit ?? null;
 
+    // Both blocking paths below return 0, not the input rate, to preserve
+    // the bps scale invariant on `resolved.hedgeCostBps` (CLAUDE.md
+    // principle 5). The blocking gate is the primary defense — the
+    // projection refuses to run via IncompleteDataError before the engine
+    // reads this field. The 0 sentinel is defense-in-depth: if the gate
+    // ever bypasses (test that skips the gate assertion, future regression),
+    // a returned `rate` could leak into a debug surface as a
+    // pct/bps-ambiguous value, exactly the 100× error the warning text
+    // calls out. Note that `resolveFees.toPctPa`'s same-shape blocking
+    // branch returns `r / 100` (defensive bps→pct conversion to match its
+    // pct_pa output scale); copying that pattern here would inject a pct-
+    // shaped value into a bps field — different output scale, same
+    // helper structure, scale invariant must not be conflated.
     if (isNaN(rate)) {
       warnings.push({
         field: "hedgeCostBps",
@@ -753,11 +766,11 @@ function resolveHedgeCost(
     if (rate > 5) {
       warnings.push({
         field: "hedgeCostBps",
-        message: `Hedge fee rate ${rate} extracted with no rateUnit — heuristic would treat it as bps and convert to ${rate / 100}%, but this is a guess. Wrong-direction interpretation produces a 100× error. Set rateUnit explicitly ("bps_pa" or "pct_pa") in the source data.`,
+        message: `Hedge fee rate ${rate} extracted with no rateUnit — refusing to guess. Set rateUnit explicitly ("bps_pa" or "pct_pa") in the source data; wrong-direction interpretation would produce a 100× error.`,
         severity: "error",
         blocking: true,
       });
-      return rate;
+      return 0;
     }
     // Small numbers without explicit unit are conventionally pct_pa
     // (e.g., 0.5% rather than 0.5 bps). Convert to bps.

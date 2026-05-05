@@ -275,6 +275,25 @@ describe("Pattern A (silent fallback to common default)", () => {
     expectBlockingError(w, "hedgeCostBps (unparseable rate)");
     expectGateThrows(resolved, warnings);
   });
+
+  it("hedgeCostBps (resolver.ts:728) — hedge fee row with ambiguous no-unit rate > 5 → blocking", () => {
+    // KI-31 closure (Signal 2), distinct branch from above. When a
+    // /hedge|swap/i fee row carries a parseable rate > 5 but no
+    // rateUnit, the heuristic cannot disambiguate bps vs pct_pa: rate
+    // 25 could mean 25 bps (0.25%, a normal hedge cost) or 25% (an
+    // extraction error or a swap MTM spike, not a periodic accrual).
+    // Wrong-direction interpretation = 100× error; refusing to run
+    // forces the source data to declare its unit explicitly.
+    const raw = loadRaw();
+    raw.constraints.fees = [
+      ...(raw.constraints.fees ?? []),
+      { name: "Hedge Cost", rate: "25", rateUnit: null },
+    ];
+    const { resolved, warnings } = runResolver(raw);
+    const w = warnings.find((w) => w.field === "hedgeCostBps");
+    expectBlockingError(w, "hedgeCostBps (no-unit ambiguous rate)");
+    expectGateThrows(resolved, warnings);
+  });
 });
 
 describe("Pattern B (silent acceptance of sentinel value)", () => {

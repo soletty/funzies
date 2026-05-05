@@ -138,25 +138,32 @@ describe("D3 — defaultsFromResolved (degenerate inputs)", () => {
     expect(d.trusteeFeeBps).toBe(3.5);
   });
 
-  it("KI-31 Signal 1 — back-derives hedgeCostBps from observed step (F) hedge entry", () => {
+  // Helper: replace any existing step (F) entry in the fixture with a
+  // synthetic one carrying the given description, sized so the back-derive
+  // arithmetic (amount × 4 × 10_000 / beginPar) produces `targetBps`. Used
+  // by both the back-derive marker and the description-filter guard so
+  // the only structural difference between the two tests is the description.
+  function makeRawWithStepF(description: string, targetBps: number) {
     const beginPar = fixture.resolved.poolSummary.totalPrincipalBalance;
-    // Inject a synthetic step (F) hedge row that annualizes to 20 bps:
-    //   amountPaid × 4 × 10_000 / beginPar = 20 ⇒ amountPaid = beginPar / 2000.
-    const targetBps = 20;
     const amount = (targetBps * beginPar) / (4 * 10_000);
-    // Replace any existing step (F) entry — fixture carries one with empty
-    // description and amountPaid 0, which `find()` would hit first.
     const stepsWithoutF = (fixture.raw!.waterfallSteps ?? []).filter(
       (s) => !(s && s.description != null && /^\(?F\)?\b/i.test(s.description)),
     );
-    const rawWithHedge = {
+    return {
       ...fixture.raw!,
       waterfallSteps: [
-        { description: "(F) Hedge Periodic Payment", amountPaid: amount, waterfallType: "INTEREST" },
+        { description, amountPaid: amount, waterfallType: "INTEREST" },
         ...stepsWithoutF,
       ],
     };
-    const d = defaultsFromResolved(fixture.resolved, rawWithHedge);
+  }
+
+  it("KI-31 Signal 1 — back-derives hedgeCostBps from observed step (F) hedge entry", () => {
+    const targetBps = 20;
+    const d = defaultsFromResolved(
+      fixture.resolved,
+      makeRawWithStepF("(F) Hedge Periodic Payment", targetBps),
+    );
     expect(d.hedgeCostBps).toBeCloseTo(targetBps, 1);
     // Sanity: not the DEFAULT_ASSUMPTIONS value (0).
     expect(d.hedgeCostBps).not.toBe(DEFAULT_ASSUMPTIONS.hedgeCostBps);
@@ -167,19 +174,10 @@ describe("D3 — defaultsFromResolved (degenerate inputs)", () => {
     // (e.g., upstream extraction bug, deal where step F carries something
     // else) must NOT silently classify as hedge cost. Code-only matching
     // would mis-classify; description filter prevents the silent error.
-    const beginPar = fixture.resolved.poolSummary.totalPrincipalBalance;
-    const amount = (20 * beginPar) / (4 * 10_000);
-    const stepsWithoutF = (fixture.raw!.waterfallSteps ?? []).filter(
-      (s) => !(s && s.description != null && /^\(?F\)?\b/i.test(s.description)),
+    const d = defaultsFromResolved(
+      fixture.resolved,
+      makeRawWithStepF("(F) Misclassified Other Payment", 20),
     );
-    const rawWithRogueF = {
-      ...fixture.raw!,
-      waterfallSteps: [
-        { description: "(F) Misclassified Other Payment", amountPaid: amount, waterfallType: "INTEREST" },
-        ...stepsWithoutF,
-      ],
-    };
-    const d = defaultsFromResolved(fixture.resolved, rawWithRogueF);
     // Falls through to resolved.hedgeCostBps (0 for Euro XV) and DEFAULT (0).
     expect(d.hedgeCostBps).toBe(0);
   });
