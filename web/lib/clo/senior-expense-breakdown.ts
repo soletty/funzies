@@ -24,14 +24,28 @@ export interface SeniorExpenseBreakdown {
    *  10(b) proviso ll. 14167-14177), so the post-acceleration executor
    *  passes the FULL requested trustee fee here and zero in
    *  `trusteeOverflow`. The field name describes PPM step position (B),
-   *  not literal cap-state. */
+   *  not literal cap-state.
+   *
+   *  At T=0 (IC initialState construction) the cap is also not exercised
+   *  — that site feeds only the IC numerator, not the cash-flow chain —
+   *  so the T=0 constructor passes the full requested trustee fee here
+   *  with zero `trusteeOverflow`. This is NOT PPM 10(b) suppression; it
+   *  is IC-definition semantics: the IC numerator uses contractual-
+   *  requested amounts for dimensional symmetry with the contractual
+   *  interest denominator (see comment block above the normal-mode
+   *  `seniorExpenseBreakdown` construction in `projection.ts`). */
   trusteeCapped: number;
   /** PPM step (C) — admin expenses, CAPPED portion. Overflow above cap
    *  routes to `adminOverflow` below.
    *
    *  Same accel-mode caveat as `trusteeCapped`: under PPM 10(b) the cap
    *  is suppressed, so the post-acceleration executor passes the FULL
-   *  requested admin fee here and zero in `adminOverflow`. */
+   *  requested admin fee here and zero in `adminOverflow`.
+   *
+   *  Same T=0 caveat as `trusteeCapped`: the T=0 IC-initialState
+   *  constructor passes the full requested admin fee here with zero
+   *  `adminOverflow`, because that site feeds only the IC numerator and
+   *  the contractual-requested convention applies. */
   adminCapped: number;
   /** PPM step (E) — senior management fee. NOT capped. */
   seniorMgmt: number;
