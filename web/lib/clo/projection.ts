@@ -371,6 +371,15 @@ export interface ProjectionInputs {
   reinvestmentSpreadBps: number;
   reinvestmentTenorQuarters: number;
   reinvestmentRating: string | null; // null = use portfolio modal
+  /** KI-33 — assumed purchase price (as percent of par) for reinvested loans
+   *  synthesized mid-projection. Drives the price-aware cure math in
+   *  `computeReinvOcDiversion` and the per-position classification of
+   *  synthesised loans (sub-threshold purchases become discount obligations
+   *  immediately). Default 100 (par-purchase) preserves pre-KI-33 behavior
+   *  for hand-constructed test inputs. Production callers via `buildFromResolved`
+   *  derive from the calibration hierarchy (slider override → recent BUY-trade
+   *  weighted-average → pool-WAS-derived). */
+  reinvestmentPricePct?: number;
   cccBucketLimitPct: number; // CCC excess above this % of par is haircut in OC test
   cccMarketValuePct: number; // market value assumption for CCC excess haircut (% of par)
   deferredInterestCompounds: boolean; // whether PIK'd interest itself earns interest
@@ -896,20 +905,56 @@ export function quartersBetween(startIso: string, endIso: string): number {
  * buys €1/price of par; cure-exact math would be `cureAmount × price`. Tracked
  * under C1 (reinvestment compliance) for modelling at purchase price.
  */
+/** KI-33 — price-aware OC cure cash sizing.
+ *
+ *  Pre-fix: returned `cureAmount` interpreted as cash diverted, with the
+ *  caller synthesising a loan of par equal to the cash. This implicitly
+ *  assumed par-purchase (€1 cash buys €1 par) — wrong on any deal where
+ *  reinvestment happens at non-par prices.
+ *
+ *  Post-fix: returns both `cashDiverted` (what to subtract from
+ *  availableInterest) and `parBought` (what to push as new survivingPar).
+ *  Math depends on whether the synthesised loan is sub-threshold:
+ *
+ *    - Above-threshold (purchasePricePct >= classificationThresholdPct):
+ *      not a discount obligation → contributes full par to OC numerator.
+ *      Cash needed for `numeratorGain` of cure: `cash = numeratorGain ×
+ *      purchasePricePct/100` (LEVERAGED — €1 cash buys €1/price par which
+ *      contributes €1/price numerator).
+ *
+ *    - Sub-threshold: synthesised position is a discount obligation →
+ *      contributes `par × purchasePricePct/100` to numerator after the
+ *      per-position haircut. Cash needed: `cash = numeratorGain` (no
+ *      leverage; same dollar of OC ratio per dollar of cash). Buying
+ *      sub-threshold paper does change pool composition (more par for the
+ *      same cash) but does not improve OC ratio more than holding cash.
+ *
+ *  parBought = cashDiverted × (100 / purchasePricePct) in both cases.
+ *  Caller uses parBought to size the new loan, cashDiverted to consume
+ *  available interest. Caller is also responsible for setting
+ *  `isDiscountObligation` on the synthesised loan per the same threshold
+ *  test (so the haircut Σ on the next period reflects classification). */
 export function computeReinvOcDiversion(
   availableInterest: number,
   ocNumerator: number,
   reinvOcDebt: number,
   triggerLevelPct: number,
   diversionPct: number,
-): number {
-  if (availableInterest <= 0) return 0;
-  if (reinvOcDebt <= 0) return 0;
+  purchasePricePct: number = 100,
+  isSubThresholdPurchase: boolean = false,
+): { cashDiverted: number; parBought: number } {
+  if (availableInterest <= 0) return { cashDiverted: 0, parBought: 0 };
+  if (reinvOcDebt <= 0) return { cashDiverted: 0, parBought: 0 };
   const actualPct = (ocNumerator / reinvOcDebt) * 100;
-  if (actualPct >= triggerLevelPct) return 0;
-  const cureAmount = Math.max(0, (triggerLevelPct / 100) * reinvOcDebt - ocNumerator);
+  if (actualPct >= triggerLevelPct) return { cashDiverted: 0, parBought: 0 };
+  const numeratorGainNeeded = Math.max(0, (triggerLevelPct / 100) * reinvOcDebt - ocNumerator);
+  const cashNeededForCure = isSubThresholdPurchase
+    ? numeratorGainNeeded
+    : numeratorGainNeeded * (purchasePricePct / 100);
   const maxDiversion = availableInterest * (diversionPct / 100);
-  return Math.min(maxDiversion, cureAmount);
+  const cashDiverted = Math.min(maxDiversion, cashNeededForCure);
+  const parBought = purchasePricePct > 0 ? cashDiverted * (100 / purchasePricePct) : cashDiverted;
+  return { cashDiverted, parBought };
 }
 
 /**
@@ -1437,7 +1482,7 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     reinvestmentPeriodEnd, maturityDate, currentDate,
     loans, defaultRatesByRating, cdrMultiplierPathFn, cprPct, recoveryPct, recoveryLagMonths,
     ratingAgencies,
-    reinvestmentSpreadBps, reinvestmentTenorQuarters, reinvestmentRating: reinvestmentRatingOverride,
+    reinvestmentSpreadBps, reinvestmentTenorQuarters, reinvestmentRating: reinvestmentRatingOverride, reinvestmentPricePct = 100,
     cccBucketLimitPct, cccMarketValuePct, deferredInterestCompounds,
     initialPrincipalCash = 0,
     initialUnusedProceedsCash = 0,
@@ -1835,6 +1880,27 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
   // C2 — WARF factor for reinvested positions. Uses the coarse-bucket fallback
   // (no per-position sub-bucket on reinvestment). NR→b2 proxy if bucket unknown.
   const reinvestmentWarfFactor = BUCKET_WARF_FALLBACK[reinvestmentRating] ?? BUCKET_WARF_FALLBACK.NR;
+
+  // KI-33 — sub-threshold flag for synthesised reinvestment loans, computed
+  // once at engine setup since reinvestment-purchase shape doesn't vary per
+  // period. Synthetic reinvestment loans are treated as floating-rate per
+  // market default for Euro/USD CLOs (Ares family: floating threshold 80;
+  // a fixed-rate reinvestment would be classified at 75 — supported via
+  // the rate-type discriminator in classificationThresholdPct). When the
+  // rule is null (greenfield / hand-constructed inputs), no classification
+  // applies and synthesised loans default to non-discount.
+  const reinvIsFixedRate = false;
+  const reinvIsSubThreshold = (() => {
+    if (discountObligationRule == null) return false;
+    const t = discountObligationRule.classificationThresholdPct;
+    const threshold =
+      t.type === "single"
+        ? t.pct
+        : reinvIsFixedRate
+          ? t.fixedPct
+          : t.floatingPct;
+    return reinvestmentPricePct < threshold;
+  })();
 
   // C1 — Max reinvestment amount that keeps the post-buy pool compliant with
   // every active reinvestment-period trigger:
@@ -3057,18 +3123,37 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
     }
     if (reinvestment > 0 && hasLoans) {
       const matQ = q + reinvestmentTenorQuarters;
-      // Split reinvestment into individual loans sized to the portfolio average.
-      // Improves Monte Carlo accuracy: each loan defaults independently instead
-      // of one giant loan going all-or-nothing.
+      // KI-33 — `reinvestment` is the cash amount; par bought at the
+      // assumed reinvestment price. avgLoanSize is a CASH ceiling (matches
+      // pool's dollar-weighted typical position size); the per-loan
+      // `survivingPar` is the cash chunk × 1/(price/100). Sub-threshold
+      // purchases set isDiscountObligation true at synthesis time so
+      // the per-period haircut Σ correctly deducts on the next
+      // determination date.
+      const isLongDatedSynth = matQ > totalQuarters;
+      const synthCommonFields = {
+        ratingBucket: reinvestmentRating,
+        spreadBps: reinvestmentSpreadBps,
+        warfFactor: reinvestmentWarfFactor,
+        maturityQuarter: matQ,
+        isFixedRate: reinvIsFixedRate,
+        isDelayedDraw: false,
+        defaultedParPending: 0,
+        defaultEvents: [],
+        purchasePricePct: reinvestmentPricePct,
+        acquisitionDate: periodDate,
+        isDiscountObligation: reinvIsSubThreshold,
+        isLongDated: isLongDatedSynth,
+      };
       if (avgLoanSize > 0 && reinvestment > avgLoanSize * 1.5) {
         let remaining = reinvestment;
         while (remaining > 0) {
-          const par = Math.min(avgLoanSize, remaining);
-          loanStates.push({ survivingPar: par, ratingBucket: reinvestmentRating, spreadBps: reinvestmentSpreadBps, warfFactor: reinvestmentWarfFactor, maturityQuarter: matQ, isFixedRate: false, isDelayedDraw: false, defaultedParPending: 0, defaultEvents: [] });
-          remaining -= par;
+          const cashChunk = Math.min(avgLoanSize, remaining);
+          loanStates.push({ survivingPar: cashChunk * (100 / reinvestmentPricePct), ...synthCommonFields });
+          remaining -= cashChunk;
         }
       } else {
-        loanStates.push({ survivingPar: reinvestment, ratingBucket: reinvestmentRating, spreadBps: reinvestmentSpreadBps, warfFactor: reinvestmentWarfFactor, maturityQuarter: matQ, isFixedRate: false, isDelayedDraw: false, defaultedParPending: 0, defaultEvents: [] });
+        loanStates.push({ survivingPar: reinvestment * (100 / reinvestmentPricePct), ...synthCommonFields });
       }
     }
 
@@ -4062,19 +4147,34 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
           const _mode: "reinvest" | "paydown" = inRP && !failingIc ? "reinvest" : "paydown";
           _stepTrace_ocCureDiversions.push({ rank, mode: _mode, amount: diversion });
           if (inRP && !failingIc) {
-            currentPar += diversion;
-            ocNumerator += diversion;
+            // KI-33 — price-aware synthesis. `diversion` here is the cash
+            // amount diverted to reinvestment; par bought scales with
+            // 1/(purchasePricePct/100) so sub-par purchases buy more par
+            // for the same cash. OC numerator increment depends on whether
+            // the synthesised loan is sub-threshold (discount-obligation
+            // → contributes post-haircut value) or above (full par).
+            const cureParBought = diversion * (100 / reinvestmentPricePct);
+            const cureNumeratorGain = reinvIsSubThreshold
+              ? cureParBought * (reinvestmentPricePct / 100)
+              : cureParBought;
+            const cureMaturityQ = q + reinvestmentTenorQuarters;
+            currentPar += cureParBought;
+            ocNumerator += cureNumeratorGain;
             if (hasLoans) {
               loanStates.push({
-                survivingPar: diversion,
+                survivingPar: cureParBought,
                 ratingBucket: reinvestmentRating,
                 spreadBps: reinvestmentSpreadBps,
                 warfFactor: reinvestmentWarfFactor,
-                maturityQuarter: q + reinvestmentTenorQuarters,
-                isFixedRate: false,
+                maturityQuarter: cureMaturityQ,
+                isFixedRate: reinvIsFixedRate,
                 isDelayedDraw: false,
                 defaultedParPending: 0,
                 defaultEvents: [],
+                purchasePricePct: reinvestmentPricePct,
+                acquisitionDate: periodDate,
+                isDiscountObligation: reinvIsSubThreshold,
+                isLongDated: cureMaturityQ > totalQuarters,
               });
             }
           } else {
@@ -4133,28 +4233,43 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
       const reinvOcDebt = ocEligibleTranches
         .filter((tr) => tr.seniorityRank <= reinvestmentOcTrigger.rank)
         .reduce((s, tr) => s + trancheBalances[tr.className] + deferredBalances[tr.className], 0);
-      const diversion = computeReinvOcDiversion(
+      const { cashDiverted, parBought } = computeReinvOcDiversion(
         availableInterest,
         ocNumerator,
         reinvOcDebt,
         reinvestmentOcTrigger.triggerLevel,
         reinvestmentOcTrigger.diversionPct,
+        reinvestmentPricePct,
+        reinvIsSubThreshold,
       );
-      if (diversion > 0) {
-        _stepTrace_reinvOcDiversion = diversion;
-        availableInterest -= diversion;
-        currentPar += diversion;
+      if (cashDiverted > 0) {
+        _stepTrace_reinvOcDiversion = cashDiverted;
+        availableInterest -= cashDiverted;
+        currentPar += parBought;
+        // OC numerator: full par for above-threshold; par × purchasePrice/100
+        // for sub-threshold (the per-position discount-obligation haircut
+        // gets subtracted at the next period's haircut Σ pass — for the
+        // current-period in-place ocNumerator update, contribute the
+        // post-haircut net so the in-period cure measurement is consistent).
+        ocNumerator += reinvIsSubThreshold
+          ? parBought * (reinvestmentPricePct / 100)
+          : parBought;
+        const synthMaturityQ = q + reinvestmentTenorQuarters;
         if (hasLoans) {
           loanStates.push({
-            survivingPar: diversion,
+            survivingPar: parBought,
             ratingBucket: reinvestmentRating,
             spreadBps: reinvestmentSpreadBps,
             warfFactor: reinvestmentWarfFactor,
-            maturityQuarter: q + reinvestmentTenorQuarters,
-            isFixedRate: false,
+            maturityQuarter: synthMaturityQ,
+            isFixedRate: reinvIsFixedRate,
             isDelayedDraw: false,
             defaultedParPending: 0,
             defaultEvents: [],
+            purchasePricePct: reinvestmentPricePct,
+            acquisitionDate: periodDate,
+            isDiscountObligation: reinvIsSubThreshold,
+            isLongDated: synthMaturityQ > totalQuarters,
           });
         }
       }
