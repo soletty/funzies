@@ -72,6 +72,13 @@ export interface UserAssumptions {
   reinvestmentSpreadBps: number;
   reinvestmentTenorYears: number;
   reinvestmentRating: string | null;
+  /** Reinvestment purchase price as percent of par (e.g. 96.5 = 96.5c).
+   *  Null means use the pool-weighted-average current price as the default
+   *  (derived from `resolved.loans` in `buildFromResolved`). Drives the
+   *  price-aware OC cure cash sizing in `computeReinvOcDiversion` and the
+   *  per-position discount-obligation classification of synthesised loans
+   *  (sub-threshold purchases become discount obligations immediately). */
+  reinvestmentPricePct: number | null;
   cccBucketLimitPct: number;
   cccMarketValuePct: number;
   deferredInterestCompounds: boolean;
@@ -182,6 +189,7 @@ export const DEFAULT_ASSUMPTIONS: UserAssumptions = {
   reinvestmentSpreadBps: CLO_DEFAULTS.reinvestmentSpreadBps,
   reinvestmentTenorYears: CLO_DEFAULTS.reinvestmentTenorYears,
   reinvestmentRating: null,
+  reinvestmentPricePct: null,
   cccBucketLimitPct: CLO_DEFAULTS.cccBucketLimitPct,
   cccMarketValuePct: CLO_DEFAULTS.cccMarketValuePct,
   deferredInterestCompounds: true,
@@ -742,6 +750,28 @@ export function buildFromResolved(
       ? subNoteFaceAtPurchase * (userAssumptions.equityEntryPriceCents / 100)
       : undefined;
 
+  // Reinvestment purchase price: user override > pool-weighted-average
+  // current price > 100. The pool-WAS-derived default is grounded — if the
+  // pool is currently trading at 96.5c on average, reinvestments are likely
+  // happening near 96.5c. Falling back to par (100) produces no leverage in
+  // the OC cure path and no discount-obligation classification on synthesised
+  // loans, which silently disables the price-aware reinvestment math on
+  // every deal whose user did not explicitly override.
+  const reinvestmentPricePct = (() => {
+    if (userAssumptions.reinvestmentPricePct != null) {
+      return userAssumptions.reinvestmentPricePct;
+    }
+    let parWithPrice = 0;
+    let pxParSum = 0;
+    for (const l of resolved.loans) {
+      if (l.currentPrice == null || l.currentPrice <= 0) continue;
+      if (l.isDelayedDraw) continue;
+      parWithPrice += l.parBalance;
+      pxParSum += l.parBalance * l.currentPrice;
+    }
+    return parWithPrice > 0 ? pxParSum / parWithPrice : 100;
+  })();
+
   return {
     initialPar: resolved.poolSummary.totalPar,
     wacSpreadBps: resolved.poolSummary.wacSpreadBps,
@@ -813,6 +843,7 @@ export function buildFromResolved(
     reinvestmentSpreadBps: userAssumptions.reinvestmentSpreadBps,
     reinvestmentTenorQuarters: userAssumptions.reinvestmentTenorYears * 4,
     reinvestmentRating: userAssumptions.reinvestmentRating,
+    reinvestmentPricePct,
     cccBucketLimitPct: userAssumptions.cccBucketLimitPct,
     cccMarketValuePct: userAssumptions.cccMarketValuePct,
     deferredInterestCompounds: userAssumptions.deferredInterestCompounds ?? resolved.deferredInterestCompounds,

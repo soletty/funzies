@@ -164,14 +164,25 @@ export type ResolvedThresholdShape =
  *    intra-period price tracking the engine doesn't carry; that boundary
  *    is the quantization cliff.
  *
- *  - `payment_dates`: position must have been at-or-above the cure
- *    threshold at the most recent N Determination Dates. Tested exactly
- *    at quarterly cadence; no quantization loss. Materially different
- *    from `days` when `n` covers > 1 PD — a 2-PD window is a real
- *    multi-quarter test, not a same-PD spot check.
+ *  - `payment_dates`: PPM intent is "position has been at-or-above the
+ *    cure threshold at the most recent N Determination Dates." Engine
+ *    implementation is a simplification: it checks (a) holding-since-
+ *    acquisition >= N quarters AND (b) current MV >= cure threshold at
+ *    the most recent PD. It does NOT track per-loan price history at
+ *    each of the N intervening PDs — a position whose price was below
+ *    threshold at PD k-1 and recovered by PD k would cure on PD k under
+ *    this implementation, where strict PPM semantics would require
+ *    another N PDs of recovery. Acceptable because (i) at quarterly
+ *    cadence and static `currentPrice` from ingestion, the engine has
+ *    no intra-period price evolution to differentiate, and (ii) a
+ *    rolling-history check would require a structural change to
+ *    LoanState (new `priceHistory: number[]` field). When per-period
+ *    price evolution is modeled (e.g. stress-scenario MV trajectories),
+ *    the rolling check should be implemented to match PPM intent.
  *
- *  Engine implementation: `days` collapses to a 1-PD spot test;
- *  `payment_dates` tracked exactly via per-loan rolling MV history. */
+ *  Engine implementation: both variants collapse to a "current price >=
+ *  cure threshold AND held-since-acquisition >= window" test at PD
+ *  granularity. */
 export type ResolvedCureWindow =
   | { type: "days"; n: number }
   | { type: "payment_dates"; n: number };

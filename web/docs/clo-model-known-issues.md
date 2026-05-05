@@ -515,7 +515,7 @@ Long-dated leg:
 3. Engine consumes via per-position dispatch — sum over `loanStates` filtered by `isLongDated`, applying the per-deal rule.
 4. Delete `LongDatedStaticBanner.tsx` in lockstep with the engine swap; remove this entry from the ledger entirely (closed = deleted).
 
-**Test:** marker pinned by `KI-29-longDatedStatic` in `c5-discount-obligation.test.ts` (asserts the static-scalar behavior is preserved on a synthetic fixture with non-zero long-dated haircut). KI-33 markers in `a2-reinv-oc-diversion.test.ts` (above-threshold-leverage and sub-threshold-no-leverage cases). Discount-obligation closure asserted via the engine's `computeDiscountHaircut` swap on a synthetic fixture with a sub-threshold reinvested loan; covered in `c5-discount-obligation.test.ts`.
+**Test:** behavior pinned by `KI-29-longDatedStatic` in `c5-discount-obligation.test.ts` (synthetic fixture with non-zero `longDatedObligationHaircut`; asserts the static scalar deducts identically at T=0 and at q=1 — flips when the per-deal forward-period valuation rule lands). Not in `failsWithMagnitude` shape because the residual carries zero current magnitude on Euro XV (no long-dated positions; trustee scalar = 0); the marker pins the behavior, not a wrong-number drift.
 
 ---
 

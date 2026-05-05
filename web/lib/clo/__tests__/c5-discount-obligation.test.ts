@@ -108,6 +108,50 @@ describe("KI-29 — per-position discount-obligation haircut at T=0", () => {
     expect(ocActualClassA).toBeCloseTo((78_000_000 / 65_000_000) * 100, 1);
   });
 
+  it("split_by_rate_type — fixed-rate position cures at fixed cure threshold; floating doesn't (same price)", () => {
+    // Both loans acquired well before projection start at 78c (sub-threshold
+    // for both rate types under the Ares family rule). Current MV is 87c —
+    // above the fixed-rate cure threshold (85) but below the floating-rate
+    // cure threshold (90). Holding window has elapsed for both. Expected:
+    // - Fixed-rate loan: cures (haircut = 0).
+    // - Floating-rate loan: stays classified (haircut = par × (1 − 0.78)).
+    // Together they exercise the rate-type discriminator on cureThresholdPct.
+    const inputs = makeInputs({
+      loans: [
+        {
+          parBalance: 50_000_000,
+          maturityDate: "2034-06-15",
+          ratingBucket: "B",
+          spreadBps: 375,
+          purchasePricePct: 78,
+          acquisitionDate: "2024-01-01",
+          isDiscountObligation: true,
+          currentPrice: 87,
+          isFixedRate: true,
+        },
+        {
+          parBalance: 50_000_000,
+          maturityDate: "2034-06-15",
+          ratingBucket: "B",
+          spreadBps: 375,
+          purchasePricePct: 78,
+          acquisitionDate: "2024-01-01",
+          isDiscountObligation: true,
+          currentPrice: 87,
+          isFixedRate: false,
+        },
+      ],
+      initialPar: 100_000_000,
+      discountObligationRule: ARES_FAMILY_RULE,
+    });
+    const result = runProjection(inputs);
+    // Fixed leg cures → no haircut on its 50M par.
+    // Floating leg stays classified → haircut = 50M × (1 − 0.78) = 11M.
+    // OC numerator = 100M − 11M = 89M.
+    const ocActualClassA = result.initialState.ocTests[0].actual;
+    expect(ocActualClassA).toBeCloseTo((89_000_000 / 65_000_000) * 100, 1);
+  });
+
   it("hand-constructed inputs without discountObligationRule see no haircut (back-compat)", () => {
     // Same setup as test 1 but no rule provided; expect zero haircut even
     // though `isDiscountObligation: true` on the loan. Engine consumes the

@@ -97,7 +97,7 @@ describe("A2 — computeReinvOcDiversion (lesser-of)", () => {
     expect(computeReinvOcDiversion(10_000_000, 0, 0, 103.74, 50).cashDiverted).toBe(0);
   });
 
-  it("KI-33 — above-threshold purchase yields leveraged cure (cash < numeratorGain)", () => {
+  it("price-aware: above-threshold purchase yields leveraged cure (cash < numeratorGain)", () => {
     // OC 103.5% vs 103.74% trigger; cure needs €0.84M of numerator gain.
     // Above threshold (95% > 80% floating threshold) → cash needed = gain × 95/100 = €0.798M.
     // parBought = cash × 100/95 ≈ €0.84M (matches numerator gain).
@@ -118,7 +118,7 @@ describe("A2 — computeReinvOcDiversion (lesser-of)", () => {
     expect(cashDiverted).toBeLessThan(numeratorGain); // leverage check
   });
 
-  it("KI-33 — sub-threshold purchase yields no cure leverage (cash = numeratorGain)", () => {
+  it("price-aware: sub-threshold purchase yields no cure leverage (cash = numeratorGain)", () => {
     // Same OC, but purchase at 75% < 80% floating threshold → discount obligation.
     // Cash = numeratorGain (no leverage); parBought = cash × 100/75.
     const reinvOcDebt = 350_000_000;

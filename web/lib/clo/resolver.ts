@@ -1220,14 +1220,23 @@ export function resolveWaterfallInputs(
   const seniorExpensesCap = resolveSeniorExpensesCap(constraints, warnings);
 
   // --- Discount Obligation classification + cure rule (PPM Condition 1) ---
-  // Sized against `holdings.length > 0` (the greenfield-exemption signal):
-  // an extraction in pre-pool state has nothing to classify and the rule's
-  // absence is harmless. Once holding rows arrive, the rule must be present
-  // for the OC numerator's per-position discount haircut to compute.
+  // Sized against the active-holdings predicate (greenfield-exemption signal
+  // matching `activeHoldings` below): if the deal carries no live positions
+  // there is nothing to classify and the rule's absence is harmless. Once
+  // any live position arrives, the rule must be present for the OC numerator's
+  // per-position discount haircut to compute. Defaulted/zero-par rows do
+  // NOT count — a workout-phase deal with all-defaulted holdings would
+  // otherwise falsely block.
+  const hasActiveHoldings = holdings.some(h => {
+    const par = (h.parBalance && h.parBalance > 0) ? h.parBalance
+      : (h.principalBalance && h.principalBalance > 0) ? h.principalBalance
+      : 0;
+    return par > 0 && !h.isDefaulted;
+  });
   const discountObligationRule = resolveDiscountObligation(
     constraints,
     warnings,
-    holdings.length > 0,
+    hasActiveHoldings,
   );
 
   // --- Excess CCC Adjustment Amount (per-deal CCC haircut params) ---

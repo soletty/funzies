@@ -106,7 +106,7 @@ describe("A1 — integration: equityEntryPriceCents flows through to engine IRR"
     // Empirical anchor. With DEFAULT_ASSUMPTIONS, Euro XV's engine produces:
     //   - 95c cost basis (€42.56M) → equityIrr ≈ lower
     //   - book-value default → equityIrr ≈ higher (because lower cost basis)
-    //   - gap ≈ −16.86pp
+    //   - gap ≈ −16.23pp
     //
     // History: pre-B1 this gap was −12.92pp; B1's resolver fix corrected
     // `principalAccountCash` from 0 to −€1.82M and widened the gap to
@@ -115,7 +115,12 @@ describe("A1 — integration: equityEntryPriceCents flows through to engine IRR"
     // is missing) flipped Class C/D/E/F to isDeferrable=true on Euro XV,
     // re-routing junior-interest shortfalls into PIK accrual instead of
     // silent drop. That shifts the engine's interest-allocation under stress
-    // periods and re-baselined the gap to −16.86pp.
+    // periods and re-baselined the gap to −16.86pp. Subsequent KI-33
+    // closure (price-aware reinvestment) plumbed `reinvestmentPricePct`
+    // through `buildFromResolved` from the pool-WAS-derived current price
+    // (~96c on Euro XV vs the prior par-purchase assumption of 100); the
+    // resulting cure leverage on synthesised reinvestment loans nudges the
+    // gap to −16.23pp.
     const inputs95 = buildFromResolved(fixture.resolved, {
       ...DEFAULT_ASSUMPTIONS,
       equityEntryPriceCents: 95,
@@ -130,9 +135,9 @@ describe("A1 — integration: equityEntryPriceCents flows through to engine IRR"
     const gapPp = (result95.equityIrr! - resultDefault.equityIrr!) * 100;
     // Direction: higher cost basis → lower IRR (gap is negative).
     expect(gapPp).toBeLessThan(0);
-    // Magnitude: within ±1pp of the documented −16.86pp anchor. If this moves,
+    // Magnitude: within ±1pp of the documented −16.23pp anchor. If this moves,
     // a material engine change happened — either A1's plumbing or downstream
     // IRR / cashflow logic.
-    expect(gapPp).toBeCloseTo(-16.86, 0);
+    expect(gapPp).toBeCloseTo(-16.23, 0);
   });
 });

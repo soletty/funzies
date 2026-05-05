@@ -376,9 +376,10 @@ export interface ProjectionInputs {
    *  `computeReinvOcDiversion` and the per-position classification of
    *  synthesised loans (sub-threshold purchases become discount obligations
    *  immediately). Default 100 (par-purchase) for hand-constructed test
-   *  inputs. Production callers via `buildFromResolved` derive from the
-   *  calibration hierarchy (slider override → recent BUY-trade
-   *  weighted-average → pool-WAS-derived). */
+   *  inputs. Production callers via `buildFromResolved` resolve in this
+   *  order: `UserAssumptions.reinvestmentPricePct` slider override →
+   *  pool-weighted-average `currentPrice` (Σ par × currentPrice / Σ par
+   *  over loans) → 100 fallback when the pool carries no priced positions. */
   reinvestmentPricePct?: number;
   cccBucketLimitPct: number; // CCC excess above this % of par is haircut in OC test
   cccMarketValuePct: number; // market value assumption for CCC excess haircut (% of par)
@@ -1872,13 +1873,25 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
 
   // Sub-threshold flag for synthesised reinvestment loans, computed
   // once at engine setup since reinvestment-purchase shape doesn't vary per
-  // period. Synthetic reinvestment loans are treated as floating-rate per
-  // market default for Euro/USD CLOs (Ares family: floating threshold 80;
-  // a fixed-rate reinvestment would be classified at 75 — supported via
-  // the rate-type discriminator in classificationThresholdPct). When the
+  // period. Reinvestment-rate-type derived from the pool's par-weighted
+  // majority — managers typically reinvest in the same shape as the
+  // existing collateral. A pool that is >50% par-weighted fixed-rate
+  // synthesises fixed-rate reinvestments (classified at the deal's
+  // fixed-rate threshold, e.g. Ares family 75); else floating (e.g. 80).
+  // Hardcoding `false` here would silently mis-classify reinvested loans
+  // on a fixed-rate-heavy deal whose rule splits by rate type. When the
   // rule is null (greenfield / hand-constructed inputs), no classification
   // applies and synthesised loans default to non-discount.
-  const reinvIsFixedRate = false;
+  const reinvIsFixedRate = (() => {
+    if (fundedLoans.length === 0) return false;
+    let fixedPar = 0;
+    let totalPar = 0;
+    for (const l of fundedLoans) {
+      totalPar += l.survivingPar;
+      if (l.isFixedRate) fixedPar += l.survivingPar;
+    }
+    return totalPar > 0 && fixedPar / totalPar > 0.5;
+  })();
   const reinvIsSubThreshold = (() => {
     if (discountObligationRule == null) return false;
     const t = discountObligationRule.classificationThresholdPct;
@@ -2305,9 +2318,10 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
   // because (i) reinvested loans synthesised mid-projection get
   // classified at synthesis time and may cure on a later PD, and (ii)
   // any future engine extension that models price evolution will exercise
-  // the per-period dispatch automatically. `days` cure window collapses
-  // to a single-PD spot test for n ≤ ~90 (see ResolvedCureWindow doc);
-  // `payment_dates` tracked exactly via period-count vs acquisition.
+  // the per-period dispatch automatically. Both `days` and `payment_dates`
+  // cure-window variants collapse to "current price >= cure threshold
+  // AND held-since-acquisition >= window" at PD granularity — see
+  // ResolvedCureWindow docstring for the simplification rationale.
   const applyCureDispatch = (states: LoanState[], asOfDate: string): void => {
     if (discountObligationRule == null) return;
     if (discountObligationRule.cureMechanic.type !== "continuous_threshold") return;
