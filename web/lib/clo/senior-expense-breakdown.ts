@@ -18,10 +18,20 @@ export interface SeniorExpenseBreakdown {
   /** PPM step (A)(ii) — issuer profit (fixed absolute € per period). */
   issuerProfit: number;
   /** PPM step (B) — trustee fee, CAPPED portion. Overflow above cap routes
-   *  to `trusteeOverflow` below. */
+   *  to `trusteeOverflow` below.
+   *
+   *  Under post-acceleration the Senior Expenses Cap does not apply (PPM
+   *  10(b) proviso ll. 14167-14177), so the post-acceleration executor
+   *  passes the FULL requested trustee fee here and zero in
+   *  `trusteeOverflow`. The field name describes PPM step position (B),
+   *  not literal cap-state. */
   trusteeCapped: number;
   /** PPM step (C) — admin expenses, CAPPED portion. Overflow above cap
-   *  routes to `adminOverflow` below. */
+   *  routes to `adminOverflow` below.
+   *
+   *  Same accel-mode caveat as `trusteeCapped`: under PPM 10(b) the cap
+   *  is suppressed, so the post-acceleration executor passes the FULL
+   *  requested admin fee here and zero in `adminOverflow`. */
   adminCapped: number;
   /** PPM step (E) — senior management fee. NOT capped. */
   seniorMgmt: number;

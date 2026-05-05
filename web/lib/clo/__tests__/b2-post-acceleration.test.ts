@@ -25,6 +25,7 @@ import {
   runPostAccelerationWaterfall,
   type DefaultDrawFn,
 } from "@/lib/clo/projection";
+import type { SeniorExpenseBreakdown } from "@/lib/clo/senior-expense-breakdown";
 import { buildFromResolved, defaultsFromResolved } from "@/lib/clo/build-projection-inputs";
 import type { ResolvedDealData } from "@/lib/clo/resolver-types";
 
@@ -67,8 +68,15 @@ describe("B2 — runPostAccelerationWaterfall (pure helper)", () => {
   const interestDue = {
     "Class A": 1_000_000, "Class B-1": 200_000, "Class B-2": 100_000, "Class C": 150_000, "Sub": 0,
   };
-  const seniorExpenses = {
-    taxes: 10_000, issuerProfit: 250, trusteeFees: 50_000, adminExpenses: 0, seniorMgmtFee: 150_000, hedgePayments: 0,
+  const seniorExpenses: SeniorExpenseBreakdown = {
+    taxes: 10_000,
+    issuerProfit: 250,
+    trusteeCapped: 50_000,
+    adminCapped: 0,
+    seniorMgmt: 150_000,
+    hedge: 0,
+    trusteeOverflow: 0,
+    adminOverflow: 0,
   };
 
   it("Class A absorbs cash first until retired; Class B sees nothing until A is paid", () => {
@@ -310,7 +318,7 @@ describe("B2 — integration: runProjection flips to accelerated mode on EoD bre
     // TIGHT REGRESSION GUARD: post-C3 split, stepTrace.adminFeesPaid maps to
     // PPM step (C) only. The prior version asserted on the bundled
     // trusteeFeesPaid, which was regression-theater — a future revert of
-    // adminExpenses: 0 with trustee bumped to absorb the sum would still
+    // adminCapped: 0 with trustee bumped to absorb the sum would still
     // pass. Direct assertion on adminFeesPaid catches exactly that bug.
     expect(accelPeriod.stepTrace.adminFeesPaid).toBeGreaterThan(0);
     expect(accelPeriod.stepTrace.trusteeFeesPaid).toBeGreaterThan(0);

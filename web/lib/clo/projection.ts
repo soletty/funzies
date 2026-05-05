@@ -1040,19 +1040,14 @@ export interface PostAccelExecutorInput {
   tranches: ProjectionInputs["tranches"];
   trancheBalances: Record<string, number>;
   deferredBalances: Record<string, number>;
-  /** Senior expenses in PPM order (A.i taxes, A.ii issuer profit, B trustee,
-   *  C admin, E senior mgmt, F hedge). Caller constructs these so values
-   *  tie to PPM day-count + rates for the period. Issuer profit is a fixed
-   *  absolute amount per PPM Condition 1; still paid under acceleration
-   *  (priority order preserved by PPM 10(b)). */
-  seniorExpenses: {
-    taxes: number;
-    issuerProfit: number;
-    trusteeFees: number;
-    adminExpenses: number;
-    seniorMgmtFee: number;
-    hedgePayments: number;
-  };
+  /** Senior expenses in PPM order, expressed as the canonical
+   *  `SeniorExpenseBreakdown`. Under post-acceleration the cap doesn't
+   *  apply (PPM 10(b)), so callers pass the full requested amount in
+   *  `trusteeCapped` / `adminCapped` with zero `trusteeOverflow` /
+   *  `adminOverflow`. Issuer profit is a fixed absolute amount per PPM
+   *  Condition 1; still paid under acceleration (priority order preserved
+   *  by PPM 10(b)). */
+  seniorExpenses: SeniorExpenseBreakdown;
   /** Interest due per tranche this period (from trancheCouponRate × balance
    *  × dayFrac). Residual interest not paid is a shortfall (not PIKed). */
   interestDueByTranche: Record<string, number>;
@@ -1074,14 +1069,7 @@ export interface PostAccelExecutorResult {
     principalPaid: number;
     endBalance: number;
   }>;
-  seniorExpensesPaid: {
-    taxes: number;
-    issuerProfit: number;
-    trusteeFees: number;
-    adminExpenses: number;
-    seniorMgmtFee: number;
-    hedgePayments: number;
-  };
+  seniorExpensesPaid: SeniorExpenseBreakdown;
   subMgmtFeePaid: number;
   incentiveFeePaid: number;
   residualToSub: number;
@@ -1098,19 +1086,26 @@ export interface PostAccelExecutorResult {
 export function runPostAccelerationWaterfall(input: PostAccelExecutorInput): PostAccelExecutorResult {
   let remaining = input.totalCash;
 
-  // ── 1. Senior expenses (steps A–E). Uncapped under acceleration. ──
+  // ── 1. Senior expenses (PPM steps A.i, A.ii, B, C, E, F). Uncapped under
+  //      acceleration per PPM 10(b); the canonical helper truncates each
+  //      step against `remaining` (Math.min(amount, remaining)), matching
+  //      the prior `pay(...)` chain bit-for-bit under non-negative inputs
+  //      and non-negative `totalCash` (both guaranteed at this site —
+  //      `remaining` is monotonic in [0, totalCash]). Y/Z overflow does
+  //      not exist under acceleration; the helper returns zeros in those
+  //      fields and the post-accel stepTrace pins them to zero. ──
+  const seniorExpensesApplied = applySeniorExpensesToAvailable(
+    input.seniorExpenses,
+    remaining,
+  );
+  remaining = seniorExpensesApplied.remainingAvailable;
+  const seniorPaid = seniorExpensesApplied.paid;
+
+  // `pay` continues to be used for sub mgmt fee + incentive fee below.
   const pay = (amount: number): number => {
     const paid = Math.min(amount, Math.max(0, remaining));
     remaining -= paid;
     return paid;
-  };
-  const seniorPaid = {
-    taxes: pay(input.seniorExpenses.taxes),
-    issuerProfit: pay(input.seniorExpenses.issuerProfit),
-    trusteeFees: pay(input.seniorExpenses.trusteeFees),
-    adminExpenses: pay(input.seniorExpenses.adminExpenses),
-    seniorMgmtFee: pay(input.seniorExpenses.seniorMgmtFee),
-    hedgePayments: pay(input.seniorExpenses.hedgePayments),
   };
 
   // ── 2. Rated tranches: P+I combined, sequential except Class B pari passu. ──
@@ -3240,26 +3235,24 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
         tranches,
         trancheBalances,
         deferredBalances,
+        // Post-Acceleration Priority of Payments steps (B)+(C) proviso
+        // (PPM ll. 14167-14177): "provided that following an acceleration
+        // of the Notes pursuant to Condition 10(b) (Acceleration) [...]
+        // the Senior Expenses Cap shall not apply". Trustee + admin fees
+        // pay uncapped at steps (B) and (C) directly, with no Y/Z overflow
+        // deferral — so the full requested amount sits in the cap-eligible
+        // field and `trusteeOverflow` / `adminOverflow` are zero. KI-12a
+        // fee-base discrepancy on `seniorMgmt` (beginningPar vs prior
+        // Determination Date ACB) inherited from normal mode.
         seniorExpenses: {
-          // `taxesAmount` computed from taxesBps.
-          // Under acceleration taxes are still paid at step (A)(i) per PPM.
           taxes: taxesAmount,
-          // Issuer Profit at step (A.ii). Fixed
-          // absolute € per period; still paid under acceleration per PPM.
           issuerProfit: issuerProfitPaid,
-          // Post-Acceleration Priority of Payments steps (B)+(C) proviso
-          // (PPM ll. 14167-14177): "provided that following an acceleration
-          // of the Notes pursuant to Condition 10(b) (Acceleration) [...]
-          // the Senior Expenses Cap shall not apply". Trustee + admin fees
-          // pay uncapped (Post-Accel POP steps B + C directly, no overflow
-          // deferral). Pass the REQUESTED amounts, not the cap-truncated
-          // amounts used in normal mode.
-          trusteeFees: trusteeFeeRequested,
-          adminExpenses: adminFeeRequested,
-          // Inherits KI-12a fee-base discrepancy (beginningPar vs prior
-          // Determination Date ACB) from normal mode — see KI-12a "Scope note".
-          seniorMgmtFee: seniorFeeAmount,
-          hedgePayments: hedgeCostAmount,
+          trusteeCapped: trusteeFeeRequested,
+          adminCapped: adminFeeRequested,
+          seniorMgmt: seniorFeeAmount,
+          hedge: hedgeCostAmount,
+          trusteeOverflow: 0,
+          adminOverflow: 0,
         },
         interestDueByTranche,
         subMgmtFee: subFeeAmountUnderAccel,
@@ -3369,16 +3362,16 @@ export function runProjection(inputs: ProjectionInputs, defaultDrawFn?: DefaultD
           // guard asserts adminFeesPaid > 0 directly, no subtraction needed.
           taxes: accelResult.seniorExpensesPaid.taxes,
           issuerProfit: accelResult.seniorExpensesPaid.issuerProfit,
-          trusteeFeesPaid: accelResult.seniorExpensesPaid.trusteeFees,
-          adminFeesPaid: accelResult.seniorExpensesPaid.adminExpenses,
+          trusteeFeesPaid: accelResult.seniorExpensesPaid.trusteeCapped,
+          adminFeesPaid: accelResult.seniorExpensesPaid.adminCapped,
           trusteeOverflowPaid: 0,
           adminOverflowPaid: 0,
           // Cap is suppressed under acceleration (post-accel POP proviso);
           // emit zero for both diagnostic fields.
           seniorExpensesCapAmount: 0,
           seniorExpensesCapCarryforwardSum: 0,
-          seniorMgmtFeePaid: accelResult.seniorExpensesPaid.seniorMgmtFee,
-          hedgePaymentPaid: accelResult.seniorExpensesPaid.hedgePayments,
+          seniorMgmtFeePaid: accelResult.seniorExpensesPaid.seniorMgmt,
+          hedgePaymentPaid: accelResult.seniorExpensesPaid.hedge,
           // Acceleration mode: Post-Acceleration Priority of Payments
           // steps (B)+(C) proviso citing Condition 10(b) (PPM ll.
           // 14167-14177) removes the Senior Expenses Cap, and
