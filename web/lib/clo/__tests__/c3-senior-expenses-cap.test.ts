@@ -303,6 +303,37 @@ describe("Senior Expenses Cap — CPA cap base augments by Principal Account + U
     expect(cpaCapped - apbCapped).toBeGreaterThan(expectedDelta * 0.95);
     expect(cpaCapped - apbCapped).toBeLessThan(expectedDelta * 1.05);
   });
+
+  it("q=1 in-period: capBaseMode='CPA' adds initialPrincipalCash + initialUnusedProceedsCash to cap base", () => {
+    // Mirrors the T=0 dispatch test (initialState.seniorExpensesCapAmountT0)
+    // but exercises the in-period cap-construction site at
+    // projection.ts:3007-3011, which is a SEPARATE code path from the T=0
+    // IIFE at projection.ts:2276-2283. A regression dropping the
+    // `(q === 1 ? Math.max(0, initialUnusedProceedsCash) : 0)` clause from
+    // the in-period site would not be caught by either the T=0 marker (which
+    // exercises only the IIFE) or the existing in-period principal-cash
+    // marker (which leaves UPA at zero). This pins both addenda on the
+    // in-period path simultaneously.
+    const baseAssumptions = defaultsFromResolved(fixture.resolved, fixture.raw);
+    const baseInputs = buildFromResolved(fixture.resolved, baseAssumptions);
+    const principalCash = 5_000_000;
+    const upaCash = 3_000_000;
+    const stress = {
+      ...baseInputs,
+      initialPrincipalCash: principalCash,
+      initialUnusedProceedsCash: upaCash,
+      seniorExpensesCapBps: 1,
+      seniorExpensesCapAbsoluteFloorPerYear: 0,
+    };
+    const cpa = runProjection({ ...stress, seniorExpensesCapBaseMode: "CPA" as const });
+    const apb = runProjection({ ...stress, seniorExpensesCapBaseMode: "APB" as const });
+    // Delta = (5M + 3M) × 1 bps × 91/360 ≈ €202.22.
+    const expectedDelta = (principalCash + upaCash) * (1 / 10000) * (91 / 360);
+    const cpaCapAmount = cpa.periods[0].stepTrace.seniorExpensesCapAmount;
+    const apbCapAmount = apb.periods[0].stepTrace.seniorExpensesCapAmount;
+    expect(cpaCapAmount - apbCapAmount).toBeGreaterThan(expectedDelta * 0.95);
+    expect(cpaCapAmount - apbCapAmount).toBeLessThan(expectedDelta * 1.05);
+  });
 });
 
 describe("Senior Expenses Cap — 3-period rolling carryforward of unused headroom (PPM proviso (ii))", () => {
@@ -453,6 +484,41 @@ describe("Senior Expenses Cap — VAT inclusion gross-up (PPM proviso (i))", () 
     expect(withVatOverflow - noVatOverflow).toBeGreaterThan(expectedDelta * 0.95);
     expect(withVatOverflow - noVatOverflow).toBeLessThan(expectedDelta * 1.05);
   });
+
+  it("admin-only: VAT gross-up applies to admin bucket independently of trustee", () => {
+    // Mirrors the trustee-only VAT test with the buckets swapped
+    // (trusteeFeeBps: 0, adminFeeBps: 5). Engine code at projection.ts:2982-
+    // 2985 multiplies both `trusteeFeeRequested` and `adminFeeRequested` by
+    // the same `vatGrossUp` factor — symmetric by construction. A regression
+    // that dropped VAT from the admin bucket alone (e.g., conditional gross-
+    // up only on trustee) wouldn't be caught by the trustee-only test;
+    // bijection-rule coverage requires both bucket paths to be exercised.
+    const baseAssumptions = defaultsFromResolved(fixture.resolved, fixture.raw);
+    const baseInputs = buildFromResolved(fixture.resolved, baseAssumptions);
+    const stress = {
+      ...baseInputs,
+      seniorExpensesCapBps: 3,
+      seniorExpensesCapAbsoluteFloorPerYear: 0,
+      trusteeFeeBps: 0,
+      adminFeeBps: 5,
+    };
+    const noVat = runProjection({
+      ...stress,
+      seniorExpensesCapVatIncluded: false,
+      seniorExpensesCapVatRatePct: null,
+    });
+    const withVat = runProjection({
+      ...stress,
+      seniorExpensesCapVatIncluded: true,
+      seniorExpensesCapVatRatePct: 20,
+    });
+    const beginPar = fixture.resolved.poolSummary.totalPrincipalBalance;
+    const expectedDelta = beginPar * (1 / 10000) * (91 / 360);
+    const noVatOverflow = noVat.periods[0].stepTrace.adminOverflowPaid;
+    const withVatOverflow = withVat.periods[0].stepTrace.adminOverflowPaid;
+    expect(withVatOverflow - noVatOverflow).toBeGreaterThan(expectedDelta * 0.95);
+    expect(withVatOverflow - noVatOverflow).toBeLessThan(expectedDelta * 1.05);
+  });
 });
 
 describe("Senior Expenses Cap — T=0 dispatch parity with in-period site", () => {
@@ -516,5 +582,35 @@ describe("C3 — backward compatibility: undefined cap → uncapped behavior", (
       expect(p.stepTrace.trusteeOverflowPaid).toBe(0);
       expect(p.stepTrace.adminOverflowPaid).toBe(0);
     }
+  });
+});
+
+describe("KI-45 marker — carryforward seed not populated in production path", () => {
+  it("production path produces empty carryforward buffer at q=1 regardless of trustee history", () => {
+    // PPM Condition 1 proviso (ii) requires the cap to be augmented at q=1
+    // by Σ unused stated-cap headroom from the prior N PDs (N=3 for Ares
+    // XV). The engine accepts a `seniorExpensesCapCarryforwardSeed` input
+    // (projection.ts:367) and consumes it at projection.ts:2425-2427, but
+    // no production caller populates it: `buildFromResolved` does not
+    // include the field in its return, `defaultsFromResolved` does not
+    // compute it, and the UI does not pass it. Mid-life projections start
+    // with an empty FIFO buffer regardless of the deal's actual trustee
+    // history. Documented as KI-45 in the known-issues ledger.
+    //
+    // This marker pins the wrong-but-current behavior:
+    // `result.periods[0].stepTrace.seniorExpensesCapCarryforwardSum === 0`
+    // on a mid-life Euro XV run with `carryforwardPeriods=3`. The PPM-
+    // correct value would be the sum of unused headroom from the prior 3
+    // historical PDs (~€360K on Euro XV). Closing KI-45 — populating the
+    // seed in `buildFromResolved` from historical waterfall data — flips
+    // this assertion from `=== 0` to the computed seed magnitude.
+    const baseAssumptions = defaultsFromResolved(fixture.resolved, fixture.raw);
+    const baseInputs = buildFromResolved(fixture.resolved, baseAssumptions);
+    expect(baseInputs.seniorExpensesCapCarryforwardSeed).toBeUndefined();
+    const result = runProjection({
+      ...baseInputs,
+      seniorExpensesCapCarryforwardPeriods: 3,
+    });
+    expect(result.periods[0].stepTrace.seniorExpensesCapCarryforwardSum).toBe(0);
   });
 });
