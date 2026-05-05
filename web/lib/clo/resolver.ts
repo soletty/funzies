@@ -1,5 +1,5 @@
 import type { ExtractedConstraints, CloPoolSummary, CloComplianceTest, CloTranche, CloTrancheSnapshot, CloHolding, CloAccountBalance, CloParValueAdjustment } from "./types";
-import type { Citation, ComplianceTestType, ResolvedDealData, ResolvedTranche, ResolvedPool, ResolvedTrigger, ResolvedReinvestmentOcTrigger, ResolvedDates, ResolvedFees, ResolvedLoan, ResolvedComplianceTest, ResolvedEodTest, ResolvedMetadata, ResolvedSeniorExpensesCap, ResolutionWarning } from "./resolver-types";
+import type { Citation, ComplianceTestType, ResolvedDealData, ResolvedTranche, ResolvedPool, ResolvedTrigger, ResolvedReinvestmentOcTrigger, ResolvedDates, ResolvedFees, ResolvedLoan, ResolvedComplianceTest, ResolvedEodTest, ResolvedMetadata, ResolvedSeniorExpensesCap, ResolvedDiscountObligationRule, ResolutionWarning } from "./resolver-types";
 import { parseSpreadToBps, normalizeWacSpread } from "./ingestion-gate";
 import { isHigherBetter } from "./test-direction";
 import { mapToRatingBucket, moodysWarfFactor } from "./rating-mapping";
@@ -697,6 +697,46 @@ function resolveSeniorExpensesCap(
   };
 }
 
+/** Resolve PPM Condition 1 "Discount Obligation" classification + cure
+ *  rule from `constraints.discountObligation` (populated by
+ *  `mapFeesAndExpenses` from
+ *  `ppm.json:section_5_fees_and_hurdle.discount_obligation`).
+ *
+ *  Per project rule (silent fallbacks on missing computational extraction
+ *  are bugs), this emits `severity: "error", blocking: true` when the
+ *  deal has loan rows (extraction not in greenfield state) but the rule
+ *  is missing — without it, the engine cannot classify positions as
+ *  Discount Obligations and the OC numerator silently misses the
+ *  haircut. Greenfield fixtures (no loans extracted) are exempt; the
+ *  legacy scalar fallback path flows through. */
+function resolveDiscountObligation(
+  constraints: ExtractedConstraints,
+  warnings: ResolutionWarning[],
+  hasLoans: boolean,
+): ResolvedDiscountObligationRule | null {
+  const block = constraints.discountObligation;
+  if (!block) {
+    if (hasLoans) {
+      warnings.push({
+        field: "discountObligationRule",
+        message:
+          "PPM Discount Obligation rule (Condition 1, ppm.json:section_5_fees_and_hurdle.discount_obligation) is not extracted. Rule is deal-specific (classification threshold, cure mechanic, cure window, optional rate-type split) and drives the OC numerator's discount-obligation haircut at every period plus the reinvestment cure math (KI-33). Add the discount_obligation block to ppm.json with classification_threshold and cure_mechanic, then re-ingest.",
+        severity: "error",
+        blocking: true,
+      });
+    }
+    return null;
+  }
+  return {
+    classificationThresholdPct: block.classificationThresholdPct,
+    cureMechanic: block.cureMechanic,
+    citation:
+      block.sourcePages != null || block.sourceCondition != null
+        ? { sourcePages: block.sourcePages, sourceCondition: block.sourceCondition }
+        : null,
+  };
+}
+
 function resolveFees(constraints: ExtractedConstraints, warnings: ResolutionWarning[]): ResolvedFees {
   let seniorFeePct: number = CLO_DEFAULTS.seniorFeePct;
   let subFeePct: number = CLO_DEFAULTS.subFeePct;
@@ -1178,6 +1218,17 @@ export function resolveWaterfallInputs(
 
   // --- Senior Expenses Cap (PPM Condition 1) ---
   const seniorExpensesCap = resolveSeniorExpensesCap(constraints, warnings);
+
+  // --- Discount Obligation classification + cure rule (PPM Condition 1) ---
+  // Sized against `holdings.length > 0` (the greenfield-exemption signal):
+  // an extraction in pre-pool state has nothing to classify and the rule's
+  // absence is harmless. Once holding rows arrive, the rule must be present
+  // for the OC numerator's per-position discount haircut to compute.
+  const discountObligationRule = resolveDiscountObligation(
+    constraints,
+    warnings,
+    holdings.length > 0,
+  );
 
   // --- Excess CCC Adjustment Amount (per-deal CCC haircut params) ---
   const { cccBucketLimitPct, cccMarketValuePct } = resolveCccThresholds(constraints, warnings);
@@ -2609,7 +2660,7 @@ export function resolveWaterfallInputs(
   }
 
   return {
-    resolved: { tranches, poolSummary, ocTriggers, icTriggers, qualityTests, concentrationTests, reinvestmentOcTrigger, eventOfDefaultTest, dates, fees, loans, metadata, principalAccountCash, unusedProceedsCash, interestAccountCash, interestSmoothingBalance, supplementalReserveBalance, expenseReserveBalance, seniorExpensesCap, discountObligationRule: null, preExistingDefaultedPar, preExistingDefaultRecovery, unpricedDefaultedPar, preExistingDefaultOcValue, discountObligationHaircut, longDatedObligationHaircut, cccBucketLimitPct, cccMarketValuePct, targetParAmount, referenceWeightedAverageFixedCoupon, isMoodysRated, isFitchRated, isSpRated, ratingAgencies, impliedOcAdjustment, quartersSinceReport, ddtlUnfundedPar, deferredInterestCompounds, interestNonPaymentGracePeriods, baseRateFloorPct, currency },
+    resolved: { tranches, poolSummary, ocTriggers, icTriggers, qualityTests, concentrationTests, reinvestmentOcTrigger, eventOfDefaultTest, dates, fees, loans, metadata, principalAccountCash, unusedProceedsCash, interestAccountCash, interestSmoothingBalance, supplementalReserveBalance, expenseReserveBalance, seniorExpensesCap, discountObligationRule, preExistingDefaultedPar, preExistingDefaultRecovery, unpricedDefaultedPar, preExistingDefaultOcValue, discountObligationHaircut, longDatedObligationHaircut, cccBucketLimitPct, cccMarketValuePct, targetParAmount, referenceWeightedAverageFixedCoupon, isMoodysRated, isFitchRated, isSpRated, ratingAgencies, impliedOcAdjustment, quartersSinceReport, ddtlUnfundedPar, deferredInterestCompounds, interestNonPaymentGracePeriods, baseRateFloorPct, currency },
     warnings,
   };
 }

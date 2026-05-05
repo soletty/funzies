@@ -258,6 +258,25 @@ describe("Pattern A (silent fallback to common default)", () => {
     expectBlockingError(w, "seniorExpensesCap (non-greenfield deal missing block)");
     expectGateThrows(resolved, warnings);
   });
+
+  it("discountObligationRule — block missing on a non-greenfield deal → blocking", () => {
+    // PPM Condition 1 Discount Obligation classification + cure rule. The
+    // classification threshold (e.g. floating < 80%, fixed < 75% of par
+    // for the Ares family) drives the per-position OC numerator haircut at
+    // every period plus the price-aware reinvestment cure math (KI-33).
+    // Falling back to a hardcoded threshold silently neutralizes the
+    // discount-obligation mechanic on the next deal whose threshold
+    // differs. Carve-out: greenfield fixtures (no holdings rows) skip the
+    // gate — there's nothing to classify and the rule's absence is
+    // harmless.
+    const raw = loadRaw();
+    raw.constraints.discountObligation = null;
+    expect(raw.holdings.length).toBeGreaterThan(0);
+    const { resolved, warnings } = runResolver(raw);
+    const w = warnings.find((w) => w.field === "discountObligationRule");
+    expectBlockingError(w, "discountObligationRule (non-greenfield deal missing block)");
+    expectGateThrows(resolved, warnings);
+  });
 });
 
 describe("Pattern B (silent acceptance of sentinel value)", () => {

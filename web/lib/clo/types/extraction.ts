@@ -205,6 +205,31 @@ export interface ExtractedConstraints {
     sourcePages: number[] | null;
     sourceCondition: string | null;
   } | null;
+  /** PPM Condition 1 "Discount Obligation" structured definition.
+   *  Sourced from `ppm.json:section_5_fees_and_hurdle.discount_obligation`
+   *  via `mapFeesAndExpenses`. Resolver consumes via `resolveDiscountObligation`
+   *  and emits `severity: "error", blocking: true` when the deal has loan
+   *  rows (extraction not in greenfield state) and this field is null. The
+   *  shape mirrors `ResolvedDiscountObligationRule` (resolver-types.ts) for
+   *  direct passthrough. */
+  discountObligation?: {
+    classificationThresholdPct:
+      | { type: "single"; pct: number }
+      | { type: "split_by_rate_type"; floatingPct: number; fixedPct: number };
+    cureMechanic:
+      | {
+          type: "continuous_threshold";
+          cureThresholdPct:
+            | { type: "single"; pct: number }
+            | { type: "split_by_rate_type"; floatingPct: number; fixedPct: number };
+          cureWindow:
+            | { type: "days"; n: number }
+            | { type: "payment_dates"; n: number };
+        }
+      | { type: "permanent_until_paid" };
+    sourcePages: number[] | null;
+    sourceCondition: string | null;
+  } | null;
   // Section 12: Accounts
   accounts?: { name: string; purpose: string }[];
   // Section 13: Key Parties
